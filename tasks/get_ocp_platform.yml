@@ -1,0 +1,7 @@
+- name: Get OCP platform type
+  shell: |
+    oc get infrastructure cluster -ojson | jq -r '.spec.platformSpec.type'
+  register: infra_platform_type
+
+- set_fact: 
+    ocp_platform: "{{ infra_platform_type.stdout }}"

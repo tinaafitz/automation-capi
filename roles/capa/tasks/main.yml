@@ -1,0 +1,35 @@
+# CAPA Components: https://github.com/stolostron/backplane-operator/tree/main/pkg/templates/charts/toggle/cluster-api-provider-aws/templates
+
+- name: 'RHACM4K-53843: Validate CAPA enabled'
+  assert:
+    that:
+    - '"true" in mce_component_status.stdout'
+    - clusterrole_names.stdout_lines | length > 0
+    - clusterrolebinding_names.stdout_lines | length > 0
+    - deploy_name.stdout | length > 0
+    - mutatingwebhookconfiguration_names.stdout_lines | length > 0
+    - namespace_names.stdout_lines | length > 0
+    - pod_name.stdout | length > 0
+    - rolebinding_names.stdout_lines | length > 0
+    - secret_names.stdout_lines | length > 0
+    - svc_name.stdout_lines | length > 0
+    - sa_name.stdout_lines | length > 0
+    - validatingwebhookconfiguration_names.stdout_lines | length > 0
+  when: enable | bool
+
+- name: 'RHACM4K-53844 - Validate CAPA disabled'
+  assert:
+    that:
+    - '"false" in mce_component_status.stdout'
+    - clusterrole_names.stdout_lines | length == 0
+    - clusterrolebinding_names.stdout_lines | length == 0
+    - deploy_name.stdout | length == 0
+    - mutatingwebhookconfiguration_names.stdout_lines | length == 0
+    - namespace_names.stdout_lines | length == 0
+    - pod_name.stdout | length == 0
+    - rolebinding_names.stdout_lines | length == 0
+    - secret_names.stdout_lines | length == 0
+    - svc_name.stdout_lines | length == 0
+    - sa_name.stdout_lines | length == 0
+    - validatingwebhookconfiguration_names.stdout_lines | length == 0
+  when: not enable | bool

@@ -1,0 +1,49 @@
+- block:
+  - name: Get local-cluster namespace status when self managed enabled
+    shell: |
+      oc get ns local-cluster -ojson | jq -r .status.phase
+    register: local_ns_status_enabled     
+
+  - name: Get name of MCE
+    shell: oc get mce -n {{ mce_namespace }} -ojson | jq -r '.items[].metadata.name'
+    register: mce_name
+
+  - name: Get local-cluster component status of MCE {{ mce_name.stdout }} when self managed enabled
+    shell: |
+      oc get mce {{ mce_name.stdout }} -ojson | jq -c '.spec.overrides.components[] | select(.name | contains("local-cluster"))' | jq -r .enabled
+    register: lc_enabled       
+
+  - name: Wait for managed cluster addons updated to 'Available' in local-cluster ns when self managed enabled
+    shell: |
+      oc -n local-cluster get managedclusteraddon | grep -v 'True' | awk '{ if (NR>1) print $1 }'
+    register: addons_list  
+    until: addons_list.stdout | length == 0
+    retries: 20
+    delay: 15
+    ignore_errors: true
+  when: not disable_hub_self_managed | bool
+
+- block:
+  - name: Wait for agent and local namespaces to be deleted when self managed disabled
+    vars:
+      namespace: "{{ item }}"
+    include_tasks: wait_for_ns_deleted.yml    
+    loop:
+      - 'open-cluster-management-agent-addon'
+      - 'open-cluster-management-agent' 
+      - 'local-cluster'
+
+  - name: Get local-cluster namespace status when self managed disabled
+    shell: |
+      echo $(oc get ns local-cluster)
+    register: local_ns_status_disabled              
+
+  - name: Get name of MCE
+    shell: oc get mce -n {{ mce_namespace }} -ojson | jq -r '.items[].metadata.name'
+    register: mce_name
+
+  - name: Get local-cluster component status of MCE {{ mce_name.stdout }} when self managed disabled
+    shell: |
+      oc get mce {{ mce_name.stdout }} -ojson | jq -c '.spec.overrides.components[] | select(.name | contains("local-cluster"))' | jq -r .enabled
+    register: lc_disabled        
+  when: disable_hub_self_managed | bool

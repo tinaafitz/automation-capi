@@ -1,0 +1,5 @@
+roles:
+  - name: acmqe-ansible
+    src: https://github.com/thuyn-581/acmqe-ansible.git
+    version: galaxy
+      
