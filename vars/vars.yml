@@ -1,0 +1,94 @@
+#==== Common ====
+output_dir: "{{ lookup('env', 'HOME') }}/output"
+skip_ansible_runner: false
+# ansible_async_dir: '/root/.ansible_async'
+ansible_async_dir: '/tmp/.ansible_async'
+
+#==== OCP ====
+api_url: ""
+catalog_sources:
+  production:
+    app_registry:
+      source: "redhat-operators"
+    index_image:
+      source: ""
+  stage:
+    app_registry:
+      source: "redhat-operators"
+    index_image:
+      source: "brew.registry.redhat.io/rh-osbs/iib-pub-pending"
+  acmd:
+    app_registry:
+      source: ""
+    index_image:
+      source: "quay.io:443/acm-d"
+  brew:
+    app_registry:
+      source: ""
+    index_image:
+      source: "brew.registry.redhat.io/rh-osbs/iib"
+
+#==== ACM/MCE ====
+acm_repo: "production"
+acm_release_version: ""
+acm_sub_name: "advanced-cluster-management"
+acm_namespace: "open-cluster-management"
+
+capi_namespace: "ns-rosa-hcp"
+capa_system_namespace: "capa-system"
+rosa_creds_secret: "rosa-creds-secret"
+
+
+mce_sub_name: "multicluster-engine"
+mce_namespace: "multicluster-engine"
+mce_name: "multiclusterengine"
+default_lc_name: "local-cluster"
+mce_only: false
+infra_nodes: false
+ingress_cert_secret: "custom-cert"
+labeled_resources: []
+unannotated_resources: []
+acm_resources: ["deployment",
+                "configmap",
+                "service",
+                "serviceaccount",
+                "subscription",
+                "policy",
+                "ValidatingWebhookConfiguration",
+                "MutatingWebhookConfiguration",
+                "clusterrole",
+                "clusterrolebinding",
+                "role",
+                "rolebinding"]
+
+#==== Upgrade ====
+upgraded_to_release_version: ""
+eus_upgrade: false
+mce_comps_to_be_removed:
+mce_comps_to_be_added:
+  - name: cluster-api-preview
+    status: false
+  - name: cluster-api-provider-aws-preview
+    status: false
+mch_comps_to_be_removed: []
+mch_comps_to_be_added:
+  - name: multicluster-engine
+    status: true
+
+#==== Others ====
+operators:
+  oadp:
+    src: 'redhat-operators'
+    channel: ''
+    iib_tag: ''
+
+
+#==== STS ====
+oadp_arn: 'arn:aws:iam::902449478968:role/rosa-classic-tn-openshift-oadp-aws-cloud-credentials'
+
+env_var_name: "foo"
+env_add_name: "bar"
+env_override_name: "baz"
+
+capa_pod_label: "infrastructure-aws"
+

@@ -1,0 +1,20 @@
+- name: Create output folder
+  file:
+    path: "{{ output_dir }}"
+    state: "{{ item }}"
+    mode: '0755'
+  with_items:
+    - absent
+    - directory
+
+- name: Create {{ capi_namespace }} namespace
+  shell: |
+    oc create namespace {{ capi_namespace }} --dry-run=client -o yaml | oc apply -f -
+  changed_when: true
+
+- name: Create rosa-creds-secret in capa-system namespace.
+  vars:
+    secret: "{{ rosa-creds-secret }}"
+    target_namespace: "{{ capa_system_namespace }}"
+  include_tasks: tasks/create_rosa-creds-secret.yml
+

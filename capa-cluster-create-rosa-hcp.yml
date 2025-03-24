@@ -1,0 +1,17 @@
+- name: Create ROSA-HCP Cluster
+  hosts: localhost
+  any_errors_fatal: true
+  vars_files:
+    - vars/vars.yml
+
+  tasks:
+  - name: Prepare ansible runner host
+    include_tasks: tasks/prepare_ansible_runner.yml
+    when: not skip_ansible_runner | bool
+
+  - name: Login OCP
+    include_tasks: tasks/login_ocp.yml
+
+  - name: Create ROSA-HCP Cluster
+    import_role:
+      name: capa-cluster-create-rosa-hcp
