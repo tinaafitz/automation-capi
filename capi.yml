@@ -22,8 +22,8 @@
     vars:
       expected_status: "Available"
 
-  - name: Toggle {{ component }} status
-    include_tasks: tasks/toggle_mce_component.yml
+  - name: Update {{ component }} enabled flag
+    include_tasks: tasks/update_enabled_flag.yml
 
   - name: Wait for MCE running status
     include_tasks: tasks/wait_for_mce_status.yml
