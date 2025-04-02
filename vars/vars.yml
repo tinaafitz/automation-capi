@@ -35,7 +35,7 @@ acm_sub_name: "advanced-cluster-management"
 acm_namespace: "open-cluster-management"
 
 capi_namespace: "ns-rosa-hcp"
-capa_system_namespace: "capa-system"
+capa_system_namespace: "multicluster-engine"
 rosa_creds_secret: "rosa-creds-secret"
 
 

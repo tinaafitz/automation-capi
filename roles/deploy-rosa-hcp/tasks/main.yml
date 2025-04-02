@@ -1,0 +1,14 @@
+- name: Enable capi
+  vars:
+    component: "cluster-api-preview"
+    mce_namespace: "multicluster-engine"
+    enable: true
+  include_tasks: tasks/update_enabled_flag.yml
+
+- name: Enable capa
+  vars:
+    component: "cluster-api-provider-aws-preview"
+    mce_namespace: "multicluster-engine"
+    enable: true
+  include_tasks: tasks/update_enabled_flag.yml
+

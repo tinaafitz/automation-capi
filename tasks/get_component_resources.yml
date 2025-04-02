@@ -1,36 +1,11 @@
 - set_fact:
-    components_with_crd: ['siteconfig']
-    components_with_svc: ['hcp-cli-download', 'acm-cli-downloads', 'capi', 'capa', 'flightctl']
-    components_with_addon: ['hypershift']
-    components_with_mcao: ['hypershift']
-    components_with_route: ['hcp-cli-download', 'acm-cli-downloads', 'flightctl']
-    components_with_ihc: ['siteconfig']
-    component_with_iec: ['hypershift']
-    component_with_consoleclidownload: ['acm-cli-downloads']
-    component_with_pod: ['siteconfig', 'hypershift', 'hcp-cli-download', 'image-based-install-operator', 'acm-cli-downloads']
+    components_with_svc: ['capi', 'capa']
     component_with_mutatingwebhookconfiguration: ['capi', 'capa']
     component_with_validatingwebhookconfiguration: ['capi', 'capa']
-    component_with_networkpolicy: ['']
-    component_with_pvc: ['flightctl']
-    component_with_configmap: ['flightctl']
-    component_with_mch_annotation: ['']
-    component_with_mce_annotation: ['flightctl']
 
 - name: Get name of MCE
   shell: oc get mce -n {{ mce_namespace }} -ojson | jq -r '.items[].metadata.name'
   register: mce_name
-
-- name: Get {{ component_name }} crd
-  shell: |
-    oc get crd -ojson |\
-    jq -r '.items[].metadata | select(.labels["installer.namespace"]=="{{ target_namespace }}" or .labels["backplaneconfig.name"]=="{{ mce_name.stdout }}") | .name' | grep {{ component_name }}
-  register: crd_name
-  until: crd_name.stdout_lines | length > 0
-  retries: 20
-  delay: 15
-  when: 
-    - "component_name in components_with_crd"
-    - enable | bool  
 
 - name: Get {{ component_name }} deployment
   shell: |
@@ -42,35 +17,18 @@
     deploy_name.stdout_lines | length > 0
     {% else %}
     deploy_name.stdout_lines | length == 0
-    {% endif %}    
+    {% endif %}
   retries: 20
   delay: 15
   ignore_errors: true
 
-- name: Get {{ component_name }} pod
-  shell: |
-    oc get pod -n {{ target_namespace }} -ojson |\
-    jq -r '.items[]| select(.metadata.labels[]=="{{ component_name }}" and .status.phase=="Running") | .metadata.name'
-  register: pod_name
-  until: >
-    {% if enable | bool %}
-    pod_name.stdout_lines | length > 0
-    {% else %}
-    pod_name.stdout_lines | length == 0
-    {% endif %} 
-  retries: 20
-  delay: 15
-  ignore_errors: true
-  when: 
-    - "component_name in component_with_pod"
-
-- name: Get {{ component_name }} service 
+- name: Get {{ component_name }} service
   shell: |
     oc get service -n {{ target_namespace }} -ojson |\
     jq -r '.items[].metadata | .name' | grep {{ component_name }}
   register: svc_name
   ignore_errors: true
-  when: "component_name in components_with_svc" 
+  when: "component_name in components_with_svc"
 
 - name: Get {{ component_name }} serviceaccount
   shell: |
@@ -79,7 +37,7 @@
   register: sa_name
   ignore_errors: true
 
-- name: Get {{ component_name }} clusterrole 
+- name: Get {{ component_name }} clusterrole
   shell: |
     oc get clusterrole -n {{ target_namespace }} -ojson |\
     jq -r '.items[].metadata | select(.labels["installer.namespace"]=="{{ target_namespace }}" or .labels["backplaneconfig.name"]=="{{ mce_name.stdout }}") | .name' | grep -E '{{ component_name }}|{{ component }}'
@@ -137,99 +95,3 @@
   register: namespace_names
   ignore_errors: true
 
-- block:
-  - name: Get {{ component }} addon
-    shell: oc get deployment -n open-cluster-management-agent-addon -o name | grep {{ mcao_name }}
-    register: addon_name
-    until: >
-      {% if enable | bool %}
-      addon_name.stdout_lines | length > 0
-      {% else %}
-      addon_name.stdout_lines | length == 0
-      {% endif %} 
-    retries: 20
-    delay: 15
-    ignore_errors: true
-    when: "component in components_with_mcao" 
-    
-  - name: Get {{ component }} managedclusteraddon
-    shell: oc get managedclusteraddon -n {{ local_cluster.stdout }} -o name | grep {{ mcao_name }}
-    register: managedclusteraddon_name
-    until: >
-      {% if enable | bool %}
-      managedclusteraddon_name.stdout_lines | length > 0
-      {% else %}
-      managedclusteraddon_name.stdout_lines | length == 0
-      {% endif %} 
-    retries: 20
-    delay: 15
-    ignore_errors: true
-    when: "component in components_with_mcao" 
-
-  - name: Get {{ component }} route
-    shell: |
-      oc get routes -n {{ target_namespace }} -ojson | jq -r '.items[].metadata.name' | grep {{ component_name }}
-    register: route_name
-    until: >
-      {% if enable | bool %}
-      route_name.stdout_lines | length > 0
-      {% else %}
-      route_name.stdout_lines | length == 0
-      {% endif %} 
-    retries: 20
-    delay: 15
-    ignore_errors: true
-    when: "component_name in components_with_route" 
-  when: local_cluster.rc == 0
-
-- name: Get {{ component_name }} internalhubcomponent
-  shell: oc get ihc -n {{ target_namespace }} -ojson | jq -r '.items[].metadata.name' | grep -E {{ component_name }}
-  register: ihc_output
-  ignore_errors: true
-  when: "component_name in components_with_ihc" 
-
-- name: Get {{ component_name }} internalenginecomponent
-  shell: oc get iec -n {{ target_namespace }} -ojson | jq -r '.items[].metadata.name' | grep {{ component }}
-  register: iec_output
-  ignore_errors: true
-  when: "component in component_with_iec"
-
-- name: Get {{ component_name }} ConsoleCLIDownload
-  shell: oc get ConsoleCLIDownload {{ component_name }} -n {{ target_namespace }} -ojson | jq -r '.metadata.name'
-  register: consoleclidownload_output
-  ignore_errors: true
-  when: "component_name in component_with_consoleclidownload"
-
-- name: Get {{ component_name }} NetworkPolicy
-  shell: oc get NetworkPolicy -n {{ target_namespace }} -ojson | jq -r '.items[].metadata.name' | grep {{ component_name }}
-  register: networkpolicy_name
-  ignore_errors: true
-  when: "component_name in component_with_networkpolicy"
-
-- name: Get {{ component_name }} PersistentVolumeClaim
-  shell: oc get pvc -n {{ target_namespace }} -ojson | jq -r '.items[].metadata.name' | grep {{ component_name }}
-  register: pvc_name
-  ignore_errors: true
-  when: "component_name in component_with_pvc"
-
-- name: Get {{ component_name }} ConfigMap
-  shell: oc get configmap -n {{ target_namespace }} -ojson | jq -r '.items[].metadata | .name' | grep {{ component_name }}
-  register: configmap_name
-  ignore_errors: true
-  when: "component_name in component_with_configmap"
-
-- name: Get MCH annotation
-  shell: |
-    oc -n {{ acm_namespace }} get mch -ojson |\
-    jq '.items[0].metadata.annotations["{{ annotation }} }}"].name'
-  register: mch_annotation
-  ignore_errors: true
-  when: "component_name in component_with_mch_annotation"
-
-- name: Get MCE annotation
-  shell: |
-    oc -n {{ mce_namespace }} get mce -ojson |\
-    jq -r '.items[0].metadata.annotations["{{ annotation }}"]'
-  register: mce_annotation
-  ignore_errors: true
-  when: "component_name in component_with_mce_annotation"

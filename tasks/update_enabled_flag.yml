@@ -1,0 +1,17 @@
+
+- name: Update {{ component }} enabled flag
+  block:
+  - name: Construct patch string
+    shell: |
+      echo '[{"op": "add", "path": "/spec/overrides/components/-","value":{"name":"{{ component }}","enabled":{{ enable | lower }}}}]'
+    register: patch_str
+
+  - name: Get name of MCE
+    shell: oc get mce -n {{ mce_namespace }} -ojson | jq -r '.items[].metadata.name'
+    register: mce_name
+
+  - name: Apply patch {{ patch_str.stdout }} to MCE {{ mce_name.stdout }}
+    shell: |
+      oc patch mce {{ mce_name.stdout }} -p '{{ patch_str.stdout }}' --type=json
+    changed_when: true
+    register: patch_status
