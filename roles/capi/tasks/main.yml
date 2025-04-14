@@ -1,6 +1,6 @@
 # CAPI Components: https://github.com/stolostron/backplane-operator/tree/main/pkg/templates/charts/toggle/cluster-api/templates
 
-- name: 'RHACM4K-53841: Validate CAPI enabled'
+- name: 'RHACM4K-56157 - Verify CAPI can be enabled properly'
   assert:
     that:
     - '"true" in mce_component_status.stdout'
@@ -17,7 +17,7 @@
     - validatingwebhookconfiguration_names.stdout_lines | length > 0
   when: enable | bool
 
-- name: 'RHACM4K-53842 - Validate CAPI disabled'
+- name: 'RHACM4K-56157 - Verify CAPI can be disabled properly'
   assert:
     that:
     - '"false" in mce_component_status.stdout'

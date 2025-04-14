@@ -3,40 +3,41 @@
   hosts: localhost
 
   vars_files:
-    - vars/vars.yml  
+    - vars/vars.yml
 
   vars:
     target_namespace: "{{ mce_namespace }}"
     component: "{{ mce_comps_to_be_added | selectattr('name', 'equalto', 'cluster-api-provider-aws-preview') | map(attribute='name') | join('') }}"
     component_name_short: "capa"
 
-  pre_tasks: 
+  pre_tasks:
   - name: Get {{ component }} status in MCE
     include_tasks: tasks/get_mce_component_status.yml
 
   - set_fact:
-      enable: "{{ not capa_enabled if ( capa_enabled == mce_component_status) else capa_enabled }}"    
+      enable: "{{ not capa_enabled if ( capa_enabled == mce_component_status) else capa_enabled }}"
 
   - name: Wait for MCE running status
-    include_tasks: tasks/wait_for_mce_status.yml  
+    include_tasks: tasks/wait_for_mce_status.yml
     vars:
-      expected_status: "Available"    
+      expected_status: "Available"
 
-  - name: Toggle {{ component }} status
-    include_tasks: tasks/toggle_mce_component.yml
+  - name: Update {{ component }} enable flag
+    include_tasks: tasks/update_enabled_flag.yml
 
   - name: Wait for MCE running status
-    include_tasks: tasks/wait_for_mce_status.yml  
+    include_tasks: tasks/wait_for_mce_status.yml
     vars:
       expected_status: "Available"
 
   # The short name is needed here as the components are all named capa* while the MCE component is cluster-api-provider-aws.
   - name: Get {{ component_name_short }} resources
     include_tasks: tasks/get_component_resources.yml
-    vars: 
+    vars:
       component_name: "{{ component_name_short }}"
 
   # Since capa* is not part of the pod label, we must search for infrastructure-aws
+  # capa_pod_label = infrastructure-aws
   - name: Get {{ capa_pod_label }} pod
     shell: |
       oc get pod -n {{ target_namespace }} -ojson |\
@@ -47,13 +48,13 @@
       pod_name.stdout_lines | length > 0
       {% else %}
       pod_name.stdout_lines | length == 0
-      {% endif %} 
+      {% endif %}
     retries: 20
     delay: 15
     ignore_errors: true
 
   - name: Get {{ component }} status in MCE
-    include_tasks: tasks/get_mce_component_status.yml    
+    include_tasks: tasks/get_mce_component_status.yml
 
   tasks:
   - name: Run CAPA tests

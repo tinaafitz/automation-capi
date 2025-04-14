@@ -1,5 +1,4 @@
-
-- name: Update {{ component }} enabled flag
+- name: Update {{ component }} enabled flag setting value to {{ enable }}
   block:
   - name: Construct patch string
     shell: |

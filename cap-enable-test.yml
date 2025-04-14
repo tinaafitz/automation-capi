@@ -1,0 +1,43 @@
+- name: Setup
+  hosts: localhost
+  any_errors_fatal: true
+  tasks:
+  - name: Prepare ansible runner host
+    include_tasks: tasks/prepare_ansible_runner.yml
+    when: not skip_ansible_runner | bool
+  - name: Login OCP
+    include_tasks: tasks/login_ocp.yml
+  - name: Check if local-cluster enabled
+    shell: |
+      oc get managedclusters -l local-cluster=true -ojson | jq -r '.items[].metadata.name'
+    register: local_cluster
+    ignore_errors: true
+  - name: Check if there are any hosted clusters
+    shell: |
+      oc get hostedclusters -A -o name
+    register: hosted_clusters
+
+- name: 'RHACM4K-56157: Validate CAPI enabled'
+  vars:
+    capi_enabled: true
+  import_playbook: capi.yml
+
+- name: 'RHACM4K-56157: Validate CAPI disabled'
+  vars:
+    capi_enabled: false
+  import_playbook: capi.yml
+
+- name: 'RHACM4K-56157: Validate CAPA disabled'
+  vars:
+    capa_enabled: false
+  import_playbook: capa.yml
+
+- name: 'RHACM4K-56157: Validate CAPA enabled'
+  vars:
+    capa_enabled: true
+  import_playbook: capa.yml
+
+- name: 'RHACM4K-56157: Validate CAPI disabled'
+  vars:
+    capi_enabled: false
+  import_playbook: capi.yml

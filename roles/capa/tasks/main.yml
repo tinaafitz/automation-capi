@@ -1,6 +1,6 @@
 # CAPA Components: https://github.com/stolostron/backplane-operator/tree/main/pkg/templates/charts/toggle/cluster-api-provider-aws/templates
 
-- name: 'RHACM4K-53843: Validate CAPA enabled'
+- name: 'RHACM4K-56157 - Verify CAPA can be enabled properly'
   assert:
     that:
     - '"true" in mce_component_status.stdout'
@@ -17,7 +17,7 @@
     - validatingwebhookconfiguration_names.stdout_lines | length > 0
   when: enable | bool
 
-- name: 'RHACM4K-53844 - Validate CAPA disabled'
+- name: 'RHACM4K-56157 - Verify CAPA can be disabled properly'
   assert:
     that:
     - '"false" in mce_component_status.stdout'
