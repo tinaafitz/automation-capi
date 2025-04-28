@@ -1,0 +1,21 @@
+- name: Create clustermanager-registration-configuration.yaml
+  copy:
+    content: |
+      apiVersion: operator.open-cluster-management.io/v1
+      kind: ClusterManager
+      metadata:
+        name: cluster-manager
+      spec:
+        registrationConfiguration:
+          featureGates:
+          - feature: ClusterImporter
+            mode: Enable
+          - feature: ManagedClusterAutoApproval
+            mode: Enable
+          autoApproveUsers:
+          - system:serviceaccount:multicluster-engine:agent-registration-bootstrap
+    dest: "{{ output_dir }}/clustermanager-registration-configuration.yaml"
+
+#- name: Apply clustermanager-registration-configuration.yaml
+#  shell: |
+#    oc apply -f {{ output_dir }}/clustermanager-registration-configuration.yaml

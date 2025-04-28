@@ -1,0 +1,3 @@
+- name: Restart the capa-controller-manager deployment.
+#    oc rollout restart deployment capa-controller-manager -n multicluster-engine
+  shell: "sleep 1"

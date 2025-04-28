@@ -1,0 +1,20 @@
+- name: Create cluster-role-binding.yaml
+  copy:
+    content: |
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: cluster-manager-registration-capi
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: capi-operator-manager-role
+      subjects:
+      - kind: ServiceAccount
+        name: registration-controller-sa
+        namespace: open-cluster-management-hub
+    dest: "{{ output_dir }}/cluster-role-binding.yaml"
+
+#- name: Apply cluster-role-binding.yaml
+#  shell: |
+#    oc apply -f {{ output_dir }}/cluster-role-binding.yaml

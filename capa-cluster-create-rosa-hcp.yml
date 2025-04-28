@@ -3,6 +3,10 @@
   any_errors_fatal: true
   vars_files:
     - vars/vars.yml
+  vars:
+    component: "cluster-api-preview"
+    mce_namespace: "multicluster-engine"
+    enable: true
 
   tasks:
   - name: Prepare ansible runner host
@@ -11,6 +15,12 @@
 
   - name: Login OCP
     include_tasks: tasks/login_ocp.yml
+
+  - name: Enable capi
+    include_tasks: tasks/update_enabled_flag.yml
+
+  - name: Enable capa
+    include_tasks: tasks/update_enabled_flag.yml
 
   - name: Create ROSA-HCP Cluster
     import_role:

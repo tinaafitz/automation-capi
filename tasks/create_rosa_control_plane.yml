@@ -1,0 +1,11 @@
+- name: Create the ROSAControlPlane
+  vars:
+    stuff_here: "{{ 'stuff' }}"
+  template:
+    src: templates/rosa-control-plane.yaml.j2
+    dest: "{{ output_dir }}/rosa-control-plane.yaml"
+
+#- name: Apply secret data credentials changes
+#  shell: |
+#    oc apply -f {{ output_dir }}/capa-manager-bootstrap-credentials.yaml
+
