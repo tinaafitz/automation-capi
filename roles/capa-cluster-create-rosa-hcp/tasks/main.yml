@@ -11,14 +11,11 @@
 - name: Set ClusterRoleBinding registration_configuration
   include_tasks: tasks/set_registration_configuration.yml
 
-- name: Create AWS Credentials
-  include_tasks: tasks/create_aws_credentials.yml
+- name: Create capa-manager-bootstrap-credentials with AWS Credentials
+  include_tasks: tasks/create_capa_manager_bootstrap_credentials.yml
 
 - name: Restart capa-controller-manager deployment.
   include_tasks: tasks/restart_capa_controller_manager.yml
-
-- name: Create rosa-creds-secret.
-  include_tasks: tasks/create_rosa_creds_secret.yml
 
 - name: Set the AWSCusterControllerIdentity
   include_tasks: tasks/set_aws_identity.yml
