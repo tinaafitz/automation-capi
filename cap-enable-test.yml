@@ -32,7 +32,7 @@
     capa_enabled: true
   import_playbook: capa.yml
 
-- name: 'RHACM4K-56157: Validate CAPI disabled'
+- name: 'RHACM4K-56157: Validate CAPA disabled'
   vars:
-    capi_enabled: false
-  import_playbook: capi.yml
+    capa_enabled: false
+  import_playbook: capa.yml
