@@ -18,8 +18,8 @@ pipeline {
     environment {
         CI = 'true'
         // CAPI_AWS_ROLE_ARN = "arn:aws:iam::xxxxxxxx:role/capi-role"
-        // CAPI_AWS_ACCESS_KEY_ID = credentials('CAPI_AWS_ACCESS_KEY_ID')
-        // CAPI_AWS_SECRET_ACCESS_KEY = credentials('API_AWS_SECRET_ACCESS_KEY')
+        CAPI_AWS_ACCESS_KEY_ID = credentials('CAPI_AWS_ACCESS_KEY_ID')
+        CAPI_AWS_SECRET_ACCESS_KEY = credentials('CAPI_AWS_SECRET_ACCESS_KEY')
     }
     parameters {
         string(name:'OCP_HUB_API_URL', defaultValue: '', description: 'Hub OCP API url')
