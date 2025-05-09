@@ -25,7 +25,7 @@ pipeline {
         string(name:'OCP_HUB_API_URL', defaultValue: '', description: 'Hub OCP API url')
         string(name:'OCP_HUB_CLUSTER_USER', defaultValue: 'kubeadmin', description: 'Hub OCP username')
         string(name:'OCP_HUB_CLUSTER_PASSWORD', defaultValue: '', description: 'Hub cluster password')
-        string(name:'MCE_NAMESPACE', defaultValue: 'multicluster-engine', description: 'The Namespace where MCE is installed') 
+        string(name:'MCE_NAMESPACE', defaultValue: 'multicluster-engine', description: 'The Namespace where MCE is installed')
         string(name:'TEST_GIT_BRANCH', defaultValue: 'main', description: 'CAPI test Git branch')
     }
     stages {
@@ -50,8 +50,7 @@ pipeline {
                             export MCE_NAMESPACE=$MCE_NAMESPACE
 
                             # Execute the CAPI and CAPA tests
-                           ./run-automation.sh capi-tests.yaml 
-                           ./run-automation.sh capa-tests.yaml 
+                           ./run-automation.sh cap-enable-test.yml
                         """
                         archiveArtifacts artifacts: 'ci/ansible/db_info.json', followSymlinks: false, fingerprint: true
                     }
