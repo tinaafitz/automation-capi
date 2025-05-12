@@ -12,10 +12,10 @@ fi
 
 echo "Running playbook: $1"
 export PLAYBOOK=$1
-export OCP_USER=""
-export OCP_PASSWORD=""
-export API_URL=""
-export MCE_NAMESPACE=""
+export OCP_USER=$OCP_HUB_CLUSTER_USER
+export OCP_PASSWORD=$OCP_HUB_CLUSTER_PASSWORD
+export API_URL=$OCP_HUB_API_URL
+export MCE_NAMESPACE=$MCE_NAMESPACE
 export ACM_RELEASE_VERSION=""
 
 BASE_VARIABLES="skip_ansible_runner=true ocp_user=${OCP_USER} ocp_user_creds=${OCP_PASSWORD} api_url=${API_URL}"
