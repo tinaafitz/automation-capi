@@ -56,6 +56,7 @@ pipeline {
                     }
                     catch (ex) {
                         echo 'CAPI Tests failed ... Continuing with the pipeline'
+                        currentBuild.result = 'FAILURE'
                     }
                 }
             }
