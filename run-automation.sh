@@ -15,9 +15,8 @@ export PLAYBOOK=$1
 export OCP_USER=$OCP_HUB_CLUSTER_USER
 export OCP_PASSWORD=$OCP_HUB_CLUSTER_PASSWORD
 export API_URL=$OCP_HUB_API_URL
-export MCE_NAMESPACE=$MCE_NAMESPACE
-export ACM_RELEASE_VERSION=""
+export MCE_NAMESPACE="multicluster-engine"
 
-BASE_VARIABLES="skip_ansible_runner=true ocp_user=${OCP_USER} ocp_user_creds=${OCP_PASSWORD} api_url=${API_URL}"
-ANSIBLE_VARIABLES="mce_namespace=${MCE_NAMESPACE} mce_only=true acm_release_version=${ACM_RELEASE_VERSION}"
+BASE_VARIABLES="skip_ansible_runner=true ocp_user=${OCP_USER} ocp_password=${OCP_PASSWORD} api_url=${API_URL}"
+ANSIBLE_VARIABLES="mce_namespace=${MCE_NAMESPACE}"
 ansible-playbook ${PLAYBOOK} -e "${BASE_VARIABLES} ${ANSIBLE_VARIABLES}"
