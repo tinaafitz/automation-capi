@@ -8,20 +8,23 @@
     mce_namespace: "multicluster-engine"
     enable: true
 
-  tasks:
-  - name: Prepare ansible runner host
-    include_tasks: tasks/prepare_ansible_runner.yml
-    when: not skip_ansible_runner | bool
+tasks:
+- name: Prepare ansible runner host
+  include_tasks: tasks/prepare_ansible_runner.yml
+  when: not skip_ansible_runner | bool
 
-  - name: Login OCP
-    include_tasks: tasks/login_ocp.yml
+- name: Login OCP
+  vars:
+    ocp_user: "{{ ocp_user }}"
+    ocp_user_password: "{{ ocp_user_password }}"
+  include_tasks: tasks/login_ocp.yml
 
-  - name: Enable capi
-    include_tasks: tasks/update_enabled_flag.yml
+- name: Enable capi
+  include_tasks: tasks/update_enabled_flag.yml
 
-  - name: Enable capa
-    include_tasks: tasks/update_enabled_flag.yml
+- name: Enable capa
+  include_tasks: tasks/update_enabled_flag.yml
 
-  - name: Create ROSA-HCP Cluster
-    import_role:
-      name: capa-cluster-create-rosa-hcp
+- name: Create ROSA-HCP Cluster
+  import_role:
+    name: capa-cluster-create-rosa-hcp

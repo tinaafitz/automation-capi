@@ -1,7 +1,8 @@
 - name: Login OCP with {{ ocp_user }}
   shell: |
-    oc --insecure-skip-tls-verify login -u {{ ocp_user }} -p {{ ocp_user_creds }} -s {{ api_url }} 
+    oc --insecure-skip-tls-verify login -u {{ ocp_user }} -p {{ ocp_password }} -s {{ api_url }}
   changed_when: true
 
-- include_tasks: tasks/get_ocp_platform.yml
-  when: not mce_only|bool
+- name: print output
+  debug:
+    msg: "Logging in with user: {{ ocp_user }} api_url: {{ api_url }}"

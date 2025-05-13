@@ -43,7 +43,6 @@ mce_sub_name: "multicluster-engine"
 mce_namespace: "multicluster-engine"
 mce_name: "multiclusterengine"
 default_lc_name: "local-cluster"
-mce_only: false
 infra_nodes: false
 ingress_cert_secret: "custom-cert"
 labeled_resources: []
@@ -66,9 +65,9 @@ upgraded_to_release_version: ""
 eus_upgrade: false
 mce_comps_to_be_removed:
 mce_comps_to_be_added:
-  - name: cluster-api-preview
+  - name: cluster-api
     status: false
-  - name: cluster-api-provider-aws-preview
+  - name: cluster-api-provider-aws
     status: false
 mch_comps_to_be_removed: []
 mch_comps_to_be_added:
@@ -91,4 +90,5 @@ env_add_name: "bar"
 env_override_name: "baz"
 
 capa_pod_label: "infrastructure-aws"
+capi_pod_label: "infrastructure-aws"
 

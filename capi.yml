@@ -7,28 +7,32 @@
 
   vars:
     target_namespace: "{{ mce_namespace }}"
-    component: "{{ mce_comps_to_be_added | selectattr('name', 'equalto', 'cluster-api-preview') | map(attribute='name') | join('') }}"
+    component: "{{ mce_comps_to_be_added | selectattr('name', 'equalto', 'cluster-api') | map(attribute='name') | join('') }}"
     component_name_short: "capi"
 
   pre_tasks:
+  - name: print output
+    debug:
+      msg: "component name: {{ component }} component_name_short: {{ component_name_short }}"
+
   - name: Get {{ component }} status in MCE
     include_tasks: tasks/get_mce_component_status.yml
 
   - set_fact:
       enable: "{{ not capi_enabled if ( capi_enabled == mce_component_status) else capi_enabled }}"
 
-  - name: Wait for MCE running status
-    include_tasks: tasks/wait_for_mce_status.yml
-    vars:
-      expected_status: "Available"
+#  - name: Wait for MCE running status
+#    include_tasks: tasks/wait_for_mce_status.yml
+#    vars:
+#      expected_status: "Available"
 
   - name: Update {{ component }} enabled flag
     include_tasks: tasks/update_enabled_flag.yml
 
-  - name: Wait for MCE running status
-    include_tasks: tasks/wait_for_mce_status.yml
-    vars:
-      expected_status: "Available"
+#  - name: Wait for MCE running status
+#    include_tasks: tasks/wait_for_mce_status.yml
+#    vars:
+#      expected_status: "Available"
 
   # The short name is needed here as the components are all named capi* while the MCE component is cluster-api.
   - name: Get {{ component_name_short }} resources
@@ -37,10 +41,10 @@
       component_name: "{{ component_name_short }}"
 
   # Since capi* is not part of the pod label, we must search for cluster-api (without the preview)
-  - name: Get {{ component.replace('-preview','') }} pod
+  - name: Get {{ component_name_short }} pod
     shell: |
       oc get pod -n {{ target_namespace }} -ojson |\
-      jq -r '.items[]| select(.metadata.labels[]=="{{ component.replace('-preview','') }}" and .status.phase=="Running") | .metadata.name'
+      jq -r '.items[]| select(.metadata.name | contains("capi-controller-manager")) and .status.phase=="Running") | .metadata.name'
     register: pod_name
     until: >
       {% if enable | bool %}
