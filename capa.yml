@@ -11,28 +11,19 @@
     component_name_short: "capa"
 
   pre_tasks:
-  - name: print output
-    debug:
-      msg: "component name: {{ component }} component_name_short: {{ component_name_short }}"
 
   - name: Get {{ component }} status in MCE
     include_tasks: tasks/get_mce_component_status.yml
 
+  - name: print output
+    debug:
+      msg: "component name: {{ component }} component_name_short: {{ component_name_short }}"
+
   - set_fact:
       enable: "{{ not capa_enabled if ( capa_enabled == mce_component_status) else capa_enabled }}"
 
-#  - name: Wait for MCE running status
-#    include_tasks: tasks/wait_for_mce_status.yml
-#    vars:
-#      expected_status: "Available"
-
-  - name: Update {{ component }} enable flag
+  - name: Update {{ component }} enabled flag
     include_tasks: tasks/update_enabled_flag.yml
-
-#  - name: Wait for MCE running status
-#    include_tasks: tasks/wait_for_mce_status.yml
-#    vars:
-#      expected_status: "Available"
 
   # The short name is needed here as the components are all named capa* while the MCE component is cluster-api-provider-aws.
   - name: Get {{ component_name_short }} resources
