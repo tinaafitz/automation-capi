@@ -1,0 +1,26 @@
+- name: Ensure directory for {{ output_dir }}/cap-enable-test/polarion
+  file: path={{ output_dir }}/{{ item }} state=directory
+  with_items:
+    - "cap-enable-test"
+    - "cap-enable-test/polarion"
+
+- name: Create results.xml from template
+  template: src=results.xml.j2 dest={{ output_dir }}/cap-enable-test/polarion/{{ item }}
+  vars:
+    polarion_test_id: "RHACM4K-56157"
+    component: "CAPI"
+    polarion_test_description: "Enable and disable test for capi and capa"
+    timestamp: ""
+    execution_time: "50"
+    mce_namespace: "multicluster-engine"
+    output_dir: "{{ lookup('env', 'HOME') }}/output"
+  with_items:
+    - results.xml
+
+- name: Read results
+  shell: cat {{ output_dir }}/cap-enable-test/polarion/results.xml
+  register: results
+
+- name: Print results.xml
+  debug:
+    var: 'results.stdout_lines'

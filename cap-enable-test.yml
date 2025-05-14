@@ -2,16 +2,27 @@
   hosts: localhost
   any_errors_fatal: true
   tasks:
-  - name: Prepare ansible runner host
+  - name: Create Start Timestamp
+    shell: date +%Y-%m-%d_%H-%M-%S
+    register: TIMESTAMP_start
+
+  - name: Print Start Timestamp
+    debug:
+      msg: "Start: {{ TIMESTAMP_start.stdout }}  "
+
+  - name: Prepare Ansible Runner Host
     include_tasks: tasks/prepare_ansible_runner.yml
     when: not skip_ansible_runner | bool
+
   - name: Login OCP
     include_tasks: tasks/login_ocp.yml
-  - name: Check if local-cluster enabled
+
+  - name: Check if local-cluster Enabled
     shell: |
       oc get managedclusters -l local-cluster=true -ojson | jq -r '.items[].metadata.name'
     register: local_cluster
     ignore_errors: true
+
   - name: Check if there are any hosted clusters
     shell: |
       oc get hostedclusters -A -o name
@@ -36,3 +47,7 @@
   vars:
     capa_enabled: false
   import_playbook: capa.yml
+
+- name: Report Test Results
+  import_playbook: create-cap-enable-test-results.yml
+
