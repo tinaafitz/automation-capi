@@ -25,7 +25,7 @@
     - clusterrolebinding_names.stdout_lines | length == 0
     - deploy_name.stdout | length == 0
     - mutatingwebhookconfiguration_names.stdout_lines | length == 0
-#    - namespace_names.stdout_lines | length == 0
+    - namespace_names.stdout_lines | length == 0
     - pod_name.stdout | length == 0
     - rolebinding_names.stdout_lines | length == 0
     - secret_names.stdout_lines | length == 0
