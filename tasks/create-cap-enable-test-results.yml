@@ -4,13 +4,29 @@
     - "cap-enable-test"
     - "cap-enable-test/polarion"
 
+- name: Create End Timestamp
+  set_fact:
+    TIMESTAMP_end: "{{ now() }}"
+
+- name: Print End Timestamp
+  debug:
+     msg: "End: {{ TIMESTAMP_end }}  "
+
+- name: Print Start Timestamp
+  debug:
+   msg: "Start: {{ TIMESTAMP_start }}  "
+
+#- name: Calculate time difference
+#  debug:
+#    msg: "Start: {{ (TIMESTAMP_end - TIMESTAMP_start) }}  "
+
 - name: Create results.xml from template
   template: src=results.xml.j2 dest={{ output_dir }}/cap-enable-test/polarion/{{ item }}
   vars:
     polarion_test_id: "RHACM4K-56157"
     component: "CAPI"
     polarion_test_description: "Enable and disable test for capi and capa"
-    timestamp: ""
+    timestamp: "{{ now() }}"
     execution_time: "50"
     mce_namespace: "multicluster-engine"
     output_dir: "{{ lookup('env', 'HOME') }}/output"

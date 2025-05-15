@@ -2,13 +2,14 @@
   hosts: localhost
   any_errors_fatal: true
   tasks:
+
   - name: Create Start Timestamp
-    shell: date +%Y-%m-%d_%H-%M-%S
-    register: TIMESTAMP_start
+    set_fact:
+      TIMESTAMP_start: "{{ now() }}"
 
   - name: Print Start Timestamp
     debug:
-      msg: "Start: {{ TIMESTAMP_start.stdout }}  "
+      msg: "Start: {{ TIMESTAMP_start }}"
 
   - name: Prepare Ansible Runner Host
     include_tasks: tasks/prepare_ansible_runner.yml
