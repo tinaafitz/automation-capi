@@ -1,0 +1,17 @@
+- name: Create CAP enable test results
+  hosts: localhost
+  any_errors_fatal: true
+  vars:
+    polarion_test_id: "RHACM4K-56157"
+    component: "CAPI"
+    polarion_test_description: "Enable and disable test for capi and capa"
+    timestamp_: ""
+    execution_time: "50"
+    mce_namespace: "multicluster-engine"
+    output_dir: "{{ lookup('env', 'HOME') }}/output"
+  tasks:
+    - name: Create cap-enable-test results.xml
+      include_tasks: tasks/create-cap-enable-test-results.yml
+
+
+
