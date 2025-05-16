@@ -52,7 +52,7 @@ pipeline {
                             # Execute the CAPI and CAPA tests
                            ./run-automation.sh cap-enable-test.yml
                         """
-                        archiveArtifacts artifacts: 'results/*', followSymlinks: false, fingerprint: true
+                        archiveArtifacts artifacts: 'results/**/*.xml', followSymlinks: false, fingerprint: true
                     }
                     catch (ex) {
                         echo 'CAPI Tests failed ... Continuing with the pipeline'
@@ -64,8 +64,8 @@ pipeline {
         stage('Archive CAPI artifacts') {
             steps {
                 script {
-                   archiveArtifacts artifacts: 'results/*', followSymlinks: false
-                   junit 'results/**/*'
+                   archiveArtifacts artifacts: 'results/**/*.xml', followSymlinks: false
+                   junit 'results/**/*.xml'
                 }
             }
         }
