@@ -61,13 +61,13 @@ pipeline {
                 }
             }
         }
-        // stage('Archive CAPI artifacts') {
-        //     steps {
-        //         script {
-        //            archiveArtifacts artifacts: 'capi/*', followSymlinks: false
-        //            junit 'capi/*'
-        //         }
-        //     }
-        // }
+        stage('Archive CAPI artifacts') {
+            steps {
+                script {
+                   archiveArtifacts artifacts: 'results/*', followSymlinks: false
+                   junit 'results/**/*'
+                }
+            }
+        }
     }
 }
