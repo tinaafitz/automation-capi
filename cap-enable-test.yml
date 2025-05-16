@@ -5,7 +5,7 @@
 
   - name: Create Start Timestamp
     set_fact:
-      TIMESTAMP_start: "{{ now() }}"
+      TIMESTAMP_start: "{{ '%Y-%m-%d %H:%M:%S' | strftime(ansible_date_time.epoch) }}"
 
   - name: Print Start Timestamp
     debug:
