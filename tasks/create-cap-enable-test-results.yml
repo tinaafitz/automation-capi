@@ -1,8 +1,5 @@
-- name: Ensure directory for {{ output_dir }}/cap-enable-test/polarion
-  file: path={{ output_dir }}/{{ item }} state=directory
-  with_items:
-    - "cap-enable-test"
-    - "cap-enable-test/polarion"
+- name: Ensure directory for ./results/cap-enable-test
+  file: path="./results/cap-enable-test" state=directory
 
 - name: force update of current timestamp
   setup: filter='ansible_date_time'
@@ -10,6 +7,7 @@
 - name: Create End Timestamp
   set_fact:
     TIMESTAMP_end: "{{ '%Y-%m-%d %H:%M:%S' | strftime(ansible_date_time.epoch) }}"
+    results_dir: "./results/cap-enable-test"
 
 - name: Print End Timestamp
   debug:
@@ -24,7 +22,7 @@
     msg: "End:   {{ difference }}"
 
 - name: Create results.xml from template
-  template: src=results.xml.j2 dest={{ output_dir }}/cap-enable-test/polarion/{{ item }}
+  template: src=results.xml.j2 dest={{ results_dir }}/results.xml
   vars:
     polarion_test_id: "RHACM4K-56157"
     component: "CAPI"
@@ -32,12 +30,11 @@
     timestamp: "{{ now() }}"
     execution_time: "{{ difference }}"
     mce_namespace: "multicluster-engine"
-    output_dir: "{{ lookup('env', 'HOME') }}/output"
   with_items:
     - results.xml
 
 - name: Read results
-  shell: cat {{ output_dir }}/cap-enable-test/polarion/results.xml
+  shell: cat {{ results_dir }}/results.xml
   register: results
 
 - name: Print results.xml
