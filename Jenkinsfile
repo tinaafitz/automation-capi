@@ -52,7 +52,7 @@ pipeline {
                             # Execute the CAPI and CAPA tests
                            ./run-automation.sh cap-enable-test.yml
                         """
-                        // archiveArtifacts artifacts: 'ci/ansible/db_info.json', followSymlinks: false, fingerprint: true
+                        archiveArtifacts artifacts: 'results/*', followSymlinks: false, fingerprint: true
                     }
                     catch (ex) {
                         echo 'CAPI Tests failed ... Continuing with the pipeline'
