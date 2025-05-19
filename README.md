@@ -39,7 +39,13 @@ Have a running ocp environment with acm and/or mce installed
    export MCE_NAMESPACE="multicluster-engine"
    ```
 
-4. Execute the ```run-automation.sh``` shell script providing the playbook name.
+4. Execute the ```create_OCP_vars.sh``` shell script to set the OCP environment variables.
+
+   ```bash
+   source create_OCP_vars.sh  
+   ```
+
+5. Execute the ```run-automation.sh``` shell script providing the playbook name.
 
    ```bash
    ./run-automation.sh cap-enable-test.yml  
