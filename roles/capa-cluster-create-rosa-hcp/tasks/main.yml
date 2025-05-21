@@ -14,6 +14,9 @@
 - name: Create capa-manager-bootstrap-credentials with AWS Credentials
   include_tasks: tasks/create_capa_manager_bootstrap_credentials.yml
 
+- name: Create rosa-creds-secret in multicluster-engine ns.
+  include_tasks: tasks/create_rosa_creds_secret.yml
+
 - name: Restart capa-controller-manager deployment.
   include_tasks: tasks/restart_capa_controller_manager.yml
 
