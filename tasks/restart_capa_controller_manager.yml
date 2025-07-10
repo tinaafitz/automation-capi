@@ -5,8 +5,8 @@
   register: previous_pod_name
 
 - name: Restart the capa-controller-manager deployment.
-#    oc rollout restart deployment capa-controller-manager -n multicluster-engine
-  shell: "sleep 1"
+  shell: |
+    oc rollout restart deployment capa-controller-manager -n multicluster-engine
 
 - name: Wait for new capa-controller-manager pod
   shell: |
