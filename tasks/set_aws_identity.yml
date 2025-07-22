@@ -9,6 +9,6 @@
         allowedNamespaces: {}  # matches all namespaces
     dest: "{{ output_dir }}/aws_cluster-controller_identity.yaml"
 
-   #- name: Apply aws_cluster-controller_identity.yaml
-   #  shell: |
-   #    oc apply -f {{ output_dir }}/aws_cluster-controller_identity.yaml
+- name: Apply aws_cluster-controller_identity.yaml
+  shell: |
+    oc apply -f {{ output_dir }}/aws_cluster-controller_identity.yaml

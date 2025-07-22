@@ -16,6 +16,6 @@
           - system:serviceaccount:multicluster-engine:agent-registration-bootstrap
     dest: "{{ output_dir }}/clustermanager-registration-configuration.yaml"
 
-#- name: Apply clustermanager-registration-configuration.yaml
-#  shell: |
-#    oc apply -f {{ output_dir }}/clustermanager-registration-configuration.yaml
+- name: Apply clustermanager-registration-configuration.yaml
+  shell: |
+    oc apply -f {{ output_dir }}/clustermanager-registration-configuration.yaml

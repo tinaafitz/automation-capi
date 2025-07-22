@@ -1,0 +1,94 @@
+- name: Create ROSA-HCP Cluster
+  hosts: localhost
+  any_errors_fatal: true
+  vars_files:
+    - vars/vars.yml
+  vars_prompt:
+    - name: OCP_HUB_API_URL
+      prompt: "What is the OCP_HUB_API_URL?"
+      default: "aaaaaaaaaaaa"
+      private: false
+    - name: OCP_HUB_CLUSTER_USER
+      prompt: "What is the OCP_HUB_CLUSTER_USER?"
+      default: "kubeadmin"
+      private: false
+    - name: OCP_HUB_CLUSTER_PASSWORD
+      prompt: "What is the OCP_HUB_CLUSTER_PASSWORD?"
+      private: false
+      default: "aaaaaaaaaaaa"
+    - name: MCE_NAMESPACE
+      prompt: "What is the MCE_NAMESPACE?"
+      private: false
+      default: "multiclusterengine"
+    - name: AWS_REGION
+      prompt: "What is the AWS_REGION?"
+      private: false
+      default: "us-east-1"
+    - name: AWS_ACCESS_KEY_ID
+      prompt: "What is the AWS_ACCESS_KEY_ID?"
+      private: false
+      default: "aaaaaaaaaaaa"
+    - name: AWS_SECRET_ACCESS_KEY
+      prompt: "What is the AWS_SECRET_ACCESS_KEY?"
+      private: false
+      default: "aaaaaaaaaaaa"
+    - name: AWS_B64ENCODED_CREDENTIALS
+      prompt: "What is the AWS_B64ENCODED_CREDENTIALS?"
+      private: false
+      default: "AWS_B64ENCODED_CREDENTIALS=aaaaaaaaaaaa"
+    - name: OCM_CLIENT_ID
+      prompt: "What is the OCM_CLIENT_ID"
+      private: false
+      default: "aaaaaaaaaaaa"
+    - name: OCM_CLIENT_SECRET
+      prompt: "What is the OCM_CLIENT_ID"
+      private: false
+      default: "aaaaaaaaaaaa"
+  tasks:
+    - name: Print OCP Values
+      ansible.builtin.debug:
+        msg: "Logging in to: {{ OCP_HUB_API_URL }} as: {{ OCP_HUB_CLUSTER_USER }} with password: {{ OCP_HUB_CLUSTER_PASSWORD }}"
+    - name: Print AWS Values
+      ansible.builtin.debug:
+        msg: "AWS Credentials access key id: {{ AWS_ACCESS_KEY_ID }} aws secret access key: {{ AWS_SECRET_ACCESS_KEY }} with AWS_B64ENCODED_CREDENTIALS: {{ AWS_B64ENCODED_CREDENTIALS }}"
+    - name: Print Other stuff
+      ansible.builtin.debug:
+        msg: "MCE_NAMESPACE: {{ MCE_NAMESPACE }}"
+    - set_fact:
+        ocp_user:  "{{ OCP_HUB_CLUSTER_USER }}"
+        ocp_password:  "{{ OCP_HUB_CLUSTER_PASSWORD }}"
+        api_url:  "{{ OCP_HUB_API_URL }}"
+        mce_namespace:  "{{ MCE_NAMESPACE }}"
+
+    - name: Print ocp Values
+      ansible.builtin.debug:
+        msg: "Login information: api_url: {{ api_url }} user: {{ ocp_user }} password: {{ ocp_password }}"
+
+    - name: Prepare ansible runner host
+      include_tasks: tasks/prepare_ansible_runner.yml
+      when: not skip_ansible_runner | bool
+
+    - name: Login OCP
+      include_tasks: tasks/login_ocp.yml
+
+    - set_fact:
+        enable: "true"
+        component: "cluster-api"
+        mce_namespace: "multicluster-engine"
+
+    - name: Enable capi
+      include_tasks: tasks/update_enabled_flag.yml
+
+    - set_fact:
+        enable: "true"
+        component: "cluster-api-provider-aws"
+
+    - name: Enable capa
+      include_tasks: tasks/update_enabled_flag.yml
+
+    - name: Create ROSA-HCP Cluster
+      import_role:
+        name: capa-cluster-create-rosa-hcp
+      vars:
+        ocm_client_id: "{{ OCM_CLIENT_ID }}"
+        ocm_client_secret: "{{ OCM_CLIENT_SECRET }}"
