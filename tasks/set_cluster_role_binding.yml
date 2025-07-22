@@ -15,6 +15,6 @@
         namespace: open-cluster-management-hub
     dest: "{{ output_dir }}/cluster-role-binding.yaml"
 
-#- name: Apply cluster-role-binding.yaml
-#  shell: |
-#    oc apply -f {{ output_dir }}/cluster-role-binding.yaml
+- name: Apply cluster-role-binding.yaml
+  shell: |
+    oc apply -f {{ output_dir }}/cluster-role-binding.yaml

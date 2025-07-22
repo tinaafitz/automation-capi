@@ -5,11 +5,11 @@
   shell: |
     oc create namespace {{ capi_namespace }} --dry-run=client -o yaml | oc apply -f -
 
-- name: Set ClusterManager cluster_role_binding
-  include_tasks: tasks/set_cluster_role_binding.yml
-
-- name: Set ClusterRoleBinding registration_configuration
+- name: Set ClusterManager registration_configuration
   include_tasks: tasks/set_registration_configuration.yml
+
+- name: Set ClusterRoleBinding registration-capi
+  include_tasks: tasks/set_cluster_role_binding.yml
 
 - name: Create capa-manager-bootstrap-credentials with AWS Credentials
   include_tasks: tasks/create_capa_manager_bootstrap_credentials.yml
@@ -22,7 +22,7 @@
 
 - name: Set the AWSCusterControllerIdentity
   include_tasks: tasks/set_aws_identity.yml
-
-- name: Apply the ROSAControlPlane custom template.
-  include_tasks: tasks/create_rosa_control_plane.yml
+#
+#- name: Apply the ROSAControlPlane custom template.
+#  include_tasks: tasks/create_rosa_control_plane.yml
 

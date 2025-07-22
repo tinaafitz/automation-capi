@@ -1,0 +1,12 @@
+- name: Create output folder
+  file:
+    path: "{{ output_dir }}"
+    state: "{{ item }}"
+    mode: '0755'
+  with_items:
+    - absent
+    - directory
+
+- name: print output folder
+  debug:
+    msg: "output_dir: {{ output_dir }} "
