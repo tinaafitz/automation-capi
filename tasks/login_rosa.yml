@@ -1,0 +1,9 @@
+- name: Make sure we're logged into ROSA with whoami
+  shell: |
+    rosa whoami -o json
+  register: rosa_whoami
+  ignore_errors: false
+
+- name: Print ROSA login Information
+  debug:
+    msg: "ROSA whoami: {{ rosa_whoami.stdout }}"
