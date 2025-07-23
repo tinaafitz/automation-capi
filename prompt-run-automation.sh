@@ -1,8 +1,7 @@
 #!/bin/bash
-
-echo ""
-echo "Script calls an ansible playbook. The playbook name is the only required parameter."
-echo ""
+# This script calls an ansible playbook. The playbook name is the only required parameter."
+# Use this script only when your playbook prompts for all necessary variables.
+# Use run-automation.sh to use environment variables which are setup separately.
 
 if [ -z "$1" ]
   then
