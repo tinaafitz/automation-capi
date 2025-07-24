@@ -14,7 +14,7 @@
       private: false
     - name: OCP_HUB_CLUSTER_PASSWORD
       prompt: "What is the OCP_HUB_CLUSTER_PASSWORD?"
-      private: false
+      private: true
       default: "aaaaaaaaaaaa"
     - name: MCE_NAMESPACE
       prompt: "What is the MCE_NAMESPACE?"
@@ -26,23 +26,23 @@
       default: "us-east-1"
     - name: AWS_ACCESS_KEY_ID
       prompt: "What is the AWS_ACCESS_KEY_ID?"
-      private: false
+      private: true
       default: "aaaaaaaaaaaa"
     - name: AWS_SECRET_ACCESS_KEY
       prompt: "What is the AWS_SECRET_ACCESS_KEY?"
-      private: false
+      private: true
       default: "aaaaaaaaaaaa"
     - name: AWS_B64ENCODED_CREDENTIALS
       prompt: "What is the AWS_B64ENCODED_CREDENTIALS?"
-      private: false
+      private: true
       default: "AWS_B64ENCODED_CREDENTIALS=aaaaaaaaaaaa"
     - name: OCM_CLIENT_ID
       prompt: "What is the OCM_CLIENT_ID"
       private: false
       default: "aaaaaaaaaaaa"
     - name: OCM_CLIENT_SECRET
-      prompt: "What is the OCM_CLIENT_ID"
-      private: false
+      prompt: "What is the OCM_CLIENT_SECRET"
+      private: true
       default: "aaaaaaaaaaaa"
   tasks:
     - name: Print OCP Values
