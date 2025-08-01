@@ -1,0 +1,33 @@
+- set_fact:
+    component: "cluster-api"
+
+- name: Get {{ component }} status
+  include_tasks: tasks/get_mce_component_status.yml
+  register: component_enabled
+
+- name: print {{ component }} status
+  debug:
+    msg: "CAPI is enabled."
+  when: component_enabled.stdout | bool
+
+- name: print {{ component }} status
+  debug:
+    msg: "CAPI is NOT enabled."
+  when: not component_enabled.stdout | bool
+
+- set_fact:
+    component: "cluster-api-provider-aws"
+
+- name: Get {{ component }} status
+  include_tasks: tasks/get_mce_component_status.yml
+  register: component_enabled
+
+- name: print {{ component }} status
+  debug:
+    msg: "CAPA is enabled."
+  when: component_enabled.stdout | bool
+
+- name: print {{ component }} status
+  debug:
+    msg: "CAPA is NOT enabled."
+  when: not component_enabled.stdout | bool
