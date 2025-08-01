@@ -27,6 +27,8 @@
           8 - Restart capa-controller-manager deployment.
           9 - Create rosa-creds-secret.
          10 - Show the ROSAControlPlane "ready" status.
+         11 - Create the ROSA_HCP cluster or other resource. (oc apply -f <filename>)
+         12 - Delete the ROSA_HCP cluster or other resource. (oc delete -f <filename>)
       private: no
   tasks:
     - set_fact:
@@ -77,6 +79,14 @@
     - name: Get the ROSAControlPlane.
       include_tasks: tasks/get_rosa_control_plane.yml
       when: selected_action == "10"
+
+    - name: Create the ROSA HCP Cluster
+      include_tasks: tasks/create_rosa_control_plane.yml
+      when: selected_action == "11"
+
+    - name: Delete the ROSA HCP Cluster
+      include_tasks: tasks/delete_rosa_control_plane.yml
+      when: selected_action == "12"
 
     - name: Enable CAPI and CAPA
       include_tasks: tasks/enable_capi_capa.yml

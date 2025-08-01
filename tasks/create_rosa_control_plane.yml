@@ -1,7 +1,26 @@
-- name: Create the ROSAControlPlane
-  vars:
-    stuff_here: "{{ 'stuff' }}"
-  template:
-    src: templates/rosa-control-plane.yaml.j2
-    dest: "{{ output_dir }}/rosa-control-plane.yaml"
+- name: Get the yaml filename for oc apply -f.
+  pause:
+    prompt: "Please enter the yaml file name to apply."
+  register: oc_yaml_file
+
+- name: Display filename entered
+  debug:
+    msg: "oc_yaml_file: {{ oc_yaml_file.user_input }}"
+
+- set_fact:
+    oc_yaml_filename: "{{ oc_yaml_file.user_input }}"
+    fq_oc_yaml_filename: "{{ lookup('env', 'PWD') }}/{{ oc_yaml_file.user_input }}"
+
+- name: Print the fq_oc_yaml_filename
+  debug:
+    msg: "fq_oc_yaml_filename: {{ fq_oc_yaml_filename }}"
+
+- name: OC apply file
+  shell: |
+    oc apply -f {{ fq_oc_yaml_filename }}
+  register: results
+
+- name: Print the results
+  debug:
+    msg: "results: {{ results.stdout }}"
 
