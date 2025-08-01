@@ -1,0 +1,25 @@
+- set_fact:
+    component: "cluster-api"
+
+- name: Get {{ component }} status
+  include_tasks: tasks/get_mce_component_status.yml
+  register: component_enabled
+
+- name: Enable capi
+  include_tasks: tasks/update_enabled_flag.yml
+  vars:
+    enable: "true"
+  when: not component_enabled | bool
+
+- set_fact:
+    component: "cluster-api-provider-aws"
+
+- name: Get {{ component }} status
+  include_tasks: tasks/get_mce_component_status.yml
+  register: component_enabled
+
+- name: Enable capa
+  include_tasks: tasks/update_enabled_flag.yml
+  vars:
+    enable: "true"
+  when: not component_enabled | bool
