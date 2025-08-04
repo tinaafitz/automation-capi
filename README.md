@@ -30,72 +30,7 @@ https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.ht
 ```bash
 rosa whoami
 ```
-###4. Run one of the following playbooks:
-
->>####1. prompt-capa-cluster-create-rosa-hcp.yml 
-  
-The ```prompt-capa-cluster-create-rosa-hcp.yml``` playbook enables CAPI/CAPA and configures ACM to deploy a ROSA-HCP cluster. It prompts the user for all the necessary variables.
-
-The functionality was designed to follow the "Creating a ROSA HCP cluster" directions specified in https://github.com/stolostron/cluster-api-installer/blob/main/doc/Create-rosa-hcp.md.
-
-Important Note *** The OIDC, subnets, account-roles, and operator-roles prerequisites are needed to provision the ROSA-HCP Cluster.  
-
-a. Modify the default values for the vars_prompt section of the ```prompt-capa-cluster-create-rosa-hcp.yml```
-
-```     vars_prompt:
-- name: OCP_HUB_API_URL
-  prompt: "What is the OCP_HUB_API_URL?"
-  default: "aaaaaaaaaaaa"
-  private: false
-- name: OCP_HUB_CLUSTER_USER
-  prompt: "What is the OCP_HUB_CLUSTER_USER?"
-  default: "kubeadmin"
-  private: false
-- name: OCP_HUB_CLUSTER_PASSWORD
-  prompt: "What is the OCP_HUB_CLUSTER_PASSWORD?"
-  private: true
-  default: "aaaaaaaaaaaa"
-- name: MCE_NAMESPACE
-  prompt: "What is the MCE_NAMESPACE?"
-  private: false
-  default: "multiclusterengine"
-- name: AWS_REGION
-  prompt: "What is the AWS_REGION?"
-  private: false
-  default: "us-east-1"
-- name: AWS_ACCESS_KEY_ID
-  prompt: "What is the AWS_ACCESS_KEY_ID?"
-  private: true
-  default: "aaaaaaaaaaaa"
-- name: AWS_SECRET_ACCESS_KEY
-  prompt: "What is the AWS_SECRET_ACCESS_KEY?"
-  private: true
-  default: "aaaaaaaaaaaa"
-- name: AWS_B64ENCODED_CREDENTIALS
-  prompt: "What is the AWS_B64ENCODED_CREDENTIALS?"
-  private: true
-  default: "AWS_B64ENCODED_CREDENTIALS=aaaaaaaaaaaa"
-- name: OCM_CLIENT_ID
-  prompt: "What is the OCM_CLIENT_ID"
-  private: false
-  default: "aaaaaaaaaaaa"
-- name: OCM_CLIENT_SECRET
-  prompt: "What is the OCM_CLIENT_SECRET"
-  private: true
-  default: "aaaaaaaaaaaa"
-```
-
-b. Execute the ```prompt-run-automation.sh``` shell script providing the ```prompt-capa-cluster-create-rosa-hcp.yml``` playbook name.
-```
-./prompt-run-automation.sh prompt-capa-cluster-create-rosa-hcp.yml
-```  
-
-c. Apply your configured rosa-hcp.yaml file to create the ROSA HCP cluster. 
-```
-oc apply -f your_configured_rosa_hcp_file_here.yaml 
-```  
-
->>####2. cap-enable-test.yml
+###4. Run automated tests
 
 The ```cap-enable-test.yml``` playbook tests the basic functionality of enabling/disabling CAPI/CAPA. 
 
@@ -118,6 +53,60 @@ source create_OCP_vars.sh
 ./run-automation.sh cap-enable-test.yml  
 ```
 
+###5. Use the ```capi_assistant```
+
+Use the ```capi_assistant``` to interact with the MCE ACM environment without having to remember the details.
+
+The ```capi_assistant``` is designed to be used interactively as shown below: 
+```
+~/acm_dev/automation-capi (update_readme_capi_assistant) $ ./capi_assistant 
+Running playbook: capi-assistant.yaml
+Choose one of the following:
+   1 - Verify MCE CAPI/CAPA environment.
+   2 - Configure MCE CAPI/CAPA environment for ROSA_HCP cluster creation.
+   3 - Check CAPA/CAPA enabled status.
+   4 - Enable CAPA/CAPA.
+   5 - Enable ClusterManager auto-import (Add the registrationConfiguration section).
+   6 - Apply ClusterRoleBinding changes (cluster-manager-registration-capi).
+   7 - Create capa-manager-bootstrap-credentials.
+   8 - Restart capa-controller-manager deployment.
+   9 - Create rosa-creds-secret.
+  10 - Show the ROSAControlPlane "ready" status.
+  11 - Create the ROSA_HCP cluster or other resource. (oc apply -f <filename>)
+  12 - Delete the ROSA_HCP cluster or other resource. (oc delete -f <filename>)
+```
+Configuring the ```capi_assistant```.
+
+a. Update the ```vars/user_vars.yaml``` file providing values for the following  attributes:
+```
+# user stuff
+OCP_HUB_API_URL: ""
+OCP_HUB_CLUSTER_USER: ""
+OCP_HUB_CLUSTER_PASSWORD: ""
+MCE_NAMESPACE: "multiclusterengine"
+AWS_REGION: ""
+AWS_ACCESS_KEY_ID: ""
+AWS_SECRET_ACCESS_KEY: ""
+OCM_CLIENT_ID: ""
+OCM_CLIENT_SECRET: ""
+```
+
+b. Execute the ```./capi_assistant``` shell script.
+```
+Choose one of the following:
+1 - Verify MCE CAPI/CAPA environment.
+2 - Configure MCE CAPI/CAPA environment for ROSA_HCP cluster creation.
+3 - Check CAPA/CAPA enabled status.
+4 - Enable CAPA/CAPA.
+5 - Enable ClusterManager auto-import (Add the registrationConfiguration section).
+6 - Apply ClusterRoleBinding changes (cluster-manager-registration-capi).
+7 - Create capa-manager-bootstrap-credentials.
+8 - Restart capa-controller-manager deployment.
+9 - Create rosa-creds-secret.
+10 - Show the ROSAControlPlane "ready" status.
+11 - Create the ROSA_HCP cluster or other resource. (oc apply -f <filename>)
+12 - Delete the ROSA_HCP cluster or other resource. (oc delete -f <filename>)
+```
 
 ## Environment Variables
 
