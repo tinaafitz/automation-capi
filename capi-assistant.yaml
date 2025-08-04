@@ -5,15 +5,6 @@
     - vars/vars.yml
     - vars/user_vars.yml
   vars_prompt:
-    - name: OCP_HUB_API_URL
-      prompt: "What is the OCP_HUB_API_URL?"
-      default: "https://api.qe6-vmware-ibm.install.dev09.red-chesterfield.com:6443"
-      private: false
-    - name: OCP_HUB_CLUSTER_USER
-      prompt: "What is the OCP_HUB_CLUSTER_USER?"
-      default: "kubeadmin"
-      private: false
-
     - name: selected_action
       prompt: |
        Choose one of the following:
