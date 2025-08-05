@@ -1,0 +1,17 @@
+- debug:
+    var: requested_version
+    var: current_version
+    var: available_versions
+
+- name: Print version stuff
+  debug:
+    msg: "The current_version is {{ current_version }}. The requested_version is {{ requested_version }}. "
+
+#- name: Call rosa to upgrade RCP
+#  shell: |
+#    rosa upgrade cluster -c tfitzger-rosa-hcp-demo-tues-test --version {{ requested_version }} --control-plane
+#  register: result
+#
+#- name: Print result
+#  debug:
+#    msg: "result: {{ result.stdout }}"
