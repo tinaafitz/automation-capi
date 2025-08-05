@@ -21,6 +21,7 @@
          11 - Create a ROSA_HCP cluster or other resource. (oc apply -f <filename>)
          12 - Delete a ROSA_HCP cluster or other resource. (oc delete -f <filename>)
          13 - Upgrade a ROSA_HCP cluster.
+         14 - Enter a shell command.
       private: no
   tasks:
     - set_fact:
@@ -28,6 +29,7 @@
         ocp_password:  "{{ OCP_HUB_CLUSTER_PASSWORD }}"
         api_url:  "{{ OCP_HUB_API_URL }}"
         mce_namespace: "{{ MCE_NAMESPACE }}"
+        finished: false
 
     - name: Prepare ansible runner host
       include_tasks: tasks/prepare_ansible_runner.yml
@@ -83,6 +85,10 @@
     - name: Upgrade the ROSA HCP Cluster
       include_tasks: tasks/upgrade_rosa_control_plane.yml
       when: selected_action == "13"
+
+    - name: Enter a shell command.
+      include_tasks: tasks/enter_shell_command.yml
+      when: selected_action == "14"
 
     - name: Enable CAPI and CAPA
       include_tasks: tasks/enable_capi_capa.yml
