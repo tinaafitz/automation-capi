@@ -2,16 +2,17 @@
     var: requested_version
     var: current_version
     var: available_versions
+    var: rcp_name
 
 - name: Print version stuff
   debug:
-    msg: "The current_version is {{ current_version }}. The requested_version is {{ requested_version }}. "
+    msg: "The rcp name is: {{ rcp_name }}. The current_version is {{ current_version }}. The requested_version is {{ requested_version }}. "
 
-#- name: Call rosa to upgrade RCP
-#  shell: |
-#    rosa upgrade cluster -c tfitzger-rosa-hcp-demo-tues-test --version {{ requested_version }} --control-plane
-#  register: result
-#
-#- name: Print result
-#  debug:
-#    msg: "result: {{ result.stdout }}"
+- name: Call kubectl to patch RCP
+  shell: |
+    kubectl patch rosacontrolplane --type=merge "{{ rcp_name }}" -n "ns-rosa-hcp" -p '{"spec": {"version": "{{ requested_version }}", "versionGate": "Acknowledge"}}'
+  register: result
+
+- name: Print result
+  debug:
+    msg: "result: {{ result.stdout }}"
