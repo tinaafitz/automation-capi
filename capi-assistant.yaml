@@ -9,7 +9,7 @@
       prompt: |
        Choose one of the following:
           1 - Verify MCE CAPI/CAPA environment.
-          2 - Configure MCE CAPI/CAPA environment for ROSA_HCP cluster creation.
+          2 - Configure MCE CAPI/CAPA environment and create a ROSA_HCP cluster.
           3 - Check CAPA/CAPA enabled status.
           4 - Enable CAPA/CAPA.
           5 - Enable ClusterManager auto-import (Add the registrationConfiguration section).
