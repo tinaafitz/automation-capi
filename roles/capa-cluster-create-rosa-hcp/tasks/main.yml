@@ -22,7 +22,7 @@
 
 - name: Set the AWSCusterControllerIdentity
   include_tasks: tasks/set_aws_identity.yml
-#
-#- name: Apply the ROSAControlPlane custom template.
-#  include_tasks: tasks/create_rosa_control_plane.yml
+
+- name: Apply the ROSAControlPlane custom template.
+  include_tasks: tasks/create_rosa_control_plane.yml
 
