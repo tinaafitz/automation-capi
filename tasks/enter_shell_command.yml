@@ -1,0 +1,23 @@
+
+- name: Get command
+  pause:
+    prompt: "Please enter the shell command."
+  register: shell_command
+
+- name: Display command entered
+  debug:
+    msg: "shell command: {{ shell_command.user_input }}"
+
+- name: OC command
+  shell: |
+    {{ shell_command.user_input }}
+  register: results
+
+- name: Print the results
+  debug:
+    msg: "results: {{ results.stdout }}"
+
+- name: "Run again"
+  when: not finished
+  include_tasks: enter_shell_command.yml
+

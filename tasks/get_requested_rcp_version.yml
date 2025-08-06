@@ -1,0 +1,16 @@
+- name: Display available_versions
+  debug:
+    msg: "available_versions: {{ available_versions }}"
+
+- name: Get the requested version.
+  pause:
+    prompt: "Please enter a RCP version for the upgrade."
+  register: rcp_requested_version
+
+- name: Display version entered
+  debug:
+    msg: "rcp_requested_version: {{ rcp_requested_version.user_input }}"
+
+- name: "Run again if invalid"
+  when: not rcp_requested_version.user_input in available_versions
+  include_tasks: get_requested_rcp_version.yml
