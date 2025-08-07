@@ -1,7 +1,22 @@
 
 - name: Get command
   pause:
-    prompt: "Please enter the shell command."
+    prompt: |
+      Please enter a command, or copy and paste one of the commonly used commands below. :-)
+        oc get clustermanager
+        oc get clustermanager -o yaml | grep registrationConfiguration
+        oc get deploy -n multicluster-engine | grep cap
+        oc get clusterrolebinding cluster-manager-registration-capi
+        oc get deploy -n multicluster-engine
+        oc get deploy -n multicluster-engine | grep cap
+        oc get multiclusterengine multiclusterengine
+        oc get pod -n multicluster-engine | grep capa
+        oc get rosacontrolplane
+        oc get secret -n multicluster-engine capa-manager-bootstrap-credentials
+        oc get secret -n multicluster-engine rosa-creds-secret
+        rosa list account-roles
+        rosa list operator-roles
+        kubectl logs -n multicluster-engine <capa_pod_name>
   register: shell_command
 
 - name: Display command entered
