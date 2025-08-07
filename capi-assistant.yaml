@@ -79,7 +79,7 @@
       when: selected_action == "11"
 
     - name: Delete the ROSA HCP Cluster
-      include_tasks: tasks/delete_rosa_control_plane.yml
+      include_tasks: tasks/delete_rosa_hcp_cluster.yml
       when: selected_action == "12"
 
     - name: Upgrade the ROSA HCP Cluster
