@@ -1,45 +1,8 @@
-- name: Get the RCP current version
-  shell: |
-    oc get rosacontrolplane -n ns-rosa-hcp --output json | jq -r '.items[].spec.version'
-  register: rcp_current_version
-
-- name: Print the RCP current version
-  debug:
-    msg: "The rcp: {{ rcp_current_version.stdout }}"
-
-- name: Get the RCP available versions
-  shell: |
-    oc get rosacontrolplane -n ns-rosa-hcp --output json | jq -r '.items[].status.availableUpgrades'
-  register: rcp_available_versions
-
-- name: print the RCP available versions
-  debug:
-    msg: "available versions: {{ rcp_available_versions.stdout }}"
-
-- name: Get the requested version
-  include_tasks: get_requested_rcp_version.yml
-  vars:
-    current_version: "{{ rcp_current_version.stdout }}"
-    available_versions: "{{ rcp_available_versions.stdout }}"
-
-- name: print the requested version
-  debug:
-    msg: "requested version: {{ rcp_requested_version.user_input }}"
-
-- name: Get the RCP name
-  shell: |
-    oc get rosacontrolplane -n ns-rosa-hcp --output json | jq -r '.items[].metadata.name'
-  register: rosacontrolplane_name
-
-- name: print the rcp name
-  debug:
-    msg: "name: {{ rosacontrolplane_name.stdout }}"
 
 - name: Upgrade RCP version
   include_tasks: tasks/upgrade_rcp_version.yml
   vars:
     rcp_name: "{{ rosacontrolplane_name.stdout }}"
     current_version: "{{ rcp_current_version.stdout }}"
-    requested_version: "{{ rcp_requested_version.user_input }}"
-    available_versions: "{{ rcp_available_versions.stdout }}"
+    requested_version: "{{ rcp_requested_version.stdout }}"
 

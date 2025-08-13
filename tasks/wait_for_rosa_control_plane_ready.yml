@@ -1,0 +1,14 @@
+- name: Wait for ROSA Control Plane status to be ready
+  shell: oc get rosacontrolplane -n ns-rosa-hcp -o json | jq -r '.items[].status.ready'
+  register: rcp_status
+  until: rcp_status.stdout |  bool
+  retries: "{{ 75 if retry_count is undefined else retry_count|int }}"
+  delay: "{{ 30 if delay is undefined else delay|int }}"
+  ignore_errors: true
+
+#  until: '"ready" | string in rcp_status.stdout'
+
+- name: Print the ROSA control plane is ready
+  debug:
+    msg: "The rosa_control_plane is ready"
+  when: rcp_status.stdout |  bool

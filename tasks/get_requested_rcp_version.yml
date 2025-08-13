@@ -1,6 +1,6 @@
 - name: Display available_versions
   debug:
-    msg: "available_versions: {{ available_versions }}"
+    msg: "available_versions: {{ available_versions[1] }}"
 
 - name: Get the requested version.
   pause:

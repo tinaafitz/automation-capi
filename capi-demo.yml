@@ -1,0 +1,117 @@
+apiVersion: cluster.open-cluster-management.io/v1
+kind: ManagedCluster
+metadata:
+  name: tfitzger-rosa-hcp-xyz-test
+  namespace: "ns-rosa-hcp"
+spec:
+  hubAcceptsClient: true
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: "tfitzger-rosa-hcp-xyz-test"
+  namespace: "ns-rosa-hcp"
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks: ["192.168.0.0/16"]
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+    kind: ROSACluster
+    name: "tfitzger-rosa-hcp-xyz-test"
+    namespace: "ns-rosa-hcp"
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta2
+    kind: ROSAControlPlane
+    name: "tfitzger-rosa-hcp-xyz-test"
+    namespace: "ns-rosa-hcp"
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSACluster
+metadata:
+  name: "tfitzger-rosa-hcp-xyz-test"
+  namespace: "ns-rosa-hcp"
+spec: {}
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta2
+kind: ROSAControlPlane
+metadata:
+  name: "tfitzger-rosa-hcp-xyz-test"
+  namespace: "ns-rosa-hcp"
+spec:
+  rosaClusterName: tfitzger-rosa-hcp-xyz-test
+  domainPrefix: rosa-tf-xyz
+  version: "4.18.9"
+  ## The region should match the aws region used to create the VPC and subnets
+  region: "us-west-2"
+  channelGroup: stable
+
+  ## Replace the IAM account roles below with the IAM roles created in the prerequisite steps
+  ## List the IAM account roles using command 'rosa list account-roles'
+  installerRoleARN: "arn:aws:iam::471112697682:role/xyz-HCP-ROSA-Installer-Role"
+  supportRoleARN: "arn:aws:iam::471112697682:role/xyz-HCP-ROSA-Support-Role"
+  workerRoleARN: "arn:aws:iam::471112697682:role/xyz-HCP-ROSA-Worker-Role"
+
+  ## Replace the oidc config below with the oidc config created in the prerequisite steps
+  ## List the oidc config using command `rosa list oidc-providers`
+  oidcID: "2kl679fpbepdbvggkt2oseejqq2th5l7"
+
+  ## Replace IAM operator roles below with the IAM roles created in the prerequisite steps
+  ## List the operator roles using command `rosa list operator-roles --prefix your-prefix`
+  rolesRef:
+    ingressARN: "arn:aws:iam::471112697682:role/xyz-openshift-ingress-operator-cloud-credentials"
+    imageRegistryARN: "arn:aws:iam::471112697682:role/xyz-openshift-image-registry-installer-cloud-credentials"
+    storageARN: "arn:aws:iam::471112697682:role/xyz-openshift-cluster-csi-drivers-ebs-cloud-credentials"
+    networkARN: "arn:aws:iam::471112697682:role/xyz-openshift-cloud-network-config-controller-cloud-credentials"
+    kubeCloudControllerARN: "arn:aws:iam::471112697682:role/xyz-kube-system-kube-controller-manager"
+    nodePoolManagementARN: "arn:aws:iam::471112697682:role/xyz-kube-system-capa-controller-manager"
+    controlPlaneOperatorARN: "arn:aws:iam::471112697682:role/xyz-kube-system-control-plane-operator"
+    kmsProviderARN: "arn:aws:iam::471112697682:role/xyz-kube-system-kms-provider"
+
+  ## Replace the subnets and availabilityZones with the subnets created in the prerequisite steps
+  subnets:
+    - "subnet-074fb3a779e0135e8"
+    - "subnet-0922e75354ccb5757"
+  availabilityZones:
+    - us-west-2b # ex "us-west-2b"
+  network:
+    machineCIDR: "10.0.0.0/16"
+    podCIDR: "10.128.0.0/14"
+    serviceCIDR: "172.30.0.0/16"
+  defaultMachinePoolSpec:
+    instanceType: "m5.xlarge"
+    autoscaling:
+      maxReplicas: 3
+      minReplicas: 2
+  additionalTags:
+    env: "xyz"
+    profile: "xyz"
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: tfitzger-rosa-hcp-xyz-test
+  namespace: "ns-rosa-hcp"
+spec:
+  clusterName: "tfitzger-rosa-hcp-xyz-test"
+  replicas: 3
+  template:
+    spec:
+      clusterName: "tfitzger-rosa-hcp-xyz-test"
+      bootstrap:
+        dataSecretName: ""
+      infrastructureRef:
+        name: tfitzger-rosa-hcp-xyz-test
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+        kind: ROSAMachinePool
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSAMachinePool
+metadata:
+  name: tfitzger-rosa-hcp-xyz-test
+  namespace: "ns-rosa-hcp"
+spec:
+  nodePoolName: "xyz-nodepool-p1"
+  instanceType: "m5.xlarge"
+  subnet: "subnet-0922e75354ccb5757" # public subnet
+  version: "4.18.9"

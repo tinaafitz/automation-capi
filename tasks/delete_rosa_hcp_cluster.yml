@@ -1,19 +1,10 @@
-- name: Get the yaml filename for oc delete -f.
-  pause:
-    prompt: "Please enter the yaml file name for oc delete -f <filename>."
-  register: oc_yaml_file
-
-- name: Display filename entered
-  debug:
-    msg: "oc_yaml_file: {{ oc_yaml_file.user_input }}"
-
 - set_fact:
-    oc_yaml_filename: "{{ oc_yaml_file.user_input }}"
-    fq_oc_yaml_filename: "{{ lookup('env', 'PWD') }}/{{ oc_yaml_file.user_input }}"
+    oc_yaml_filename: "capi-demo.yaml"
+    fq_oc_yaml_filename: "{{ lookup('env', 'PWD') }}/capi-demo.yml"
 
-- name: Print the fq_oc_yaml_filename
+- name: Print the oc yaml filename
   debug:
-    msg: "fq_oc_yaml_filename: {{ fq_oc_yaml_filename }}"
+    msg: "oc yaml filename: {{ fq_oc_yaml_filename }}"
 
 - name: OC delete file
   shell: |

@@ -20,9 +20,9 @@
 - name: Restart capa-controller-manager deployment.
   include_tasks: tasks/restart_capa_controller_manager.yml
 
-- name: Set the AWSCusterControllerIdentity
+- name: Set the AWSClusterControllerIdentity
   include_tasks: tasks/set_aws_identity.yml
 
-- name: Apply the ROSAControlPlane custom template.
-  include_tasks: tasks/create_rosa_control_plane.yml
+#- name: Apply the ROSAControlPlane custom template.
+#  include_tasks: tasks/create_rosa_control_plane.yml
 
