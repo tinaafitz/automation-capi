@@ -1,4 +1,4 @@
-- name: Create clustermanager-registration-configuration.yaml
+- name: Enable the ClusterImporter feature gates on the ClusterManager
   copy:
     content: |
       apiVersion: operator.open-cluster-management.io/v1

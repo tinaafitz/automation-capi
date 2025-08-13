@@ -1,0 +1,8 @@
+#!/bin/bash
+
+export PLAYBOOK="end2end-test.yaml"
+echo "Running playbook: ${PLAYBOOK}"
+
+BASE_VARIABLES="skip_ansible_runner=true"
+ANSIBLE_VARIABLES="mce_namespace=${MCE_NAMESPACE}"
+ansible-playbook ${PLAYBOOK} -e "${BASE_VARIABLES} ${ANSIBLE_VARIABLES}"

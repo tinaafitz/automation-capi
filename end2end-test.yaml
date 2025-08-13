@@ -1,0 +1,37 @@
+- name: End to end tests
+  hosts: localhost
+  any_errors_fatal: true
+  vars_files:
+    - vars/vars.yml
+    - vars/user_vars.yml
+  tasks:
+    - set_fact:
+        ocp_user:  "{{ OCP_HUB_CLUSTER_USER }}"
+        ocp_password:  "{{ OCP_HUB_CLUSTER_PASSWORD }}"
+        api_url:  "{{ OCP_HUB_API_URL }}"
+        mce_namespace: "{{ MCE_NAMESPACE }}"
+
+    - name: Prepare ansible runner host
+      include_tasks: tasks/prepare_ansible_runner.yml
+      when: not skip_ansible_runner | bool
+
+    - name: Login OCP
+      include_tasks: tasks/login_ocp.yml
+
+    - set_fact:
+        enable: "true"
+        component: "cluster-api"
+
+    - name: Enable capi
+      include_tasks: tasks/update_enabled_flag.yml
+
+    - set_fact:
+        enable: "true"
+        component: "cluster-api-provider-aws"
+
+    - name: Enable capa
+      include_tasks: tasks/update_enabled_flag.yml
+
+    - name: Run end to end tests
+      import_role:
+        name: run_end2end_tests

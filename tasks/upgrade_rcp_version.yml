@@ -1,7 +1,6 @@
 - debug:
     var: requested_version
     var: current_version
-    var: available_versions
     var: rcp_name
 
 - name: Print version stuff

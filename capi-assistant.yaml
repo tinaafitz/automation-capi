@@ -8,20 +8,22 @@
     - name: selected_action
       prompt: |
        Choose one of the following:
-          1 - Verify MCE CAPI/CAPA environment.
-          2 - Configure MCE CAPI/CAPA environment and create a ROSA_HCP cluster.
-          3 - Check CAPA/CAPA enabled status.
-          4 - Enable CAPA/CAPA.
-          5 - Enable ClusterManager auto-import (Add the registrationConfiguration section).
-          6 - Apply ClusterRoleBinding changes (cluster-manager-registration-capi).
-          7 - Create capa-manager-bootstrap-credentials.
-          8 - Restart capa-controller-manager deployment.
-          9 - Create rosa-creds-secret.
-         10 - Show the ROSAControlPlane "ready" status.
-         11 - Create a ROSA_HCP cluster or other resource. (oc apply -f <filename>)
-         12 - Delete a ROSA_HCP cluster or other resource. (oc delete -f <filename>)
-         13 - Upgrade a ROSA_HCP cluster.
-         14 - Enter a shell command.
+          1 - Check if CAPA/CAPA are enabled.
+          2 - Enable CAPA/CAPA.
+          3 - Configure the MCE CAPI/CAPA environment.
+          4 - Check if all MCE CAPI/CAPA required components are present and properly configured.
+          5 - Create a ROSA_HCP cluster or other resource. (oc apply -f <filename>)
+          6 - Upgrade a ROSA_HCP cluster.
+          7 - Delete a ROSA_HCP cluster or other resource. (oc delete -f <filename>)
+          8 - Enter custom commands.
+        MCE CAPI/CAPA environment Step by step configuration for #3 above.
+          9 - Create the ns-rosa-hcp namespace.
+         10 - Enable the ClusterImporter feature gates on the ClusterManager. (Add the registrationConfiguration section).
+         11 - Bind the CAPI manager permission to the import controller. (Add the cluster-manager-registration-capi).
+         12 - Create capa-manager-bootstrap-credentials.
+         13 - Restart capa-controller-manager deployment.
+         14 - Create rosa-creds-secret.
+         15 - Set the AWSClusterControllerIdentity.
       private: no
   tasks:
     - set_fact:
@@ -38,67 +40,72 @@
     - name: Login OCP
       include_tasks: tasks/login_ocp.yml
 
-    - name: Get capi/capa resources
-      include_tasks: tasks/get_capi_resources.yml
-      when: selected_action == "1"
-
     - name: Get capi/capa status
       include_tasks: tasks/get_capi_capa_status.yml
-      when: selected_action == "3"
-
-    - name: Enable CAPI and CAPA
-      include_tasks: tasks/enable_capi_capa.yml
-      when: selected_action == "4"
-
-    - name: Set ClusterManager registrationConfiguration to enable auto-import.
-      include_tasks: tasks/set_registration_configuration.yml
-      when: selected_action == "5"
-
-    - name: Create cluster-manager-registration-capi ClusterRoleBinding.
-      include_tasks: tasks/set_cluster_role_binding.yml
-      when: selected_action == "6"
-
-    - name: Create capa-manager-bootstrap-credentials with AWS Credentials
-      include_tasks: tasks/create_capa_manager_bootstrap_credentials.yml
-      when: selected_action == "7"
-
-    - name: Restart capa-controller-manager deployment.
-      include_tasks: tasks/restart_capa_controller_manager.yml
-      when: selected_action == "8"
-
-    - name: Create rosa-creds-secret.
-      include_tasks: tasks/create_rosa_creds_secret.yml
-      when: selected_action == "9"
-
-    - name: Get the ROSAControlPlane.
-      include_tasks: tasks/get_rosa_control_plane.yml
-      when: selected_action == "10"
-
-    - name: Create the ROSA HCP Cluster
-      include_tasks: tasks/create_rosa_control_plane.yml
-      when: selected_action == "11"
-
-    - name: Delete the ROSA HCP Cluster
-      include_tasks: tasks/delete_rosa_hcp_cluster.yml
-      when: selected_action == "12"
-
-    - name: Upgrade the ROSA HCP Cluster
-      include_tasks: tasks/upgrade_rosa_control_plane.yml
-      when: selected_action == "13"
-
-    - name: Enter a shell command.
-      include_tasks: tasks/enter_shell_command.yml
-      when: selected_action == "14"
+      when: selected_action == "1"
 
     - name: Enable CAPI and CAPA
       include_tasks: tasks/enable_capi_capa.yml
       when: selected_action == "2"
 
-    - name: Create ROSA-HCP Cluster
+    - name: Get capi/capa resources
+      include_tasks: tasks/get_capi_resources.yml
+      when: selected_action == "4"
+
+    - name: Create the ROSA HCP Cluster
+      include_tasks: tasks/create_rosa_control_plane.yml
+      when: selected_action == "5"
+
+    - name: Upgrade the ROSA HCP Cluster
+      include_tasks: tasks/upgrade_rosa_control_plane.yml
+      when: selected_action == "6"
+
+    - name: Delete the ROSA HCP Cluster
+      include_tasks: tasks/delete_rosa_hcp_cluster.yml
+      when: selected_action == "7"
+
+    - name: Enter custom commands.
+      include_tasks: tasks/enter_shell_command.yml
+      when: selected_action == "8"
+
+    - name: Create capa system namespace
+      shell: |
+        oc create namespace {{ capi_namespace }} --dry-run=client -o yaml | oc apply -f -
+      when: selected_action == "9"
+
+    - name: Set ClusterManager registrationConfiguration to enable auto-import.
+      include_tasks: tasks/set_registration_configuration.yml
+      when: selected_action == "10"
+
+    - name: Bind the CAPI manager permission to the import controller.
+      include_tasks: tasks/set_cluster_role_binding.yml
+      when: selected_action == "11"
+
+    - name: Create capa-manager-bootstrap-credentials with AWS Credentials
+      include_tasks: tasks/create_capa_manager_bootstrap_credentials.yml
+      when: selected_action == "12"
+
+    - name: Restart capa-controller-manager deployment.
+      include_tasks: tasks/restart_capa_controller_manager.yml
+      when: selected_action == "13"
+
+    - name: Create rosa-creds-secret.
+      include_tasks: tasks/create_rosa_creds_secret.yml
+      when: selected_action == "14"
+
+    - name: Set the AWSClusterControllerIdentity
+      include_tasks: tasks/set_aws_identity.yml
+      when: selected_action == "15"
+
+    - name: Enable CAPI and CAPA
+      include_tasks: tasks/enable_capi_capa.yml
+      when: selected_action == "3"
+
+    - name: Configure the MCE CAPI/CAPA environment
       import_role:
         name: capa-cluster-create-rosa-hcp
       vars:
         ocm_client_id: "{{ OCM_CLIENT_ID }}"
         ocm_client_secret: "{{ OCM_CLIENT_SECRET }}"
-      when: selected_action == "2"
+      when: selected_action == "3"
 
