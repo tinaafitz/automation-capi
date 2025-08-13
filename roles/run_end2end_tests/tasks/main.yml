@@ -1,0 +1,63 @@
+- name: Starting Phase 1 - Creating the ROSA HCP cluster.
+  debug:
+    msg: "************   Starting Phase 1 - Creating the ROSA HCP cluster"
+
+- name: Create the ROSA HCP Cluster
+  include_tasks: tasks/create_rosa_control_plane.yml
+
+- name: Wait for the ROSA HCP Cluster to be ready
+  include_tasks: tasks/wait_for_rosa_control_plane_ready.yml
+
+- name: Get the RCP name
+  shell: |
+    oc get rosacontrolplane -n ns-rosa-hcp --output json | jq -r '.items[].metadata.name'
+  register: rosacontrolplane_name
+
+- name: Print the rcp name
+  debug:
+    msg: "name: {{ rosacontrolplane_name.stdout }}"
+
+- name: Get the RCP current version
+  shell: |
+    oc get rosacontrolplane -n ns-rosa-hcp --output json | jq -r '.items[].spec.version'
+  register: rcp_current_version
+
+- name: Print the current version
+  debug:
+    msg: "The current version: : {{ rcp_current_version.stdout }}"
+
+- name: Request the first available version
+  shell: |
+    oc get rosacontrolplane -n ns-rosa-hcp --output json | jq -r '.items[].status.availableUpgrades[0]'
+  register: rcp_requested_version
+
+- name: Print the requested version
+  debug:
+    msg: "The requested version: {{ rcp_requested_version.stdout }}"
+
+- name: Starting Phase 2 - Upgrading the ROSA HCP cluster.
+  debug:
+    msg: "************   Starting Phase 2 - Upgrading the ROSA HCP cluster"
+
+- name: Upgrade the ROSA HCP Cluster
+  include_tasks: tasks/upgrade_rosa_control_plane.yml
+  vars:
+    requested_version: "{{ rcp_requested_version.stdout }}"
+    current_version: "{{ rcp_current_version.stdout }}"
+    rcp_name: "{{ rosacontrolplane_name.stdout }}"
+
+- name: Wait for the ROSA HCP Cluster version upgrade to be complate.
+  include_tasks: tasks/wait_for_rosa_control_plane_version_upgrade_complete.yml
+  vars:
+    requested_version: "{{ rcp_requested_version.stdout }}"
+
+- name: Starting Phase 3 - Deleting the ROSA HCP cluster.
+  debug:
+    msg: "************   Starting Phase 3 - Deleting the ROSA HCP cluster"
+
+- name: Delete the ROSA HCP Cluster
+  include_tasks: tasks/delete_rosa_hcp_cluster.yml
+
+- name: Testing Completed
+  debug:
+    msg: "Testing Completed"

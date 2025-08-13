@@ -3,12 +3,12 @@
     oc get rosacontrolplane -n ns-rosa-hcp -o json | jq -r '.items[].status.ready'
   register: rosa_control_plane
 
-- name: Check for capa-controller-manager
+- name: Print rosa control plane ready Information
   debug:
     msg: "The rosa_control_plane is ready"
   when: rosa_control_plane.stdout |  bool
 
-- name: Print rosa control plane Information
+- name: Print rosa control plane NOT ready Information
   debug:
     msg: "The rosa_control_plane is NOT ready"
   when: not rosa_control_plane.stdout |  bool
