@@ -49,7 +49,7 @@
       when: selected_action == "2"
 
     - name: Get capi/capa resources
-      include_tasks: tasks/get_capi_resources.yml
+      include_tasks: tasks/validate-capa-environment.yml
       when: selected_action == "4"
 
     - name: Create the ROSA HCP Cluster
@@ -103,7 +103,7 @@
 
     - name: Configure the MCE CAPI/CAPA environment
       import_role:
-        name: capa-cluster-create-rosa-hcp
+        name: configure-capa-environment
       vars:
         ocm_client_id: "{{ OCM_CLIENT_ID }}"
         ocm_client_secret: "{{ OCM_CLIENT_SECRET }}"

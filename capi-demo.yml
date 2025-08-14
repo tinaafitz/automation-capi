@@ -45,16 +45,31 @@ spec:
   ## The region should match the aws region used to create the VPC and subnets
   region: "us-west-2"
   channelGroup: stable
+  defaultMachinePoolSpec:
+    instanceType: "m5.xlarge"
+    autoscaling:
+      maxReplicas: 3
+      minReplicas: 2
+  additionalTags:
+    env: "xyz"
+    profile: "xyz"
+  oidcID: "2kl679fpbepdbvggkt2oseejqq2th5l7"
+  ## Replace the subnets and availabilityZones with the subnets created in the prerequisite steps
+  subnets:
+    - "subnet-074fb3a779e0135e8"
+    - "subnet-0922e75354ccb5757"
+  availabilityZones:
+    - us-west-2b # ex "us-west-2b"
+  network:
+    machineCIDR: "10.0.0.0/16"
+    podCIDR: "10.128.0.0/14"
+    serviceCIDR: "172.30.0.0/16"
 
   ## Replace the IAM account roles below with the IAM roles created in the prerequisite steps
   ## List the IAM account roles using command 'rosa list account-roles'
   installerRoleARN: "arn:aws:iam::471112697682:role/xyz-HCP-ROSA-Installer-Role"
   supportRoleARN: "arn:aws:iam::471112697682:role/xyz-HCP-ROSA-Support-Role"
   workerRoleARN: "arn:aws:iam::471112697682:role/xyz-HCP-ROSA-Worker-Role"
-
-  ## Replace the oidc config below with the oidc config created in the prerequisite steps
-  ## List the oidc config using command `rosa list oidc-providers`
-  oidcID: "2kl679fpbepdbvggkt2oseejqq2th5l7"
 
   ## Replace IAM operator roles below with the IAM roles created in the prerequisite steps
   ## List the operator roles using command `rosa list operator-roles --prefix your-prefix`
@@ -67,25 +82,6 @@ spec:
     nodePoolManagementARN: "arn:aws:iam::471112697682:role/xyz-kube-system-capa-controller-manager"
     controlPlaneOperatorARN: "arn:aws:iam::471112697682:role/xyz-kube-system-control-plane-operator"
     kmsProviderARN: "arn:aws:iam::471112697682:role/xyz-kube-system-kms-provider"
-
-  ## Replace the subnets and availabilityZones with the subnets created in the prerequisite steps
-  subnets:
-    - "subnet-074fb3a779e0135e8"
-    - "subnet-0922e75354ccb5757"
-  availabilityZones:
-    - us-west-2b # ex "us-west-2b"
-  network:
-    machineCIDR: "10.0.0.0/16"
-    podCIDR: "10.128.0.0/14"
-    serviceCIDR: "172.30.0.0/16"
-  defaultMachinePoolSpec:
-    instanceType: "m5.xlarge"
-    autoscaling:
-      maxReplicas: 3
-      minReplicas: 2
-  additionalTags:
-    env: "xyz"
-    profile: "xyz"
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachinePool
