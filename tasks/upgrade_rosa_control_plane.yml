@@ -1,3 +1,29 @@
+- name: Get the RCP name
+  shell: |
+    oc get rosacontrolplane -n ns-rosa-hcp --output json | jq -r '.items[].metadata.name'
+  register: rosacontrolplane_name
+
+- name: Print the rcp name
+  debug:
+    msg: "name: {{ rosacontrolplane_name.stdout }}"
+
+- name: Get the RCP current version
+  shell: |
+    oc get rosacontrolplane -n ns-rosa-hcp --output json | jq -r '.items[].spec.version'
+  register: rcp_current_version
+
+- name: Print the current version
+  debug:
+    msg: "The current version: : {{ rcp_current_version.stdout }}"
+
+- name: Request the first available version
+  shell: |
+    oc get rosacontrolplane -n ns-rosa-hcp --output json | jq -r '.items[].status.availableUpgrades[0]'
+  register: rcp_requested_version
+
+- name: Print the requested version
+  debug:
+    msg: "The requested version: {{ rcp_requested_version.stdout }}"
 
 - name: Upgrade RCP version
   include_tasks: tasks/upgrade_rcp_version.yml
