@@ -3,7 +3,7 @@
   shell: rosa describe cluster --cluster=tfitzger-rosa-hcp-xyz-test -o yaml | grep openshift_version
   register: rcp_version
   until: requested_version in rcp_version.stdout
-  retries: "{{ 75 if retry_count is undefined else retry_count|int }}"
+  retries: "{{ 100 if retry_count is undefined else retry_count|int }}"
   delay: "{{ 30 if delay is undefined else delay|int }}"
   ignore_errors: true
 
