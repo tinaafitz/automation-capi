@@ -48,7 +48,7 @@
       include_tasks: tasks/enable_capi_capa.yml
       when: selected_action == "2"
 
-    - name: Get capi/capa resources
+    - name: Verify capi/capa environment
       include_tasks: tasks/validate-capa-environment.yml
       when: selected_action == "4"
 
