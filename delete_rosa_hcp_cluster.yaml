@@ -1,4 +1,4 @@
-- name: Upgrade ROSA HCP cluster
+- name: Delete the ROSA HCP cluster
   hosts: localhost
   any_errors_fatal: true
   vars_files:
@@ -18,5 +18,5 @@
     - name: Login OCP
       include_tasks: tasks/login_ocp.yml
 
-    - name: Upgrade the ROSA HCP Cluster
-      include_tasks: tasks/upgrade_rosa_control_plane.yml
+    - name: Delete the ROSA HCP Cluster
+      include_tasks: tasks/delete_rosa_hcp_cluster.yml
