@@ -31,7 +31,7 @@ https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.ht
 ```bash
 rosa whoami
 ```
-4. Update the vars/user_var.yml file:
+4. Update the vars/user_var.yml file.
 ```bash
 # user stuff
 OCP_HUB_API_URL: ""
@@ -46,8 +46,8 @@ OCM_CLIENT_SECRET: ""
 ```
 
 
-##There are three ways to use capi_automation:
-###1. CAPI Interactive Assistant
+There are three ways to use capi_automation:
+1. CAPI Interactive Assistant
    
    Use the ```capi_assistant``` script and interactive playbook to work directly with your management environment.
    It provides a guided interface to:
@@ -65,7 +65,7 @@ Run:
 ```
 
 
-###2. End-to-End Tests
+2. End-to-End Tests
    
    Use the ```end2end_test```script and playbook to automatically create, upgrade, and delete a ROSA HCP cluster in a single flow.
    This is useful for continuous testing and validation of the full cluster lifecycle.
@@ -75,7 +75,7 @@ Run:
      ./end2end_tests  
      ```
 
-###3. Direct Playbook Execution
+3. Direct Playbook Execution
    
    Use the ```run_playbook``` script to execute a specific playbook directly.
    This is ideal when you want to perform one action without going through the interactive assistant.
