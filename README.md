@@ -59,21 +59,16 @@ There are three ways to use capi_automation:
     * Delete a ROSA HCP cluster
     * and more....
 
-Run:
-```bash
-./capi_assistant  
-```
-
+   Run: ```./capi_assistant```
+   
 
 2. End-to-End Tests
    
-   Use the ```end2end_test```script and playbook to automatically create, upgrade, and delete a ROSA HCP cluster in a single flow.
+   Use the ```end2end_tests```script and playbook to automatically create, upgrade, and delete a ROSA HCP cluster in a single flow.
    This is useful for continuous testing and validation of the full cluster lifecycle.
 
-   Run:
-    ```
-     ./end2end_tests  
-     ```
+   Run: ```./end2end_tests```
+
 
 3. Direct Playbook Execution
    
@@ -87,21 +82,19 @@ Run:
     * configure_mce_environment
     * verify_mce_environment
 
+    Example usage:
 
-   Example usage:
-   ```./run_playbook.sh create_rosa_hcp_cluster
-   ./run_playbook.sh upgrade_rosa_hcp_cluster
-   ./run_playbook.sh delete_rosa_hcp_cluster
-   ./run_playbook.sh configure_mce_environment
-   ./run_playbook.sh verify_mce_environment
-   ```
+       ./run_playbook create_rosa_hcp_cluster
+       ./run_playbook upgrade_rosa_hcp_cluster
+       ./run_playbook delete_rosa_hcp_cluster
+       ./run_playbook configure_mce_environment
+       ./run_playbook verify_mce_environment
 
+     Jenkins Integration
 
-Run automated tests
+     The ```cap-enable-test.yml``` playbook tests the basic functionality of enabling/disabling CAPI/CAPA. 
 
-The ```cap-enable-test.yml``` playbook tests the basic functionality of enabling/disabling CAPI/CAPA. 
-
-The playbook runs nightly in the Jenkins test runs and uses environment variables.
+     The playbook runs nightly in the Jenkins test runs and uses environment variables.
 
 
 
