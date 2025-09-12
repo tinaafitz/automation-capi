@@ -1,0 +1,82 @@
+# Template Resolver Tasks
+# Handles smart template lookup with fallback logic
+
+- name: Set template resolver variables
+  set_fact:
+    template_name: "{{ template_name | default('') }}"
+    template_category: "{{ template_category | default('cluster-configs') }}"
+    template_extension: "{{ template_extension | default('.yaml.j2') }}"
+
+- name: Construct template paths
+  set_fact:
+    version_specific_template: "{{ version_templates }}/{{ template_category }}/{{ template_name }}{{ template_extension }}"
+    common_template: "{{ common_templates }}/{{ template_name }}{{ template_extension }}"
+    feature_template: "{{ version_templates }}/features/{{ template_name }}{{ template_extension }}"
+
+- name: Debug template paths
+  debug:
+    msg: |
+      Looking for template: {{ template_name }}
+      Version-specific path: {{ version_specific_template }}
+      Common path: {{ common_template }}
+      Feature path: {{ feature_template }}
+  when: template_debug | default(false) | bool
+
+- name: Check if version-specific template exists
+  stat:
+    path: "{{ version_specific_template }}"
+  register: version_template_stat
+
+- name: Check if feature-specific template exists
+  stat:
+    path: "{{ feature_template }}"
+  register: feature_template_stat
+
+- name: Check if common template exists
+  stat:
+    path: "{{ common_template }}"
+  register: common_template_stat
+
+- name: Set resolved template path
+  set_fact:
+    resolved_template_path: "{{ version_specific_template }}"
+    template_source: "version-specific"
+  when: version_template_stat.stat.exists
+
+- name: Fall back to feature template
+  set_fact:
+    resolved_template_path: "{{ feature_template }}"
+    template_source: "feature-specific"
+  when: 
+    - not version_template_stat.stat.exists
+    - feature_template_stat.stat.exists
+
+- name: Fall back to common template
+  set_fact:
+    resolved_template_path: "{{ common_template }}"
+    template_source: "common"
+  when: 
+    - not version_template_stat.stat.exists
+    - not feature_template_stat.stat.exists
+    - common_template_stat.stat.exists
+
+- name: Template not found error
+  fail:
+    msg: |
+      Template '{{ template_name }}' not found in any location:
+      - Version-specific: {{ version_specific_template }}
+      - Feature-specific: {{ feature_template }}
+      - Common: {{ common_template }}
+      Please ensure the template exists in one of these locations.
+  when: 
+    - not version_template_stat.stat.exists
+    - not feature_template_stat.stat.exists
+    - not common_template_stat.stat.exists
+
+- name: Display template resolution result
+  debug:
+    msg: |
+      Template resolved: {{ template_name }}
+      Source: {{ template_source }}
+      Path: {{ resolved_template_path }}
+  when: template_debug | default(false) | bool

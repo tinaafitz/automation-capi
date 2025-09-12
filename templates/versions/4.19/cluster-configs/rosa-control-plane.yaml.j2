@@ -1,0 +1,90 @@
+apiVersion: controlplane.cluster.x-k8s.io/v1beta2
+kind: ROSAControlPlane
+metadata:
+  name: "{{ cluster_name }}"
+  namespace: "{{ capi_namespace }}"
+spec:
+  # OpenShift 4.19 - Enhanced Configuration
+  version: "{{ openshift_version | default('4.19.0') }}"
+  
+  # Enhanced networking configuration for 4.19
+  network:
+    machineCIDR: "{{ machine_cidr | default('10.0.0.0/16') }}"
+    podCIDR: "{{ pod_cidr | default('10.128.0.0/14') }}"
+    serviceCIDR: "{{ service_cidr | default('172.30.0.0/16') }}"
+    hostPrefix: {{ host_prefix | default(23) }}
+    {% if enable_private_cluster | default(false) %}
+    type: "Private"
+    {% endif %}
+  
+  # Advanced machine pool configuration
+  defaultMachinePool:
+    instanceType: "{{ instance_type | default('m5.xlarge') }}"
+    replicas: {{ replicas | default(3) }}
+    {% if custom_disk_size is defined %}
+    rootVolume:
+      size: "{{ custom_disk_size }}Gi"
+      type: "{{ disk_type | default('gp3') }}"
+    {% endif %}
+    {% if enable_spot_instances | default(false) %}
+    spotMarketOptions:
+      maxPrice: "{{ spot_max_price | default('0.10') }}"
+    {% endif %}
+  
+  # Multi-AZ configuration for 4.19
+  region: "{{ aws_region | default('us-east-1') }}"
+  availabilityZones:
+    {% for az in availability_zones | default(['a', 'b', 'c']) %}
+    - "{{ aws_region | default('us-east-1') }}{{ az }}"
+    {% endfor %}
+  
+  # Enhanced security and access configuration
+  endpointAccess: "{{ endpoint_access | default('Public') }}"
+  {% if enable_private_link | default(false) %}
+  enablePrivateLink: true
+  {% endif %}
+  
+  # External OIDC configuration (4.19 feature)
+  {% if external_oidc_config is defined %}
+  oidcConfig:
+    issuerURL: "{{ external_oidc_config.issuer_url }}"
+    clientID: "{{ external_oidc_config.client_id }}"
+    usernameClaim: "{{ external_oidc_config.username_claim | default('preferred_username') }}"
+    groupsClaim: "{{ external_oidc_config.groups_claim | default('groups') }}"
+  {% endif %}
+  
+  # OCM credentials reference
+  credentialsSecretRef:
+    name: "{{ rosa_creds_secret }}"
+    namespace: "{{ capa_system_namespace }}"
+  
+  # Enhanced addon configuration for 4.19
+  addons:
+    - name: "cluster-logging-operator"
+      id: "cluster-logging-operator"
+    - name: "cluster-monitoring-operator"
+      id: "cluster-monitoring-operator"
+    {% if enable_cluster_autoscaler | default(false) %}
+    - name: "cluster-autoscaler"
+      id: "cluster-autoscaler"
+      parameters:
+        expander: "{{ autoscaler_expander | default('least-waste') }}"
+        scaleDownEnabled: "{{ scale_down_enabled | default(true) }}"
+        scaleDownDelayAfterAdd: "{{ scale_down_delay | default('10m') }}"
+    {% endif %}
+    {% if enable_external_dns | default(false) %}
+    - name: "external-dns-operator"
+      id: "external-dns-operator"
+    {% endif %}
+  
+  # Image registry configuration (4.19 feature)
+  {% if image_registry_config is defined %}
+  imageRegistry:
+    managementState: "{{ image_registry_config.management_state | default('Managed') }}"
+    {% if image_registry_config.storage_type == 's3' %}
+    storage:
+      s3:
+        bucket: "{{ image_registry_config.s3_bucket }}"
+        region: "{{ image_registry_config.s3_region | default(aws_region) }}"
+    {% endif %}
+  {% endif %}

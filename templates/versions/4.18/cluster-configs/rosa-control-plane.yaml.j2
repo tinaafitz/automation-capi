@@ -1,0 +1,40 @@
+apiVersion: controlplane.cluster.x-k8s.io/v1beta2
+kind: ROSAControlPlane
+metadata:
+  name: "{{ cluster_name }}"
+  namespace: "{{ capi_namespace }}"
+spec:
+  # OpenShift 4.18 - Basic Configuration
+  version: "{{ openshift_version | default('4.18.0') }}"
+  
+  # Basic networking configuration for 4.18
+  network:
+    machineCIDR: "{{ machine_cidr | default('10.0.0.0/16') }}"
+    podCIDR: "{{ pod_cidr | default('10.128.0.0/14') }}"
+    serviceCIDR: "{{ service_cidr | default('172.30.0.0/16') }}"
+  
+  # Standard machine pool configuration
+  defaultMachinePool:
+    instanceType: "{{ instance_type | default('m5.xlarge') }}"
+    replicas: {{ replicas | default(3) }}
+  
+  # Basic region/AZ configuration
+  region: "{{ aws_region | default('us-east-1') }}"
+  availabilityZones:
+    - "{{ aws_region | default('us-east-1') }}a"
+    - "{{ aws_region | default('us-east-1') }}b"
+  
+  # Basic security configuration
+  endpointAccess: "{{ endpoint_access | default('Public') }}"
+  
+  # OCM credentials reference
+  credentialsSecretRef:
+    name: "{{ rosa_creds_secret }}"
+    namespace: "{{ capa_system_namespace }}"
+  
+  # Basic addon configuration
+  addons:
+    - name: "cluster-logging-operator"
+      id: "cluster-logging-operator"
+    - name: "cluster-monitoring-operator" 
+      id: "cluster-monitoring-operator"

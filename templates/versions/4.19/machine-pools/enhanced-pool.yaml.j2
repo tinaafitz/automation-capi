@@ -1,0 +1,123 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSAMachinePool
+metadata:
+  name: "{{ pool_name | default('worker-pool') }}"
+  namespace: "{{ capi_namespace }}"
+  labels:
+    cluster.x-k8s.io/cluster-name: "{{ cluster_name }}"
+    openshift-version: "{{ openshift_version }}"
+spec:
+  # OpenShift 4.19 - Enhanced Machine Pool Configuration
+  clusterName: "{{ cluster_name }}"
+  
+  # Enhanced instance configuration
+  instanceType: "{{ instance_type | default('m5.xlarge') }}"
+  replicas: {{ replicas | default(3) }}
+  
+  # Enhanced disk configuration with multiple volume types
+  rootVolume:
+    size: {{ disk_size | default(200) }}
+    type: "{{ disk_type | default('gp3') }}"
+    {% if disk_type == 'gp3' %}
+    iops: {{ disk_iops | default(3000) }}
+    throughput: {{ disk_throughput | default(125) }}
+    {% endif %}
+    {% if enable_encryption | default(false) %}
+    encrypted: true
+    {% if kms_key_id is defined %}
+    kmsKeyID: "{{ kms_key_id }}"
+    {% endif %}
+    {% endif %}
+  
+  # Multi-AZ support (4.19 feature)
+  {% if multi_az | default(false) %}
+  availabilityZones:
+    {% for az in availability_zones | default(['a', 'b', 'c']) %}
+    - "{{ aws_region }}{{ az }}"
+    {% endfor %}
+  {% else %}
+  availabilityZone: "{{ availability_zone | default(aws_region + 'a') }}"
+  {% endif %}
+  
+  # Advanced autoscaling with custom metrics
+  {% if enable_autoscaling | default(false) %}
+  autoscaling:
+    minReplicas: {{ min_replicas | default(1) }}
+    maxReplicas: {{ max_replicas | default(20) }}
+    {% if autoscaling_metrics is defined %}
+    targetMetrics:
+      {% for metric in autoscaling_metrics %}
+      - type: "{{ metric.type }}"
+        target: {{ metric.target }}
+        {% if metric.resource is defined %}
+        resource: "{{ metric.resource }}"
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+  {% endif %}
+  
+  # Spot instance support (4.19 feature)
+  {% if enable_spot_instances | default(false) %}
+  spotMarketOptions:
+    maxPrice: "{{ spot_max_price | default('0.10') }}"
+    {% if spot_instance_types is defined %}
+    instanceTypes:
+      {% for instance_type in spot_instance_types %}
+      - "{{ instance_type }}"
+      {% endfor %}
+    {% endif %}
+  {% endif %}
+  
+  # Enhanced labels and annotations
+  {% if node_labels is defined %}
+  nodeLabels:
+    {% for key, value in node_labels.items() %}
+    {{ key }}: "{{ value }}"
+    {% endfor %}
+    cluster.x-k8s.io/machine-pool: "{{ pool_name | default('worker-pool') }}"
+    node.kubernetes.io/instance-type: "{{ instance_type | default('m5.xlarge') }}"
+  {% endif %}
+  
+  {% if node_taints is defined %}
+  taints:
+    {% for taint in node_taints %}
+    - key: "{{ taint.key }}"
+      value: "{{ taint.value | default('') }}"
+      effect: "{{ taint.effect }}"
+    {% endfor %}
+  {% endif %}
+  
+  # Custom subnet and security group configuration
+  {% if subnet_id is defined %}
+  subnet: "{{ subnet_id }}"
+  {% endif %}
+  
+  {% if additional_security_groups is defined %}
+  additionalSecurityGroups:
+    {% for sg in additional_security_groups %}
+    - "{{ sg }}"
+    {% endfor %}
+  {% endif %}
+  
+  # Node configuration (4.19 feature)
+  {% if node_config is defined %}
+  nodeConfiguration:
+    {% if node_config.kubelet_config is defined %}
+    kubeletConfig:
+      {% for key, value in node_config.kubelet_config.items() %}
+      {{ key }}: {{ value }}
+      {% endfor %}
+    {% endif %}
+    {% if node_config.container_runtime is defined %}
+    containerRuntime: "{{ node_config.container_runtime }}"
+    {% endif %}
+    {% if node_config.max_pods is defined %}
+    maxPods: {{ node_config.max_pods }}
+    {% endif %}
+  {% endif %}
+  
+  # User data for custom initialization
+  {% if user_data is defined %}
+  userData: |
+    {{ user_data | indent(4) }}
+  {% endif %}

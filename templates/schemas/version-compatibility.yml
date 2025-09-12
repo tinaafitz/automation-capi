@@ -1,0 +1,72 @@
+# Version Compatibility and Validation Rules
+
+# Supported OpenShift versions
+supported_versions:
+  - "4.18"
+  - "4.19" 
+  - "4.20"
+
+# Default version if none specified
+default_version: "4.19"
+
+# Version validation rules
+validation_rules:
+  version_format: "^4\\.(1[8-9]|2[0-9])$"
+  min_supported: "4.18"
+  max_supported: "4.20"
+  
+# Template path patterns
+template_paths:
+  version_specific: "templates/versions/{{ openshift_version }}"
+  common: "templates/common"
+  schemas: "templates/schemas"
+  
+# Feature availability by version
+feature_availability:
+  external_oidc:
+    min_version: "4.19"
+    max_version: null
+  cluster_autoscaler_expander:
+    min_version: "4.19"
+    max_version: null
+  parallel_node_upgrades:
+    min_version: "4.19"
+    max_version: null
+  multi_arch_support:
+    min_version: "4.20"
+    max_version: null
+  enhanced_security:
+    min_version: "4.20"
+    max_version: null
+  basic_networking:
+    min_version: "4.18"
+    max_version: "4.19"
+    deprecated_in: "4.20"
+
+# Resource requirements by version
+resource_requirements:
+  "4.18":
+    min_nodes: 2
+    min_vcpu: 4
+    min_memory: "8Gi"
+    min_storage: "100Gi"
+  "4.19":
+    min_nodes: 2
+    min_vcpu: 4
+    min_memory: "8Gi" 
+    min_storage: "120Gi"
+  "4.20":
+    min_nodes: 3
+    min_vcpu: 8
+    min_memory: "16Gi"
+    min_storage: "200Gi"
+
+# Deprecation warnings
+deprecation_warnings:
+  "4.18":
+    - "OpenShift 4.18 will reach end of support in 6 months"
+    - "Consider upgrading to 4.19 for latest features"
+  "4.19":
+    - "Some legacy features deprecated in favor of 4.20 equivalents"
+  "4.20":
+    - "Preview version - use with caution in production"

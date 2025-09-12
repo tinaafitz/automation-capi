@@ -1,0 +1,51 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSAMachinePool
+metadata:
+  name: "{{ pool_name | default('worker-pool') }}"
+  namespace: "{{ capi_namespace }}"
+  labels:
+    cluster.x-k8s.io/cluster-name: "{{ cluster_name }}"
+spec:
+  # OpenShift 4.18 - Standard Machine Pool Configuration
+  clusterName: "{{ cluster_name }}"
+  
+  # Basic instance configuration
+  instanceType: "{{ instance_type | default('m5.large') }}"
+  replicas: {{ replicas | default(3) }}
+  
+  # Basic disk configuration
+  rootVolume:
+    size: {{ disk_size | default(120) }}
+    type: "{{ disk_type | default('gp2') }}"
+  
+  # Availability zones
+  availabilityZone: "{{ availability_zone | default(aws_region + 'a') }}"
+  
+  # Basic autoscaling (4.18 supports basic autoscaling)
+  {% if enable_autoscaling | default(false) %}
+  autoscaling:
+    minReplicas: {{ min_replicas | default(1) }}
+    maxReplicas: {{ max_replicas | default(10) }}
+  {% endif %}
+  
+  # Basic labels and taints
+  {% if node_labels is defined %}
+  nodeLabels:
+    {% for key, value in node_labels.items() %}
+    {{ key }}: "{{ value }}"
+    {% endfor %}
+  {% endif %}
+  
+  {% if node_taints is defined %}
+  taints:
+    {% for taint in node_taints %}
+    - key: "{{ taint.key }}"
+      value: "{{ taint.value | default('') }}"
+      effect: "{{ taint.effect }}"
+    {% endfor %}
+  {% endif %}
+  
+  # Basic subnet configuration
+  {% if subnet_id is defined %}
+  subnet: "{{ subnet_id }}"
+  {% endif %}

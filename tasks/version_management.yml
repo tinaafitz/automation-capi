@@ -1,0 +1,52 @@
+# Version Management Tasks
+# Provides version validation and template resolution
+
+- name: Load version compatibility schema
+  include_vars:
+    file: "{{ version_compatibility_file }}"
+    name: version_compat
+
+- name: Load feature matrix
+  include_vars:
+    file: "{{ feature_matrix_file }}"
+    name: feature_matrix
+
+- name: Validate OpenShift version
+  fail:
+    msg: |
+      Invalid OpenShift version: {{ openshift_version }}
+      Supported versions: {{ supported_versions | join(', ') }}
+      Please set openshift_version to one of the supported values.
+  when: openshift_version not in supported_versions
+
+- name: Set version-specific paths
+  set_fact:
+    version_templates: "{{ template_version_path }}"
+    common_templates: "{{ common_template_path }}"
+    current_version_features: "{{ feature_matrix.version_features[openshift_version] }}"
+    version_defaults: "{{ feature_matrix.default_configs[openshift_version] }}"
+
+- name: Display version information
+  debug:
+    msg: |
+      Using OpenShift version: {{ openshift_version }}
+      Template path: {{ version_templates }}
+      Available features: {{ current_version_features.supported_features | join(', ') }}
+      Default cluster type: {{ version_defaults.cluster_type }}
+
+- name: Check for deprecation warnings
+  debug:
+    msg: "WARNING: {{ item }}"
+  loop: "{{ version_compat.deprecation_warnings[openshift_version] | default([]) }}"
+  when: version_compat.deprecation_warnings[openshift_version] is defined
+
+- name: Validate feature availability
+  fail:
+    msg: |
+      Feature '{{ item }}' is not available in OpenShift {{ openshift_version }}
+      This feature requires minimum version {{ version_compat.feature_availability[item].min_version }}
+  loop: "{{ requested_features | default([]) }}"
+  when: 
+    - version_compat.feature_availability[item] is defined
+    - version_compat.feature_availability[item].min_version is defined
+    - openshift_version is version(version_compat.feature_availability[item].min_version, '<')
