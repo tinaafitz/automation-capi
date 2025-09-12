@@ -5,6 +5,14 @@
     - vars/vars.yml
     - vars/user_vars.yml
   vars_prompt:
+    - name: openshift_version_selection
+      prompt: |
+       Select OpenShift version:
+          1 - OpenShift 4.18 (Stable - Basic features)
+          2 - OpenShift 4.19 (Current - Enhanced features) 
+          3 - OpenShift 4.20 (Latest - Premium features)
+      default: "2"
+      private: no
     - name: selected_action
       prompt: |
        Choose one of the following:
@@ -26,12 +34,19 @@
          15 - Set the AWSClusterControllerIdentity.
       private: no
   tasks:
+    - name: Convert version selection to version string
+      set_fact:
+        openshift_version: "{{ {'1': '4.18', '2': '4.19', '3': '4.20'}[openshift_version_selection] }}"
+    
     - set_fact:
         ocp_user:  "{{ OCP_HUB_CLUSTER_USER }}"
         ocp_password:  "{{ OCP_HUB_CLUSTER_PASSWORD }}"
         api_url:  "{{ OCP_HUB_API_URL }}"
         mce_namespace: "{{ MCE_NAMESPACE }}"
         finished: false
+
+    - name: Initialize version management
+      include_tasks: tasks/version_management.yml
 
     - name: Prepare ansible runner host
       include_tasks: tasks/prepare_ansible_runner.yml

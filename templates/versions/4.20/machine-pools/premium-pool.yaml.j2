@@ -1,0 +1,239 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSAMachinePool
+metadata:
+  name: "{{ pool_name | default('worker-pool') }}"
+  namespace: "{{ capi_namespace }}"
+  labels:
+    cluster.x-k8s.io/cluster-name: "{{ cluster_name }}"
+    openshift-version: "{{ openshift_version }}"
+    machine-pool-type: "premium"
+spec:
+  # OpenShift 4.20 - Premium Machine Pool Configuration
+  clusterName: "{{ cluster_name }}"
+  
+  # Premium instance configuration with multi-arch support
+  instanceType: "{{ instance_type | default('m6i.xlarge') }}"
+  {% if enable_arm_instances | default(false) %}
+  architecture: "{{ architecture | default('arm64') }}"
+  {% endif %}
+  replicas: {{ replicas | default(3) }}
+  
+  # Premium storage configuration with NVMe support
+  rootVolume:
+    size: {{ disk_size | default(500) }}
+    type: "{{ disk_type | default('gp3') }}"
+    iops: {{ disk_iops | default(16000) }}
+    throughput: {{ disk_throughput | default(1000) }}
+    encrypted: {{ enable_encryption | default(true) }}
+    {% if kms_key_id is defined %}
+    kmsKeyID: "{{ kms_key_id }}"
+    {% endif %}
+  
+  # Additional volumes for specialized workloads
+  {% if additional_volumes is defined %}
+  additionalVolumes:
+    {% for volume in additional_volumes %}
+    - name: "{{ volume.name }}"
+      size: {{ volume.size }}
+      type: "{{ volume.type | default('gp3') }}"
+      mountPath: "{{ volume.mount_path }}"
+      {% if volume.iops is defined %}
+      iops: {{ volume.iops }}
+      {% endif %}
+      {% if volume.throughput is defined %}
+      throughput: {{ volume.throughput }}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+  
+  # Multi-AZ with placement group support
+  {% if multi_az | default(true) %}
+  availabilityZones:
+    {% for az in availability_zones | default(['a', 'b', 'c']) %}
+    - "{{ aws_region }}{{ az }}"
+    {% endfor %}
+  {% if enable_placement_group | default(false) %}
+  placementGroup:
+    strategy: "{{ placement_strategy | default('cluster') }}"
+  {% endif %}
+  {% else %}
+  availabilityZone: "{{ availability_zone | default(aws_region + 'a') }}"
+  {% endif %}
+  
+  # AI/ML optimized autoscaling (4.20 feature)
+  {% if enable_autoscaling | default(false) %}
+  autoscaling:
+    minReplicas: {{ min_replicas | default(1) }}
+    maxReplicas: {{ max_replicas | default(100) }}
+    {% if ai_workload_optimization | default(false) %}
+    aiOptimization:
+      enabled: true
+      gpuUtilizationThreshold: {{ gpu_utilization_threshold | default(70) }}
+      scaleUpCooldown: "{{ scale_up_cooldown | default('2m') }}"
+      scaleDownCooldown: "{{ scale_down_cooldown | default('5m') }}"
+    {% endif %}
+    targetMetrics:
+      - type: "Resource"
+        resource: "cpu"
+        target: {{ cpu_target | default(80) }}
+      - type: "Resource"
+        resource: "memory"
+        target: {{ memory_target | default(80) }}
+      {% if enable_gpu_instances | default(false) %}
+      - type: "Resource"
+        resource: "nvidia.com/gpu"
+        target: {{ gpu_target | default(70) }}
+      {% endif %}
+  {% endif %}
+  
+  # GPU and accelerator support (4.20 feature)
+  {% if enable_gpu_instances | default(false) %}
+  accelerators:
+    - type: "{{ gpu_type | default('nvidia-tesla-v100') }}"
+      count: {{ gpu_count | default(1) }}
+      {% if gpu_memory is defined %}
+      memory: "{{ gpu_memory }}"
+      {% endif %}
+  {% endif %}
+  
+  # Advanced spot instance configuration
+  {% if enable_spot_instances | default(false) %}
+  spotMarketOptions:
+    maxPrice: "{{ spot_max_price | default('0.50') }}"
+    instanceTypes:
+      {% for instance_type in spot_instance_types | default([instance_type]) %}
+      - "{{ instance_type }}"
+      {% endfor %}
+    allocationStrategy: "{{ spot_allocation_strategy | default('diversified') }}"
+    onDemandBaseCapacity: {{ on_demand_base_capacity | default(0) }}
+    onDemandPercentage: {{ on_demand_percentage | default(20) }}
+  {% endif %}
+  
+  # Enhanced node configuration with custom runtime
+  nodeConfiguration:
+    {% if enable_containerd_runtime | default(true) %}
+    containerRuntime: "containerd"
+    containerRuntimeConfig:
+      version: "{{ containerd_version | default('1.6.20') }}"
+      plugins:
+        - name: "cri"
+          config:
+            sandbox_image: "{{ sandbox_image | default('registry.k8s.io/pause:3.9') }}"
+    {% endif %}
+    
+    kubeletConfig:
+      maxPods: {{ max_pods | default(250) }}
+      {% if enable_gpu_instances | default(false) %}
+      featureGates:
+        DevicePlugins: true
+        GPUDevicePlugin: true
+      {% endif %}
+      {% if custom_kubelet_args is defined %}
+      customArgs:
+        {% for key, value in custom_kubelet_args.items() %}
+        {{ key }}: "{{ value }}"
+        {% endfor %}
+      {% endif %}
+    
+    {% if enable_hugepages | default(false) %}
+    hugepagesConfig:
+      defaultHugepagesSize: "{{ hugepages_size | default('2Mi') }}"
+      hugepages:
+        {% for hugepage in hugepages_config | default([]) %}
+        - size: "{{ hugepage.size }}"
+          count: {{ hugepage.count }}
+        {% endfor %}
+    {% endif %}
+  
+  # Premium security configuration
+  {% if enable_enhanced_security | default(false) %}
+  securityConfiguration:
+    enableSecureBoot: {{ enable_secure_boot | default(true) }}
+    enableTPM: {{ enable_tpm | default(true) }}
+    enableEncryptedEBS: {{ enable_encrypted_ebs | default(true) }}
+    {% if custom_iam_role is defined %}
+    iamInstanceProfile: "{{ custom_iam_role }}"
+    {% endif %}
+    {% if security_groups is defined %}
+    securityGroups:
+      {% for sg in security_groups %}
+      - "{{ sg }}"
+      {% endfor %}
+    {% endif %}
+  {% endif %}
+  
+  # Advanced networking configuration
+  {% if advanced_networking is defined %}
+  networkConfiguration:
+    {% if advanced_networking.enable_sr_iov | default(false) %}
+    sriovConfig:
+      enabled: true
+      numVfs: {{ advanced_networking.num_vfs | default(8) }}
+    {% endif %}
+    {% if advanced_networking.enable_dpdk | default(false) %}
+    dpdkConfig:
+      enabled: true
+      hugepageSize: "{{ advanced_networking.hugepage_size | default('1Gi') }}"
+    {% endif %}
+    {% if advanced_networking.custom_cni is defined %}
+    cniConfig:
+      type: "{{ advanced_networking.custom_cni.type }}"
+      version: "{{ advanced_networking.custom_cni.version }}"
+    {% endif %}
+  {% endif %}
+  
+  # Enhanced labels and annotations for 4.20
+  {% if node_labels is defined %}
+  nodeLabels:
+    {% for key, value in node_labels.items() %}
+    {{ key }}: "{{ value }}"
+    {% endfor %}
+    cluster.x-k8s.io/machine-pool: "{{ pool_name | default('worker-pool') }}"
+    node.kubernetes.io/instance-type: "{{ instance_type | default('m6i.xlarge') }}"
+    {% if enable_gpu_instances | default(false) %}
+    accelerator: "{{ gpu_type | default('nvidia-tesla-v100') }}"
+    {% endif %}
+    {% if enable_arm_instances | default(false) %}
+    kubernetes.io/arch: "arm64"
+    {% endif %}
+  {% endif %}
+  
+  # Advanced taints for workload isolation
+  {% if node_taints is defined %}
+  taints:
+    {% for taint in node_taints %}
+    - key: "{{ taint.key }}"
+      value: "{{ taint.value | default('') }}"
+      effect: "{{ taint.effect }}"
+    {% endfor %}
+  {% endif %}
+  
+  # Subnet and network configuration
+  {% if subnet_id is defined %}
+  subnet: "{{ subnet_id }}"
+  {% endif %}
+  
+  {% if additional_security_groups is defined %}
+  additionalSecurityGroups:
+    {% for sg in additional_security_groups %}
+    - "{{ sg }}"
+    {% endfor %}
+  {% endif %}
+  
+  # Edge computing configuration (4.20 feature)
+  {% if enable_edge_computing | default(false) %}
+  edgeConfiguration:
+    enabled: true
+    localStorageConfig:
+      type: "{{ edge_storage_type | default('nvme') }}"
+      size: "{{ edge_storage_size | default('1Ti') }}"
+    networkOptimizations:
+      enableLowLatency: {{ enable_low_latency | default(true) }}
+      bandwidthLimit: "{{ bandwidth_limit | default('10Gbps') }}"
+  {% endif %}
+  
+  # Custom initialization script
+  {% if user_data is defined %}
+  userData: |
+    {{ user_data | indent(4) }}
+  {% endif %}

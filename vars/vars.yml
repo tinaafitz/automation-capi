@@ -4,6 +4,15 @@ skip_ansible_runner: false
 # ansible_async_dir: '/root/.ansible_async'
 ansible_async_dir: '/tmp/.ansible_async'
 
+#==== Version Management ====
+openshift_version: "4.19"                    # Default OpenShift version
+supported_versions: ["4.18", "4.19", "4.20"]
+template_version_path: "templates/versions/{{ openshift_version }}"
+common_template_path: "templates/common"
+schemas_path: "templates/schemas"
+feature_matrix_file: "{{ schemas_path }}/feature-matrix.yml"
+version_compatibility_file: "{{ schemas_path }}/version-compatibility.yml"
+
 #==== OCP ====
 api_url: ""
 catalog_sources:

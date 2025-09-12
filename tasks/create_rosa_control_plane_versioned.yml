@@ -1,0 +1,69 @@
+# Version-Aware ROSA Control Plane Creation
+# Uses template resolver to find appropriate template for selected OpenShift version
+
+- name: Set cluster creation variables
+  set_fact:
+    cluster_name: "{{ cluster_name | default('rosa-hcp-cluster') }}"
+    template_name: "rosa-control-plane"
+    template_category: "cluster-configs"
+    template_extension: ".yaml.j2"
+    template_debug: true
+
+- name: Resolve cluster config template
+  include_tasks: tasks/template_resolver.yml
+
+- name: Validate cluster name
+  fail:
+    msg: "Cluster name must be provided and cannot be empty"
+  when: cluster_name == ""
+
+- name: Create output directory
+  file:
+    path: "{{ output_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Generate version-specific ROSA control plane configuration
+  template:
+    src: "{{ resolved_template_path }}"
+    dest: "{{ output_dir }}/{{ cluster_name }}-rosa-control-plane.yaml"
+    mode: '0644'
+  register: control_plane_result
+
+- name: Display generated configuration info
+  debug:
+    msg: |
+      ROSA Control Plane configuration generated:
+      - OpenShift Version: {{ openshift_version }}
+      - Template Source: {{ template_source }}
+      - Template Path: {{ resolved_template_path }}
+      - Output File: {{ output_dir }}/{{ cluster_name }}-rosa-control-plane.yaml
+      - Cluster Type: {{ version_defaults.cluster_type }}
+
+- name: Show available features for selected version
+  debug:
+    msg: |
+      Available features for OpenShift {{ openshift_version }}:
+      {% for feature in current_version_features.supported_features %}
+      - {{ feature }}
+      {% endfor %}
+
+- name: Apply ROSA control plane configuration
+  shell: |
+    oc apply -f {{ output_dir }}/{{ cluster_name }}-rosa-control-plane.yaml
+  when: apply_immediately | default(false) | bool
+  register: apply_result
+
+- name: Display apply result
+  debug:
+    msg: "{{ apply_result.stdout }}"
+  when: 
+    - apply_immediately | default(false) | bool
+    - apply_result is defined
+
+- name: Display manual apply instructions
+  debug:
+    msg: |
+      To apply the configuration manually, run:
+      oc apply -f {{ output_dir }}/{{ cluster_name }}-rosa-control-plane.yaml
+  when: not apply_immediately | default(false) | bool
