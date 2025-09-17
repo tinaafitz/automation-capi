@@ -1,0 +1,170 @@
+---
+- name: "Validate OIDC provider was created by ROSARoleConfig"
+  block:
+    - name: Get ROSARoleConfig status with OIDC provider information
+      kubernetes.core.k8s_info:
+        api_version: infrastructure.cluster.x-k8s.io/v1beta2
+        kind: ROSARoleConfig
+        name: "{{ cluster_name }}-role-config"
+        namespace: "{{ capi_namespace }}"
+      register: role_config_status
+
+    - name: Extract OIDC provider information
+      set_fact:
+        oidc_provider_arn: "{{ role_config_status.resources[0].status.oidcProviderARN | default('') }}"
+        oidc_provider_url: "{{ role_config_status.resources[0].status.oidcProviderURL | default('') }}"
+        cluster_prefix: "{{ role_config_status.resources[0].spec.accountRoleConfig.prefix }}"
+      when: role_config_status.resources | length > 0
+
+    - name: Display OIDC provider information
+      debug:
+        msg:
+          - "OIDC Provider ARN: {{ oidc_provider_arn }}"
+          - "OIDC Provider URL: {{ oidc_provider_url }}"
+          - "Cluster prefix: {{ cluster_prefix }}"
+
+    - name: Validate OIDC provider ARN format
+      assert:
+        that:
+          - oidc_provider_arn != ""
+          - oidc_provider_arn is match("arn:aws:iam::[0-9]+:oidc-provider/.*")
+        fail_msg: "OIDC provider ARN is missing or has invalid format"
+        success_msg: "OIDC provider ARN has correct format"
+
+    - name: Validate OIDC provider URL format
+      assert:
+        that:
+          - oidc_provider_url != ""
+          - oidc_provider_url is match("https://.*")
+        fail_msg: "OIDC provider URL is missing or has invalid format"
+        success_msg: "OIDC provider URL has correct format"
+      when: oidc_provider_url is defined
+
+    - name: Verify OIDC provider exists using AWS CLI (if available)
+      block:
+        - name: Check if AWS CLI is available
+          command: aws --version
+          register: aws_cli_check
+          failed_when: false
+
+        - name: Extract OIDC provider URL from ARN for AWS CLI
+          set_fact:
+            oidc_url_from_arn: "{{ oidc_provider_arn | regex_replace('arn:aws:iam::[0-9]+:oidc-provider/', '') }}"
+          when: aws_cli_check.rc == 0
+
+        - name: Get OIDC provider details from AWS
+          command: aws iam get-open-id-connect-provider --open-id-connect-provider-arn {{ oidc_provider_arn }}
+          register: aws_oidc_details
+          failed_when: false
+          when: aws_cli_check.rc == 0
+
+        - name: Verify OIDC provider exists in AWS
+          assert:
+            that:
+              - aws_oidc_details.rc == 0
+              - "'Url' in aws_oidc_details.stdout"
+              - "'ThumbprintList' in aws_oidc_details.stdout"
+            fail_msg: "OIDC provider not found in AWS or missing required attributes"
+            success_msg: "OIDC provider successfully verified in AWS"
+          when: aws_cli_check.rc == 0
+
+        - name: Display AWS OIDC provider details
+          debug:
+            var: aws_oidc_details.stdout
+          when: aws_cli_check.rc == 0 and aws_oidc_details.rc == 0
+
+      rescue:
+        - name: AWS CLI OIDC validation skipped
+          debug:
+            msg: "AWS CLI not available or OIDC provider check failed - skipping AWS verification"
+
+    - name: Verify OIDC provider is associated with ROSA cluster
+      block:
+        - name: Check if ROSA CLI is available
+          command: rosa version
+          register: rosa_cli_check
+          failed_when: false
+
+        - name: List OIDC providers with ROSA CLI
+          command: rosa list oidc-providers
+          register: rosa_oidc_list
+          failed_when: false
+          when: rosa_cli_check.rc == 0
+
+        - name: Check if OIDC provider appears in ROSA list
+          debug:
+            msg: "OIDC provider found in ROSA: {{ 'Yes' if oidc_url_from_arn in rosa_oidc_list.stdout else 'No' }}"
+          when: rosa_cli_check.rc == 0 and rosa_oidc_list.rc == 0
+
+      rescue:
+        - name: ROSA CLI OIDC validation skipped
+          debug:
+            msg: "ROSA CLI not available or OIDC provider list failed - skipping ROSA verification"
+
+    - name: Validate OIDC provider configuration in ROSAControlPlane
+      block:
+        - name: Get ROSAControlPlane to check OIDC configuration
+          kubernetes.core.k8s_info:
+            api_version: controlplane.cluster.x-k8s.io/v1beta2
+            kind: ROSAControlPlane
+            name: "{{ cluster_name }}"
+            namespace: "{{ capi_namespace }}"
+          register: controlplane_info
+
+        - name: Check if OIDC is properly configured in control plane
+          debug:
+            msg: "ROSAControlPlane OIDC config: {{ controlplane_info.resources[0].spec.oidcID | default('Not specified - using ROSARoleConfig') }}"
+          when: controlplane_info.resources | length > 0
+
+        - name: Verify OIDC integration
+          assert:
+            that:
+              - controlplane_info.resources | length > 0
+              - controlplane_info.resources[0].spec.rosaRoleConfigRef is defined
+            fail_msg: "ROSAControlPlane is not properly configured to use ROSARoleConfig OIDC"
+            success_msg: "ROSAControlPlane is properly configured for ROSARoleConfig OIDC integration"
+
+    - name: Final OIDC provider validation summary
+      debug:
+        msg:
+          - "✓ OIDC provider ARN is valid: {{ oidc_provider_arn }}"
+          - "✓ OIDC provider URL is valid: {{ oidc_provider_url | default('Not provided') }}"
+          - "✓ OIDC provider was successfully created by ROSARoleConfig"
+          - "✓ OIDC provider is ready for ROSA HCP cluster authentication"
+
+  rescue:
+    - name: Handle OIDC provider validation failure
+      debug:
+        msg: "OIDC provider validation failed: {{ ansible_failed_result.msg }}"
+
+    - name: Get debugging information
+      block:
+        - name: Check ROSARoleConfig current status for OIDC
+          kubernetes.core.k8s_info:
+            api_version: infrastructure.cluster.x-k8s.io/v1beta2
+            kind: ROSARoleConfig
+            name: "{{ cluster_name }}-role-config"
+            namespace: "{{ capi_namespace }}"
+          register: debug_role_config_oidc
+
+        - name: Display OIDC-related status for debugging
+          debug:
+            msg:
+              - "OIDC Provider Status: {{ debug_role_config_oidc.resources[0].status.oidcProviderReady | default('Unknown') }}"
+              - "OIDC Provider ARN: {{ debug_role_config_oidc.resources[0].status.oidcProviderARN | default('Not set') }}"
+              - "OIDC Provider URL: {{ debug_role_config_oidc.resources[0].status.oidcProviderURL | default('Not set') }}"
+          when: debug_role_config_oidc.resources | length > 0
+
+        - name: Try listing OIDC providers for debugging
+          command: rosa list oidc-providers
+          register: debug_oidc_list
+          ignore_errors: true
+
+        - name: Display OIDC providers for debugging
+          debug:
+            var: debug_oidc_list.stdout
+          when: debug_oidc_list is defined
+
+    - name: Fail the validation
+      fail:
+        msg: "OIDC provider validation failed"

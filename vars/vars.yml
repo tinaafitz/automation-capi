@@ -90,6 +90,27 @@ mch_comps_to_be_added:
   - name: multicluster-engine
     status: true
 
+#==== ACM-21162 Testing ====
+acm21162_config:
+  enabled: true
+  kind_cluster_name: "capa-roles-test"
+  feature_flags:
+    EXP_ROSA: "true"
+    EXP_MACHINE_POOL: "true"
+    CLUSTER_TOPOLOGY: "true"
+
+rosa_role_config:
+  enabled: true
+  default_prefix: "{{ cluster_name_prefix | default('acm21162') }}"
+  default_version: "4.20"
+  creation_timeout: 1200  # 20 minutes
+  propagation_delay: 30   # AWS role propagation delay
+
+capa_controller_420:
+  image: "quay.io/melserng/cluster-api-aws-controller-amd64:dev"
+  tag: "4.20.0-rc.0"
+  robin_crds_base_url: "https://raw.githubusercontent.com/kubernetes-sigs/cluster-api-provider-aws/main/config/crd/bases"
+
 #==== Others ====
 operators:
   oadp:

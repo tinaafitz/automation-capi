@@ -1,0 +1,199 @@
+---
+- name: ACM-21162 Environment Setup for ROSARoleConfig Testing
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - vars/vars.yml
+    - vars/user_vars.yml
+  vars:
+    acm21162_kind_cluster: "capa-roles-test"
+    acm21162_feature_flags:
+      EXP_ROSA: "true"
+      EXP_MACHINE_POOL: "true"
+      CLUSTER_TOPOLOGY: "true"
+    capa_420_image: "quay.io/melserng/cluster-api-aws-controller-amd64:dev"
+    capa_420_tag: "4.20.0-rc.0"
+    robin_crds_base_url: "https://raw.githubusercontent.com/kubernetes-sigs/cluster-api-provider-aws/main/config/crd/bases"
+
+  tasks:
+    - name: Verify prerequisite tools are available
+      block:
+        - name: Check if kind is installed
+          command: kind version
+          register: kind_check
+          failed_when: false
+
+        - name: Check if kubectl is installed
+          command: kubectl version --client
+          register: kubectl_check
+          failed_when: false
+
+        - name: Check if clusterctl is installed
+          command: clusterctl version
+          register: clusterctl_check
+          failed_when: false
+
+        - name: Check if rosa is installed
+          command: rosa version
+          register: rosa_check
+          failed_when: false
+
+        - name: Verify all tools are available
+          assert:
+            that:
+              - kind_check.rc == 0
+              - kubectl_check.rc == 0
+              - clusterctl_check.rc == 0
+              - rosa_check.rc == 0
+            fail_msg: "Missing required tools. Please install kind, kubectl, clusterctl, and rosa"
+            success_msg: "All prerequisite tools are available"
+
+    - name: Verify ROSA authentication
+      block:
+        - name: Check ROSA login status
+          command: rosa whoami
+          register: rosa_whoami
+          failed_when: false
+
+        - name: Display ROSA authentication status
+          debug:
+            var: rosa_whoami.stdout
+
+        - name: Verify ROSA is authenticated
+          assert:
+            that: rosa_whoami.rc == 0
+            fail_msg: "Not authenticated with ROSA. Please run: rosa login --env staging --use-auth-code"
+            success_msg: "ROSA authentication verified"
+
+    - name: Set up AWS environment variables
+      block:
+        - name: Set AWS region
+          set_fact:
+            aws_region: "{{ aws_region | default('us-east-1') }}"
+
+        - name: Export environment variables for CAPI/CAPA
+          shell: |
+            export AWS_REGION={{ aws_region }}
+            export EXP_ROSA="{{ acm21162_feature_flags.EXP_ROSA }}"
+            export EXP_MACHINE_POOL="{{ acm21162_feature_flags.EXP_MACHINE_POOL }}"
+            export CLUSTER_TOPOLOGY="{{ acm21162_feature_flags.CLUSTER_TOPOLOGY }}"
+            export AWS_B64ENCODED_CREDENTIALS=$(clusterawsadm bootstrap credentials encode-as-profile)
+            echo "Environment variables set successfully"
+          register: env_setup
+
+        - name: Display environment setup result
+          debug:
+            var: env_setup.stdout
+
+    - name: Create kind cluster for ACM-21162 testing
+      block:
+        - name: Check if kind cluster already exists
+          command: kind get clusters
+          register: existing_clusters
+          failed_when: false
+
+        - name: Delete existing cluster if it exists
+          command: kind delete cluster --name {{ acm21162_kind_cluster }}
+          when: acm21162_kind_cluster in existing_clusters.stdout
+          ignore_errors: true
+
+        - name: Create new kind cluster
+          command: kind create cluster --name {{ acm21162_kind_cluster }}
+          register: kind_creation
+
+        - name: Verify kind cluster creation
+          assert:
+            that: kind_creation.rc == 0
+            fail_msg: "Failed to create kind cluster"
+            success_msg: "Kind cluster created successfully"
+
+        - name: Set kubectl context to new cluster
+          command: kubectl cluster-info --context kind-{{ acm21162_kind_cluster }}
+          register: cluster_info
+
+        - name: Display cluster information
+          debug:
+            var: cluster_info.stdout
+
+    - name: Initialize CAPI management cluster
+      block:
+        - name: Initialize cluster with CAPI and CAPA
+          command: clusterctl init --infrastructure aws
+          environment:
+            AWS_REGION: "{{ aws_region }}"
+            EXP_ROSA: "{{ acm21162_feature_flags.EXP_ROSA }}"
+            EXP_MACHINE_POOL: "{{ acm21162_feature_flags.EXP_MACHINE_POOL }}"
+            CLUSTER_TOPOLOGY: "{{ acm21162_feature_flags.CLUSTER_TOPOLOGY }}"
+          register: clusterctl_init
+
+        - name: Display clusterctl initialization result
+          debug:
+            var: clusterctl_init.stdout
+
+        - name: Wait for CAPI system pods to be ready
+          command: kubectl wait --for=condition=Ready pod -l cluster.x-k8s.io/provider=cluster-api -n capi-system --timeout=300s
+          register: capi_pods_ready
+
+        - name: Wait for CAPA system pods to be ready
+          command: kubectl wait --for=condition=Ready pod -l cluster.x-k8s.io/provider=infrastructure-aws -n capa-system --timeout=300s
+          register: capa_pods_ready
+
+    - name: Apply ROSARoleConfig CRDs
+      block:
+        - name: Apply ROSAControlPlane CRD (Robin's version)
+          uri:
+            url: "{{ robin_crds_base_url }}/controlplane.cluster.x-k8s.io_rosacontrolplanes.yaml"
+            method: GET
+            return_content: yes
+          register: rosacontrolplane_crd
+
+        - name: Apply ROSAControlPlane CRD
+          kubernetes.core.k8s:
+            definition: "{{ rosacontrolplane_crd.content | from_yaml_all | list }}"
+            state: present
+
+        - name: Apply ROSARoleConfig CRD (Robin's version)
+          uri:
+            url: "{{ robin_crds_base_url }}/infrastructure.cluster.x-k8s.io_rosaroleconfigs.yaml"
+            method: GET
+            return_content: yes
+          register: rosaroleconfig_crd
+
+        - name: Apply ROSARoleConfig CRD
+          kubernetes.core.k8s:
+            definition: "{{ rosaroleconfig_crd.content | from_yaml_all | list }}"
+            state: present
+
+        - name: Verify CRDs are installed
+          command: kubectl get crd rosacontrolplanes.controlplane.cluster.x-k8s.io rosaroleconfigs.infrastructure.cluster.x-k8s.io
+          register: crd_verification
+
+        - name: Display CRD verification
+          debug:
+            var: crd_verification.stdout
+
+    - name: Update CAPA controller for 4.20 functionality
+      include_tasks: tasks/update_capa_controller_image.yml
+
+    - name: Update CAPA ClusterRole permissions
+      include_tasks: tasks/update_capa_clusterrole.yml
+
+    - name: Verify CAPA controller is ready
+      include_tasks: tasks/verify_capa_controller.yml
+
+    - name: Create namespace for ACM-21162 testing
+      kubernetes.core.k8s:
+        name: "{{ capi_namespace }}"
+        api_version: v1
+        kind: Namespace
+        state: present
+
+    - name: Environment setup completion
+      debug:
+        msg:
+          - "ACM-21162 environment setup completed successfully!"
+          - "Kind cluster: {{ acm21162_kind_cluster }}"
+          - "CAPI namespace: {{ capi_namespace }}"
+          - "CAPA controller image: {{ capa_420_image }}:{{ capa_420_tag }}"
+          - "Ready for ROSARoleConfig testing"

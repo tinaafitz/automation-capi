@@ -1,0 +1,315 @@
+---
+- name: ACM-21162 End-to-End ROSARoleConfig Testing
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - vars/vars.yml
+    - vars/user_vars.yml
+  vars:
+    # Test configuration
+    test_cluster_name: "acm21162-test-{{ ansible_date_time.epoch[-6:] }}"
+    cluster_name_prefix: "acm21162"
+    test_namespace: "{{ capi_namespace }}"
+
+    # 4.20 specific configuration
+    openshift_version: "4.20"
+    capa_420_image: "quay.io/melserng/cluster-api-aws-controller-amd64:dev"
+    capa_420_tag: "4.20.0-rc.0"
+
+    # Test parameters
+    aws_region: "{{ aws_region | default('us-west-2') }}"
+    test_timeout: 1800  # 30 minutes
+    cleanup_on_failure: true
+
+    # ROSARoleConfig specific settings
+    rosa_role_config:
+      name: "{{ test_cluster_name }}-role-config"
+      prefix: "{{ cluster_name_prefix }}"
+      version: "4.20"
+
+    # Cluster configuration for testing
+    cluster_config:
+      domain_prefix: "rosa-{{ cluster_name_prefix }}"
+      instance_type: "m5.xlarge"
+      min_replicas: 2
+      max_replicas: 3
+      replicas: 2
+
+  tasks:
+    - name: Pre-test validation
+      block:
+        - name: Verify environment is set up
+          kubernetes.core.k8s_info:
+            api_version: apps/v1
+            kind: Deployment
+            name: capa-controller-manager
+            namespace: capa-system
+          register: capa_deployment_check
+
+        - name: Verify CAPA controller is ready
+          assert:
+            that:
+              - capa_deployment_check.resources | length > 0
+              - capa_deployment_check.resources[0].status.readyReplicas > 0
+            fail_msg: "CAPA controller is not ready. Please run acm21162_environment_setup.yaml first"
+            success_msg: "CAPA controller is ready for testing"
+
+        - name: Verify test namespace exists
+          kubernetes.core.k8s:
+            name: "{{ test_namespace }}"
+            api_version: v1
+            kind: Namespace
+            state: present
+
+        - name: Display test configuration
+          debug:
+            msg:
+              - "Starting ACM-21162 ROSARoleConfig test"
+              - "Test cluster: {{ test_cluster_name }}"
+              - "Namespace: {{ test_namespace }}"
+              - "OpenShift version: {{ openshift_version }}"
+              - "AWS region: {{ aws_region }}"
+
+    - name: Test 1 - Create ROSARoleConfig
+      block:
+        - name: Create ROSARoleConfig for test cluster
+          include_tasks: tasks/create_rosa_role_config.yml
+          vars:
+            cluster_name: "{{ test_cluster_name }}"
+
+        - name: Wait for AWS IAM roles to be created
+          include_tasks: tasks/wait_for_rosa_roles.yml
+          vars:
+            cluster_name: "{{ test_cluster_name }}"
+
+        - name: Validate ROSARoleConfig and roles
+          include_tasks: tasks/validate_rosa_role_config.yml
+          vars:
+            cluster_name: "{{ test_cluster_name }}"
+
+        - name: Mark Test 1 as successful
+          set_fact:
+            test_1_result: "PASSED"
+
+      rescue:
+        - name: Mark Test 1 as failed
+          set_fact:
+            test_1_result: "FAILED"
+            test_1_error: "{{ ansible_failed_result.msg }}"
+
+        - name: Display Test 1 failure
+          debug:
+            msg: "Test 1 (ROSARoleConfig creation) failed: {{ test_1_error }}"
+
+    - name: Test 2 - Create ROSA HCP Cluster using ROSARoleConfig
+      block:
+        - name: Generate cluster configuration with ROSARoleConfig reference
+          template:
+            src: "{{ template_version_path }}/features/rosa-capi-roles-cluster.yaml.j2"
+            dest: "{{ output_dir }}/{{ test_cluster_name }}-cluster.yaml"
+          vars:
+            cluster_name: "{{ test_cluster_name }}"
+            domain_prefix: "{{ cluster_config.domain_prefix }}"
+            machine_pool:
+              instance_type: "{{ cluster_config.instance_type }}"
+              min_replicas: "{{ cluster_config.min_replicas }}"
+              max_replicas: "{{ cluster_config.max_replicas }}"
+              replicas: "{{ cluster_config.replicas }}"
+              node_pool_name: "{{ test_cluster_name }}-nodepool"
+
+        - name: Apply ROSA HCP cluster configuration
+          kubernetes.core.k8s:
+            state: present
+            src: "{{ output_dir }}/{{ test_cluster_name }}-cluster.yaml"
+            wait: true
+            wait_timeout: 600
+          register: cluster_creation
+
+        - name: Wait for ROSAControlPlane to be ready
+          kubernetes.core.k8s_info:
+            api_version: controlplane.cluster.x-k8s.io/v1beta2
+            kind: ROSAControlPlane
+            name: "{{ test_cluster_name }}"
+            namespace: "{{ test_namespace }}"
+            wait: true
+            wait_condition:
+              type: Ready
+              status: "True"
+            wait_timeout: "{{ test_timeout }}"
+          register: controlplane_ready
+
+        - name: Verify cluster creation success
+          assert:
+            that:
+              - controlplane_ready.resources | length > 0
+              - controlplane_ready.resources[0].status.ready == true
+            fail_msg: "ROSA HCP cluster creation failed or timed out"
+            success_msg: "ROSA HCP cluster created successfully using ROSARoleConfig"
+
+        - name: Mark Test 2 as successful
+          set_fact:
+            test_2_result: "PASSED"
+
+      rescue:
+        - name: Mark Test 2 as failed
+          set_fact:
+            test_2_result: "FAILED"
+            test_2_error: "{{ ansible_failed_result.msg }}"
+
+        - name: Display Test 2 failure
+          debug:
+            msg: "Test 2 (ROSA cluster creation) failed: {{ test_2_error }}"
+
+    - name: Test 3 - Validate AWS Role Integration
+      block:
+        - name: Get ROSAControlPlane status
+          kubernetes.core.k8s_info:
+            api_version: controlplane.cluster.x-k8s.io/v1beta2
+            kind: ROSAControlPlane
+            name: "{{ test_cluster_name }}"
+            namespace: "{{ test_namespace }}"
+          register: controlplane_status
+
+        - name: Verify roles are referenced in cluster
+          assert:
+            that:
+              - controlplane_status.resources[0].status is defined
+              - controlplane_status.resources[0].spec.rosaRoleConfigRef is defined
+              - controlplane_status.resources[0].spec.rosaRoleConfigRef.name == test_cluster_name + "-role-config"
+            fail_msg: "ROSARoleConfig reference is not properly set in cluster"
+            success_msg: "ROSARoleConfig is properly referenced in ROSA cluster"
+
+        - name: Validate no manual role ARNs are needed
+          assert:
+            that:
+              - controlplane_status.resources[0].spec.installerRoleARN is not defined or controlplane_status.resources[0].spec.installerRoleARN == ""
+              - controlplane_status.resources[0].spec.supportRoleARN is not defined or controlplane_status.resources[0].spec.supportRoleARN == ""
+              - controlplane_status.resources[0].spec.workerRoleARN is not defined or controlplane_status.resources[0].spec.workerRoleARN == ""
+            fail_msg: "Manual role ARNs should not be required when using ROSARoleConfig"
+            success_msg: "Cluster successfully uses automated role management via ROSARoleConfig"
+
+        - name: Mark Test 3 as successful
+          set_fact:
+            test_3_result: "PASSED"
+
+      rescue:
+        - name: Mark Test 3 as failed
+          set_fact:
+            test_3_result: "FAILED"
+            test_3_error: "{{ ansible_failed_result.msg }}"
+
+        - name: Display Test 3 failure
+          debug:
+            msg: "Test 3 (AWS role integration) failed: {{ test_3_error }}"
+
+    - name: Test 4 - Validation and Verification
+      block:
+        - name: Run comprehensive validation
+          include_tasks: tasks/validate_aws_roles_created.yml
+          vars:
+            cluster_name: "{{ test_cluster_name }}"
+
+        - name: Verify OIDC provider configuration
+          include_tasks: tasks/validate_oidc_provider.yml
+          vars:
+            cluster_name: "{{ test_cluster_name }}"
+
+        - name: Mark Test 4 as successful
+          set_fact:
+            test_4_result: "PASSED"
+
+      rescue:
+        - name: Mark Test 4 as failed
+          set_fact:
+            test_4_result: "FAILED"
+            test_4_error: "{{ ansible_failed_result.msg }}"
+
+        - name: Display Test 4 failure
+          debug:
+            msg: "Test 4 (validation) failed: {{ test_4_error }}"
+
+    - name: Cleanup test resources
+      block:
+        - name: Delete test cluster
+          kubernetes.core.k8s:
+            state: absent
+            src: "{{ output_dir }}/{{ test_cluster_name }}-cluster.yaml"
+            wait: true
+            wait_timeout: 600
+          ignore_errors: true
+
+        - name: Clean up ROSARoleConfig
+          include_tasks: tasks/cleanup_rosa_role_config.yml
+          vars:
+            cluster_name: "{{ test_cluster_name }}"
+          ignore_errors: true
+
+        - name: Clean up generated files
+          file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - "{{ output_dir }}/{{ test_cluster_name }}-cluster.yaml"
+            - "{{ output_dir }}/{{ test_cluster_name }}-rosa-role-config.yaml"
+          ignore_errors: true
+
+      when: cleanup_on_failure or test_1_result == "PASSED"
+
+    - name: Generate test results summary
+      block:
+        - name: Calculate overall test result
+          set_fact:
+            overall_result: >-
+              {%- set results = [
+                test_1_result | default('SKIPPED'),
+                test_2_result | default('SKIPPED'),
+                test_3_result | default('SKIPPED'),
+                test_4_result | default('SKIPPED')
+              ] -%}
+              {%- if 'FAILED' in results -%}FAILED
+              {%- elif 'PASSED' in results -%}PASSED
+              {%- else -%}SKIPPED{%- endif %}
+
+        - name: Display final test results
+          debug:
+            msg:
+              - "================================================="
+              - "ACM-21162 ROSARoleConfig Test Results"
+              - "================================================="
+              - "Test 1 - ROSARoleConfig Creation: {{ test_1_result | default('SKIPPED') }}"
+              - "Test 2 - ROSA Cluster Creation: {{ test_2_result | default('SKIPPED') }}"
+              - "Test 3 - AWS Role Integration: {{ test_3_result | default('SKIPPED') }}"
+              - "Test 4 - Validation & Verification: {{ test_4_result | default('SKIPPED') }}"
+              - "================================================="
+              - "Overall Result: {{ overall_result }}"
+              - "================================================="
+              - "Test cluster: {{ test_cluster_name }}"
+              - "OpenShift version: {{ openshift_version }}"
+              - "CAPA image: {{ capa_420_image }}:{{ capa_420_tag }}"
+
+        - name: Save test results to file
+          template:
+            src: templates/common/results.xml.j2
+            dest: "{{ output_dir }}/acm21162_test_results.xml"
+          vars:
+            test_name: "ACM-21162 ROSARoleConfig Testing"
+            test_suite: "acm21162_rosa_role_config"
+            tests:
+              - name: "ROSARoleConfig Creation"
+                result: "{{ test_1_result | default('SKIPPED') }}"
+                error: "{{ test_1_error | default('') }}"
+              - name: "ROSA Cluster Creation"
+                result: "{{ test_2_result | default('SKIPPED') }}"
+                error: "{{ test_2_error | default('') }}"
+              - name: "AWS Role Integration"
+                result: "{{ test_3_result | default('SKIPPED') }}"
+                error: "{{ test_3_error | default('') }}"
+              - name: "Validation & Verification"
+                result: "{{ test_4_result | default('SKIPPED') }}"
+                error: "{{ test_4_error | default('') }}"
+
+        - name: Fail playbook if any tests failed
+          fail:
+            msg: "ACM-21162 testing failed. Check test results for details."
+          when: overall_result == "FAILED"

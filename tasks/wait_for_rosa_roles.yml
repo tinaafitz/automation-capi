@@ -1,0 +1,90 @@
+---
+- name: "Wait for AWS IAM roles to be created by ROSARoleConfig"
+  block:
+    - name: Wait for ROSARoleConfig to complete role creation
+      kubernetes.core.k8s_info:
+        api_version: infrastructure.cluster.x-k8s.io/v1beta2
+        kind: ROSARoleConfig
+        name: "{{ cluster_name }}-role-config"
+        namespace: "{{ capi_namespace }}"
+        wait: true
+        wait_condition:
+          type: Ready
+          status: "True"
+        wait_timeout: "{{ rosa_role_creation_timeout | default(1200) }}"
+      register: role_config_ready
+
+    - name: Extract role information
+      set_fact:
+        role_config_status: "{{ role_config_ready.resources[0].status }}"
+      when: role_config_ready.resources | length > 0
+
+    - name: Display role creation progress
+      debug:
+        msg:
+          - "ROSARoleConfig Status: {{ role_config_status.phase | default('Unknown') }}"
+          - "Conditions: {{ role_config_status.conditions | default([]) }}"
+          - "Account Roles Ready: {{ role_config_status.accountRolesReady | default(false) }}"
+          - "Operator Roles Ready: {{ role_config_status.operatorRolesReady | default(false) }}"
+          - "OIDC Provider Ready: {{ role_config_status.oidcProviderReady | default(false) }}"
+
+    - name: Verify all roles are ready
+      assert:
+        that:
+          - role_config_status.accountRolesReady | default(false) == true
+          - role_config_status.operatorRolesReady | default(false) == true
+          - role_config_status.oidcProviderReady | default(false) == true
+        fail_msg: "Not all AWS roles and OIDC provider are ready"
+        success_msg: "All AWS roles and OIDC provider are ready"
+
+    - name: Wait additional time for AWS propagation
+      pause:
+        seconds: "{{ aws_role_propagation_delay | default(30) }}"
+      when: role_config_status.phase == "Ready"
+
+    - name: Final validation - check role ARNs are populated
+      assert:
+        that:
+          - role_config_status.accountRoleARNs is defined
+          - role_config_status.operatorRoleARNs is defined
+          - role_config_status.oidcProviderARN is defined
+          - role_config_status.accountRoleARNs | length > 0
+          - role_config_status.operatorRoleARNs | length > 0
+          - role_config_status.oidcProviderARN != ""
+        fail_msg: "Role ARNs are not properly populated in status"
+        success_msg: "All role ARNs are available for cluster creation"
+
+  rescue:
+    - name: Handle role creation timeout
+      debug:
+        msg: "ROSARoleConfig role creation timed out or failed"
+
+    - name: Get current ROSARoleConfig status for debugging
+      kubernetes.core.k8s_info:
+        api_version: infrastructure.cluster.x-k8s.io/v1beta2
+        kind: ROSARoleConfig
+        name: "{{ cluster_name }}-role-config"
+        namespace: "{{ capi_namespace }}"
+      register: debug_role_status
+
+    - name: Display current status for debugging
+      debug:
+        var: debug_role_status.resources[0].status
+      when: debug_role_status.resources | length > 0
+
+    - name: Get ROSARoleConfig events for troubleshooting
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Event
+        namespace: "{{ capi_namespace }}"
+        field_selectors:
+          - involvedObject.name={{ cluster_name }}-role-config
+      register: role_events
+
+    - name: Display events for troubleshooting
+      debug:
+        var: role_events.resources
+
+    - name: Fail the task
+      fail:
+        msg: "AWS role creation via ROSARoleConfig failed or timed out"

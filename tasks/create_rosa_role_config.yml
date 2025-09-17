@@ -1,0 +1,72 @@
+---
+- name: "Create ROSARoleConfig for cluster {{ cluster_name }}"
+  block:
+    - name: Generate ROSARoleConfig from template
+      template:
+        src: "{{ template_version_path }}/features/rosa-role-config.yaml.j2"
+        dest: "{{ output_dir }}/{{ cluster_name }}-rosa-role-config.yaml"
+      vars:
+        rosa_role_config:
+          name: "{{ cluster_name }}-role-config"
+          prefix: "{{ cluster_name_prefix | default(cluster_name) }}"
+          version: "{{ openshift_version }}"
+          identity_name: "{{ rosa_identity_name | default('default') }}"
+
+    - name: Apply ROSARoleConfig to cluster
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ output_dir }}/{{ cluster_name }}-rosa-role-config.yaml"
+        wait: true
+        wait_condition:
+          type: Ready
+          status: "True"
+        wait_timeout: 600
+      register: rosa_role_config_result
+
+    - name: Display ROSARoleConfig creation result
+      debug:
+        var: rosa_role_config_result
+
+    - name: Wait for ROSARoleConfig to be ready
+      kubernetes.core.k8s_info:
+        api_version: infrastructure.cluster.x-k8s.io/v1beta2
+        kind: ROSARoleConfig
+        name: "{{ cluster_name }}-role-config"
+        namespace: "{{ capi_namespace }}"
+        wait: true
+        wait_condition:
+          type: Ready
+          status: "True"
+        wait_timeout: 900
+      register: role_config_status
+
+    - name: Validate ROSARoleConfig status
+      assert:
+        that:
+          - role_config_status.resources | length > 0
+          - role_config_status.resources[0].status.ready is defined
+          - role_config_status.resources[0].status.ready == true
+        fail_msg: "ROSARoleConfig failed to become ready"
+        success_msg: "ROSARoleConfig is ready and AWS roles should be created"
+
+  rescue:
+    - name: Handle ROSARoleConfig creation failure
+      debug:
+        msg: "Failed to create or validate ROSARoleConfig: {{ ansible_failed_result.msg }}"
+
+    - name: Get ROSARoleConfig events for debugging
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Event
+        namespace: "{{ capi_namespace }}"
+        field_selectors:
+          - involvedObject.name={{ cluster_name }}-role-config
+      register: role_config_events
+
+    - name: Display ROSARoleConfig events
+      debug:
+        var: role_config_events.resources
+
+    - name: Fail the task
+      fail:
+        msg: "ROSARoleConfig creation or validation failed"
