@@ -101,3 +101,49 @@ env_override_name: "baz"
 capa_pod_label: "infrastructure-aws"
 capi_pod_label: "infrastructure-aws"
 
+#==== ACM-21174 ROSANetwork Configuration ====
+acm21174_config:
+  # Feature name and description
+  feature_name: "ROSANetwork"
+  feature_description: "Automated VPC and subnet creation for ROSA HCP clusters"
+  test_case: "ACM-21174"
+
+  # Default OpenShift version for ROSANetwork
+  openshift_version: "4.18.9"
+
+  # Kind cluster configuration for testing
+  kind_cluster_name: "capa-network-test"
+
+  # Feature flags for CAPA controller
+  feature_flags:
+    EXP_ROSA: "true"
+    EXP_MACHINE_POOL: "true"
+    CLUSTER_TOPOLOGY: "true"
+
+  # Default network configuration
+  default_network_config:
+    cidr_block: "10.0.0.0/16"
+    availability_zones:
+      - "us-west-2a"
+      - "us-west-2b"
+    tags:
+      Environment: "test"
+      CreatedBy: "ansible-automation"
+      Purpose: "rosanetwork-automation"
+
+  # Testing configuration
+  test_config:
+    timeout: 1800  # 30 minutes
+    enable_cleanup_test: true
+    enable_manual_comparison: false
+    enable_cluster_creation_test: false
+
+#==== CAPA Controller Network Configuration ====
+capa_controller_network:
+  # Milan's image with ROSANetwork support
+  image: "quay.io/milanvala/cluster-api-provider-aws"
+  tag: "milan-rosanetwork-latest"
+
+  # Milan's CRDs repository for ROSANetwork
+  milan_crds_base_url: "https://raw.githubusercontent.com/milanvala/cluster-api-provider-aws/rosa-network-crd/config/crd/bases"
+

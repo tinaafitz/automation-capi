@@ -1,0 +1,119 @@
+---
+# Create ROSANetwork for automated VPC and subnet provisioning
+- name: "Create ROSANetwork for cluster {{ cluster_name }}"
+  block:
+    - name: Generate ROSANetwork from template
+      template:
+        src: "{{ template_version_path }}/features/rosa-network-config.yaml.j2"
+        dest: "{{ output_dir }}/{{ cluster_name }}-rosa-network.yaml"
+        mode: '0644'
+      vars:
+        rosa_network_config:
+          name: "{{ rosa_network_config_name | default(cluster_name + '-network') }}"
+          identity_name: "{{ rosa_network_identity | default('default') }}"
+          availability_zones: "{{ aws_availability_zones | default([aws_region + 'a', aws_region + 'b']) }}"
+          cidr_block: "{{ vpc_cidr_block | default('10.0.0.0/16') }}"
+          tags: "{{ network_tags | default({'Environment': 'test', 'TestCase': 'ACM-21174', 'CreatedBy': 'ansible-automation'}) }}"
+
+    - name: Display ROSANetwork configuration
+      debug:
+        msg:
+          - "Creating ROSANetwork: {{ rosa_network_config_name | default(cluster_name + '-network') }}"
+          - "Availability Zones: {{ aws_availability_zones | default([aws_region + 'a', aws_region + 'b']) | join(', ') }}"
+          - "CIDR Block: {{ vpc_cidr_block | default('10.0.0.0/16') }}"
+          - "AWS Region: {{ aws_region }}"
+
+    - name: Apply ROSANetwork to cluster
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ output_dir }}/{{ cluster_name }}-rosa-network.yaml"
+        wait: true
+        wait_condition:
+          type: Ready
+          status: "True"
+        wait_timeout: "{{ rosa_network_creation_timeout | default(900) }}"
+      register: rosa_network_result
+
+    - name: Display ROSANetwork creation result
+      debug:
+        msg: "ROSANetwork creation initiated successfully"
+      when: rosa_network_result is succeeded
+
+    - name: Wait for ROSANetwork to be fully ready
+      kubernetes.core.k8s_info:
+        api_version: infrastructure.cluster.x-k8s.io/v1beta2
+        kind: ROSANetwork
+        name: "{{ rosa_network_config_name | default(cluster_name + '-network') }}"
+        namespace: "{{ capi_namespace }}"
+        wait: true
+        wait_condition:
+          type: Ready
+          status: "True"
+        wait_timeout: "{{ rosa_network_ready_timeout | default(1200) }}"
+      register: network_ready_status
+
+    - name: Extract network information from status
+      set_fact:
+        vpc_id: "{{ network_ready_status.resources[0].status.vpcId | default('') }}"
+        public_subnets: "{{ network_ready_status.resources[0].status.publicSubnets | default([]) }}"
+        private_subnets: "{{ network_ready_status.resources[0].status.privateSubnets | default([]) }}"
+        cloudformation_stack: "{{ network_ready_status.resources[0].status.stackName | default('') }}"
+        network_ready: "{{ network_ready_status.resources[0].status.ready | default(false) }}"
+
+    - name: Validate network creation success
+      assert:
+        that:
+          - vpc_id != ""
+          - public_subnets | length > 0
+          - private_subnets | length > 0
+          - network_ready == true
+        fail_msg: "ROSANetwork creation failed or incomplete"
+        success_msg: "ROSANetwork created successfully with VPC and subnets"
+
+    - name: Display created network resources
+      debug:
+        msg:
+          - "✓ ROSANetwork creation completed successfully"
+          - "VPC ID: {{ vpc_id }}"
+          - "Public Subnets: {{ public_subnets | length }} created"
+          - "Private Subnets: {{ private_subnets | length }} created"
+          - "CloudFormation Stack: {{ cloudformation_stack }}"
+          - "Network Ready: {{ network_ready }}"
+
+  rescue:
+    - name: Handle ROSANetwork creation failure
+      debug:
+        msg: "Failed to create ROSANetwork: {{ ansible_failed_result.msg | default('Unknown error') }}"
+
+    - name: Get ROSANetwork status for debugging
+      kubernetes.core.k8s_info:
+        api_version: infrastructure.cluster.x-k8s.io/v1beta2
+        kind: ROSANetwork
+        name: "{{ rosa_network_config_name | default(cluster_name + '-network') }}"
+        namespace: "{{ capi_namespace }}"
+      register: debug_network_status
+      ignore_errors: true
+
+    - name: Display ROSANetwork status for debugging
+      debug:
+        var: debug_network_status.resources[0]
+      when: debug_network_status.resources | length > 0
+
+    - name: Get ROSANetwork events for troubleshooting
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Event
+        namespace: "{{ capi_namespace }}"
+        field_selectors:
+          - involvedObject.name={{ rosa_network_config_name | default(cluster_name + '-network') }}
+      register: network_events
+      ignore_errors: true
+
+    - name: Display ROSANetwork events for troubleshooting
+      debug:
+        var: network_events.resources
+      when: network_events.resources | length > 0
+
+    - name: Fail the task
+      fail:
+        msg: "ROSANetwork creation failed for cluster {{ cluster_name }}"

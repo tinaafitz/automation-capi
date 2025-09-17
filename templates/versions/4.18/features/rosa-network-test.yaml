@@ -1,0 +1,35 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSANetwork
+metadata:
+  name: acm21174-test-network
+  namespace: ns-rosa-hcp
+  labels:
+    cluster.x-k8s.io/cluster-name: acm21174-test
+    automation.acm.redhat.com/test-case: "ACM-21174"
+    automation.acm.redhat.com/created-by: "ansible-automation"
+  annotations:
+    automation.acm.redhat.com/description: "Static test configuration for ROSANetwork"
+    automation.acm.redhat.com/rosa-cluster: "acm21174-test"
+spec:
+  # AWS Identity reference
+  identityRef:
+    kind: AWSClusterControllerIdentity
+    name: default
+
+  # Credentials secret reference
+  credentialsSecretRef:
+    name: rosa-creds-secret
+
+  # Network configuration for testing
+  availabilityZones:
+    - "us-west-2a"
+    - "us-west-2b"
+
+  cidrBlock: "10.0.0.0/16"
+
+  # Test tags
+  tags:
+    Environment: "test"
+    TestCase: "ACM-21174"
+    CreatedBy: "ansible-automation"
+    Purpose: "rosanetwork-testing"

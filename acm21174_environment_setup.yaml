@@ -1,0 +1,338 @@
+---
+# ACM-21174 Environment Setup Playbook
+# Prepares the environment for ROSANetwork testing
+# Sets up CAPA controller with network support and validates prerequisites
+
+- name: ACM-21174 Environment Setup for ROSANetwork Testing
+  hosts: localhost
+  gather_facts: true
+  vars_files:
+    - vars/vars.yml
+    - vars/user_vars.yml
+
+  vars:
+    test_case: "ACM-21174"
+    test_description: "Environment setup for ROSANetwork automated VPC and subnet creation"
+    setup_start_time: "{{ ansible_date_time.iso8601 }}"
+    kind_cluster_name: "{{ acm21174_config.kind_cluster_name | default('capa-network-test') }}"
+    openshift_version: "{{ acm21174_config.openshift_version | default('4.18.9') }}"
+
+  tasks:
+    - name: Display environment setup information
+      debug:
+        msg: |
+          ACM-21174 Environment Setup
+          ===========================
+          Test Case: {{ test_case }}
+          Description: {{ test_description }}
+          Start Time: {{ setup_start_time }}
+          Kind Cluster: {{ kind_cluster_name }}
+          OpenShift Version: {{ openshift_version }}
+          AWS Region: {{ aws_region }}
+
+    - name: Create output directory for setup artifacts
+      include_tasks: tasks/create_output_folder.yml
+
+    - name: Verify prerequisite tools are available
+      block:
+        - name: Check if kind is installed
+          command: kind version
+          register: kind_check
+          failed_when: false
+
+        - name: Check if kubectl is installed
+          command: kubectl version --client
+          register: kubectl_check
+          failed_when: false
+
+        - name: Check if clusterctl is installed
+          command: clusterctl version
+          register: clusterctl_check
+          failed_when: false
+
+        - name: Check if rosa is installed
+          command: rosa version
+          register: rosa_check
+          failed_when: false
+
+        - name: Verify all tools are available
+          assert:
+            that:
+              - kind_check.rc == 0
+              - kubectl_check.rc == 0
+              - clusterctl_check.rc == 0
+              - rosa_check.rc == 0
+            fail_msg: "Missing required tools. Please install kind, kubectl, clusterctl, and rosa"
+            success_msg: "All prerequisite tools are available"
+
+        - name: Display tool versions
+          debug:
+            msg:
+              - "Tool Versions:"
+              - "- kind: {{ kind_check.stdout_lines[0] if kind_check.rc == 0 else 'Not available' }}"
+              - "- kubectl: {{ kubectl_check.stdout_lines[0] if kubectl_check.rc == 0 else 'Not available' }}"
+              - "- clusterctl: {{ clusterctl_check.stdout_lines[0] if clusterctl_check.rc == 0 else 'Not available' }}"
+              - "- rosa: {{ rosa_check.stdout_lines[0] if rosa_check.rc == 0 else 'Not available' }}"
+
+    - name: Verify ROSA authentication
+      block:
+        - name: Check ROSA login status
+          command: rosa whoami
+          register: rosa_whoami
+          failed_when: false
+
+        - name: Display ROSA authentication status
+          debug:
+            var: rosa_whoami.stdout
+
+        - name: Verify ROSA is authenticated
+          assert:
+            that: rosa_whoami.rc == 0
+            fail_msg: "Not authenticated with ROSA. Please run: rosa login --env staging --use-auth-code"
+            success_msg: "ROSA authentication verified"
+
+    - name: Set up AWS environment variables
+      block:
+        - name: Set AWS region
+          set_fact:
+            aws_region: "{{ aws_region | default('us-west-2') }}"
+
+        - name: Export environment variables for CAPI/CAPA
+          shell: |
+            export AWS_REGION={{ aws_region }}
+            export EXP_ROSA="{{ acm21174_config.feature_flags.EXP_ROSA | default('true') }}"
+            export EXP_MACHINE_POOL="{{ acm21174_config.feature_flags.EXP_MACHINE_POOL | default('true') }}"
+            export CLUSTER_TOPOLOGY="{{ acm21174_config.feature_flags.CLUSTER_TOPOLOGY | default('true') }}"
+            export AWS_B64ENCODED_CREDENTIALS=$(clusterawsadm bootstrap credentials encode-as-profile)
+            echo "Environment variables set successfully"
+          register: env_setup
+
+        - name: Display environment setup result
+          debug:
+            var: env_setup.stdout
+
+    - name: Create kind cluster for ACM-21174 testing
+      block:
+        - name: Check if kind cluster already exists
+          command: kind get clusters
+          register: existing_clusters
+          failed_when: false
+
+        - name: Delete existing cluster if it exists
+          command: kind delete cluster --name {{ kind_cluster_name }}
+          when: kind_cluster_name in existing_clusters.stdout
+          ignore_errors: true
+
+        - name: Create new kind cluster
+          command: kind create cluster --name {{ kind_cluster_name }}
+          register: kind_creation
+
+        - name: Verify kind cluster creation
+          assert:
+            that: kind_creation.rc == 0
+            fail_msg: "Failed to create kind cluster"
+            success_msg: "Kind cluster created successfully"
+
+        - name: Set kubectl context to new cluster
+          command: kubectl cluster-info --context kind-{{ kind_cluster_name }}
+          register: cluster_info
+
+        - name: Display cluster information
+          debug:
+            var: cluster_info.stdout
+
+    - name: Initialize CAPI management cluster
+      block:
+        - name: Initialize cluster with CAPI and CAPA
+          command: clusterctl init --infrastructure aws
+          environment:
+            AWS_REGION: "{{ aws_region }}"
+            EXP_ROSA: "{{ acm21174_config.feature_flags.EXP_ROSA | default('true') }}"
+            EXP_MACHINE_POOL: "{{ acm21174_config.feature_flags.EXP_MACHINE_POOL | default('true') }}"
+            CLUSTER_TOPOLOGY: "{{ acm21174_config.feature_flags.CLUSTER_TOPOLOGY | default('true') }}"
+          register: clusterctl_init
+
+        - name: Display clusterctl initialization result
+          debug:
+            var: clusterctl_init.stdout
+
+        - name: Wait for CAPI system pods to be ready
+          command: kubectl wait --for=condition=Ready pod -l cluster.x-k8s.io/provider=cluster-api -n capi-system --timeout=300s
+          register: capi_pods_ready
+
+        - name: Wait for CAPA system pods to be ready
+          command: kubectl wait --for=condition=Ready pod -l cluster.x-k8s.io/provider=infrastructure-aws -n capa-system --timeout=300s
+          register: capa_pods_ready
+
+    - name: Apply ROSANetwork CRDs
+      block:
+        - name: Apply ROSAControlPlane CRD (Milan's version)
+          uri:
+            url: "{{ capa_controller_network.milan_crds_base_url }}/controlplane.cluster.x-k8s.io_rosacontrolplanes.yaml"
+            method: GET
+            return_content: yes
+          register: rosacontrolplane_crd
+
+        - name: Apply ROSAControlPlane CRD
+          kubernetes.core.k8s:
+            definition: "{{ rosacontrolplane_crd.content | from_yaml_all | list }}"
+            state: present
+
+        - name: Apply ROSANetwork CRD (Milan's version)
+          uri:
+            url: "{{ capa_controller_network.milan_crds_base_url }}/infrastructure.cluster.x-k8s.io_rosanetworks.yaml"
+            method: GET
+            return_content: yes
+          register: rosanetwork_crd
+
+        - name: Apply ROSANetwork CRD
+          kubernetes.core.k8s:
+            definition: "{{ rosanetwork_crd.content | from_yaml_all | list }}"
+            state: present
+
+        - name: Verify CRDs are installed
+          command: kubectl get crd rosacontrolplanes.controlplane.cluster.x-k8s.io rosanetworks.infrastructure.cluster.x-k8s.io
+          register: crd_verification
+
+        - name: Display CRD verification
+          debug:
+            var: crd_verification.stdout
+
+    - name: Update CAPA controller for ROSANetwork support
+      include_tasks: tasks/update_capa_controller_network.yml
+
+    - name: Update CAPA ClusterRole with ROSANetwork permissions
+      include_tasks: tasks/update_capa_clusterrole_network.yml
+
+    - name: Verify CAPA controller is ready for network operations
+      include_tasks: tasks/verify_capa_network_controller.yml
+
+    - name: Create namespace for ACM-21174 testing
+      kubernetes.core.k8s:
+        name: "{{ capi_namespace }}"
+        api_version: v1
+        kind: Namespace
+        state: present
+
+    - name: Label namespace for testing
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Namespace
+        name: "{{ capi_namespace }}"
+        merge_type: strategic-merge
+        definition:
+          metadata:
+            labels:
+              automation.acm.redhat.com/test-case: "{{ test_case }}"
+              automation.acm.redhat.com/setup-timestamp: "{{ ansible_date_time.epoch }}"
+              automation.acm.redhat.com/network-automation: "true"
+            annotations:
+              automation.acm.redhat.com/description: "Namespace for ACM-21174 ROSANetwork testing"
+              automation.acm.redhat.com/setup-by: "ansible-automation"
+
+    - name: Validate environment readiness
+      block:
+        - name: Check all required components are ready
+          set_fact:
+            components_ready: "{{
+              capa_network_controller_verified | default(false) and
+              capi_enabled | default(false) and
+              capa_enabled | default(false)
+            }}"
+
+        - name: Validate component readiness
+          fail:
+            msg: "Not all required components are ready for ACM-21174 testing"
+          when: not components_ready
+
+        - name: Create environment readiness marker
+          copy:
+            content: |
+              ACM-21174 Environment Setup Complete
+              ====================================
+              Setup Time: {{ setup_start_time }}
+              Completion Time: {{ ansible_date_time.iso8601 }}
+
+              Environment Status: READY
+
+              Components Verified:
+              - CAPI Enabled: {{ capi_enabled | default(false) }}
+              - CAPA Enabled: {{ capa_enabled | default(false) }}
+              - CAPA Network Controller Verified: {{ capa_network_controller_verified | default(false) }}
+              - ROSANetwork CRDs Installed: {{ true }}
+              - AWS Credentials Configured: {{ true }}
+              - Test Namespace Ready: {{ capi_namespace }}
+
+              Next Steps:
+              1. Run ACM-21174 ROSANetwork tests
+              2. Create and validate ROSANetwork resources
+              3. Test automated VPC and subnet creation
+
+              Test Configuration:
+              - Test Case: {{ test_case }}
+              - Kind Cluster: {{ kind_cluster_name }}
+              - OCP Version: {{ openshift_version }}
+              - AWS Region: {{ aws_region }}
+            dest: "{{ output_dir }}/acm21174-environment-ready.txt"
+            mode: '0644'
+
+    - name: Display setup completion status
+      debug:
+        msg: |
+          ACM-21174 Environment Setup {{ 'COMPLETED' if not environment_setup_failed | default(false) else 'FAILED' }}
+          =====================================
+
+          {% if not environment_setup_failed | default(false) %}
+          ✓ Setup Status: SUCCESS
+          ✓ Duration: {{ (ansible_date_time.epoch | int) - (setup_start_time | to_datetime('%Y-%m-%dT%H:%M:%SZ') | int) }} seconds
+          ✓ Kind Cluster: {{ kind_cluster_name }}
+          ✓ CAPI/CAPA: Enabled and Ready
+          ✓ CAPA Network Controller: Verified
+          ✓ ROSANetwork CRDs: Installed
+          ✓ AWS Credentials: Configured
+          ✓ Test Namespace: {{ capi_namespace }}
+
+          Environment is ready for ACM-21174 ROSANetwork testing!
+
+          Next Commands:
+          - Run ROSANetwork tests: ansible-playbook test_acm21174_rosa_network.yaml
+          - Create test network: ansible-playbook create_rosa_network.yaml -e cluster_name=acm21174-test
+          {% else %}
+          ✗ Setup Status: FAILED
+          ✗ Failure Reason: {{ setup_failure_reason | default('Unknown') }}
+          ✗ Duration: {{ (ansible_date_time.epoch | int) - (setup_start_time | to_datetime('%Y-%m-%dT%H:%M:%SZ') | int) }} seconds
+
+          Please check the logs above for specific error details.
+          {% endif %}
+
+    - name: Set final setup facts
+      set_fact:
+        acm21174_environment_setup_complete: "{{ not environment_setup_failed | default(false) }}"
+        acm21174_setup_timestamp: "{{ ansible_date_time.iso8601 }}"
+        acm21174_setup_duration: "{{ (ansible_date_time.epoch | int) - (setup_start_time | to_datetime('%Y-%m-%dT%H:%M:%SZ') | int) }}"
+
+    - name: Generate setup results XML
+      template:
+        src: "{{ common_template_path }}/results.xml.j2"
+        dest: "{{ output_dir }}/acm21174-environment-setup-results.xml"
+        mode: '0644'
+      vars:
+        test_suite_name: "ACM-21174 Environment Setup"
+        test_cases:
+          - name: "Environment Setup"
+            status: "{{ 'passed' if acm21174_environment_setup_complete else 'failed' }}"
+            time: "{{ acm21174_setup_duration }}"
+            failure_message: "{{ setup_failure_reason | default('') if not acm21174_environment_setup_complete else '' }}"
+
+  handlers:
+    - name: Cleanup on failure
+      debug:
+        msg: |
+          Environment setup failed. Manual cleanup may be required:
+
+          1. Check kind cluster status: kind get clusters
+          2. Check CAPA controller: kubectl get deployment capa-controller-manager -n capa-system
+          3. Check CRDs: kubectl get crd | grep rosa
+          4. Review logs: kubectl logs deployment/capa-controller-manager -n capa-system
+          5. Clean up kind cluster: kind delete cluster --name {{ kind_cluster_name }}
+      when: environment_setup_failed | default(false)
