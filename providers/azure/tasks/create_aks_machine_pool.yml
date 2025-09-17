@@ -1,0 +1,19 @@
+# Create AKS machine pool
+- name: Generate AKS machine pool manifest
+  template:
+    src: "{{ provider_config_path }}/templates/aks-machine-pool.yaml.j2"
+    dest: "{{ provider_output_dir }}/aks-machine-pool.yaml"
+  vars:
+    cluster_name: "{{ cluster_name | default('test-aks-cluster') }}"
+    machine_pool_name: "{{ machine_pool_name | default('worker-pool') }}"
+    node_count: "{{ machine_pool_node_count | default(3) }}"
+    vm_size: "{{ azure_vm_size | default('Standard_D2s_v3') }}"
+
+- name: Apply AKS machine pool manifest
+  kubernetes.core.k8s:
+    state: present
+    src: "{{ provider_output_dir }}/aks-machine-pool.yaml"
+
+- name: Display AKS machine pool creation status
+  debug:
+    msg: "AKS machine pool '{{ machine_pool_name }}' created for cluster '{{ cluster_name }}'"

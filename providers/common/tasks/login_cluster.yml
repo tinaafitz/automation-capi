@@ -1,0 +1,14 @@
+# Common cluster login tasks
+- name: Login to OCP cluster
+  shell: |
+    oc login {{ api_url }} -u {{ ocp_user }} -p {{ ocp_password }} --insecure-skip-tls-verify=true
+  register: oc_login_result
+  failed_when: oc_login_result.rc != 0
+
+- name: Verify cluster connection
+  shell: oc whoami
+  register: whoami_result
+
+- name: Display current user context
+  debug:
+    msg: "Logged in as: {{ whoami_result.stdout }}"

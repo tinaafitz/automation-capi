@@ -1,0 +1,17 @@
+# Create AKS control plane using CAPZ
+- name: Generate AKS control plane manifest
+  template:
+    src: "{{ provider_config_path }}/templates/aks-control-plane.yaml.j2"
+    dest: "{{ provider_output_dir }}/aks-control-plane.yaml"
+  vars:
+    cluster_name: "{{ cluster_name | default('test-aks-cluster') }}"
+    cluster_version: "{{ cluster_version | default('1.28') }}"
+
+- name: Apply AKS control plane manifest
+  kubernetes.core.k8s:
+    state: present
+    src: "{{ provider_output_dir }}/aks-control-plane.yaml"
+
+- name: Display AKS control plane creation status
+  debug:
+    msg: "AKS control plane '{{ cluster_name }}-control-plane' created in namespace '{{ capi_namespace }}'"

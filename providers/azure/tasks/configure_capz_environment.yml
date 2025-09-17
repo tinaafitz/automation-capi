@@ -1,0 +1,31 @@
+# Configure CAPZ (Cluster API Provider Azure) environment
+- name: Create {{ capi_namespace }} namespace
+  shell: |
+    oc create namespace {{ capi_namespace }} --dry-run=client -o yaml | oc apply -f -
+
+- name: Enable CAPZ in MCE
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: multicluster.openshift.io/v1
+      kind: MultiClusterEngine
+      metadata:
+        name: "{{ mce_name }}"
+        namespace: "{{ mce_namespace }}"
+      spec:
+        overrides:
+          components:
+          - name: cluster-api-provider-azure
+            enabled: true
+
+- name: Wait for CAPZ deployment to be ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: capz-controller-manager
+    namespace: "{{ provider_namespace }}"
+    wait: true
+    wait_condition:
+      type: Available
+      status: "True"
+    wait_timeout: 300

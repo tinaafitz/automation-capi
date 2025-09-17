@@ -1,0 +1,12 @@
+# Azure Provider Main Tasks
+- name: Include common provider setup
+  include_tasks: "{{ playbook_dir }}/providers/common/tasks/main.yml"
+
+- name: Validate Azure credentials
+  include_tasks: validate_azure_credentials.yml
+
+- name: Configure CAPZ environment
+  include_tasks: configure_capz_environment.yml
+
+- name: Create Azure credentials secret
+  include_tasks: create_azure_credentials.yml
