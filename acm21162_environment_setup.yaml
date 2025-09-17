@@ -1,0 +1,273 @@
+---
+# ACM-21162 Environment Setup Playbook
+# Prepares the environment for ROSARoleConfig testing
+# Sets up CAPA controller, permissions, and validates prerequisites
+
+- name: ACM-21162 Environment Setup for ROSARoleConfig Testing
+  hosts: localhost
+  gather_facts: true
+  vars_files:
+    - vars/vars.yml
+    - vars/user_vars.yml
+
+  vars:
+    test_case: "ACM-21162"
+    test_description: "Environment setup for ROSARoleConfig automated AWS IAM role creation"
+    setup_start_time: "{{ ansible_date_time.iso8601 }}"
+
+  tasks:
+    - name: Display environment setup information
+      debug:
+        msg: |
+          ACM-21162 Environment Setup
+          ===========================
+          Test Case: {{ test_case }}
+          Description: {{ test_description }}
+          Start Time: {{ setup_start_time }}
+
+          Configuration:
+          - OCP Cluster: {{ api_url }}
+          - CAPI Namespace: {{ capi_namespace }}
+          - CAPA System Namespace: {{ capa_system_namespace }}
+          - AWS Account ID: {{ aws_account_id }}
+          - AWS Region: {{ aws_region }}
+          - OpenShift Version: {{ openshift_version }}
+
+    - name: Create output directory for setup artifacts
+      include_tasks: tasks/create_output_folder.yml
+
+    - name: Login to OCP cluster
+      include_tasks: tasks/login_ocp.yml
+
+    - name: Verify OCP platform and cluster status
+      include_tasks: tasks/get_ocp_platform.yml
+
+    - name: Check and enable CAPI/CAPA components
+      block:
+        - name: Get current CAPI/CAPA status
+          include_tasks: tasks/get_capi_capa_status.yml
+
+        - name: Enable CAPI/CAPA if not already enabled
+          include_tasks: tasks/enable_capi_capa.yml
+          when: not capi_enabled or not capa_enabled
+
+        - name: Wait for MCE components to be ready
+          include_tasks: tasks/wait_for_mce_status.yml
+
+      rescue:
+        - name: Handle CAPI/CAPA enablement failure
+          debug:
+            msg: |
+              Failed to enable CAPI/CAPA components.
+              This may indicate insufficient permissions or MCE issues.
+
+        - name: Set enablement failure facts
+          set_fact:
+            environment_setup_failed: true
+            setup_failure_reason: "CAPI/CAPA enablement failed"
+
+        - name: Fail setup if CAPI/CAPA cannot be enabled
+          fail:
+            msg: "Cannot proceed with ACM-21162 testing without CAPI/CAPA enabled"
+
+    - name: Verify and configure CAPA controller
+      block:
+        - name: Verify CAPA controller status
+          include_tasks: tasks/verify_capa_controller.yml
+
+        - name: Update CAPA controller image if specified
+          include_tasks: tasks/update_capa_controller_image.yml
+          when: capa_controller_image is defined and capa_controller_image != ""
+
+        - name: Update CAPA ClusterRole with ROSARoleConfig permissions
+          include_tasks: tasks/update_capa_clusterrole.yml
+
+        - name: Verify CAPA controller after updates
+          include_tasks: tasks/verify_capa_controller.yml
+
+      rescue:
+        - name: Handle CAPA controller configuration failure
+          debug:
+            msg: |
+              Failed to configure CAPA controller for ROSARoleConfig support.
+              This may indicate image issues or permission problems.
+
+        - name: Set controller configuration failure facts
+          set_fact:
+            environment_setup_failed: true
+            setup_failure_reason: "CAPA controller configuration failed"
+
+        - name: Fail setup if CAPA controller cannot be configured
+          fail:
+            msg: "Cannot proceed with ACM-21162 testing without properly configured CAPA controller"
+
+    - name: Configure AWS credentials and environment
+      block:
+        - name: Create CAPA manager bootstrap credentials
+          include_tasks: tasks/create_capa_manager_bootstrap_credentials.yml
+
+        - name: Create ROSA credentials secret
+          include_tasks: tasks/create_rosa_creds_secret.yml
+
+        - name: Validate AWS connectivity
+          include_tasks: tasks/validate-capa-environment.yml
+
+      rescue:
+        - name: Handle AWS credentials configuration failure
+          debug:
+            msg: |
+              Failed to configure AWS credentials for CAPA.
+              This may indicate missing credentials or AWS connectivity issues.
+
+        - name: Set AWS configuration failure facts
+          set_fact:
+            environment_setup_failed: true
+            setup_failure_reason: "AWS credentials configuration failed"
+
+        - name: Fail setup if AWS credentials cannot be configured
+          fail:
+            msg: "Cannot proceed with ACM-21162 testing without valid AWS credentials"
+
+    - name: Create test namespace and prepare environment
+      block:
+        - name: Create CAPI namespace if it doesn't exist
+          kubernetes.core.k8s:
+            api_version: v1
+            kind: Namespace
+            name: "{{ capi_namespace }}"
+            state: present
+
+        - name: Label namespace for testing
+          kubernetes.core.k8s:
+            api_version: v1
+            kind: Namespace
+            name: "{{ capi_namespace }}"
+            merge_type: strategic-merge
+            definition:
+              metadata:
+                labels:
+                  automation.acm.redhat.com/test-case: "{{ test_case }}"
+                  automation.acm.redhat.com/setup-timestamp: "{{ ansible_date_time.epoch }}"
+                annotations:
+                  automation.acm.redhat.com/description: "Namespace for ACM-21162 ROSARoleConfig testing"
+                  automation.acm.redhat.com/setup-by: "ansible-automation"
+
+      rescue:
+        - name: Handle namespace creation failure
+          debug:
+            msg: "Failed to create or configure test namespace"
+
+        - name: Set namespace failure facts
+          set_fact:
+            environment_setup_failed: true
+            setup_failure_reason: "Test namespace creation failed"
+
+    - name: Validate environment readiness
+      block:
+        - name: Check all required components are ready
+          set_fact:
+            components_ready: "{{
+              capa_controller_verified | default(false) and
+              capi_enabled | default(false) and
+              capa_enabled | default(false)
+            }}"
+
+        - name: Validate component readiness
+          fail:
+            msg: "Not all required components are ready for ACM-21162 testing"
+          when: not components_ready
+
+        - name: Create environment readiness marker
+          copy:
+            content: |
+              ACM-21162 Environment Setup Complete
+              ====================================
+              Setup Time: {{ setup_start_time }}
+              Completion Time: {{ ansible_date_time.iso8601 }}
+
+              Environment Status: READY
+
+              Components Verified:
+              - CAPI Enabled: {{ capi_enabled | default(false) }}
+              - CAPA Enabled: {{ capa_enabled | default(false) }}
+              - CAPA Controller Verified: {{ capa_controller_verified | default(false) }}
+              - AWS Credentials Configured: {{ true }}
+              - Test Namespace Ready: {{ capi_namespace }}
+
+              Next Steps:
+              1. Run ACM-21162 ROSARoleConfig tests
+              2. Create and validate ROSARoleConfig resources
+              3. Compare manual vs automated approaches
+
+              Test Configuration:
+              - Test Case: {{ test_case }}
+              - Cluster: {{ api_url }}
+              - AWS Account: {{ aws_account_id }}
+              - AWS Region: {{ aws_region }}
+              - OpenShift Version: {{ openshift_version }}
+            dest: "{{ output_dir }}/acm21162-environment-ready.txt"
+            mode: '0644'
+
+      rescue:
+        - name: Handle environment validation failure
+          set_fact:
+            environment_setup_failed: true
+            setup_failure_reason: "Environment validation failed"
+
+    - name: Display setup completion status
+      debug:
+        msg: |
+          ACM-21162 Environment Setup {{ 'COMPLETED' if not environment_setup_failed | default(false) else 'FAILED' }}
+          =====================================
+
+          {% if not environment_setup_failed | default(false) %}
+          ✓ Setup Status: SUCCESS
+          ✓ Duration: {{ (ansible_date_time.epoch | int) - (setup_start_time | to_datetime('%Y-%m-%dT%H:%M:%SZ') | int) }} seconds
+          ✓ CAPI/CAPA: Enabled and Ready
+          ✓ CAPA Controller: Verified
+          ✓ AWS Credentials: Configured
+          ✓ Test Namespace: {{ capi_namespace }}
+
+          Environment is ready for ACM-21162 ROSARoleConfig testing!
+
+          Next Commands:
+          - Run ROSARoleConfig tests: ansible-playbook test_acm21162_rosa_role_config.yaml
+          - Create test cluster: ansible-playbook create_rosa_hcp_cluster.yaml -e cluster_name=acm21162-test
+          {% else %}
+          ✗ Setup Status: FAILED
+          ✗ Failure Reason: {{ setup_failure_reason | default('Unknown') }}
+          ✗ Duration: {{ (ansible_date_time.epoch | int) - (setup_start_time | to_datetime('%Y-%m-%dT%H:%M:%SZ') | int) }} seconds
+
+          Please check the logs above for specific error details.
+          {% endif %}
+
+    - name: Set final setup facts
+      set_fact:
+        acm21162_environment_setup_complete: "{{ not environment_setup_failed | default(false) }}"
+        acm21162_setup_timestamp: "{{ ansible_date_time.iso8601 }}"
+        acm21162_setup_duration: "{{ (ansible_date_time.epoch | int) - (setup_start_time | to_datetime('%Y-%m-%dT%H:%M:%SZ') | int) }}"
+
+    - name: Generate setup results XML
+      template:
+        src: "{{ common_template_path }}/results.xml.j2"
+        dest: "{{ output_dir }}/acm21162-environment-setup-results.xml"
+        mode: '0644'
+      vars:
+        test_suite_name: "ACM-21162 Environment Setup"
+        test_cases:
+          - name: "Environment Setup"
+            status: "{{ 'passed' if acm21162_environment_setup_complete else 'failed' }}"
+            time: "{{ acm21162_setup_duration }}"
+            failure_message: "{{ setup_failure_reason | default('') if not acm21162_environment_setup_complete else '' }}"
+
+  handlers:
+    - name: Cleanup on failure
+      debug:
+        msg: |
+          Environment setup failed. Manual cleanup may be required:
+
+          1. Check MCE status: kubectl get mce -A
+          2. Check CAPA controller: kubectl get deployment capa-controller-manager -n {{ capa_system_namespace }}
+          3. Check AWS credentials: kubectl get secret {{ rosa_creds_secret }} -n {{ capa_system_namespace }}
+          4. Review logs: kubectl logs deployment/capa-controller-manager -n {{ capa_system_namespace }}
+      when: environment_setup_failed | default(false)

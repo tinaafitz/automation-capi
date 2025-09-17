@@ -1,0 +1,245 @@
+---
+# Cleanup ROSARoleConfig for ACM-21162
+# Safely removes ROSARoleConfig and associated AWS resources
+
+- name: Set cleanup variables
+  set_fact:
+    rosa_role_config_name: "{{ rosa_role_config_name | default(cluster_name + '-roles') }}"
+    cleanup_wait_timeout: "{{ rosa_cleanup_wait_timeout | default(600) }}"  # 10 minutes default
+    force_cleanup: "{{ force_rosa_role_config_cleanup | default(false) }}"
+
+- name: Display cleanup configuration
+  debug:
+    msg: |
+      ROSARoleConfig Cleanup Configuration:
+      - Resource Name: {{ rosa_role_config_name }}
+      - Namespace: {{ capi_namespace }}
+      - Force Cleanup: {{ force_cleanup }}
+      - Wait Timeout: {{ cleanup_wait_timeout }} seconds
+
+- name: Check if ROSARoleConfig exists
+  kubernetes.core.k8s_info:
+    api_version: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: ROSARoleConfig
+    name: "{{ rosa_role_config_name }}"
+    namespace: "{{ capi_namespace }}"
+  register: existing_rosa_role_config
+
+- name: Handle ROSARoleConfig cleanup
+  block:
+    - name: Skip cleanup if ROSARoleConfig doesn't exist
+      debug:
+        msg: "ROSARoleConfig {{ rosa_role_config_name }} does not exist in namespace {{ capi_namespace }}. Skipping cleanup."
+      when: existing_rosa_role_config.resources | length == 0
+
+    - name: Proceed with cleanup if ROSARoleConfig exists
+      block:
+        - name: Display current ROSARoleConfig status before cleanup
+          debug:
+            msg: |
+              Current ROSARoleConfig Status:
+              - Name: {{ existing_rosa_role_config.resources[0].metadata.name }}
+              - Phase: {{ existing_rosa_role_config.resources[0].status.phase | default('Unknown') }}
+              - Finalizers: {{ existing_rosa_role_config.resources[0].metadata.finalizers | default([]) }}
+              - Deletion Timestamp: {{ existing_rosa_role_config.resources[0].metadata.deletionTimestamp | default('Not Set') }}
+
+        - name: Check for AWS resources before deletion
+          set_fact:
+            installer_role_arn: "{{ existing_rosa_role_config.resources[0].status.installerRoleArn | default('') }}"
+            support_role_arn: "{{ existing_rosa_role_config.resources[0].status.supportRoleArn | default('') }}"
+            worker_role_arn: "{{ existing_rosa_role_config.resources[0].status.workerRoleArn | default('') }}"
+            oidc_provider_arn: "{{ existing_rosa_role_config.resources[0].status.oidcProviderArn | default('') }}"
+
+        - name: Display AWS resources to be cleaned up
+          debug:
+            msg: |
+              AWS Resources to be cleaned up:
+              - Installer Role ARN: {{ installer_role_arn }}
+              - Support Role ARN: {{ support_role_arn }}
+              - Worker Role ARN: {{ worker_role_arn }}
+              - OIDC Provider ARN: {{ oidc_provider_arn }}
+
+        - name: Delete ROSARoleConfig resource
+          kubernetes.core.k8s:
+            api_version: infrastructure.cluster.x-k8s.io/v1beta1
+            kind: ROSARoleConfig
+            name: "{{ rosa_role_config_name }}"
+            namespace: "{{ capi_namespace }}"
+            state: absent
+            wait: false
+          register: rosa_role_config_delete_result
+
+        - name: Display deletion initiation result
+          debug:
+            msg: |
+              ROSARoleConfig deletion initiated:
+              - Result: {{ rosa_role_config_delete_result.result | default('Unknown') }}
+              - Method: {{ rosa_role_config_delete_result.method | default('Unknown') }}
+
+        - name: Wait for ROSARoleConfig to be fully deleted
+          kubernetes.core.k8s_info:
+            api_version: infrastructure.cluster.x-k8s.io/v1beta1
+            kind: ROSARoleConfig
+            name: "{{ rosa_role_config_name }}"
+            namespace: "{{ capi_namespace }}"
+          register: rosa_role_config_deletion_check
+          until: rosa_role_config_deletion_check.resources | length == 0
+          retries: "{{ (cleanup_wait_timeout | int / 10) | int }}"
+          delay: 10
+          failed_when: false
+
+        - name: Handle successful deletion
+          block:
+            - name: Confirm successful deletion
+              debug:
+                msg: |
+                  ROSARoleConfig {{ rosa_role_config_name }} has been successfully deleted.
+                  AWS resources have been cleaned up by the CAPA controller.
+
+            - name: Set cleanup success facts
+              set_fact:
+                rosa_role_config_cleanup_successful: true
+                rosa_role_config_deleted: true
+
+          when: rosa_role_config_deletion_check.resources | length == 0
+
+        - name: Handle deletion timeout or stuck finalizers
+          block:
+            - name: Check current deletion status
+              debug:
+                msg: |
+                  ROSARoleConfig deletion is taking longer than expected.
+                  Current status:
+                  - Deletion Timestamp: {{ rosa_role_config_deletion_check.resources[0].metadata.deletionTimestamp | default('Not Set') }}
+                  - Finalizers: {{ rosa_role_config_deletion_check.resources[0].metadata.finalizers | default([]) }}
+                  - Phase: {{ rosa_role_config_deletion_check.resources[0].status.phase | default('Unknown') }}
+
+            - name: Get deletion events
+              kubernetes.core.k8s_info:
+                api_version: v1
+                kind: Event
+                namespace: "{{ capi_namespace }}"
+                field_selectors:
+                  - involvedObject.name={{ rosa_role_config_name }}
+                  - involvedObject.kind=ROSARoleConfig
+              register: deletion_events
+              failed_when: false
+
+            - name: Display deletion events
+              debug:
+                msg: |
+                  Recent deletion events:
+                  {% for event in deletion_events.resources | sort(attribute='firstTimestamp') | reverse %}
+                  - {{ event.firstTimestamp | default(event.eventTime) }}: {{ event.reason }} - {{ event.message }}
+                  {% endfor %}
+              when: deletion_events.resources is defined and deletion_events.resources | length > 0
+
+            - name: Handle force cleanup if enabled
+              block:
+                - name: Force remove finalizers (WARNING: This bypasses AWS cleanup)
+                  kubernetes.core.k8s:
+                    api_version: infrastructure.cluster.x-k8s.io/v1beta1
+                    kind: ROSARoleConfig
+                    name: "{{ rosa_role_config_name }}"
+                    namespace: "{{ capi_namespace }}"
+                    merge_type: strategic-merge
+                    definition:
+                      metadata:
+                        finalizers: []
+                  when: force_cleanup | bool
+
+                - name: Wait for forced deletion to complete
+                  kubernetes.core.k8s_info:
+                    api_version: infrastructure.cluster.x-k8s.io/v1beta1
+                    kind: ROSARoleConfig
+                    name: "{{ rosa_role_config_name }}"
+                    namespace: "{{ capi_namespace }}"
+                  register: forced_deletion_check
+                  until: forced_deletion_check.resources | length == 0
+                  retries: 30
+                  delay: 5
+                  when: force_cleanup | bool
+
+                - name: Set forced cleanup facts
+                  set_fact:
+                    rosa_role_config_cleanup_successful: true
+                    rosa_role_config_deleted: true
+                    rosa_role_config_force_cleaned: true
+                  when: force_cleanup | bool and forced_deletion_check.resources | length == 0
+
+              when: force_cleanup | bool
+
+            - name: Set cleanup failure facts when not forcing
+              set_fact:
+                rosa_role_config_cleanup_successful: false
+                rosa_role_config_deletion_stuck: true
+              when: not force_cleanup | bool
+
+            - name: Provide manual cleanup guidance
+              debug:
+                msg: |
+                  ROSARoleConfig deletion is stuck. Manual intervention may be required:
+
+                  1. Check CAPA controller logs:
+                     kubectl logs deployment/capa-controller-manager -n {{ capa_system_namespace }}
+
+                  2. Check for AWS cleanup issues:
+                     - Verify AWS credentials are valid
+                     - Check for dependent resources preventing deletion
+                     - Verify AWS permissions for resource deletion
+
+                  3. If AWS resources are manually cleaned up, force remove finalizers:
+                     kubectl patch rosaroleconfig {{ rosa_role_config_name }} -n {{ capi_namespace }} --type='merge' -p='{"metadata":{"finalizers":[]}}'
+
+                  4. AWS Resources that may need manual cleanup:
+                     {% if installer_role_arn %}
+                     - IAM Role: {{ installer_role_arn }}
+                     {% endif %}
+                     {% if support_role_arn %}
+                     - IAM Role: {{ support_role_arn }}
+                     {% endif %}
+                     {% if worker_role_arn %}
+                     - IAM Role: {{ worker_role_arn }}
+                     {% endif %}
+                     {% if oidc_provider_arn %}
+                     - OIDC Provider: {{ oidc_provider_arn }}
+                     {% endif %}
+              when: not force_cleanup | bool
+
+          when: rosa_role_config_deletion_check.resources | length > 0
+
+      when: existing_rosa_role_config.resources | length > 0
+
+  rescue:
+    - name: Handle cleanup failure
+      debug:
+        msg: |
+          ROSARoleConfig cleanup encountered an error.
+          This could indicate permission issues or controller problems.
+
+    - name: Set cleanup failure facts
+      set_fact:
+        rosa_role_config_cleanup_successful: false
+        rosa_role_config_cleanup_failed: true
+
+    - name: Display cleanup failure guidance
+      debug:
+        msg: |
+          Cleanup failed. Possible issues:
+          - Insufficient permissions to delete resources
+          - CAPA controller not responding
+          - AWS service issues
+          - Network connectivity problems
+
+          Manual cleanup may be required for AWS resources.
+
+- name: Display final cleanup status
+  debug:
+    msg: |
+      ROSARoleConfig Cleanup Summary:
+      - Resource Name: {{ rosa_role_config_name }}
+      - Cleanup Successful: {{ rosa_role_config_cleanup_successful | default(false) }}
+      - Resource Deleted: {{ rosa_role_config_deleted | default(false) }}
+      - Force Cleaned: {{ rosa_role_config_force_cleaned | default(false) }}
+      - Cleanup Failed: {{ rosa_role_config_cleanup_failed | default(false) }}
+      - Deletion Stuck: {{ rosa_role_config_deletion_stuck | default(false) }}

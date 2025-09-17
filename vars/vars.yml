@@ -101,3 +101,90 @@ env_override_name: "baz"
 capa_pod_label: "infrastructure-aws"
 capi_pod_label: "infrastructure-aws"
 
+#==== ACM-21162 ROSARoleConfig Configuration ====
+# Configuration for ROSARoleConfig automated AWS IAM role creation
+acm21162:
+  enabled: true
+  test_case: "ACM-21162"
+  description: "ROSARoleConfig automated AWS IAM role creation for ROSA HCP clusters"
+
+  # ROSARoleConfig defaults
+  rosa_role_config:
+    # Default timeout for role creation (seconds)
+    creation_timeout: 1800
+    # Default timeout for role validation (seconds)
+    validation_timeout: 300
+    # Default timeout for cleanup (seconds)
+    cleanup_timeout: 600
+    # Default polling interval for status checks (seconds)
+    poll_interval: 30
+    # Enable deletion protection by default
+    deletion_protection: false
+
+  # AWS configuration
+  aws:
+    # Default AWS region for testing
+    default_region: "us-east-1"
+    # ROSA service account ID for trust policies
+    rosa_service_account_id: "710019948333"
+    # Default external ID for role assumption
+    default_external_id: ""
+
+  # OIDC provider configuration
+  oidc_provider:
+    # Default OIDC thumbprints for AWS
+    default_thumbprints:
+      - "9e99a48a9960b14926bb7f3b02e22da2b0ab7280"
+      - "a9d53002e97e00e043244f3d170d6f4c414104fd"
+    # Default client IDs
+    default_client_ids:
+      - "sts.amazonaws.com"
+    # Test OIDC accessibility during validation
+    test_accessibility: false
+
+  # CAPA controller configuration
+  capa_controller:
+    # Backup deployment before updates
+    backup_before_update: true
+    # Update ClusterRole with ROSARoleConfig permissions
+    update_clusterrole: true
+    # Verification timeout (seconds)
+    verification_timeout: 300
+    # Test controller connectivity
+    test_connectivity: false
+
+  # Testing configuration
+  testing:
+    # Enable manual vs automated comparison tests
+    enable_manual_comparison: false
+    # Enable full cluster creation tests
+    enable_cluster_creation_test: false
+    # Enable cleanup tests
+    enable_cleanup_test: true
+    # Emergency cleanup on critical failures
+    emergency_cleanup: false
+    # Generate detailed test reports
+    generate_reports: true
+
+  # Default tags for AWS resources
+  default_tags:
+    Environment: "test"
+    Project: "ACM-CAPI-Automation"
+    TestCase: "ACM-21162"
+    CreatedBy: "ansible-automation"
+
+  # Role naming patterns
+  role_naming:
+    installer_suffix: "-installer-role"
+    support_suffix: "-support-role"
+    worker_suffix: "-worker-role"
+
+  # Template configuration
+  templates:
+    # Default template category for ROSARoleConfig
+    default_category: "features"
+    # Template debug mode
+    debug_mode: true
+    # Generate static test configurations
+    generate_test_configs: true
+
