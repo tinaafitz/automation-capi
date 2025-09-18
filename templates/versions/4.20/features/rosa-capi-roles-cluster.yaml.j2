@@ -1,0 +1,369 @@
+---
+# Complete ROSA HCP Cluster Configuration with ROSARoleConfig
+# This template creates a full cluster using the new ROSARoleConfig functionality
+# for ACM-21162 validation and testing
+
+# ROSARoleConfig - Automated AWS IAM role creation
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: ROSARoleConfig
+metadata:
+  name: {{ cluster_name }}-roles
+  namespace: {{ capi_namespace | default("ns-rosa-hcp") }}
+  labels:
+    cluster.x-k8s.io/cluster-name: {{ cluster_name }}
+    automation.acm.redhat.com/test-case: "ACM-21162"
+    automation.acm.redhat.com/created-by: "ansible-automation"
+  annotations:
+    automation.acm.redhat.com/description: "ROSARoleConfig for {{ cluster_name }}"
+    automation.acm.redhat.com/timestamp: "{{ ansible_date_time.iso8601 }}"
+spec:
+  awsAccountId: "{{ aws_account_id }}"
+  region: {{ aws_region | default("us-east-1") | quote }}
+
+  roles:
+    - name: "{{ cluster_name }}-installer-role"
+      type: "installer"
+      description: "ROSA HCP installer role for {{ cluster_name }}"
+      assumeRolePolicyDocument: |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "arn:aws:iam::{{ rosa_service_account_id | default('710019948333') }}:root"
+              },
+              "Action": "sts:AssumeRole",
+              "Condition": {
+                "StringEquals": {
+                  "sts:ExternalId": "{{ external_id | default('') }}"
+                }
+              }
+            }
+          ]
+        }
+      managedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/ROSAInstallerPolicy"
+
+    - name: "{{ cluster_name }}-support-role"
+      type: "support"
+      description: "ROSA HCP support role for {{ cluster_name }}"
+      assumeRolePolicyDocument: |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "arn:aws:iam::{{ rosa_service_account_id | default('710019948333') }}:root"
+              },
+              "Action": "sts:AssumeRole",
+              "Condition": {
+                "StringEquals": {
+                  "sts:ExternalId": "{{ external_id | default('') }}"
+                }
+              }
+            }
+          ]
+        }
+      managedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/ROSASupportPolicy"
+
+    - name: "{{ cluster_name }}-worker-role"
+      type: "worker"
+      description: "ROSA HCP worker role for {{ cluster_name }}"
+      assumeRolePolicyDocument: |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ec2.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        }
+      managedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+        - "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+        - "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+
+  oidcProvider:
+    issuerUrl: "{{ oidc_issuer_url | default('https://oidc.eks.' + aws_region + '.amazonaws.com/id/' + cluster_name) }}"
+    thumbprints:
+      - "9e99a48a9960b14926bb7f3b02e22da2b0ab7280"
+      - "a9d53002e97e00e043244f3d170d6f4c414104fd"
+    clientIds:
+      - "sts.amazonaws.com"
+
+  credentialRequests:
+    - name: "{{ cluster_name }}-cloud-controller-manager"
+      namespace: "kube-system"
+      serviceAccount: "cloud-controller-manager"
+      secretName: "cloud-controller-manager-credentials"
+      policyDocument: |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "ec2:DescribeAvailabilityZones",
+                "ec2:DescribeInstances",
+                "ec2:DescribeRouteTables",
+                "ec2:DescribeSecurityGroups",
+                "ec2:DescribeSubnets",
+                "ec2:DescribeVolumes",
+                "ec2:DescribeVpcs"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+
+  tags:
+    Environment: "{{ environment | default('test') }}"
+    Project: "ACM-CAPI-Automation"
+    TestCase: "ACM-21162"
+    ClusterName: "{{ cluster_name }}"
+    CreatedBy: "ansible-automation"
+
+---
+# Cluster - Main cluster configuration
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: {{ cluster_name }}
+  namespace: {{ capi_namespace | default("ns-rosa-hcp") }}
+  labels:
+    cluster.x-k8s.io/cluster-name: {{ cluster_name }}
+    automation.acm.redhat.com/test-case: "ACM-21162"
+  annotations:
+    automation.acm.redhat.com/description: "ROSA HCP cluster using ROSARoleConfig"
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+        - {{ pod_cidr | default("10.128.0.0/14") }}
+    services:
+      cidrBlocks:
+        - {{ service_cidr | default("172.30.0.0/16") }}
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: ROSAControlPlane
+    name: {{ cluster_name }}-control-plane
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+    kind: ROSAControlPlane
+    name: {{ cluster_name }}-control-plane
+
+---
+# ROSAControlPlane - Control plane configuration
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+kind: ROSAControlPlane
+metadata:
+  name: {{ cluster_name }}-control-plane
+  namespace: {{ capi_namespace | default("ns-rosa-hcp") }}
+  labels:
+    cluster.x-k8s.io/cluster-name: {{ cluster_name }}
+    automation.acm.redhat.com/test-case: "ACM-21162"
+spec:
+  # OpenShift Version
+  version: "{{ openshift_version | default('4.20.0') }}"
+
+  # AWS Region
+  region: {{ aws_region | default("us-east-1") | quote }}
+
+  # Networking Configuration
+  {% if subnet_ids is defined %}
+  subnetIDs:
+    {% for subnet in subnet_ids %}
+    - {{ subnet }}
+    {% endfor %}
+  {% endif %}
+
+  # Domain Configuration
+  {% if rosa_cluster_domain is defined %}
+  domainPrefix: "{{ rosa_cluster_domain }}"
+  {% endif %}
+
+  # Role Configuration - References ROSARoleConfig
+  installerRoleArn: "{{ installer_role_arn | default('') }}"
+  supportRoleArn: "{{ support_role_arn | default('') }}"
+  workerRoleArn: "{{ worker_role_arn | default('') }}"
+
+  # OIDC Configuration
+  {% if oidc_config_id is defined %}
+  oidcConfigId: "{{ oidc_config_id }}"
+  {% endif %}
+
+  # Additional Configuration
+  {% if rosa_billing_account is defined %}
+  billingAccount: "{{ rosa_billing_account }}"
+  {% endif %}
+
+  {% if rosa_availability_zones is defined %}
+  availabilityZones:
+    {% for az in rosa_availability_zones %}
+    - {{ az }}
+    {% endfor %}
+  {% endif %}
+
+  # External OIDC Configuration (if enabled)
+  {% if external_oidc_enabled | default(false) %}
+  externalOidc:
+    issuerUrl: "{{ external_oidc_issuer_url }}"
+    {% if external_oidc_client_id is defined %}
+    clientId: "{{ external_oidc_client_id }}"
+    {% endif %}
+    {% if external_oidc_client_secret is defined %}
+    clientSecret: "{{ external_oidc_client_secret }}"
+    {% endif %}
+    {% if external_oidc_ca_file is defined %}
+    caFile: "{{ external_oidc_ca_file }}"
+    {% endif %}
+    {% if external_oidc_groups_claim is defined %}
+    groupsClaim: "{{ external_oidc_groups_claim }}"
+    {% endif %}
+    {% if external_oidc_groups_prefix is defined %}
+    groupsPrefix: "{{ external_oidc_groups_prefix }}"
+    {% endif %}
+    {% if external_oidc_username_claim is defined %}
+    usernameClaim: "{{ external_oidc_username_claim }}"
+    {% endif %}
+    {% if external_oidc_username_prefix is defined %}
+    usernamePrefix: "{{ external_oidc_username_prefix }}"
+    {% endif %}
+    {% if external_oidc_required_claims is defined %}
+    requiredClaims:
+      {% for claim_key, claim_value in external_oidc_required_claims.items() %}
+      {{ claim_key }}: "{{ claim_value }}"
+      {% endfor %}
+    {% endif %}
+  {% endif %}
+
+  # Addon Configuration
+  {% if additional_compute_security_groups is defined %}
+  additionalComputeSecurityGroups:
+    {% for sg in additional_compute_security_groups %}
+    - {{ sg }}
+    {% endfor %}
+  {% endif %}
+
+  {% if additional_infra_security_groups is defined %}
+  additionalInfraSecurityGroups:
+    {% for sg in additional_infra_security_groups %}
+    - {{ sg }}
+    {% endfor %}
+  {% endif %}
+
+  {% if additional_control_plane_security_groups is defined %}
+  additionalControlPlaneSecurityGroups:
+    {% for sg in additional_control_plane_security_groups %}
+    - {{ sg }}
+    {% endfor %}
+  {% endif %}
+
+---
+# ROSAMachinePool - Default worker nodes
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: ROSAMachinePool
+metadata:
+  name: {{ cluster_name }}-workers
+  namespace: {{ capi_namespace | default("ns-rosa-hcp") }}
+  labels:
+    cluster.x-k8s.io/cluster-name: {{ cluster_name }}
+    automation.acm.redhat.com/test-case: "ACM-21162"
+spec:
+  # Node Configuration
+  instanceType: {{ instance_type | default("m5.xlarge") | quote }}
+
+  # Scaling Configuration
+  {% if autoscaling_enabled | default(false) %}
+  autoscaling:
+    minReplicas: {{ min_replicas | default(1) }}
+    maxReplicas: {{ max_replicas | default(3) }}
+  {% else %}
+  replicas: {{ replicas | default(2) }}
+  {% endif %}
+
+  # Storage Configuration
+  {% if root_volume_size is defined %}
+  rootVolume:
+    size: {{ root_volume_size }}Gi
+    {% if root_volume_type is defined %}
+    type: {{ root_volume_type }}
+    {% endif %}
+    {% if root_volume_iops is defined %}
+    iops: {{ root_volume_iops }}
+    {% endif %}
+  {% endif %}
+
+  # Availability Zones
+  {% if machine_pool_availability_zones is defined %}
+  availabilityZones:
+    {% for az in machine_pool_availability_zones %}
+    - {{ az }}
+    {% endfor %}
+  {% endif %}
+
+  # Subnet Configuration
+  {% if machine_pool_subnet_ids is defined %}
+  subnetIDs:
+    {% for subnet in machine_pool_subnet_ids %}
+    - {{ subnet }}
+    {% endfor %}
+  {% endif %}
+
+  # Labels and Taints
+  {% if node_labels is defined %}
+  labels:
+    {% for key, value in node_labels.items() %}
+    {{ key }}: "{{ value }}"
+    {% endfor %}
+  {% endif %}
+
+  {% if node_taints is defined %}
+  taints:
+    {% for taint in node_taints %}
+    - key: {{ taint.key }}
+      value: {{ taint.value | default("") }}
+      effect: {{ taint.effect }}
+    {% endfor %}
+  {% endif %}
+
+  # Additional Security Groups
+  {% if machine_pool_additional_security_groups is defined %}
+  additionalSecurityGroups:
+    {% for sg in machine_pool_additional_security_groups %}
+    - {{ sg }}
+    {% endfor %}
+  {% endif %}
+
+---
+# MachinePool - CAPI machine pool reference
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: {{ cluster_name }}-workers
+  namespace: {{ capi_namespace | default("ns-rosa-hcp") }}
+  labels:
+    cluster.x-k8s.io/cluster-name: {{ cluster_name }}
+    automation.acm.redhat.com/test-case: "ACM-21162"
+spec:
+  clusterName: {{ cluster_name }}
+  {% if autoscaling_enabled | default(false) %}
+  replicas: {{ min_replicas | default(1) }}
+  {% else %}
+  replicas: {{ replicas | default(2) }}
+  {% endif %}
+  template:
+    spec:
+      clusterName: {{ cluster_name }}
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: ROSAMachinePool
+        name: {{ cluster_name }}-workers
+      version: "{{ openshift_version | default('4.20.0') }}"

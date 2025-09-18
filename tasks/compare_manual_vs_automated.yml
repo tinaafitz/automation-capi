@@ -1,0 +1,472 @@
+---
+# Compare Manual vs Automated ROSARoleConfig for ACM-21162
+# Validates that automated role creation matches manual process results
+
+- name: Set comparison variables
+  set_fact:
+    automated_rosa_role_config: "{{ cluster_name }}-roles"
+    manual_roles_prefix: "{{ manual_roles_prefix | default('manual-' + cluster_name) }}"
+    comparison_results: {}
+
+- name: Display comparison configuration
+  debug:
+    msg: |
+      Manual vs Automated Comparison Configuration:
+      - Automated ROSARoleConfig: {{ automated_rosa_role_config }}
+      - Manual Roles Prefix: {{ manual_roles_prefix }}
+      - Cluster Name: {{ cluster_name }}
+      - AWS Account ID: {{ aws_account_id }}
+      - AWS Region: {{ aws_region }}
+
+- name: Get automated ROSARoleConfig
+  kubernetes.core.k8s_info:
+    api_version: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: ROSARoleConfig
+    name: "{{ automated_rosa_role_config }}"
+    namespace: "{{ capi_namespace }}"
+  register: automated_rosa_role_config_result
+
+- name: Validate automated ROSARoleConfig exists
+  fail:
+    msg: "Automated ROSARoleConfig {{ automated_rosa_role_config }} not found"
+  when: automated_rosa_role_config_result.resources | length == 0
+
+- name: Extract automated role ARNs
+  set_fact:
+    automated_installer_arn: "{{ automated_rosa_role_config_result.resources[0].status.installerRoleArn | default('') }}"
+    automated_support_arn: "{{ automated_rosa_role_config_result.resources[0].status.supportRoleArn | default('') }}"
+    automated_worker_arn: "{{ automated_rosa_role_config_result.resources[0].status.workerRoleArn | default('') }}"
+    automated_oidc_arn: "{{ automated_rosa_role_config_result.resources[0].status.oidcProviderArn | default('') }}"
+
+- name: Display automated role ARNs
+  debug:
+    msg: |
+      Automated Role ARNs:
+      - Installer: {{ automated_installer_arn }}
+      - Support: {{ automated_support_arn }}
+      - Worker: {{ automated_worker_arn }}
+      - OIDC Provider: {{ automated_oidc_arn }}
+
+- name: Define expected manual role names
+  set_fact:
+    manual_installer_role: "{{ manual_roles_prefix }}-installer-role"
+    manual_support_role: "{{ manual_roles_prefix }}-support-role"
+    manual_worker_role: "{{ manual_roles_prefix }}-worker-role"
+    manual_oidc_issuer: "{{ manual_oidc_issuer_url | default('') }}"
+
+- name: Check AWS CLI availability
+  command: which aws
+  register: aws_cli_check
+  failed_when: false
+  changed_when: false
+
+- name: Set AWS command execution method
+  set_fact:
+    aws_command_prefix: "{{ 'kubectl run aws-cli-temp --rm -i --restart=Never --image=amazon/aws-cli:latest -- ' if aws_cli_check.rc != 0 else '' }}"
+
+- name: Get automated installer role details
+  block:
+    - name: Extract automated installer role name
+      set_fact:
+        automated_installer_role: "{{ automated_installer_arn.split('/')[-1] }}"
+
+    - name: Get automated installer role from AWS
+      shell: |
+        {{ aws_command_prefix }}aws iam get-role --role-name {{ automated_installer_role }}
+      register: automated_installer_details
+      environment:
+        AWS_DEFAULT_REGION: "{{ aws_region }}"
+
+    - name: Get automated installer role policies
+      shell: |
+        {{ aws_command_prefix }}aws iam list-attached-role-policies --role-name {{ automated_installer_role }}
+      register: automated_installer_policies
+      environment:
+        AWS_DEFAULT_REGION: "{{ aws_region }}"
+
+  rescue:
+    - name: Handle automated installer role fetch failure
+      set_fact:
+        comparison_results: "{{ comparison_results | combine({'automated_installer_fetch_failed': true}) }}"
+
+- name: Get manual installer role details (if exists)
+  block:
+    - name: Get manual installer role from AWS
+      shell: |
+        {{ aws_command_prefix }}aws iam get-role --role-name {{ manual_installer_role }}
+      register: manual_installer_details
+      failed_when: false
+      environment:
+        AWS_DEFAULT_REGION: "{{ aws_region }}"
+
+    - name: Get manual installer role policies
+      shell: |
+        {{ aws_command_prefix }}aws iam list-attached-role-policies --role-name {{ manual_installer_role }}
+      register: manual_installer_policies
+      failed_when: false
+      when: manual_installer_details.rc == 0
+      environment:
+        AWS_DEFAULT_REGION: "{{ aws_region }}"
+
+    - name: Set manual installer role availability
+      set_fact:
+        manual_installer_exists: "{{ manual_installer_details.rc == 0 }}"
+
+  rescue:
+    - name: Handle manual installer role fetch failure
+      set_fact:
+        manual_installer_exists: false
+
+- name: Compare installer roles
+  block:
+    - name: Parse automated installer role details
+      set_fact:
+        automated_installer_data: "{{ automated_installer_details.stdout | from_json }}"
+        automated_installer_policy_data: "{{ automated_installer_policies.stdout | from_json }}"
+      when: automated_installer_details is defined and automated_installer_details.rc == 0
+
+    - name: Parse manual installer role details
+      set_fact:
+        manual_installer_data: "{{ manual_installer_details.stdout | from_json }}"
+        manual_installer_policy_data: "{{ manual_installer_policies.stdout | from_json }}"
+      when: manual_installer_exists and manual_installer_policies is defined
+
+    - name: Compare installer role configurations
+      set_fact:
+        installer_comparison: {
+          'automated_exists': "{{ automated_installer_data is defined }}",
+          'manual_exists': "{{ manual_installer_exists }}",
+          'trust_policy_match': "{{
+            (automated_installer_data.Role.AssumeRolePolicyDocument == manual_installer_data.Role.AssumeRolePolicyDocument)
+            if (automated_installer_data is defined and manual_installer_data is defined)
+            else false
+          }}",
+          'policies_match': "{{
+            (automated_installer_policy_data.AttachedPolicies | sort(attribute='PolicyArn') == manual_installer_policy_data.AttachedPolicies | sort(attribute='PolicyArn'))
+            if (automated_installer_policy_data is defined and manual_installer_policy_data is defined)
+            else false
+          }}"
+        }
+
+    - name: Display installer role comparison
+      debug:
+        msg: |
+          Installer Role Comparison:
+          - Automated Role Exists: {{ installer_comparison.automated_exists }}
+          - Manual Role Exists: {{ installer_comparison.manual_exists }}
+          {% if installer_comparison.automated_exists and installer_comparison.manual_exists %}
+          - Trust Policy Match: {{ installer_comparison.trust_policy_match }}
+          - Attached Policies Match: {{ installer_comparison.policies_match }}
+          - Automated Policies: {{ automated_installer_policy_data.AttachedPolicies | map(attribute='PolicyName') | join(', ') }}
+          - Manual Policies: {{ manual_installer_policy_data.AttachedPolicies | map(attribute='PolicyName') | join(', ') }}
+          {% endif %}
+
+- name: Compare support roles
+  block:
+    - name: Extract automated support role name
+      set_fact:
+        automated_support_role: "{{ automated_support_arn.split('/')[-1] }}"
+
+    - name: Get automated support role details
+      shell: |
+        {{ aws_command_prefix }}aws iam get-role --role-name {{ automated_support_role }}
+      register: automated_support_details
+      environment:
+        AWS_DEFAULT_REGION: "{{ aws_region }}"
+
+    - name: Get manual support role details (if exists)
+      shell: |
+        {{ aws_command_prefix }}aws iam get-role --role-name {{ manual_support_role }}
+      register: manual_support_details
+      failed_when: false
+      environment:
+        AWS_DEFAULT_REGION: "{{ aws_region }}"
+
+    - name: Compare support role configurations
+      set_fact:
+        support_comparison: {
+          'automated_exists': "{{ automated_support_details.rc == 0 }}",
+          'manual_exists': "{{ manual_support_details.rc == 0 }}",
+          'trust_policy_match': "{{
+            (automated_support_details.stdout | from_json).Role.AssumeRolePolicyDocument ==
+            (manual_support_details.stdout | from_json).Role.AssumeRolePolicyDocument
+            if (automated_support_details.rc == 0 and manual_support_details.rc == 0)
+            else false
+          }}"
+        }
+
+    - name: Display support role comparison
+      debug:
+        msg: |
+          Support Role Comparison:
+          - Automated Role Exists: {{ support_comparison.automated_exists }}
+          - Manual Role Exists: {{ support_comparison.manual_exists }}
+          - Trust Policy Match: {{ support_comparison.trust_policy_match }}
+
+  rescue:
+    - name: Handle support role comparison failure
+      set_fact:
+        support_comparison: { 'comparison_failed': true }
+
+- name: Compare worker roles
+  block:
+    - name: Extract automated worker role name
+      set_fact:
+        automated_worker_role: "{{ automated_worker_arn.split('/')[-1] }}"
+
+    - name: Get automated worker role details
+      shell: |
+        {{ aws_command_prefix }}aws iam get-role --role-name {{ automated_worker_role }}
+      register: automated_worker_details
+      environment:
+        AWS_DEFAULT_REGION: "{{ aws_region }}"
+
+    - name: Get manual worker role details (if exists)
+      shell: |
+        {{ aws_command_prefix }}aws iam get-role --role-name {{ manual_worker_role }}
+      register: manual_worker_details
+      failed_when: false
+      environment:
+        AWS_DEFAULT_REGION: "{{ aws_region }}"
+
+    - name: Compare worker role configurations
+      set_fact:
+        worker_comparison: {
+          'automated_exists': "{{ automated_worker_details.rc == 0 }}",
+          'manual_exists': "{{ manual_worker_details.rc == 0 }}",
+          'trust_policy_match': "{{
+            (automated_worker_details.stdout | from_json).Role.AssumeRolePolicyDocument ==
+            (manual_worker_details.stdout | from_json).Role.AssumeRolePolicyDocument
+            if (automated_worker_details.rc == 0 and manual_worker_details.rc == 0)
+            else false
+          }}"
+        }
+
+    - name: Display worker role comparison
+      debug:
+        msg: |
+          Worker Role Comparison:
+          - Automated Role Exists: {{ worker_comparison.automated_exists }}
+          - Manual Role Exists: {{ worker_comparison.manual_exists }}
+          - Trust Policy Match: {{ worker_comparison.trust_policy_match }}
+
+  rescue:
+    - name: Handle worker role comparison failure
+      set_fact:
+        worker_comparison: { 'comparison_failed': true }
+
+- name: Compare OIDC providers
+  block:
+    - name: Get automated OIDC provider details
+      shell: |
+        {{ aws_command_prefix }}aws iam get-open-id-connect-provider --open-id-connect-provider-arn {{ automated_oidc_arn }}
+      register: automated_oidc_details
+      environment:
+        AWS_DEFAULT_REGION: "{{ aws_region }}"
+
+    - name: Find manual OIDC provider (if exists)
+      shell: |
+        {{ aws_command_prefix }}aws iam list-open-id-connect-providers
+      register: all_oidc_providers
+      environment:
+        AWS_DEFAULT_REGION: "{{ aws_region }}"
+
+    - name: Filter manual OIDC provider
+      set_fact:
+        manual_oidc_candidates: "{{
+          (all_oidc_providers.stdout | from_json).OpenIDConnectProviderList |
+          selectattr('Arn', 'contains', manual_roles_prefix) |
+          list
+        }}"
+      when: all_oidc_providers.rc == 0
+
+    - name: Compare OIDC providers
+      set_fact:
+        oidc_comparison: {
+          'automated_exists': "{{ automated_oidc_details.rc == 0 }}",
+          'manual_exists': "{{ manual_oidc_candidates | length > 0 if manual_oidc_candidates is defined else false }}",
+          'automated_url': "{{ (automated_oidc_details.stdout | from_json).Url if automated_oidc_details.rc == 0 else 'N/A' }}",
+          'manual_url': "{{ manual_oidc_issuer if manual_oidc_issuer != '' else 'Not specified' }}"
+        }
+
+    - name: Display OIDC provider comparison
+      debug:
+        msg: |
+          OIDC Provider Comparison:
+          - Automated Provider Exists: {{ oidc_comparison.automated_exists }}
+          - Manual Provider Exists: {{ oidc_comparison.manual_exists }}
+          - Automated URL: {{ oidc_comparison.automated_url }}
+          - Expected Manual URL: {{ oidc_comparison.manual_url }}
+
+  rescue:
+    - name: Handle OIDC provider comparison failure
+      set_fact:
+        oidc_comparison: { 'comparison_failed': true }
+
+- name: Analyze role naming conventions
+  block:
+    - name: Extract role name patterns
+      set_fact:
+        automated_naming_pattern: {
+          'installer': "{{ automated_installer_arn.split('/')[-1] }}",
+          'support': "{{ automated_support_arn.split('/')[-1] }}",
+          'worker': "{{ automated_worker_arn.split('/')[-1] }}"
+        }
+        expected_manual_pattern: {
+          'installer': "{{ manual_installer_role }}",
+          'support': "{{ manual_support_role }}",
+          'worker': "{{ manual_worker_role }}"
+        }
+
+    - name: Compare naming conventions
+      set_fact:
+        naming_analysis: {
+          'automated_follows_pattern': "{{
+            automated_naming_pattern.installer.endswith('-installer-role') and
+            automated_naming_pattern.support.endswith('-support-role') and
+            automated_naming_pattern.worker.endswith('-worker-role')
+          }}",
+          'consistent_prefix': "{{
+            automated_naming_pattern.installer.startswith(cluster_name) and
+            automated_naming_pattern.support.startswith(cluster_name) and
+            automated_naming_pattern.worker.startswith(cluster_name)
+          }}"
+        }
+
+    - name: Display naming analysis
+      debug:
+        msg: |
+          Role Naming Analysis:
+          - Automated Follows Pattern: {{ naming_analysis.automated_follows_pattern }}
+          - Consistent Cluster Prefix: {{ naming_analysis.consistent_prefix }}
+
+          Automated Names:
+          - Installer: {{ automated_naming_pattern.installer }}
+          - Support: {{ automated_naming_pattern.support }}
+          - Worker: {{ automated_naming_pattern.worker }}
+
+          Expected Manual Names:
+          - Installer: {{ expected_manual_pattern.installer }}
+          - Support: {{ expected_manual_pattern.support }}
+          - Worker: {{ expected_manual_pattern.worker }}
+
+- name: Calculate overall comparison results
+  set_fact:
+    comparison_summary: {
+      'automated_complete': "{{
+        installer_comparison.automated_exists | default(false) and
+        support_comparison.automated_exists | default(false) and
+        worker_comparison.automated_exists | default(false) and
+        oidc_comparison.automated_exists | default(false)
+      }}",
+      'manual_complete': "{{
+        installer_comparison.manual_exists | default(false) and
+        support_comparison.manual_exists | default(false) and
+        worker_comparison.manual_exists | default(false) and
+        oidc_comparison.manual_exists | default(false)
+      }}",
+      'configurations_match': "{{
+        installer_comparison.trust_policy_match | default(false) and
+        support_comparison.trust_policy_match | default(false) and
+        worker_comparison.trust_policy_match | default(false)
+      }}",
+      'automated_advantages': [
+        'Consistent naming convention',
+        'Automated creation and management',
+        'Integrated with CAPI lifecycle',
+        'Version controlled through ROSARoleConfig'
+      ],
+      'manual_advantages': [
+        'Direct AWS control',
+        'Custom configurations possible',
+        'Independent of CAPI lifecycle'
+      ]
+    }
+
+- name: Display comprehensive comparison summary
+  debug:
+    msg: |
+      Manual vs Automated ROSARoleConfig Comparison Summary:
+      =====================================================
+
+      Completeness Analysis:
+      - Automated Setup Complete: {{ comparison_summary.automated_complete }}
+      - Manual Setup Complete: {{ comparison_summary.manual_complete }}
+
+      Configuration Matching:
+      - Trust Policies Match: {{ comparison_summary.configurations_match }}
+      - Policy Attachments Consistent: {{ installer_comparison.policies_match | default('N/A') }}
+
+      Role Analysis:
+      {% for role_type in ['installer', 'support', 'worker'] %}
+      {{ role_type | title }} Role:
+      - Automated: {{ 'Exists' if vars[role_type + '_comparison'].automated_exists else 'Missing' }}
+      - Manual: {{ 'Exists' if vars[role_type + '_comparison'].manual_exists else 'Missing' }}
+      - Config Match: {{ vars[role_type + '_comparison'].trust_policy_match | default('N/A') }}
+      {% endfor %}
+
+      OIDC Provider:
+      - Automated: {{ 'Exists' if oidc_comparison.automated_exists else 'Missing' }}
+      - Manual: {{ 'Exists' if oidc_comparison.manual_exists else 'Missing' }}
+
+      Naming Convention Analysis:
+      - Follows Standard Pattern: {{ naming_analysis.automated_follows_pattern }}
+      - Consistent Cluster Prefix: {{ naming_analysis.consistent_prefix }}
+
+      Automated Approach Advantages:
+      {% for advantage in comparison_summary.automated_advantages %}
+      - {{ advantage }}
+      {% endfor %}
+
+      Manual Approach Advantages:
+      {% for advantage in comparison_summary.manual_advantages %}
+      - {{ advantage }}
+      {% endfor %}
+
+      Recommendation: {{ 'Use automated ROSARoleConfig for consistency and lifecycle management' if comparison_summary.automated_complete else 'Complete automated setup before comparison' }}
+
+- name: Set final comparison facts
+  set_fact:
+    manual_vs_automated_comparison_complete: true
+    automated_setup_complete: "{{ comparison_summary.automated_complete }}"
+    manual_setup_complete: "{{ comparison_summary.manual_complete }}"
+    configurations_equivalent: "{{ comparison_summary.configurations_match }}"
+    comparison_details: {
+      'installer': "{{ installer_comparison }}",
+      'support': "{{ support_comparison }}",
+      'worker': "{{ worker_comparison }}",
+      'oidc': "{{ oidc_comparison }}",
+      'naming': "{{ naming_analysis }}"
+    }
+
+rescue:
+  - name: Handle comparison failure
+    debug:
+      msg: |
+        Manual vs automated comparison encountered an error.
+        This could indicate AWS connectivity issues or missing resources.
+
+  - name: Set comparison failure facts
+    set_fact:
+      manual_vs_automated_comparison_complete: false
+      comparison_failed: true
+      comparison_error: "{{ ansible_failed_result.msg | default('Unknown comparison error') }}"
+
+  - name: Display comparison failure guidance
+    debug:
+      msg: |
+        Manual vs Automated Comparison Failed - Troubleshooting:
+
+        1. Verify automated ROSARoleConfig exists and is ready:
+           kubectl get rosaroleconfig {{ automated_rosa_role_config }} -n {{ capi_namespace }}
+
+        2. Check if manual roles exist with expected naming:
+           aws iam get-role --role-name {{ manual_installer_role }}
+           aws iam get-role --role-name {{ manual_support_role }}
+           aws iam get-role --role-name {{ manual_worker_role }}
+
+        3. Verify AWS CLI access and permissions:
+           aws sts get-caller-identity
+
+        4. Check network connectivity to AWS:
+           curl -I https://iam.{{ aws_region }}.amazonaws.com

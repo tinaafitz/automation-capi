@@ -1,0 +1,212 @@
+---
+# Wait for ROSA Roles to be created and ready for ACM-21162
+# Monitors ROSARoleConfig status and AWS resource creation
+
+- name: Set wait variables
+  set_fact:
+    rosa_role_config_name: "{{ rosa_role_config_name | default(cluster_name + '-roles') }}"
+    max_wait_time: "{{ rosa_roles_wait_timeout | default(1800) }}"  # 30 minutes default
+    poll_interval: "{{ rosa_roles_poll_interval | default(30) }}"   # 30 seconds default
+    start_time: "{{ ansible_date_time.epoch | int }}"
+
+- name: Display wait configuration
+  debug:
+    msg: |
+      Waiting for ROSARoleConfig: {{ rosa_role_config_name }}
+      - Namespace: {{ capi_namespace }}
+      - Maximum wait time: {{ max_wait_time }} seconds
+      - Poll interval: {{ poll_interval }} seconds
+      - Start time: {{ ansible_date_time.iso8601 }}
+
+- name: Wait for ROSARoleConfig to exist
+  kubernetes.core.k8s_info:
+    api_version: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: ROSARoleConfig
+    name: "{{ rosa_role_config_name }}"
+    namespace: "{{ capi_namespace }}"
+  register: rosa_role_config_check
+  until: rosa_role_config_check.resources | length > 0
+  retries: 20
+  delay: 15
+
+- name: Monitor ROSARoleConfig status until ready
+  block:
+    - name: Wait for ROSARoleConfig to be ready
+      kubernetes.core.k8s_info:
+        api_version: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: ROSARoleConfig
+        name: "{{ rosa_role_config_name }}"
+        namespace: "{{ capi_namespace }}"
+      register: rosa_role_config_status
+      until:
+        - rosa_role_config_status.resources | length > 0
+        - rosa_role_config_status.resources[0].status is defined
+        - rosa_role_config_status.resources[0].status.phase is defined
+        - rosa_role_config_status.resources[0].status.phase == 'Ready'
+      retries: "{{ (max_wait_time | int / poll_interval | int) | int }}"
+      delay: "{{ poll_interval | int }}"
+
+    - name: Set successful completion facts
+      set_fact:
+        rosa_roles_ready: true
+        rosa_role_config_resource: "{{ rosa_role_config_status.resources[0] }}"
+        current_time: "{{ ansible_date_time.epoch | int }}"
+        wait_duration: "{{ (ansible_date_time.epoch | int) - (start_time | int) }}"
+
+  rescue:
+    - name: Handle timeout or failure
+      debug:
+        msg: |
+          ROSARoleConfig did not become ready within the timeout period.
+          Investigating current status...
+
+    - name: Get current ROSARoleConfig status for debugging
+      kubernetes.core.k8s_info:
+        api_version: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: ROSARoleConfig
+        name: "{{ rosa_role_config_name }}"
+        namespace: "{{ capi_namespace }}"
+      register: failed_rosa_role_config_status
+      failed_when: false
+
+    - name: Display current status and conditions
+      debug:
+        msg: |
+          Current ROSARoleConfig Status:
+          {% if failed_rosa_role_config_status.resources | length > 0 %}
+          - Phase: {{ failed_rosa_role_config_status.resources[0].status.phase | default('Unknown') }}
+          - Conditions:
+          {% for condition in failed_rosa_role_config_status.resources[0].status.conditions | default([]) %}
+            * Type: {{ condition.type }}
+              Status: {{ condition.status }}
+              Reason: {{ condition.reason | default('N/A') }}
+              Message: {{ condition.message | default('N/A') }}
+              Last Transition: {{ condition.lastTransitionTime | default('N/A') }}
+          {% endfor %}
+          {% if failed_rosa_role_config_status.resources[0].status.installerRoleArn is defined %}
+          - Installer Role ARN: {{ failed_rosa_role_config_status.resources[0].status.installerRoleArn }}
+          {% endif %}
+          {% if failed_rosa_role_config_status.resources[0].status.supportRoleArn is defined %}
+          - Support Role ARN: {{ failed_rosa_role_config_status.resources[0].status.supportRoleArn }}
+          {% endif %}
+          {% if failed_rosa_role_config_status.resources[0].status.workerRoleArn is defined %}
+          - Worker Role ARN: {{ failed_rosa_role_config_status.resources[0].status.workerRoleArn }}
+          {% endif %}
+          {% if failed_rosa_role_config_status.resources[0].status.oidcProviderArn is defined %}
+          - OIDC Provider ARN: {{ failed_rosa_role_config_status.resources[0].status.oidcProviderArn }}
+          {% endif %}
+          {% else %}
+          - ROSARoleConfig not found or failed to retrieve
+          {% endif %}
+
+    - name: Get related events for debugging
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Event
+        namespace: "{{ capi_namespace }}"
+        field_selectors:
+          - involvedObject.name={{ rosa_role_config_name }}
+          - involvedObject.kind=ROSARoleConfig
+      register: rosa_role_config_events
+      failed_when: false
+
+    - name: Display recent events
+      debug:
+        msg: |
+          Recent Events for ROSARoleConfig {{ rosa_role_config_name }}:
+          {% for event in rosa_role_config_events.resources | sort(attribute='firstTimestamp') | reverse %}
+          - {{ event.firstTimestamp | default(event.eventTime) }}: {{ event.reason }} - {{ event.message }}
+            Source: {{ event.source.component | default('Unknown') }}
+            Type: {{ event.type | default('Normal') }}
+          {% endfor %}
+      when: rosa_role_config_events.resources is defined and rosa_role_config_events.resources | length > 0
+
+    - name: Check CAPA controller status
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: capa-controller-manager
+        namespace: "{{ capa_system_namespace }}"
+      register: capa_controller_status
+      failed_when: false
+
+    - name: Display CAPA controller information
+      debug:
+        msg: |
+          CAPA Controller Status:
+          {% if capa_controller_status.resources | length > 0 %}
+          - Available Replicas: {{ capa_controller_status.resources[0].status.availableReplicas | default(0) }}
+          - Ready Replicas: {{ capa_controller_status.resources[0].status.readyReplicas | default(0) }}
+          - Desired Replicas: {{ capa_controller_status.resources[0].spec.replicas | default(1) }}
+          - Conditions:
+          {% for condition in capa_controller_status.resources[0].status.conditions | default([]) %}
+            * {{ condition.type }}: {{ condition.status }} ({{ condition.reason | default('N/A') }})
+          {% endfor %}
+          {% else %}
+          - CAPA controller deployment not found in namespace {{ capa_system_namespace }}
+          {% endif %}
+
+    - name: Set failure facts
+      set_fact:
+        rosa_roles_ready: false
+        rosa_roles_wait_failed: true
+        current_time: "{{ ansible_date_time.epoch | int }}"
+        wait_duration: "{{ (ansible_date_time.epoch | int) - (start_time | int) }}"
+
+    - name: Provide troubleshooting guidance
+      debug:
+        msg: |
+          ROSARoleConfig Wait Failed - Troubleshooting Steps:
+
+          1. Check CAPA Controller:
+             kubectl get deployment capa-controller-manager -n {{ capa_system_namespace }}
+             kubectl logs deployment/capa-controller-manager -n {{ capa_system_namespace }}
+
+          2. Check AWS Credentials:
+             kubectl get secret {{ rosa_creds_secret }} -n {{ capa_system_namespace }}
+
+          3. Check ROSARoleConfig Resource:
+             kubectl describe rosaroleconfig {{ rosa_role_config_name }} -n {{ capi_namespace }}
+
+          4. Check Events:
+             kubectl get events -n {{ capi_namespace }} --field-selector involvedObject.name={{ rosa_role_config_name }}
+
+          5. Verify AWS Permissions:
+             - IAM role creation permissions
+             - OIDC provider creation permissions
+             - Policy attachment permissions
+
+          Wait Duration: {{ wait_duration }} seconds (timeout: {{ max_wait_time }} seconds)
+
+    - name: Fail the task
+      fail:
+        msg: |
+          ROSARoleConfig {{ rosa_role_config_name }} did not become ready within {{ max_wait_time }} seconds.
+          Current phase: {{ failed_rosa_role_config_status.resources[0].status.phase | default('Unknown') if failed_rosa_role_config_status.resources | length > 0 else 'Not Found' }}
+          Please check the troubleshooting guidance above.
+
+- name: Display success information
+  debug:
+    msg: |
+      ROSARoleConfig {{ rosa_role_config_name }} is ready!
+
+      AWS Resources Created:
+      - Installer Role ARN: {{ rosa_role_config_resource.status.installerRoleArn | default('Not Available') }}
+      - Support Role ARN: {{ rosa_role_config_resource.status.supportRoleArn | default('Not Available') }}
+      - Worker Role ARN: {{ rosa_role_config_resource.status.workerRoleArn | default('Not Available') }}
+      - OIDC Provider ARN: {{ rosa_role_config_resource.status.oidcProviderArn | default('Not Available') }}
+
+      Timing Information:
+      - Wait Duration: {{ wait_duration }} seconds
+      - Status: Ready
+      - Phase: {{ rosa_role_config_resource.status.phase }}
+  when: rosa_roles_ready | default(false)
+
+- name: Set final facts
+  set_fact:
+    rosa_roles_wait_completed: true
+    rosa_roles_installer_arn: "{{ rosa_role_config_resource.status.installerRoleArn | default('') }}"
+    rosa_roles_support_arn: "{{ rosa_role_config_resource.status.supportRoleArn | default('') }}"
+    rosa_roles_worker_arn: "{{ rosa_role_config_resource.status.workerRoleArn | default('') }}"
+    rosa_roles_oidc_provider_arn: "{{ rosa_role_config_resource.status.oidcProviderArn | default('') }}"
+  when: rosa_roles_ready | default(false)

@@ -1,0 +1,279 @@
+---
+# Update CAPA ClusterRole for ACM-21162
+# Ensures CAPA controller has necessary permissions for ROSARoleConfig operations
+
+- name: Set CAPA ClusterRole update variables
+  set_fact:
+    capa_clusterrole_name: "capa-manager-role"
+    backup_enabled: "{{ capa_clusterrole_backup | default(true) }}"
+
+- name: Display CAPA ClusterRole update configuration
+  debug:
+    msg: |
+      CAPA ClusterRole Update Configuration:
+      - ClusterRole Name: {{ capa_clusterrole_name }}
+      - Backup Enabled: {{ backup_enabled }}
+
+- name: Get current CAPA ClusterRole
+  kubernetes.core.k8s_info:
+    api_version: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    name: "{{ capa_clusterrole_name }}"
+  register: current_capa_clusterrole
+
+- name: Validate CAPA ClusterRole exists
+  fail:
+    msg: "CAPA ClusterRole {{ capa_clusterrole_name }} not found"
+  when: current_capa_clusterrole.resources | length == 0
+
+- name: Extract current ClusterRole information
+  set_fact:
+    current_clusterrole_resource: "{{ current_capa_clusterrole.resources[0] }}"
+    current_rules: "{{ current_capa_clusterrole.resources[0].rules }}"
+
+- name: Display current ClusterRole rules count
+  debug:
+    msg: |
+      Current CAPA ClusterRole Status:
+      - Name: {{ current_clusterrole_resource.metadata.name }}
+      - Total Rules: {{ current_rules | length }}
+      - Creation Timestamp: {{ current_clusterrole_resource.metadata.creationTimestamp }}
+
+- name: Define additional rules for ROSARoleConfig support
+  set_fact:
+    rosa_role_config_rules:
+      # ROSARoleConfig permissions
+      - apiGroups: ["infrastructure.cluster.x-k8s.io"]
+        resources: ["rosaroleconfigs"]
+        verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+      - apiGroups: ["infrastructure.cluster.x-k8s.io"]
+        resources: ["rosaroleconfigs/status"]
+        verbs: ["get", "patch", "update"]
+      - apiGroups: ["infrastructure.cluster.x-k8s.io"]
+        resources: ["rosaroleconfigs/finalizers"]
+        verbs: ["update"]
+      # AWS IAM permissions (for AWS SDK calls)
+      - apiGroups: [""]
+        resources: ["secrets"]
+        verbs: ["get", "list", "watch"]
+        resourceNames: ["{{ rosa_creds_secret }}"]
+      # Additional ROSA-specific permissions
+      - apiGroups: ["infrastructure.cluster.x-k8s.io"]
+        resources: ["rosanetworks"]
+        verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+      - apiGroups: ["infrastructure.cluster.x-k8s.io"]
+        resources: ["rosanetworks/status"]
+        verbs: ["get", "patch", "update"]
+      - apiGroups: ["infrastructure.cluster.x-k8s.io"]
+        resources: ["rosanetworks/finalizers"]
+        verbs: ["update"]
+
+- name: Check if ROSARoleConfig rules already exist
+  set_fact:
+    rosa_rules_exist: "{{ current_rules | selectattr('apiGroups', 'defined') | selectattr('apiGroups', 'contains', 'infrastructure.cluster.x-k8s.io') | selectattr('resources', 'defined') | selectattr('resources', 'contains', 'rosaroleconfigs') | list | length > 0 }}"
+
+- name: Display rule existence check
+  debug:
+    msg: |
+      ROSARoleConfig Rules Check:
+      - Rules already exist: {{ rosa_rules_exist }}
+      - Update needed: {{ not rosa_rules_exist }}
+
+- name: Skip update if rules already exist
+  debug:
+    msg: |
+      CAPA ClusterRole already contains ROSARoleConfig permissions.
+      No update needed.
+  when: rosa_rules_exist
+
+- name: Proceed with ClusterRole update
+  block:
+    - name: Create backup of current ClusterRole (if enabled)
+      copy:
+        content: "{{ current_clusterrole_resource | to_nice_yaml }}"
+        dest: "{{ output_dir }}/capa-clusterrole-backup-{{ ansible_date_time.epoch }}.yaml"
+        mode: '0644'
+      when: backup_enabled
+
+    - name: Display backup information
+      debug:
+        msg: |
+          CAPA ClusterRole backed up to:
+          {{ output_dir }}/capa-clusterrole-backup-{{ ansible_date_time.epoch }}.yaml
+      when: backup_enabled
+
+    - name: Combine existing and new rules
+      set_fact:
+        updated_rules: "{{ current_rules + rosa_role_config_rules }}"
+
+    - name: Update CAPA ClusterRole with ROSARoleConfig permissions
+      kubernetes.core.k8s:
+        api_version: rbac.authorization.k8s.io/v1
+        kind: ClusterRole
+        name: "{{ capa_clusterrole_name }}"
+        definition:
+          metadata:
+            name: "{{ capa_clusterrole_name }}"
+            labels: "{{ current_clusterrole_resource.metadata.labels | default({}) }}"
+            annotations:
+              automation.acm.redhat.com/updated-for: "ACM-21162"
+              automation.acm.redhat.com/update-timestamp: "{{ ansible_date_time.iso8601 }}"
+          rules: "{{ updated_rules }}"
+        merge_type: replace
+      register: clusterrole_update_result
+
+    - name: Display update result
+      debug:
+        msg: |
+          CAPA ClusterRole update completed:
+          - Method: {{ clusterrole_update_result.method }}
+          - Previous Rules Count: {{ current_rules | length }}
+          - New Rules Count: {{ updated_rules | length }}
+          - Rules Added: {{ rosa_role_config_rules | length }}
+
+    - name: Verify ClusterRole update
+      kubernetes.core.k8s_info:
+        api_version: rbac.authorization.k8s.io/v1
+        kind: ClusterRole
+        name: "{{ capa_clusterrole_name }}"
+      register: updated_clusterrole
+
+    - name: Validate update success
+      block:
+        - name: Check updated rules count
+          set_fact:
+            final_rules: "{{ updated_clusterrole.resources[0].rules }}"
+            final_rules_count: "{{ updated_clusterrole.resources[0].rules | length }}"
+
+        - name: Verify rules were added
+          fail:
+            msg: "ClusterRole update failed - rules count did not increase as expected"
+          when: final_rules_count | int <= current_rules | length
+
+        - name: Verify ROSARoleConfig rules are present
+          set_fact:
+            rosa_rules_present: "{{ final_rules | selectattr('apiGroups', 'defined') | selectattr('apiGroups', 'contains', 'infrastructure.cluster.x-k8s.io') | selectattr('resources', 'defined') | selectattr('resources', 'contains', 'rosaroleconfigs') | list | length > 0 }}"
+
+        - name: Validate ROSARoleConfig permissions
+          fail:
+            msg: "ROSARoleConfig rules not found in updated ClusterRole"
+          when: not rosa_rules_present
+
+        - name: Display successful update information
+          debug:
+            msg: |
+              CAPA ClusterRole Update Successful!
+              - Updated Rules Count: {{ final_rules_count }}
+              - ROSARoleConfig Rules Present: {{ rosa_rules_present }}
+              - Update Timestamp: {{ updated_clusterrole.resources[0].metadata.annotations['automation.acm.redhat.com/update-timestamp'] | default('N/A') }}
+
+        - name: Set success facts
+          set_fact:
+            capa_clusterrole_update_successful: true
+            capa_clusterrole_rules_added: "{{ rosa_role_config_rules | length }}"
+            capa_clusterrole_total_rules: "{{ final_rules_count }}"
+
+    - name: Restart CAPA controller to pick up new permissions
+      block:
+        - name: Restart CAPA controller deployment
+          kubernetes.core.k8s:
+            api_version: apps/v1
+            kind: Deployment
+            name: "capa-controller-manager"
+            namespace: "{{ capa_system_namespace }}"
+            merge_type: strategic-merge
+            definition:
+              spec:
+                template:
+                  metadata:
+                    annotations:
+                      kubectl.kubernetes.io/restartedAt: "{{ ansible_date_time.iso8601 }}"
+          register: controller_restart_result
+
+        - name: Wait for controller restart to complete
+          kubernetes.core.k8s_info:
+            api_version: apps/v1
+            kind: Deployment
+            name: "capa-controller-manager"
+            namespace: "{{ capa_system_namespace }}"
+            wait: true
+            wait_condition:
+              type: Progressing
+              status: "True"
+              reason: NewReplicaSetAvailable
+            wait_timeout: 300
+
+        - name: Display restart information
+          debug:
+            msg: |
+              CAPA controller restarted to pick up new ClusterRole permissions.
+              Restart timestamp: {{ ansible_date_time.iso8601 }}
+
+  when: not rosa_rules_exist
+
+rescue:
+  - name: Handle ClusterRole update failure
+    debug:
+      msg: |
+        CAPA ClusterRole update failed.
+        Attempting to gather diagnostic information...
+
+  - name: Get current ClusterRole status for debugging
+    kubernetes.core.k8s_info:
+      api_version: rbac.authorization.k8s.io/v1
+      kind: ClusterRole
+      name: "{{ capa_clusterrole_name }}"
+    register: failed_clusterrole
+    failed_when: false
+
+  - name: Display failure information
+    debug:
+      msg: |
+        CAPA ClusterRole Update Failed:
+        {% if failed_clusterrole.resources | length > 0 %}
+        - Current Rules Count: {{ failed_clusterrole.resources[0].rules | length }}
+        - ClusterRole Generation: {{ failed_clusterrole.resources[0].metadata.generation | default('N/A') }}
+        {% else %}
+        - ClusterRole not found or not accessible
+        {% endif %}
+
+  - name: Set failure facts
+    set_fact:
+      capa_clusterrole_update_successful: false
+      capa_clusterrole_update_failed: true
+
+  - name: Provide manual update guidance
+    debug:
+      msg: |
+        CAPA ClusterRole Update Failed - Manual Steps:
+
+        1. Backup current ClusterRole:
+           kubectl get clusterrole {{ capa_clusterrole_name }} -o yaml > capa-clusterrole-backup.yaml
+
+        2. Edit ClusterRole to add ROSARoleConfig permissions:
+           kubectl edit clusterrole {{ capa_clusterrole_name }}
+
+        3. Add these rules to the ClusterRole:
+        {{ rosa_role_config_rules | to_nice_yaml | indent(10) }}
+
+        4. Restart CAPA controller:
+           kubectl rollout restart deployment/capa-controller-manager -n {{ capa_system_namespace }}
+
+        5. Restore from backup if needed:
+           kubectl apply -f {{ output_dir }}/capa-clusterrole-backup-{{ ansible_date_time.epoch }}.yaml
+
+  - name: Fail the task
+    fail:
+      msg: |
+        CAPA ClusterRole update failed.
+        Please check the diagnostic information above and consider manual update steps.
+
+- name: Display final ClusterRole status
+  debug:
+    msg: |
+      CAPA ClusterRole Update Summary:
+      - ClusterRole Name: {{ capa_clusterrole_name }}
+      - Update Successful: {{ capa_clusterrole_update_successful | default(true) }}
+      - Rules Added: {{ capa_clusterrole_rules_added | default(0) }}
+      - Total Rules: {{ capa_clusterrole_total_rules | default(current_rules | length) }}
+      - Update Failed: {{ capa_clusterrole_update_failed | default(false) }}

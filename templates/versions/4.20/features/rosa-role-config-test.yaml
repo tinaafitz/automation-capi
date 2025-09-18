@@ -1,0 +1,242 @@
+---
+# Static Test Configuration for ROSARoleConfig ACM-21162
+# This file provides a complete test scenario for validating ROSARoleConfig functionality
+# Used for automated testing and development validation
+
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: ROSARoleConfig
+metadata:
+  name: acm21162-test-roles
+  namespace: ns-rosa-hcp
+  labels:
+    cluster.x-k8s.io/cluster-name: acm21162-test-cluster
+    automation.acm.redhat.com/test-case: "ACM-21162"
+    automation.acm.redhat.com/created-by: "ansible-automation"
+    automation.acm.redhat.com/test-type: "static-config"
+    automation.acm.redhat.com/environment: "development"
+  annotations:
+    automation.acm.redhat.com/description: "Static test configuration for ACM-21162 ROSARoleConfig validation"
+    automation.acm.redhat.com/purpose: "Automated testing and development validation"
+    automation.acm.redhat.com/maintainer: "acm-automation-team"
+    automation.acm.redhat.com/version: "4.20"
+spec:
+  # AWS Account Configuration
+  awsAccountId: "123456789012"  # Example AWS account ID
+
+  # AWS Region Configuration
+  region: "us-east-1"
+
+  # Role Configuration
+  roles:
+    # Installer Role
+    - name: "acm21162-test-installer-role"
+      type: "installer"
+      description: "ROSA HCP installer role for ACM-21162 test cluster"
+      assumeRolePolicyDocument: |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "arn:aws:iam::710019948333:root"
+              },
+              "Action": "sts:AssumeRole",
+              "Condition": {
+                "StringEquals": {
+                  "sts:ExternalId": "test-external-id-12345"
+                }
+              }
+            }
+          ]
+        }
+      managedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/ROSAInstallerPolicy"
+      inlinePolicies:
+        - name: "CustomInstallerPolicy"
+          document: |
+            {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "ec2:CreateTags",
+                    "ec2:DescribeImages"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+
+    # Support Role
+    - name: "acm21162-test-support-role"
+      type: "support"
+      description: "ROSA HCP support role for ACM-21162 test cluster"
+      assumeRolePolicyDocument: |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "arn:aws:iam::710019948333:root"
+              },
+              "Action": "sts:AssumeRole",
+              "Condition": {
+                "StringEquals": {
+                  "sts:ExternalId": "test-external-id-12345"
+                }
+              }
+            }
+          ]
+        }
+      managedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/ROSASupportPolicy"
+
+    # Worker Role
+    - name: "acm21162-test-worker-role"
+      type: "worker"
+      description: "ROSA HCP worker role for ACM-21162 test cluster"
+      assumeRolePolicyDocument: |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ec2.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        }
+      managedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+        - "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+        - "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+      inlinePolicies:
+        - name: "CustomWorkerPolicy"
+          document: |
+            {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "ssm:GetParameter",
+                    "ssm:GetParameters"
+                  ],
+                  "Resource": "arn:aws:ssm:us-east-1:123456789012:parameter/rosa/*"
+                }
+              ]
+            }
+
+  # OIDC Provider Configuration
+  oidcProvider:
+    issuerUrl: "https://oidc.eks.us-east-1.amazonaws.com/id/acm21162-test-cluster"
+    thumbprints:
+      - "9e99a48a9960b14926bb7f3b02e22da2b0ab7280"
+      - "a9d53002e97e00e043244f3d170d6f4c414104fd"
+    clientIds:
+      - "sts.amazonaws.com"
+
+  # Credential Request Configuration
+  credentialRequests:
+    # Cloud Controller Manager
+    - name: "acm21162-test-cloud-controller-manager"
+      namespace: "kube-system"
+      serviceAccount: "cloud-controller-manager"
+      secretName: "cloud-controller-manager-credentials"
+      policyDocument: |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "ec2:DescribeAvailabilityZones",
+                "ec2:DescribeInstances",
+                "ec2:DescribeRouteTables",
+                "ec2:DescribeSecurityGroups",
+                "ec2:DescribeSubnets",
+                "ec2:DescribeVolumes",
+                "ec2:DescribeVpcs",
+                "ec2:DescribeLoadBalancers",
+                "ec2:DescribeTargetGroups",
+                "elasticloadbalancing:DescribeLoadBalancers",
+                "elasticloadbalancing:DescribeTargetGroups"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+
+    # Node Manager
+    - name: "acm21162-test-node-manager"
+      namespace: "kube-system"
+      serviceAccount: "node-manager"
+      secretName: "node-manager-credentials"
+      policyDocument: |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "ec2:DescribeInstances",
+                "ec2:DescribeInstanceTypes",
+                "ec2:DescribeAvailabilityZones"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+
+    # Custom CSI Driver
+    - name: "acm21162-test-csi-driver"
+      namespace: "openshift-cluster-csi-drivers"
+      serviceAccount: "aws-ebs-csi-driver-controller-sa"
+      secretName: "aws-ebs-csi-driver-credentials"
+      policyDocument: |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "ec2:AttachVolume",
+                "ec2:CreateSnapshot",
+                "ec2:CreateTags",
+                "ec2:CreateVolume",
+                "ec2:DeleteSnapshot",
+                "ec2:DeleteTags",
+                "ec2:DeleteVolume",
+                "ec2:DescribeInstances",
+                "ec2:DescribeSnapshots",
+                "ec2:DescribeTags",
+                "ec2:DescribeVolumes",
+                "ec2:DetachVolume",
+                "ec2:ModifyVolume"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+
+  # Optional Configuration
+  rolePath: "/rosa/"
+  permissionBoundary: "arn:aws:iam::123456789012:policy/ROSAPermissionBoundary"
+  deletionProtection: false
+
+  # Tags for AWS Resources
+  tags:
+    Environment: "test"
+    Project: "ACM-CAPI-Automation"
+    TestCase: "ACM-21162"
+    ClusterName: "acm21162-test-cluster"
+    CreatedBy: "ansible-automation"
+    OpenShiftVersion: "4.20"
+    TestType: "static-config"
+    Purpose: "development-validation"
+    Owner: "acm-automation-team"
