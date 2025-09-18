@@ -1,0 +1,10 @@
+# Create AKS cluster using CAPZ
+- name: Create AKS control plane
+  include_tasks: create_aks_control_plane.yml
+
+- name: Wait for AKS control plane to be ready
+  include_tasks: wait_for_aks_control_plane_ready.yml
+
+- name: Create AKS machine pool (optional)
+  include_tasks: create_aks_machine_pool.yml
+  when: create_machine_pool | default(true) | bool

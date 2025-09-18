@@ -1,0 +1,27 @@
+# Common Provider Tasks
+# These tasks are shared across all cloud providers
+
+- name: Load provider-specific variables
+  include_vars: "{{ provider_config_path }}/vars/main.yml"
+
+- name: Validate provider configuration
+  assert:
+    that:
+      - cloud_provider in supported_providers
+      - provider_name is defined
+      - provider_namespace is defined
+      - credential_secret_name is defined
+    fail_msg: "Invalid provider configuration for {{ cloud_provider }}"
+
+- name: Display provider information
+  debug:
+    msg: |
+      Using {{ provider_display_name }} ({{ provider_name }}) provider
+      Namespace: {{ provider_namespace }}
+      Credential Secret: {{ credential_secret_name }}
+
+- name: Create output folder
+  include_tasks: create_output_folder.yml
+
+- name: Login to cluster
+  include_tasks: login_cluster.yml

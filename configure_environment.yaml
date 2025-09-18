@@ -1,0 +1,36 @@
+- name: Configure multi-provider environment
+  hosts: localhost
+  any_errors_fatal: true
+  vars_files:
+    - vars/vars.yml
+    - vars/user_vars.yml
+  tasks:
+    - name: Set connection facts
+      set_fact:
+        ocp_user: "{{ OCP_HUB_CLUSTER_USER }}"
+        ocp_password: "{{ OCP_HUB_CLUSTER_PASSWORD }}"
+        api_url: "{{ OCP_HUB_API_URL }}"
+        mce_namespace: "{{ MCE_NAMESPACE }}"
+
+    - name: Load common provider configuration
+      include_vars: "providers/common/vars/main.yml"
+
+    - name: Validate provider selection
+      assert:
+        that:
+          - cloud_provider in supported_providers
+        fail_msg: "Unsupported provider '{{ cloud_provider }}'. Supported providers: {{ supported_providers }}"
+
+    - name: Display provider information
+      debug:
+        msg: "Configuring environment for {{ cloud_provider }} provider"
+
+    - name: Prepare ansible runner host
+      include_tasks: tasks/prepare_ansible_runner.yml
+      when: not skip_ansible_runner | bool
+
+    - name: Login to OCP
+      include_tasks: tasks/login_ocp.yml
+
+    - name: Execute provider-specific environment configuration
+      include_tasks: "providers/{{ cloud_provider }}/tasks/main.yml"
