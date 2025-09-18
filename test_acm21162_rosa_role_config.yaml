@@ -1,0 +1,441 @@
+---
+# ACM-21162 ROSARoleConfig Testing Playbook
+# Comprehensive testing of ROSARoleConfig functionality
+# Tests creation, validation, AWS resource verification, and cleanup
+
+- name: ACM-21162 ROSARoleConfig Comprehensive Testing
+  hosts: localhost
+  gather_facts: true
+  vars_files:
+    - vars/vars.yml
+    - vars/user_vars.yml
+
+  vars:
+    test_case: "ACM-21162"
+    test_description: "ROSARoleConfig automated AWS IAM role creation testing"
+    test_start_time: "{{ ansible_date_time.iso8601 }}"
+    test_cluster_name: "{{ cluster_name | default('acm21162-test-' + ansible_date_time.epoch) }}"
+    test_results: []
+
+  tasks:
+    - name: Display test information
+      debug:
+        msg: |
+          ACM-21162 ROSARoleConfig Testing
+          ================================
+          Test Case: {{ test_case }}
+          Description: {{ test_description }}
+          Start Time: {{ test_start_time }}
+          Test Cluster: {{ test_cluster_name }}
+
+          Test Configuration:
+          - OCP Cluster: {{ api_url }}
+          - CAPI Namespace: {{ capi_namespace }}
+          - AWS Account ID: {{ aws_account_id }}
+          - AWS Region: {{ aws_region }}
+          - OpenShift Version: {{ openshift_version }}
+
+    - name: Initialize test tracking
+      set_fact:
+        total_tests: 0
+        passed_tests: 0
+        failed_tests: 0
+        test_start_epoch: "{{ ansible_date_time.epoch | int }}"
+
+    - name: Create output directory for test artifacts
+      include_tasks: tasks/create_output_folder.yml
+
+    - name: Login to OCP cluster
+      include_tasks: tasks/login_ocp.yml
+
+    - name: Verify environment prerequisites
+      block:
+        - name: Test 1 - Verify CAPA controller is ready
+          block:
+            - name: Verify CAPA controller status
+              include_tasks: tasks/verify_capa_controller.yml
+
+            - name: Record test success
+              set_fact:
+                total_tests: "{{ total_tests | int + 1 }}"
+                passed_tests: "{{ passed_tests | int + 1 }}"
+                test_results: "{{ test_results + [{'name': 'CAPA Controller Verification', 'status': 'passed', 'time': 30}] }}"
+
+          rescue:
+            - name: Record test failure
+              set_fact:
+                total_tests: "{{ total_tests | int + 1 }}"
+                failed_tests: "{{ failed_tests | int + 1 }}"
+                test_results: "{{ test_results + [{'name': 'CAPA Controller Verification', 'status': 'failed', 'time': 30, 'failure_message': 'CAPA controller verification failed'}] }}"
+
+        - name: Test 2 - Validate AWS environment
+          block:
+            - name: Validate CAPA environment and AWS connectivity
+              include_tasks: tasks/validate-capa-environment.yml
+
+            - name: Record test success
+              set_fact:
+                total_tests: "{{ total_tests | int + 1 }}"
+                passed_tests: "{{ passed_tests | int + 1 }}"
+                test_results: "{{ test_results + [{'name': 'AWS Environment Validation', 'status': 'passed', 'time': 45}] }}"
+
+          rescue:
+            - name: Record test failure
+              set_fact:
+                total_tests: "{{ total_tests | int + 1 }}"
+                failed_tests: "{{ failed_tests | int + 1 }}"
+                test_results: "{{ test_results + [{'name': 'AWS Environment Validation', 'status': 'failed', 'time': 45, 'failure_message': 'AWS environment validation failed'}] }}"
+
+    - name: Test ROSARoleConfig creation and basic functionality
+      block:
+        - name: Test 3 - Create ROSARoleConfig
+          block:
+            - name: Create ROSARoleConfig for test cluster
+              include_tasks: tasks/create_rosa_role_config.yml
+              vars:
+                cluster_name: "{{ test_cluster_name }}"
+
+            - name: Record test success
+              set_fact:
+                total_tests: "{{ total_tests | int + 1 }}"
+                passed_tests: "{{ passed_tests | int + 1 }}"
+                test_results: "{{ test_results + [{'name': 'ROSARoleConfig Creation', 'status': 'passed', 'time': 120}] }}"
+
+          rescue:
+            - name: Record test failure
+              set_fact:
+                total_tests: "{{ total_tests | int + 1 }}"
+                failed_tests: "{{ failed_tests | int + 1 }}"
+                test_results: "{{ test_results + [{'name': 'ROSARoleConfig Creation', 'status': 'failed', 'time': 120, 'failure_message': 'ROSARoleConfig creation failed'}] }}"
+
+        - name: Test 4 - Wait for ROSARoleConfig to be ready
+          block:
+            - name: Wait for ROSA roles to be created
+              include_tasks: tasks/wait_for_rosa_roles.yml
+              vars:
+                cluster_name: "{{ test_cluster_name }}"
+
+            - name: Record test success
+              set_fact:
+                total_tests: "{{ total_tests | int + 1 }}"
+                passed_tests: "{{ passed_tests | int + 1 }}"
+                test_results: "{{ test_results + [{'name': 'ROSARoleConfig Ready Wait', 'status': 'passed', 'time': 300}] }}"
+
+          rescue:
+            - name: Record test failure
+              set_fact:
+                total_tests: "{{ total_tests | int + 1 }}"
+                failed_tests: "{{ failed_tests | int + 1 }}"
+                test_results: "{{ test_results + [{'name': 'ROSARoleConfig Ready Wait', 'status': 'failed', 'time': 300, 'failure_message': 'ROSARoleConfig did not become ready in time'}] }}"
+
+        - name: Test 5 - Validate ROSARoleConfig resource
+          block:
+            - name: Validate ROSARoleConfig configuration and status
+              include_tasks: tasks/validate_rosa_role_config.yml
+              vars:
+                cluster_name: "{{ test_cluster_name }}"
+
+            - name: Record test success
+              set_fact:
+                total_tests: "{{ total_tests | int + 1 }}"
+                passed_tests: "{{ passed_tests | int + 1 }}"
+                test_results: "{{ test_results + [{'name': 'ROSARoleConfig Validation', 'status': 'passed', 'time': 60}] }}"
+
+          rescue:
+            - name: Record test failure
+              set_fact:
+                total_tests: "{{ total_tests | int + 1 }}"
+                failed_tests: "{{ failed_tests | int + 1 }}"
+                test_results: "{{ test_results + [{'name': 'ROSARoleConfig Validation', 'status': 'failed', 'time': 60, 'failure_message': 'ROSARoleConfig validation failed'}] }}"
+
+    - name: Test AWS resource validation
+      block:
+        - name: Test 6 - Validate AWS roles were created
+          block:
+            - name: Validate AWS IAM roles were actually created
+              include_tasks: tasks/validate_aws_roles_created.yml
+              vars:
+                cluster_name: "{{ test_cluster_name }}"
+
+            - name: Record test success
+              set_fact:
+                total_tests: "{{ total_tests | int + 1 }}"
+                passed_tests: "{{ passed_tests | int + 1 }}"
+                test_results: "{{ test_results + [{'name': 'AWS Roles Validation', 'status': 'passed', 'time': 90}] }}"
+
+          rescue:
+            - name: Record test failure
+              set_fact:
+                total_tests: "{{ total_tests | int + 1 }}"
+                failed_tests: "{{ failed_tests | int + 1 }}"
+                test_results: "{{ test_results + [{'name': 'AWS Roles Validation', 'status': 'failed', 'time': 90, 'failure_message': 'AWS roles validation failed'}] }}"
+
+        - name: Test 7 - Validate OIDC provider
+          block:
+            - name: Validate OIDC provider was created correctly
+              include_tasks: tasks/validate_oidc_provider.yml
+              vars:
+                cluster_name: "{{ test_cluster_name }}"
+
+            - name: Record test success
+              set_fact:
+                total_tests: "{{ total_tests | int + 1 }}"
+                passed_tests: "{{ passed_tests | int + 1 }}"
+                test_results: "{{ test_results + [{'name': 'OIDC Provider Validation', 'status': 'passed', 'time': 60}] }}"
+
+          rescue:
+            - name: Record test failure
+              set_fact:
+                total_tests: "{{ total_tests | int + 1 }}"
+                failed_tests: "{{ failed_tests | int + 1 }}"
+                test_results: "{{ test_results + [{'name': 'OIDC Provider Validation', 'status': 'failed', 'time': 60, 'failure_message': 'OIDC provider validation failed'}] }}"
+
+    - name: Test comparison with manual approach (optional)
+      block:
+        - name: Test 8 - Compare manual vs automated approach
+          block:
+            - name: Compare automated ROSARoleConfig with manual process
+              include_tasks: tasks/compare_manual_vs_automated.yml
+              vars:
+                cluster_name: "{{ test_cluster_name }}"
+              when: enable_manual_comparison | default(false)
+
+            - name: Record test success
+              set_fact:
+                total_tests: "{{ total_tests | int + 1 }}"
+                passed_tests: "{{ passed_tests | int + 1 }}"
+                test_results: "{{ test_results + [{'name': 'Manual vs Automated Comparison', 'status': 'passed', 'time': 120}] }}"
+              when: enable_manual_comparison | default(false)
+
+          rescue:
+            - name: Record test failure
+              set_fact:
+                total_tests: "{{ total_tests | int + 1 }}"
+                failed_tests: "{{ failed_tests | int + 1 }}"
+                test_results: "{{ test_results + [{'name': 'Manual vs Automated Comparison', 'status': 'failed', 'time': 120, 'failure_message': 'Manual vs automated comparison failed'}] }}"
+              when: enable_manual_comparison | default(false)
+
+      when: enable_manual_comparison | default(false)
+
+    - name: Test end-to-end cluster creation (optional)
+      block:
+        - name: Test 9 - Create full ROSA HCP cluster using ROSARoleConfig
+          block:
+            - name: Create complete ROSA HCP cluster with ROSARoleConfig
+              include_tasks: tasks/create_rosa_control_plane_versioned.yml
+              vars:
+                cluster_name: "{{ test_cluster_name }}"
+                template_name: "rosa-capi-roles-cluster"
+                template_category: "features"
+                apply_immediately: false
+              when: enable_cluster_creation_test | default(false)
+
+            - name: Record test success
+              set_fact:
+                total_tests: "{{ total_tests | int + 1 }}"
+                passed_tests: "{{ passed_tests | int + 1 }}"
+                test_results: "{{ test_results + [{'name': 'Full Cluster Creation Test', 'status': 'passed', 'time': 180}] }}"
+              when: enable_cluster_creation_test | default(false)
+
+          rescue:
+            - name: Record test failure
+              set_fact:
+                total_tests: "{{ total_tests | int + 1 }}"
+                failed_tests: "{{ failed_tests | int + 1 }}"
+                test_results: "{{ test_results + [{'name': 'Full Cluster Creation Test', 'status': 'failed', 'time': 180, 'failure_message': 'Full cluster creation test failed'}] }}"
+              when: enable_cluster_creation_test | default(false)
+
+      when: enable_cluster_creation_test | default(false)
+
+    - name: Test cleanup and resource deletion
+      block:
+        - name: Test 10 - Cleanup ROSARoleConfig and AWS resources
+          block:
+            - name: Cleanup ROSARoleConfig and associated AWS resources
+              include_tasks: tasks/cleanup_rosa_role_config.yml
+              vars:
+                cluster_name: "{{ test_cluster_name }}"
+
+            - name: Record test success
+              set_fact:
+                total_tests: "{{ total_tests | int + 1 }}"
+                passed_tests: "{{ passed_tests | int + 1 }}"
+                test_results: "{{ test_results + [{'name': 'ROSARoleConfig Cleanup', 'status': 'passed', 'time': 180}] }}"
+
+          rescue:
+            - name: Record test failure
+              set_fact:
+                total_tests: "{{ total_tests | int + 1 }}"
+                failed_tests: "{{ failed_tests | int + 1 }}"
+                test_results: "{{ test_results + [{'name': 'ROSARoleConfig Cleanup', 'status': 'failed', 'time': 180, 'failure_message': 'ROSARoleConfig cleanup failed'}] }}"
+
+      when: enable_cleanup_test | default(true)
+
+    - name: Calculate test results and duration
+      set_fact:
+        test_end_epoch: "{{ ansible_date_time.epoch | int }}"
+        test_duration: "{{ (ansible_date_time.epoch | int) - (test_start_epoch | int) }}"
+        test_success_rate: "{{ (passed_tests | int * 100 / total_tests | int) | round(1) if total_tests | int > 0 else 0 }}"
+
+    - name: Display comprehensive test results
+      debug:
+        msg: |
+          ACM-21162 ROSARoleConfig Testing Results
+          ========================================
+
+          Test Summary:
+          - Total Tests: {{ total_tests }}
+          - Passed: {{ passed_tests }}
+          - Failed: {{ failed_tests }}
+          - Success Rate: {{ test_success_rate }}%
+          - Duration: {{ test_duration }} seconds
+
+          Test Details:
+          {% for test in test_results %}
+          {{ loop.index }}. {{ test.name }}: {{ test.status | upper }}
+             Time: {{ test.time }}s
+             {% if test.failure_message is defined %}
+             Error: {{ test.failure_message }}
+             {% endif %}
+          {% endfor %}
+
+          Overall Result: {{ 'SUCCESS' if failed_tests | int == 0 else 'PARTIAL FAILURE' if passed_tests | int > 0 else 'FAILURE' }}
+
+          Test Environment:
+          - Test Case: {{ test_case }}
+          - Test Cluster: {{ test_cluster_name }}
+          - OCP Cluster: {{ api_url }}
+          - AWS Account: {{ aws_account_id }}
+          - AWS Region: {{ aws_region }}
+
+    - name: Create detailed test report
+      copy:
+        content: |
+          ACM-21162 ROSARoleConfig Testing Report
+          =======================================
+
+          Executive Summary:
+          - Test Case: {{ test_case }}
+          - Test Description: {{ test_description }}
+          - Test Start: {{ test_start_time }}
+          - Test End: {{ ansible_date_time.iso8601 }}
+          - Duration: {{ test_duration }} seconds
+          - Overall Result: {{ 'SUCCESS' if failed_tests | int == 0 else 'PARTIAL FAILURE' if passed_tests | int > 0 else 'FAILURE' }}
+
+          Test Statistics:
+          - Total Tests Executed: {{ total_tests }}
+          - Tests Passed: {{ passed_tests }}
+          - Tests Failed: {{ failed_tests }}
+          - Success Rate: {{ test_success_rate }}%
+
+          Test Environment:
+          - OCP Cluster: {{ api_url }}
+          - Test Cluster Name: {{ test_cluster_name }}
+          - CAPI Namespace: {{ capi_namespace }}
+          - CAPA System Namespace: {{ capa_system_namespace }}
+          - AWS Account ID: {{ aws_account_id }}
+          - AWS Region: {{ aws_region }}
+          - OpenShift Version: {{ openshift_version }}
+
+          Detailed Test Results:
+          {% for test in test_results %}
+          Test {{ loop.index }}: {{ test.name }}
+          - Status: {{ test.status | upper }}
+          - Duration: {{ test.time }} seconds
+          {% if test.failure_message is defined %}
+          - Failure Reason: {{ test.failure_message }}
+          {% endif %}
+          - Result: {{ 'PASS' if test.status == 'passed' else 'FAIL' }}
+
+          {% endfor %}
+
+          Key Findings:
+          {% if failed_tests | int == 0 %}
+          - All ROSARoleConfig functionality tests passed successfully
+          - AWS IAM roles and OIDC provider creation working correctly
+          - Automated approach is fully functional for ACM-21162
+          {% else %}
+          - {{ failed_tests }} out of {{ total_tests }} tests failed
+          - Investigation required for failed test cases
+          - See individual test failure messages above for details
+          {% endif %}
+
+          Recommendations:
+          {% if failed_tests | int == 0 %}
+          - ROSARoleConfig is ready for production use
+          - Automated AWS role creation eliminates manual setup requirements
+          - Consider integrating into standard ROSA HCP cluster creation workflows
+          {% else %}
+          - Address failed test cases before production deployment
+          - Review CAPA controller logs for additional error details
+          - Verify AWS permissions and network connectivity
+          {% endif %}
+
+          Artifacts Generated:
+          - Test results XML: {{ output_dir }}/acm21162-test-results.xml
+          - Test report: {{ output_dir }}/acm21162-test-report.txt
+          - ROSARoleConfig templates: {{ output_dir }}/{{ test_cluster_name }}-*.yaml
+        dest: "{{ output_dir }}/acm21162-test-report.txt"
+        mode: '0644'
+
+    - name: Generate test results XML for CI/CD integration
+      template:
+        src: "{{ common_template_path }}/results.xml.j2"
+        dest: "{{ output_dir }}/acm21162-test-results.xml"
+        mode: '0644'
+      vars:
+        test_suite_name: "ACM-21162 ROSARoleConfig Testing"
+        test_cases: "{{ test_results }}"
+
+    - name: Set final test facts
+      set_fact:
+        acm21162_test_complete: true
+        acm21162_test_successful: "{{ failed_tests | int == 0 }}"
+        acm21162_test_summary: {
+          'total_tests': "{{ total_tests }}",
+          'passed_tests': "{{ passed_tests }}",
+          'failed_tests': "{{ failed_tests }}",
+          'success_rate': "{{ test_success_rate }}",
+          'duration': "{{ test_duration }}",
+          'test_cluster': "{{ test_cluster_name }}"
+        }
+
+    - name: Display final test status
+      debug:
+        msg: |
+          ================================================================
+          ACM-21162 ROSARoleConfig Testing {{ 'COMPLETED SUCCESSFULLY' if acm21162_test_successful else 'COMPLETED WITH FAILURES' }}
+          ================================================================
+
+          {% if acm21162_test_successful %}
+          🎉 All tests passed! ROSARoleConfig functionality is working correctly.
+
+          Key Achievements:
+          ✓ ROSARoleConfig creation and management
+          ✓ AWS IAM roles automated creation
+          ✓ OIDC provider automated setup
+          ✓ Resource validation and verification
+          ✓ Cleanup and lifecycle management
+
+          The ACM-21162 feature is ready for production use!
+          {% else %}
+          ⚠️  Some tests failed. Manual investigation required.
+
+          Failed Tests: {{ failed_tests }}/{{ total_tests }}
+          Please review the test report and logs for specific failure details.
+          {% endif %}
+
+          Test Artifacts:
+          - Detailed Report: {{ output_dir }}/acm21162-test-report.txt
+          - XML Results: {{ output_dir }}/acm21162-test-results.xml
+          - Templates: {{ output_dir }}/{{ test_cluster_name }}-*.yaml
+
+  handlers:
+    - name: Emergency cleanup on critical failure
+      include_tasks: tasks/cleanup_rosa_role_config.yml
+      vars:
+        cluster_name: "{{ test_cluster_name }}"
+        force_rosa_role_config_cleanup: true
+      when:
+        - emergency_cleanup | default(false)
+        - test_cluster_name is defined

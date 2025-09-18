@@ -1,0 +1,322 @@
+---
+# Validate OIDC Provider for ACM-21162
+# Comprehensive validation of OIDC provider creation and configuration
+
+- name: Set OIDC provider validation variables
+  set_fact:
+    rosa_role_config_name: "{{ rosa_role_config_name | default(cluster_name + '-roles') }}"
+    oidc_validation_timeout: "{{ oidc_provider_validation_timeout | default(300) }}"
+
+- name: Display OIDC provider validation configuration
+  debug:
+    msg: |
+      OIDC Provider Validation Configuration:
+      - ROSARoleConfig: {{ rosa_role_config_name }}
+      - Namespace: {{ capi_namespace }}
+      - AWS Account ID: {{ aws_account_id }}
+      - AWS Region: {{ aws_region }}
+
+- name: Get ROSARoleConfig for OIDC provider information
+  kubernetes.core.k8s_info:
+    api_version: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: ROSARoleConfig
+    name: "{{ rosa_role_config_name }}"
+    namespace: "{{ capi_namespace }}"
+  register: rosa_role_config_oidc
+
+- name: Validate ROSARoleConfig exists
+  fail:
+    msg: "ROSARoleConfig {{ rosa_role_config_name }} not found in namespace {{ capi_namespace }}"
+  when: rosa_role_config_oidc.resources | length == 0
+
+- name: Extract OIDC provider information from ROSARoleConfig
+  set_fact:
+    rosa_role_config_resource: "{{ rosa_role_config_oidc.resources[0] }}"
+    oidc_provider_arn: "{{ rosa_role_config_oidc.resources[0].status.oidcProviderArn | default('') }}"
+    expected_issuer_url: "{{ rosa_role_config_oidc.resources[0].spec.oidcProvider.issuerUrl | default('') }}"
+    expected_thumbprints: "{{ rosa_role_config_oidc.resources[0].spec.oidcProvider.thumbprints | default([]) }}"
+    expected_client_ids: "{{ rosa_role_config_oidc.resources[0].spec.oidcProvider.clientIds | default([]) }}"
+
+- name: Display OIDC provider information
+  debug:
+    msg: |
+      OIDC Provider Information:
+      - Provider ARN: {{ oidc_provider_arn }}
+      - Expected Issuer URL: {{ expected_issuer_url }}
+      - Expected Thumbprints: {{ expected_thumbprints | join(', ') }}
+      - Expected Client IDs: {{ expected_client_ids | join(', ') }}
+
+- name: Validate OIDC provider ARN is present
+  fail:
+    msg: "OIDC provider ARN not found in ROSARoleConfig status"
+  when: oidc_provider_arn == ""
+
+- name: Check AWS CLI availability
+  command: which aws
+  register: aws_cli_check
+  failed_when: false
+  changed_when: false
+
+- name: Set AWS command execution method
+  set_fact:
+    use_aws_pod: "{{ aws_cli_check.rc != 0 }}"
+    aws_command_prefix: "{{ 'kubectl run aws-cli-temp --rm -i --restart=Never --image=amazon/aws-cli:latest -- ' if aws_cli_check.rc != 0 else '' }}"
+
+- name: Validate OIDC provider exists in AWS
+  block:
+    - name: Get OIDC provider details from AWS
+      shell: |
+        {{ aws_command_prefix }}aws iam get-open-id-connect-provider --open-id-connect-provider-arn {{ oidc_provider_arn }}
+      register: aws_oidc_provider_result
+      environment:
+        AWS_DEFAULT_REGION: "{{ aws_region }}"
+
+    - name: Parse OIDC provider details
+      set_fact:
+        aws_oidc_provider: "{{ aws_oidc_provider_result.stdout | from_json }}"
+
+    - name: Display AWS OIDC provider details
+      debug:
+        msg: |
+          AWS OIDC Provider Details:
+          - ARN: {{ oidc_provider_arn }}
+          - URL: {{ aws_oidc_provider.Url }}
+          - Client IDs: {{ aws_oidc_provider.ClientIDList | join(', ') }}
+          - Thumbprints: {{ aws_oidc_provider.ThumbprintList | join(', ') }}
+          - Creation Date: {{ aws_oidc_provider.CreateDate }}
+
+  rescue:
+    - name: Handle OIDC provider fetch failure
+      debug:
+        msg: |
+          Failed to fetch OIDC provider from AWS.
+          Error: {{ aws_oidc_provider_result.stderr | default('Unknown error') }}
+
+    - name: Set OIDC provider failure facts
+      set_fact:
+        oidc_provider_exists: false
+        oidc_provider_fetch_error: "{{ aws_oidc_provider_result.stderr | default('Unknown error') }}"
+
+    - name: Fail OIDC provider validation
+      fail:
+        msg: |
+          OIDC provider {{ oidc_provider_arn }} does not exist in AWS or cannot be accessed.
+          Error: {{ oidc_provider_fetch_error }}
+
+- name: Validate OIDC provider configuration
+  block:
+    - name: Validate issuer URL matches
+      set_fact:
+        issuer_url_valid: "{{ aws_oidc_provider.Url == expected_issuer_url }}"
+
+    - name: Validate client IDs match
+      set_fact:
+        client_ids_valid: "{{ aws_oidc_provider.ClientIDList | sort == expected_client_ids | sort }}"
+
+    - name: Validate thumbprints match
+      set_fact:
+        thumbprints_valid: "{{ aws_oidc_provider.ThumbprintList | sort == expected_thumbprints | sort }}"
+
+    - name: Display configuration validation results
+      debug:
+        msg: |
+          OIDC Provider Configuration Validation:
+
+          Issuer URL Validation:
+          - Expected: {{ expected_issuer_url }}
+          - Actual: {{ aws_oidc_provider.Url }}
+          - Valid: {{ issuer_url_valid }}
+
+          Client IDs Validation:
+          - Expected: {{ expected_client_ids | sort | join(', ') }}
+          - Actual: {{ aws_oidc_provider.ClientIDList | sort | join(', ') }}
+          - Valid: {{ client_ids_valid }}
+
+          Thumbprints Validation:
+          - Expected: {{ expected_thumbprints | sort | join(', ') }}
+          - Actual: {{ aws_oidc_provider.ThumbprintList | sort | join(', ') }}
+          - Valid: {{ thumbprints_valid }}
+
+    - name: Check overall configuration validity
+      set_fact:
+        oidc_config_valid: "{{ issuer_url_valid and client_ids_valid and thumbprints_valid }}"
+
+- name: Validate OIDC provider tags (if applicable)
+  block:
+    - name: Get OIDC provider tags
+      shell: |
+        {{ aws_command_prefix }}aws iam list-open-id-connect-provider-tags --open-id-connect-provider-arn {{ oidc_provider_arn }}
+      register: oidc_tags_result
+      failed_when: false
+      environment:
+        AWS_DEFAULT_REGION: "{{ aws_region }}"
+
+    - name: Parse and display OIDC provider tags
+      block:
+        - name: Parse tags
+          set_fact:
+            oidc_provider_tags: "{{ oidc_tags_result.stdout | from_json | json_query('Tags') }}"
+
+        - name: Display tags information
+          debug:
+            msg: |
+              OIDC Provider Tags:
+              {% for tag in oidc_provider_tags %}
+              - {{ tag.Key }}: {{ tag.Value }}
+              {% endfor %}
+
+        - name: Check for expected tags
+          set_fact:
+            cluster_name_tag_present: "{{ oidc_provider_tags | selectattr('Key', 'equalto', 'ClusterName') | selectattr('Value', 'equalto', cluster_name) | list | length > 0 }}"
+            test_case_tag_present: "{{ oidc_provider_tags | selectattr('Key', 'equalto', 'TestCase') | selectattr('Value', 'equalto', 'ACM-21162') | list | length > 0 }}"
+
+        - name: Display tag validation
+          debug:
+            msg: |
+              OIDC Provider Tag Validation:
+              - ClusterName tag present: {{ cluster_name_tag_present }}
+              - TestCase tag present: {{ test_case_tag_present }}
+
+      when: oidc_tags_result.rc == 0
+
+  rescue:
+    - name: Handle tags validation failure
+      debug:
+        msg: |
+          Failed to retrieve OIDC provider tags. This is not critical for functionality.
+          Error: {{ oidc_tags_result.stderr | default('Unknown error') }}
+
+- name: Test OIDC provider accessibility
+  block:
+    - name: Test OIDC issuer URL accessibility
+      uri:
+        url: "{{ aws_oidc_provider.Url }}/.well-known/openid_configuration"
+        method: GET
+        timeout: 30
+        status_code: [200, 404]  # 404 is acceptable for some OIDC providers
+      register: oidc_accessibility_test
+      failed_when: false
+
+    - name: Display accessibility test results
+      debug:
+        msg: |
+          OIDC Provider Accessibility Test:
+          - Issuer URL: {{ aws_oidc_provider.Url }}
+          - Well-known endpoint test:
+            * Status Code: {{ oidc_accessibility_test.status | default('Failed') }}
+            * Accessible: {{ oidc_accessibility_test.status in [200, 404] if oidc_accessibility_test.status is defined else false }}
+            * Response Time: {{ oidc_accessibility_test.elapsed | default('N/A') }} seconds
+
+  when: test_oidc_accessibility | default(false)
+
+- name: Verify OIDC provider is usable for ROSA
+  block:
+    - name: Check if OIDC provider is in the correct region
+      set_fact:
+        oidc_region_valid: "{{ aws_region in aws_oidc_provider.Url }}"
+
+    - name: Validate OIDC provider format for ROSA
+      set_fact:
+        oidc_format_valid: "{{ 'oidc.eks.' + aws_region + '.amazonaws.com' in aws_oidc_provider.Url or 'rh-oidc.s3.' + aws_region + '.amazonaws.com' in aws_oidc_provider.Url }}"
+
+    - name: Display ROSA compatibility validation
+      debug:
+        msg: |
+          ROSA Compatibility Validation:
+          - Region in URL: {{ oidc_region_valid }}
+          - ROSA-compatible format: {{ oidc_format_valid }}
+          - Overall ROSA compatible: {{ oidc_region_valid and oidc_format_valid }}
+
+- name: Calculate overall OIDC validation status
+  set_fact:
+    oidc_provider_validation_passed: "{{
+      oidc_provider_arn != '' and
+      aws_oidc_provider is defined and
+      oidc_config_valid | default(false)
+    }}"
+
+- name: Display comprehensive OIDC validation summary
+  debug:
+    msg: |
+      OIDC Provider Validation Summary:
+      =====================================
+      ✓ Provider Exists in AWS: {{ aws_oidc_provider is defined }}
+      ✓ Configuration Valid: {{ oidc_config_valid | default(false) }}
+      ✓ Issuer URL Valid: {{ issuer_url_valid | default(false) }}
+      ✓ Client IDs Valid: {{ client_ids_valid | default(false) }}
+      ✓ Thumbprints Valid: {{ thumbprints_valid | default(false) }}
+      {% if oidc_region_valid is defined %}
+      ✓ Region Compatible: {{ oidc_region_valid }}
+      ✓ ROSA Format Compatible: {{ oidc_format_valid | default(false) }}
+      {% endif %}
+
+      Overall Validation: {{ 'PASSED' if oidc_provider_validation_passed else 'FAILED' }}
+
+      OIDC Provider Details:
+      - ARN: {{ oidc_provider_arn }}
+      - URL: {{ aws_oidc_provider.Url if aws_oidc_provider is defined else 'N/A' }}
+      - Creation Date: {{ aws_oidc_provider.CreateDate if aws_oidc_provider is defined else 'N/A' }}
+
+- name: Set final OIDC validation facts
+  set_fact:
+    oidc_provider_validated: true
+    oidc_provider_validation_successful: "{{ oidc_provider_validation_passed }}"
+    oidc_provider_details: "{{ aws_oidc_provider | default({}) }}"
+    oidc_provider_config_valid: "{{ oidc_config_valid | default(false) }}"
+
+- name: Fail if OIDC validation unsuccessful
+  fail:
+    msg: |
+      OIDC provider validation failed!
+
+      Validation Issues:
+      {% if not issuer_url_valid | default(true) %}
+      - Issuer URL mismatch: Expected {{ expected_issuer_url }}, got {{ aws_oidc_provider.Url if aws_oidc_provider is defined else 'N/A' }}
+      {% endif %}
+      {% if not client_ids_valid | default(true) %}
+      - Client IDs mismatch: Expected {{ expected_client_ids | join(', ') }}, got {{ aws_oidc_provider.ClientIDList | join(', ') if aws_oidc_provider is defined else 'N/A' }}
+      {% endif %}
+      {% if not thumbprints_valid | default(true) %}
+      - Thumbprints mismatch: Expected {{ expected_thumbprints | join(', ') }}, got {{ aws_oidc_provider.ThumbprintList | join(', ') if aws_oidc_provider is defined else 'N/A' }}
+      {% endif %}
+
+      Troubleshooting:
+      1. Verify ROSARoleConfig spec configuration
+      2. Check CAPA controller logs for OIDC creation errors
+      3. Verify AWS permissions for OIDC provider operations
+      4. Check network connectivity to AWS IAM service
+  when: not oidc_provider_validation_passed
+
+rescue:
+  - name: Handle OIDC provider validation failure
+    debug:
+      msg: |
+        OIDC provider validation encountered an error.
+        This could indicate AWS connectivity issues or permission problems.
+
+  - name: Set OIDC validation failure facts
+    set_fact:
+      oidc_provider_validated: false
+      oidc_provider_validation_successful: false
+      oidc_provider_validation_error: "{{ ansible_failed_result.msg | default('Unknown validation error') }}"
+
+  - name: Display OIDC validation failure guidance
+    debug:
+      msg: |
+        OIDC Provider Validation Failed - Troubleshooting:
+
+        1. Check AWS CLI access:
+           aws sts get-caller-identity
+
+        2. Verify OIDC provider ARN:
+           kubectl get rosaroleconfig {{ rosa_role_config_name }} -n {{ capi_namespace }} -o jsonpath='{.status.oidcProviderArn}'
+
+        3. Test AWS IAM access:
+           aws iam get-open-id-connect-provider --open-id-connect-provider-arn {{ oidc_provider_arn }}
+
+        4. Check required AWS permissions:
+           - iam:GetOpenIDConnectProvider
+           - iam:ListOpenIDConnectProviderTags
+
+        5. Verify network connectivity:
+           curl -I https://iam.{{ aws_region }}.amazonaws.com

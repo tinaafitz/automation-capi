@@ -1,0 +1,251 @@
+---
+# Validate ROSARoleConfig for ACM-21162
+# Comprehensive validation of ROSARoleConfig creation and AWS resource setup
+
+- name: Set validation variables
+  set_fact:
+    rosa_role_config_name: "{{ rosa_role_config_name | default(cluster_name + '-roles') }}"
+    validation_failed: false
+    validation_errors: []
+
+- name: Get ROSARoleConfig resource
+  kubernetes.core.k8s_info:
+    api_version: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: ROSARoleConfig
+    name: "{{ rosa_role_config_name }}"
+    namespace: "{{ capi_namespace }}"
+  register: rosa_role_config_validation
+
+- name: Validate ROSARoleConfig exists
+  block:
+    - name: Check if ROSARoleConfig exists
+      fail:
+        msg: "ROSARoleConfig {{ rosa_role_config_name }} not found in namespace {{ capi_namespace }}"
+      when: rosa_role_config_validation.resources | length == 0
+
+    - name: Set ROSARoleConfig resource variable
+      set_fact:
+        rosa_role_config: "{{ rosa_role_config_validation.resources[0] }}"
+
+    - name: Display ROSARoleConfig basic info
+      debug:
+        msg: |
+          ROSARoleConfig Validation Started:
+          - Name: {{ rosa_role_config.metadata.name }}
+          - Namespace: {{ rosa_role_config.metadata.namespace }}
+          - Creation Timestamp: {{ rosa_role_config.metadata.creationTimestamp }}
+          - Generation: {{ rosa_role_config.metadata.generation }}
+
+- name: Validate ROSARoleConfig status
+  block:
+    - name: Check ROSARoleConfig phase
+      set_fact:
+        validation_errors: "{{ validation_errors + ['ROSARoleConfig is not ready - Phase: ' + (rosa_role_config.status.phase | default('Unknown'))] }}"
+        validation_failed: true
+      when: rosa_role_config.status.phase | default('') != 'Ready'
+
+    - name: Check Ready condition
+      set_fact:
+        ready_condition: "{{ rosa_role_config.status.conditions | selectattr('type', 'equalto', 'Ready') | list | first | default({}) }}"
+
+    - name: Validate Ready condition status
+      set_fact:
+        validation_errors: "{{ validation_errors + ['Ready condition is not True - Status: ' + (ready_condition.status | default('Unknown'))] }}"
+        validation_failed: true
+      when: ready_condition.status | default('') != 'True'
+
+    - name: Display ROSARoleConfig status
+      debug:
+        msg: |
+          ROSARoleConfig Status:
+          - Phase: {{ rosa_role_config.status.phase | default('Unknown') }}
+          - Ready Condition Status: {{ ready_condition.status | default('Unknown') }}
+          - Ready Condition Reason: {{ ready_condition.reason | default('Unknown') }}
+          - Ready Condition Message: {{ ready_condition.message | default('N/A') }}
+
+- name: Validate AWS resources created
+  block:
+    - name: Check installer role ARN
+      set_fact:
+        installer_role_arn: "{{ rosa_role_config.status.installerRoleArn | default('') }}"
+        validation_errors: "{{ validation_errors + ['Installer Role ARN not found in status'] }}"
+        validation_failed: true
+      when: rosa_role_config.status.installerRoleArn is not defined or rosa_role_config.status.installerRoleArn == ""
+
+    - name: Check support role ARN
+      set_fact:
+        support_role_arn: "{{ rosa_role_config.status.supportRoleArn | default('') }}"
+        validation_errors: "{{ validation_errors + ['Support Role ARN not found in status'] }}"
+        validation_failed: true
+      when: rosa_role_config.status.supportRoleArn is not defined or rosa_role_config.status.supportRoleArn == ""
+
+    - name: Check worker role ARN
+      set_fact:
+        worker_role_arn: "{{ rosa_role_config.status.workerRoleArn | default('') }}"
+        validation_errors: "{{ validation_errors + ['Worker Role ARN not found in status'] }}"
+        validation_failed: true
+      when: rosa_role_config.status.workerRoleArn is not defined or rosa_role_config.status.workerRoleArn == ""
+
+    - name: Check OIDC provider ARN
+      set_fact:
+        oidc_provider_arn: "{{ rosa_role_config.status.oidcProviderArn | default('') }}"
+        validation_errors: "{{ validation_errors + ['OIDC Provider ARN not found in status'] }}"
+        validation_failed: true
+      when: rosa_role_config.status.oidcProviderArn is not defined or rosa_role_config.status.oidcProviderArn == ""
+
+    - name: Display AWS resource ARNs
+      debug:
+        msg: |
+          AWS Resources Validation:
+          - Installer Role ARN: {{ installer_role_arn }}
+          - Support Role ARN: {{ support_role_arn }}
+          - Worker Role ARN: {{ worker_role_arn }}
+          - OIDC Provider ARN: {{ oidc_provider_arn }}
+
+- name: Validate ARN formats
+  block:
+    - name: Validate installer role ARN format
+      set_fact:
+        validation_errors: "{{ validation_errors + ['Invalid installer role ARN format: ' + installer_role_arn] }}"
+        validation_failed: true
+      when:
+        - installer_role_arn != ""
+        - not installer_role_arn.startswith('arn:aws:iam::')
+        - not installer_role_arn.endswith(':role/' + cluster_name + '-installer-role')
+
+    - name: Validate support role ARN format
+      set_fact:
+        validation_errors: "{{ validation_errors + ['Invalid support role ARN format: ' + support_role_arn] }}"
+        validation_failed: true
+      when:
+        - support_role_arn != ""
+        - not support_role_arn.startswith('arn:aws:iam::')
+        - not support_role_arn.endswith(':role/' + cluster_name + '-support-role')
+
+    - name: Validate worker role ARN format
+      set_fact:
+        validation_errors: "{{ validation_errors + ['Invalid worker role ARN format: ' + worker_role_arn] }}"
+        validation_failed: true
+      when:
+        - worker_role_arn != ""
+        - not worker_role_arn.startswith('arn:aws:iam::')
+        - not worker_role_arn.endswith(':role/' + cluster_name + '-worker-role')
+
+    - name: Validate OIDC provider ARN format
+      set_fact:
+        validation_errors: "{{ validation_errors + ['Invalid OIDC provider ARN format: ' + oidc_provider_arn] }}"
+        validation_failed: true
+      when:
+        - oidc_provider_arn != ""
+        - not oidc_provider_arn.startswith('arn:aws:iam::')
+        - not oidc_provider_arn.contains(':oidc-provider/')
+
+- name: Check ROSARoleConfig conditions
+  block:
+    - name: Analyze all conditions
+      debug:
+        msg: |
+          ROSARoleConfig Conditions Analysis:
+          {% for condition in rosa_role_config.status.conditions | default([]) %}
+          - Type: {{ condition.type }}
+            Status: {{ condition.status }}
+            Reason: {{ condition.reason | default('N/A') }}
+            Message: {{ condition.message | default('N/A') }}
+            Last Transition Time: {{ condition.lastTransitionTime | default('N/A') }}
+          {% endfor %}
+
+    - name: Check for error conditions
+      set_fact:
+        validation_errors: "{{ validation_errors + ['Error condition found: ' + condition.type + ' - ' + condition.message | default('No message')] }}"
+        validation_failed: true
+      loop: "{{ rosa_role_config.status.conditions | default([]) }}"
+      loop_control:
+        loop_var: condition
+      when:
+        - condition.status == 'True'
+        - condition.type in ['Error', 'Failed', 'CreateFailed']
+
+- name: Validate spec configuration
+  block:
+    - name: Check spec AWS account ID
+      set_fact:
+        validation_errors: "{{ validation_errors + ['Spec AWS account ID does not match expected: ' + rosa_role_config.spec.awsAccountId] }}"
+        validation_failed: true
+      when: rosa_role_config.spec.awsAccountId != aws_account_id
+
+    - name: Check spec region
+      set_fact:
+        validation_errors: "{{ validation_errors + ['Spec region does not match expected: ' + rosa_role_config.spec.region] }}"
+        validation_failed: true
+      when: rosa_role_config.spec.region != aws_region
+
+    - name: Validate roles configuration
+      set_fact:
+        validation_errors: "{{ validation_errors + ['Expected 3 roles in spec, found: ' + (rosa_role_config.spec.roles | length | string)] }}"
+        validation_failed: true
+      when: rosa_role_config.spec.roles | length != 3
+
+    - name: Check required role types
+      set_fact:
+        role_types: "{{ rosa_role_config.spec.roles | map(attribute='type') | list }}"
+        expected_role_types: ['installer', 'support', 'worker']
+
+    - name: Validate all required role types present
+      set_fact:
+        validation_errors: "{{ validation_errors + ['Missing required role type: ' + item] }}"
+        validation_failed: true
+      loop: "{{ expected_role_types }}"
+      when: item not in role_types
+
+- name: Display validation summary
+  debug:
+    msg: |
+      ROSARoleConfig Validation Summary:
+      - Resource Name: {{ rosa_role_config_name }}
+      - Validation Status: {{ 'FAILED' if validation_failed else 'PASSED' }}
+      - Total Errors: {{ validation_errors | length }}
+      {% if validation_errors | length > 0 %}
+      - Validation Errors:
+      {% for error in validation_errors %}
+        * {{ error }}
+      {% endfor %}
+      {% endif %}
+
+- name: Set validation results
+  set_fact:
+    rosa_role_config_validation_passed: "{{ not validation_failed }}"
+    rosa_role_config_validation_errors: "{{ validation_errors }}"
+    rosa_role_config_installer_role_arn: "{{ installer_role_arn | default('') }}"
+    rosa_role_config_support_role_arn: "{{ support_role_arn | default('') }}"
+    rosa_role_config_worker_role_arn: "{{ worker_role_arn | default('') }}"
+    rosa_role_config_oidc_provider_arn: "{{ oidc_provider_arn | default('') }}"
+
+- name: Fail if validation failed
+  fail:
+    msg: |
+      ROSARoleConfig validation failed with {{ validation_errors | length }} errors:
+      {% for error in validation_errors %}
+      - {{ error }}
+      {% endfor %}
+  when: validation_failed
+
+rescue:
+  - name: Handle validation failure
+    debug:
+      msg: |
+        ROSARoleConfig validation encountered an error.
+        This could indicate the resource doesn't exist or there are permission issues.
+
+  - name: Set validation failure facts
+    set_fact:
+      rosa_role_config_validation_passed: false
+      rosa_role_config_validation_errors: ["Validation task failed due to exception"]
+
+  - name: Display rescue information
+    debug:
+      msg: |
+        Validation failed with exception. Common causes:
+        - ROSARoleConfig resource not found
+        - Insufficient permissions to query resource
+        - CAPI/CAPA controllers not running
+        - Network connectivity issues
