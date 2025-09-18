@@ -15,7 +15,7 @@
     test_description: "Environment setup for ROSANetwork automated VPC and subnet creation"
     setup_start_time: "{{ ansible_date_time.iso8601 }}"
     kind_cluster_name: "{{ acm21174_config.kind_cluster_name | default('capa-network-test') }}"
-    openshift_version: "{{ acm21174_config.openshift_version | default('4.18.9') }}"
+    openshift_version: "{{ acm21174_config.openshift_version | default('4.20.0') }}"
 
   tasks:
     - name: Display environment setup information

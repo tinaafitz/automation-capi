@@ -1,10 +1,10 @@
-# ACM-21174 ROSANetwork Implementation Plan
+# ACM-21174 ROSANetwork Implementation Plan - OpenShift 4.20
 
 ## Overview
 
 ACM-21174 introduces **ROSANetwork** functionality for automated VPC and subnet provisioning for ROSA HCP clusters, based on PR #5464 from kubernetes-sigs/cluster-api-provider-aws.
 
-This complements the existing ACM-21162 ROSARoleConfig automation by providing network infrastructure automation.
+This implementation is specifically designed for **OpenShift 4.20** and complements the existing ACM-21162 ROSARoleConfig automation by providing network infrastructure automation.
 
 ## Key Features from PR #5464
 
@@ -22,10 +22,10 @@ This complements the existing ACM-21162 ROSARoleConfig automation by providing n
 
 ## Implementation Architecture
 
-### 1. Template Structure (OpenShift 4.18.9)
+### 1. Template Structure (OpenShift 4.20)
 
 ```
-templates/versions/4.18/features/
+templates/versions/4.20/features/
 ├── rosa-network-config.yaml.j2           # Core ROSANetwork template
 ├── rosa-network-test.yaml                # Static test configuration
 ├── rosa-capi-network-cluster.yaml.j2     # Complete cluster with network automation
@@ -243,7 +243,7 @@ spec:
     test_case: "ACM-21174"
     test_description: "Environment setup for ROSANetwork automated VPC creation"
     kind_cluster_name: "{{ acm21174_config.kind_cluster_name | default('capa-network-test') }}"
-    openshift_version: "{{ acm21174_config.openshift_version | default('4.18.9') }}"
+    openshift_version: "{{ acm21174_config.openshift_version | default('4.20.0') }}"
     capa_network_image: "{{ capa_controller_network.image }}"
     capa_network_tag: "{{ capa_controller_network.tag }}"
 
@@ -373,7 +373,7 @@ spec:
     test_case: "ACM-21174"
     test_cluster_name: "acm21174-test-{{ ansible_date_time.epoch[-6:] }}"
     test_results: []
-    openshift_version: "4.18.9"
+    openshift_version: "4.20.0"
 
     # ROSANetwork configuration
     rosa_network_config:
@@ -538,7 +538,7 @@ spec:
 acm21174_config:
   enabled: true
   kind_cluster_name: "capa-network-test"
-  openshift_version: "4.18.9"
+  openshift_version: "4.20.0"
   aws_region: "us-west-2"
   feature_flags:
     EXP_ROSA: "true"
@@ -573,7 +573,7 @@ This implementation:
 - ✅ **Extends existing patterns** from ACM-21162 ROSARoleConfig
 - ✅ **Uses same automation framework** and task structure
 - ✅ **Supports combined scenarios** (Network + Roles automation)
-- ✅ **Follows template versioning** (4.18 vs 4.20)
+- ✅ **Designed for OpenShift 4.20** with appropriate version-specific configurations
 - ✅ **Integrates with existing testing** and CI/CD workflows
 
 ## Key Benefits

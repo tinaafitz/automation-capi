@@ -5,7 +5,7 @@ skip_ansible_runner: false
 ansible_async_dir: '/tmp/.ansible_async'
 
 #==== Version Management ====
-openshift_version: "4.19"                    # Default OpenShift version
+openshift_version: "4.20"                    # Default OpenShift version
 supported_versions: ["4.18", "4.19", "4.20"]
 template_version_path: "templates/versions/{{ openshift_version }}"
 common_template_path: "templates/common"
@@ -109,7 +109,7 @@ acm21174_config:
   test_case: "ACM-21174"
 
   # Default OpenShift version for ROSANetwork
-  openshift_version: "4.18.9"
+  openshift_version: "4.20.0"
 
   # Kind cluster configuration for testing
   kind_cluster_name: "capa-network-test"

@@ -18,7 +18,7 @@
     test_results: []
 
     # Test configuration
-    openshift_version: "{{ acm21174_config.openshift_version | default('4.18.9') }}"
+    openshift_version: "{{ acm21174_config.openshift_version | default('4.20.0') }}"
     aws_region: "{{ aws_region | default('us-west-2') }}"
     test_timeout: 1800  # 30 minutes
 
