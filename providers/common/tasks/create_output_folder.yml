@@ -1,0 +1,16 @@
+# Create output folder for provider operations
+- name: Create output directory
+  file:
+    path: "{{ output_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Create provider-specific output directory
+  file:
+    path: "{{ output_dir }}/{{ cloud_provider }}"
+    state: directory
+    mode: '0755'
+
+- name: Set provider output path
+  set_fact:
+    provider_output_dir: "{{ output_dir }}/{{ cloud_provider }}"

@@ -1,0 +1,24 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureManagedMachinePool
+metadata:
+  name: "{{ machine_pool_name | default('worker-pool') }}"
+  namespace: "{{ capi_namespace }}"
+  labels:
+    app.kubernetes.io/managed-by: "automation-capi"
+    automation.openshift.io/provider: "azure"
+spec:
+  mode: "{{ azure_node_mode | default('System') }}"
+  sku: "{{ azure_vm_size | default('Standard_D2s_v3') }}"
+  osDiskSizeGB: "{{ azure_os_disk_size | default(128) }}"
+  scaling:
+    minSize: "{{ machine_pool_min_size | default(1) }}"
+    maxSize: "{{ machine_pool_max_size | default(10) }}"
+  {% if azure_availability_zones is defined %}
+  availabilityZones: {{ azure_availability_zones | to_yaml }}
+  {% endif %}
+  {% if azure_node_labels is defined %}
+  nodeLabels: {{ azure_node_labels | to_yaml }}
+  {% endif %}
+  {% if azure_node_taints is defined %}
+  taints: {{ azure_node_taints | to_yaml }}
+  {% endif %}

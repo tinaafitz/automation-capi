@@ -1,0 +1,34 @@
+# Common Provider Configuration
+# These variables are shared across all providers
+
+# Default provider (can be overridden in user_vars.yml)
+cloud_provider: "aws"
+supported_providers: ["aws", "azure"]
+
+# Provider configuration path - dynamically set
+provider_config_path: "providers/{{ cloud_provider }}"
+
+# Common cluster settings
+default_cluster_version: "1.28"
+cluster_api_version: "v1beta1"
+
+# Common namespaces
+capi_namespace: "ns-rosa-hcp"  # Can be overridden per provider
+
+# MCE/ACM common settings
+mce_namespace: "multicluster-engine"
+acm_namespace: "open-cluster-management"
+
+# Common timeout settings
+cluster_creation_timeout: "30m"
+cluster_deletion_timeout: "15m"
+cluster_ready_timeout: "20m"
+
+# Common labels and annotations
+common_labels:
+  app.kubernetes.io/managed-by: "automation-capi"
+  automation.openshift.io/provider: "{{ cloud_provider }}"
+
+# Ansible runner settings
+skip_ansible_runner: false
+output_dir: "{{ lookup('env', 'HOME') }}/output"

@@ -4,6 +4,11 @@ skip_ansible_runner: false
 # ansible_async_dir: '/root/.ansible_async'
 ansible_async_dir: '/tmp/.ansible_async'
 
+#==== Multi-Provider Support ====
+cloud_provider: "aws"                            # Default provider: aws, azure
+supported_providers: ["aws", "azure"]
+provider_config_path: "providers/{{ cloud_provider }}"
+
 #==== Version Management ====
 openshift_version: "4.19"                    # Default OpenShift version
 supported_versions: ["4.18", "4.19", "4.20"]
@@ -77,6 +82,8 @@ mce_comps_to_be_added:
   - name: cluster-api
     status: false
   - name: cluster-api-provider-aws
+    status: false
+  - name: cluster-api-provider-azure
     status: false
 mch_comps_to_be_removed: []
 mch_comps_to_be_added:
