@@ -1,0 +1,274 @@
+---
+# Update CAPA Controller Image for ACM-21162 testing
+# Updates the CAPA controller deployment with specific image for ROSARoleConfig support
+
+- name: Set CAPA controller update variables
+  set_fact:
+    capa_controller_name: "capa-controller-manager"
+    capa_controller_namespace: "{{ capa_system_namespace }}"
+    capa_new_image: "{{ capa_controller_image | default('') }}"
+    backup_enabled: "{{ capa_backup_before_update | default(true) }}"
+
+- name: Validate CAPA controller image parameter
+  fail:
+    msg: "CAPA controller image must be specified via capa_controller_image variable"
+  when: capa_new_image == ""
+
+- name: Display CAPA controller update configuration
+  debug:
+    msg: |
+      CAPA Controller Update Configuration:
+      - Controller Name: {{ capa_controller_name }}
+      - Namespace: {{ capa_controller_namespace }}
+      - New Image: {{ capa_new_image }}
+      - Backup Enabled: {{ backup_enabled }}
+
+- name: Get current CAPA controller deployment
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: "{{ capa_controller_name }}"
+    namespace: "{{ capa_controller_namespace }}"
+  register: current_capa_deployment
+
+- name: Validate CAPA controller exists
+  fail:
+    msg: "CAPA controller deployment {{ capa_controller_name }} not found in namespace {{ capa_controller_namespace }}"
+  when: current_capa_deployment.resources | length == 0
+
+- name: Extract current deployment information
+  set_fact:
+    current_capa_resource: "{{ current_capa_deployment.resources[0] }}"
+    current_image: "{{ current_capa_deployment.resources[0].spec.template.spec.containers[0].image }}"
+    current_replicas: "{{ current_capa_deployment.resources[0].spec.replicas }}"
+
+- name: Display current CAPA controller status
+  debug:
+    msg: |
+      Current CAPA Controller Status:
+      - Current Image: {{ current_image }}
+      - Desired Replicas: {{ current_replicas }}
+      - Available Replicas: {{ current_capa_resource.status.availableReplicas | default(0) }}
+      - Ready Replicas: {{ current_capa_resource.status.readyReplicas | default(0) }}
+      - Generation: {{ current_capa_resource.metadata.generation }}
+      - Observed Generation: {{ current_capa_resource.status.observedGeneration | default(0) }}
+
+- name: Check if image update is needed
+  set_fact:
+    image_update_needed: "{{ current_image != capa_new_image }}"
+
+- name: Skip update if image is already current
+  debug:
+    msg: |
+      CAPA controller is already using the target image: {{ capa_new_image }}
+      No update needed.
+  when: not image_update_needed
+
+- name: Proceed with image update
+  block:
+    - name: Create backup of current deployment (if enabled)
+      copy:
+        content: "{{ current_capa_resource | to_nice_yaml }}"
+        dest: "{{ output_dir }}/capa-controller-backup-{{ ansible_date_time.epoch }}.yaml"
+        mode: '0644'
+      when: backup_enabled
+
+    - name: Display backup information
+      debug:
+        msg: |
+          CAPA controller deployment backed up to:
+          {{ output_dir }}/capa-controller-backup-{{ ansible_date_time.epoch }}.yaml
+      when: backup_enabled
+
+    - name: Update CAPA controller image
+      kubernetes.core.k8s:
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ capa_controller_name }}"
+        namespace: "{{ capa_controller_namespace }}"
+        merge_type: strategic-merge
+        definition:
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: manager
+                    image: "{{ capa_new_image }}"
+      register: capa_image_update_result
+
+    - name: Display update result
+      debug:
+        msg: |
+          CAPA controller image update initiated:
+          - Previous Image: {{ current_image }}
+          - New Image: {{ capa_new_image }}
+          - Update Method: {{ capa_image_update_result.method }}
+
+    - name: Wait for deployment to start rolling update
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ capa_controller_name }}"
+        namespace: "{{ capa_controller_namespace }}"
+      register: capa_rolling_update_check
+      until:
+        - capa_rolling_update_check.resources[0].metadata.generation > current_capa_resource.metadata.generation
+      retries: 30
+      delay: 10
+
+    - name: Wait for deployment rollout to complete
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ capa_controller_name }}"
+        namespace: "{{ capa_controller_namespace }}"
+        wait: true
+        wait_condition:
+          type: Progressing
+          status: "True"
+          reason: NewReplicaSetAvailable
+        wait_timeout: 600
+      register: capa_rollout_result
+
+    - name: Verify deployment is ready
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ capa_controller_name }}"
+        namespace: "{{ capa_controller_namespace }}"
+      register: updated_capa_deployment
+
+    - name: Extract updated deployment information
+      set_fact:
+        updated_capa_resource: "{{ updated_capa_deployment.resources[0] }}"
+        updated_image: "{{ updated_capa_deployment.resources[0].spec.template.spec.containers[0].image }}"
+        updated_replicas: "{{ updated_capa_deployment.resources[0].status.readyReplicas | default(0) }}"
+
+    - name: Validate update success
+      block:
+        - name: Check image update success
+          fail:
+            msg: "Image update failed - expected {{ capa_new_image }}, got {{ updated_image }}"
+          when: updated_image != capa_new_image
+
+        - name: Check replica readiness
+          fail:
+            msg: "Deployment not ready - expected {{ current_replicas }} replicas, {{ updated_replicas }} ready"
+          when: updated_replicas | int != current_replicas | int
+
+        - name: Display successful update information
+          debug:
+            msg: |
+              CAPA Controller Update Successful!
+              - Updated Image: {{ updated_image }}
+              - Ready Replicas: {{ updated_replicas }}/{{ current_replicas }}
+              - Generation: {{ updated_capa_resource.metadata.generation }}
+              - Observed Generation: {{ updated_capa_resource.status.observedGeneration }}
+
+        - name: Set success facts
+          set_fact:
+            capa_controller_update_successful: true
+            capa_controller_updated_image: "{{ updated_image }}"
+            capa_controller_previous_image: "{{ current_image }}"
+
+    - name: Verify controller functionality
+      block:
+        - name: Wait for controller to be fully operational
+          pause:
+            seconds: 30
+            prompt: "Waiting for CAPA controller to stabilize after image update..."
+
+        - name: Check controller logs for any immediate errors
+          kubernetes.core.k8s_exec:
+            namespace: "{{ capa_controller_namespace }}"
+            pod: "{{ updated_capa_deployment.resources[0].spec.selector.matchLabels | dict2items | map('format', '%s=%s') | join(',') }}"
+            command: tail -n 50 /var/log/manager.log
+          register: capa_controller_logs
+          failed_when: false
+
+        - name: Display recent controller logs
+          debug:
+            msg: |
+              Recent CAPA controller logs:
+              {{ capa_controller_logs.stdout | default('No logs available') }}
+          when: capa_controller_logs.stdout is defined
+
+  when: image_update_needed
+
+rescue:
+  - name: Handle CAPA controller update failure
+    debug:
+      msg: |
+        CAPA controller image update failed.
+        Attempting to gather diagnostic information...
+
+  - name: Get current deployment status for debugging
+    kubernetes.core.k8s_info:
+      api_version: apps/v1
+      kind: Deployment
+      name: "{{ capa_controller_name }}"
+      namespace: "{{ capa_controller_namespace }}"
+    register: failed_capa_deployment
+    failed_when: false
+
+  - name: Display failure information
+    debug:
+      msg: |
+        CAPA Controller Update Failed:
+        {% if failed_capa_deployment.resources | length > 0 %}
+        - Current Image: {{ failed_capa_deployment.resources[0].spec.template.spec.containers[0].image }}
+        - Available Replicas: {{ failed_capa_deployment.resources[0].status.availableReplicas | default(0) }}
+        - Conditions:
+        {% for condition in failed_capa_deployment.resources[0].status.conditions | default([]) %}
+          * {{ condition.type }}: {{ condition.status }} ({{ condition.reason | default('N/A') }})
+            Message: {{ condition.message | default('N/A') }}
+        {% endfor %}
+        {% endif %}
+
+  - name: Get deployment events for debugging
+    kubernetes.core.k8s_info:
+      api_version: v1
+      kind: Event
+      namespace: "{{ capa_controller_namespace }}"
+      field_selectors:
+        - involvedObject.name={{ capa_controller_name }}
+        - involvedObject.kind=Deployment
+    register: capa_deployment_events
+    failed_when: false
+
+  - name: Display deployment events
+    debug:
+      msg: |
+        Recent deployment events:
+        {% for event in capa_deployment_events.resources | sort(attribute='firstTimestamp') | reverse %}
+        - {{ event.firstTimestamp | default(event.eventTime) }}: {{ event.reason }} - {{ event.message }}
+        {% endfor %}
+    when: capa_deployment_events.resources is defined and capa_deployment_events.resources | length > 0
+
+  - name: Set failure facts
+    set_fact:
+      capa_controller_update_successful: false
+      capa_controller_update_failed: true
+
+  - name: Provide rollback guidance
+    debug:
+      msg: |
+        CAPA Controller Update Failed - Rollback Options:
+
+        1. Manual rollback to previous image:
+           kubectl set image deployment/{{ capa_controller_name }} manager={{ current_image }} -n {{ capa_controller_namespace }}
+
+        2. Restore from backup (if created):
+           kubectl apply -f {{ output_dir }}/capa-controller-backup-{{ ansible_date_time.epoch }}.yaml
+
+        3. Check image availability:
+           - Verify the image {{ capa_new_image }} exists and is accessible
+           - Check image pull secrets if using private registry
+
+  - name: Fail the task
+    fail:
+      msg: |
+        CAPA controller image update failed.
+        Previous image: {{ current_image }}
+        Target image: {{ capa_new_image }}
+        Please check the diagnostic information above and consider rollback options.

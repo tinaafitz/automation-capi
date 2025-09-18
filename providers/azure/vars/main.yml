@@ -1,0 +1,29 @@
+# Azure Provider Configuration
+provider_name: "azure"
+provider_display_name: "Microsoft Azure"
+provider_namespace: "multicluster-engine"
+credential_secret_name: "azure-creds-secret"
+control_plane_kind: "AzureManagedControlPlane"
+infrastructure_kind: "AzureManagedCluster"
+machine_pool_kind: "AzureManagedMachinePool"
+bootstrap_provider: "capz"
+cluster_class: "aks"
+
+# Azure-specific settings
+azure_creds_secret: "azure-creds-secret"
+capz_pod_label: "infrastructure-azure"
+azure_identity_name: "azure-cluster-controller-identity"
+
+# Azure credential configuration
+azure_credentials:
+  - AZURE_CLIENT_ID
+  - AZURE_CLIENT_SECRET
+  - AZURE_SUBSCRIPTION_ID
+  - AZURE_TENANT_ID
+
+# Azure-specific defaults
+azure_location: "East US"
+azure_network_policy: "azure"
+azure_network_plugin: "azure"
+azure_sku_tier: "Standard"
+azure_vm_size: "Standard_D2s_v3"

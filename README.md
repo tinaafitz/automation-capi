@@ -31,7 +31,7 @@ https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.ht
 ```bash
 rosa whoami
 ```
-4. Update the vars/user_var.yml file.
+4. Update the vars/user_vars.yml file.
 ```bash
 # user stuff
 OCP_HUB_API_URL: ""

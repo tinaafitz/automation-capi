@@ -1,0 +1,324 @@
+---
+# Verify CAPA Controller for ACM-21162
+# Comprehensive verification of CAPA controller status and ROSARoleConfig support
+
+- name: Set CAPA controller verification variables
+  set_fact:
+    capa_controller_name: "capa-controller-manager"
+    capa_controller_namespace: "{{ capa_system_namespace }}"
+    verification_timeout: "{{ capa_verification_timeout | default(300) }}"
+
+- name: Display verification configuration
+  debug:
+    msg: |
+      CAPA Controller Verification Configuration:
+      - Controller Name: {{ capa_controller_name }}
+      - Namespace: {{ capa_controller_namespace }}
+      - Verification Timeout: {{ verification_timeout }} seconds
+
+- name: Get CAPA controller deployment
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: "{{ capa_controller_name }}"
+    namespace: "{{ capa_controller_namespace }}"
+  register: capa_deployment
+
+- name: Validate CAPA controller deployment exists
+  fail:
+    msg: "CAPA controller deployment {{ capa_controller_name }} not found in namespace {{ capa_controller_namespace }}"
+  when: capa_deployment.resources | length == 0
+
+- name: Extract deployment information
+  set_fact:
+    capa_deployment_resource: "{{ capa_deployment.resources[0] }}"
+    capa_desired_replicas: "{{ capa_deployment.resources[0].spec.replicas }}"
+    capa_ready_replicas: "{{ capa_deployment.resources[0].status.readyReplicas | default(0) }}"
+    capa_available_replicas: "{{ capa_deployment.resources[0].status.availableReplicas | default(0) }}"
+
+- name: Display CAPA controller deployment status
+  debug:
+    msg: |
+      CAPA Controller Deployment Status:
+      - Desired Replicas: {{ capa_desired_replicas }}
+      - Ready Replicas: {{ capa_ready_replicas }}
+      - Available Replicas: {{ capa_available_replicas }}
+      - Generation: {{ capa_deployment_resource.metadata.generation }}
+      - Observed Generation: {{ capa_deployment_resource.status.observedGeneration | default(0) }}
+
+- name: Verify deployment readiness
+  block:
+    - name: Check if deployment is ready
+      fail:
+        msg: "CAPA controller deployment is not ready - {{ capa_ready_replicas }}/{{ capa_desired_replicas }} replicas ready"
+      when: capa_ready_replicas | int != capa_desired_replicas | int
+
+    - name: Check deployment conditions
+      set_fact:
+        deployment_conditions: "{{ capa_deployment_resource.status.conditions | default([]) }}"
+        available_condition: "{{ capa_deployment_resource.status.conditions | selectattr('type', 'equalto', 'Available') | list | first | default({}) }}"
+        progressing_condition: "{{ capa_deployment_resource.status.conditions | selectattr('type', 'equalto', 'Progressing') | list | first | default({}) }}"
+
+    - name: Validate Available condition
+      fail:
+        msg: "CAPA controller deployment Available condition is not True - Status: {{ available_condition.status | default('Unknown') }}"
+      when: available_condition.status | default('') != 'True'
+
+    - name: Display deployment conditions
+      debug:
+        msg: |
+          CAPA Controller Deployment Conditions:
+          {% for condition in deployment_conditions %}
+          - {{ condition.type }}: {{ condition.status }}
+            Reason: {{ condition.reason | default('N/A') }}
+            Message: {{ condition.message | default('N/A') }}
+            Last Update: {{ condition.lastUpdateTime | default(condition.lastTransitionTime) | default('N/A') }}
+          {% endfor %}
+
+- name: Get CAPA controller pods
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ capa_controller_namespace }}"
+    label_selectors:
+      - "{{ capa_deployment_resource.spec.selector.matchLabels | dict2items | map('format', '%s=%s') | join(',') }}"
+  register: capa_pods
+
+- name: Verify pod status
+  block:
+    - name: Check if pods exist
+      fail:
+        msg: "No CAPA controller pods found"
+      when: capa_pods.resources | length == 0
+
+    - name: Analyze pod status
+      set_fact:
+        running_pods: "{{ capa_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list }}"
+        ready_pods: "{{ capa_pods.resources | selectattr('status.conditions', 'defined') | selectattr('status.conditions', 'selectattr', 'type', 'equalto', 'Ready') | selectattr('status.conditions', 'selectattr', 'status', 'equalto', 'True') | list }}"
+
+    - name: Display pod information
+      debug:
+        msg: |
+          CAPA Controller Pods Status:
+          - Total Pods: {{ capa_pods.resources | length }}
+          - Running Pods: {{ running_pods | length }}
+          - Ready Pods: {{ ready_pods | length }}
+
+          Pod Details:
+          {% for pod in capa_pods.resources %}
+          - Name: {{ pod.metadata.name }}
+            Phase: {{ pod.status.phase }}
+            Ready: {{ pod.status.conditions | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | first | default('Unknown') }}
+            Node: {{ pod.spec.nodeName | default('Not Assigned') }}
+            Start Time: {{ pod.status.startTime | default('N/A') }}
+          {% endfor %}
+
+    - name: Validate all pods are running and ready
+      fail:
+        msg: "Not all CAPA controller pods are running and ready"
+      when: ready_pods | length != capa_desired_replicas | int
+
+- name: Verify CAPA controller image
+  block:
+    - name: Extract container image information
+      set_fact:
+        capa_container_image: "{{ capa_deployment_resource.spec.template.spec.containers[0].image }}"
+        capa_image_pull_policy: "{{ capa_deployment_resource.spec.template.spec.containers[0].imagePullPolicy | default('IfNotPresent') }}"
+
+    - name: Display image information
+      debug:
+        msg: |
+          CAPA Controller Image Information:
+          - Image: {{ capa_container_image }}
+          - Pull Policy: {{ capa_image_pull_policy }}
+
+    - name: Check for expected image (if specified)
+      debug:
+        msg: |
+          Image verification:
+          - Current Image: {{ capa_container_image }}
+          - Expected Image: {{ capa_controller_image | default('Not specified') }}
+          - Match: {{ capa_container_image == capa_controller_image if capa_controller_image is defined else 'N/A' }}
+      when: capa_controller_image is defined
+
+- name: Verify CAPA controller permissions
+  block:
+    - name: Get CAPA ClusterRole
+      kubernetes.core.k8s_info:
+        api_version: rbac.authorization.k8s.io/v1
+        kind: ClusterRole
+        name: "capa-manager-role"
+      register: capa_clusterrole
+
+    - name: Check ROSARoleConfig permissions
+      set_fact:
+        rosa_role_config_permissions: "{{ capa_clusterrole.resources[0].rules | selectattr('apiGroups', 'defined') | selectattr('apiGroups', 'contains', 'infrastructure.cluster.x-k8s.io') | selectattr('resources', 'defined') | selectattr('resources', 'contains', 'rosaroleconfigs') | list }}"
+      when: capa_clusterrole.resources | length > 0
+
+    - name: Display permission verification
+      debug:
+        msg: |
+          CAPA Controller Permissions Verification:
+          - ClusterRole Found: {{ capa_clusterrole.resources | length > 0 }}
+          - ROSARoleConfig Permissions: {{ rosa_role_config_permissions | length > 0 if rosa_role_config_permissions is defined else false }}
+          {% if rosa_role_config_permissions is defined and rosa_role_config_permissions | length > 0 %}
+          - ROSARoleConfig Rules:
+          {% for rule in rosa_role_config_permissions %}
+            * API Groups: {{ rule.apiGroups | join(', ') }}
+              Resources: {{ rule.resources | join(', ') }}
+              Verbs: {{ rule.verbs | join(', ') }}
+          {% endfor %}
+          {% endif %}
+
+    - name: Validate ROSARoleConfig permissions exist
+      fail:
+        msg: "CAPA controller does not have ROSARoleConfig permissions"
+      when: rosa_role_config_permissions is not defined or rosa_role_config_permissions | length == 0
+
+- name: Verify CAPA controller connectivity and functionality
+  block:
+    - name: Check controller logs for errors
+      kubernetes.core.k8s_exec:
+        namespace: "{{ capa_controller_namespace }}"
+        pod: "{{ running_pods[0].metadata.name }}"
+        command: tail -n 100 /var/log/manager.log
+      register: recent_logs
+      failed_when: false
+      when: running_pods | length > 0
+
+    - name: Analyze logs for common issues
+      set_fact:
+        log_errors: "{{ recent_logs.stdout | regex_findall('ERROR.*') if recent_logs.stdout is defined else [] }}"
+        log_warnings: "{{ recent_logs.stdout | regex_findall('WARN.*') if recent_logs.stdout is defined else [] }}"
+      when: recent_logs.stdout is defined
+
+    - name: Display log analysis
+      debug:
+        msg: |
+          CAPA Controller Log Analysis:
+          - Recent Errors: {{ log_errors | length }}
+          - Recent Warnings: {{ log_warnings | length }}
+          {% if log_errors | length > 0 %}
+          Recent Errors:
+          {% for error in log_errors[:5] %}
+          - {{ error }}
+          {% endfor %}
+          {% endif %}
+      when: recent_logs.stdout is defined
+
+    - name: Check for AWS connectivity
+      set_fact:
+        aws_connectivity_ok: "{{ 'AWS' in recent_logs.stdout and 'connection refused' not in recent_logs.stdout | lower if recent_logs.stdout is defined else true }}"
+      when: recent_logs.stdout is defined
+
+- name: Verify CAPA CRDs
+  block:
+    - name: Check for ROSARoleConfig CRD
+      kubernetes.core.k8s_info:
+        api_version: apiextensions.k8s.io/v1
+        kind: CustomResourceDefinition
+        name: "rosaroleconfigs.infrastructure.cluster.x-k8s.io"
+      register: rosa_role_config_crd
+
+    - name: Validate ROSARoleConfig CRD exists
+      fail:
+        msg: "ROSARoleConfig CRD not found - CAPA may not support ROSARoleConfig"
+      when: rosa_role_config_crd.resources | length == 0
+
+    - name: Display CRD information
+      debug:
+        msg: |
+          ROSARoleConfig CRD Verification:
+          - CRD Found: {{ rosa_role_config_crd.resources | length > 0 }}
+          - CRD Version: {{ rosa_role_config_crd.resources[0].spec.versions[0].name if rosa_role_config_crd.resources | length > 0 else 'N/A' }}
+          - Served: {{ rosa_role_config_crd.resources[0].spec.versions[0].served if rosa_role_config_crd.resources | length > 0 else 'N/A' }}
+          - Storage: {{ rosa_role_config_crd.resources[0].spec.versions[0].storage if rosa_role_config_crd.resources | length > 0 else 'N/A' }}
+
+- name: Test CAPA controller responsiveness (optional)
+  block:
+    - name: Create a test ROSARoleConfig (dry-run)
+      kubernetes.core.k8s:
+        api_version: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: ROSARoleConfig
+        name: "test-connectivity-{{ ansible_date_time.epoch }}"
+        namespace: "{{ capi_namespace }}"
+        definition:
+          spec:
+            awsAccountId: "123456789012"
+            region: "us-east-1"
+            roles: []
+        state: present
+        dry_run: true
+      register: test_rosa_role_config
+      failed_when: false
+
+    - name: Display connectivity test result
+      debug:
+        msg: |
+          CAPA Controller Responsiveness Test:
+          - Dry-run successful: {{ test_rosa_role_config.failed == false }}
+          - API accessible: {{ test_rosa_role_config.result is defined }}
+  when: test_capa_connectivity | default(false)
+
+- name: Set verification results
+  set_fact:
+    capa_controller_verified: true
+    capa_controller_deployment_ready: "{{ capa_ready_replicas | int == capa_desired_replicas | int }}"
+    capa_controller_pods_ready: "{{ ready_pods | length == capa_desired_replicas | int }}"
+    capa_controller_permissions_ok: "{{ rosa_role_config_permissions is defined and rosa_role_config_permissions | length > 0 }}"
+    capa_controller_crd_available: "{{ rosa_role_config_crd.resources | length > 0 }}"
+    capa_controller_image_current: "{{ capa_container_image }}"
+
+- name: Display verification summary
+  debug:
+    msg: |
+      CAPA Controller Verification Summary:
+      ✓ Deployment Ready: {{ capa_controller_deployment_ready }}
+      ✓ Pods Ready: {{ capa_controller_pods_ready }}
+      ✓ Permissions OK: {{ capa_controller_permissions_ok }}
+      ✓ CRD Available: {{ capa_controller_crd_available }}
+      ✓ Image: {{ capa_controller_image_current }}
+
+      Controller is ready for ACM-21162 ROSARoleConfig testing!
+
+rescue:
+  - name: Handle verification failure
+    debug:
+      msg: |
+        CAPA controller verification failed.
+        Gathering diagnostic information...
+
+  - name: Set verification failure facts
+    set_fact:
+      capa_controller_verified: false
+      capa_controller_verification_failed: true
+
+  - name: Provide verification failure guidance
+    debug:
+      msg: |
+        CAPA Controller Verification Failed - Troubleshooting:
+
+        1. Check deployment status:
+           kubectl get deployment {{ capa_controller_name }} -n {{ capa_controller_namespace }}
+
+        2. Check pod status:
+           kubectl get pods -n {{ capa_controller_namespace }} -l control-plane=controller-manager
+
+        3. Check controller logs:
+           kubectl logs deployment/{{ capa_controller_name }} -n {{ capa_controller_namespace }}
+
+        4. Check ClusterRole permissions:
+           kubectl get clusterrole capa-manager-role -o yaml
+
+        5. Check CRDs:
+           kubectl get crd rosaroleconfigs.infrastructure.cluster.x-k8s.io
+
+        6. Verify CAPA installation:
+           kubectl get all -n {{ capa_controller_namespace }}
+
+  - name: Fail the verification
+    fail:
+      msg: |
+        CAPA controller verification failed.
+        Controller is not ready for ACM-21162 ROSARoleConfig testing.
+        Please check the troubleshooting guidance above.

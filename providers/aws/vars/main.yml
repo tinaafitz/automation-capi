@@ -1,0 +1,26 @@
+# AWS Provider Configuration
+provider_name: "aws"
+provider_display_name: "Amazon Web Services"
+provider_namespace: "multicluster-engine"
+credential_secret_name: "rosa-creds-secret"
+control_plane_kind: "ROSAControlPlane"
+infrastructure_kind: "ROSACluster"
+machine_pool_kind: "ROSAMachinePool"
+bootstrap_provider: "capa"
+cluster_class: "rosa-hcp"
+
+# AWS-specific settings
+rosa_creds_secret: "rosa-creds-secret"
+capa_pod_label: "infrastructure-aws"
+capi_pod_label: "infrastructure-aws"
+aws_identity_name: "aws-cluster-controller-identity"
+
+# AWS credential environment variables
+aws_credentials:
+  - AWS_ACCESS_KEY_ID
+  - AWS_SECRET_ACCESS_KEY
+  - AWS_SESSION_TOKEN
+
+# ROSA-specific configuration
+rosa_cli_required: true
+rosa_environment: "stage"  # stage, production

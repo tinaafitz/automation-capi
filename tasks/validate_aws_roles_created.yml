@@ -1,0 +1,379 @@
+---
+# Validate AWS Roles Created for ACM-21162
+# Verifies that AWS IAM roles were actually created by ROSARoleConfig
+
+- name: Set AWS validation variables
+  set_fact:
+    rosa_role_config_name: "{{ rosa_role_config_name | default(cluster_name + '-roles') }}"
+    aws_validation_timeout: "{{ aws_roles_validation_timeout | default(300) }}"
+    validation_results: {}
+
+- name: Display AWS roles validation configuration
+  debug:
+    msg: |
+      AWS Roles Validation Configuration:
+      - ROSARoleConfig: {{ rosa_role_config_name }}
+      - Namespace: {{ capi_namespace }}
+      - AWS Account ID: {{ aws_account_id }}
+      - AWS Region: {{ aws_region }}
+      - Validation Timeout: {{ aws_validation_timeout }} seconds
+
+- name: Get ROSARoleConfig status for role ARNs
+  kubernetes.core.k8s_info:
+    api_version: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: ROSARoleConfig
+    name: "{{ rosa_role_config_name }}"
+    namespace: "{{ capi_namespace }}"
+  register: rosa_role_config_status
+
+- name: Validate ROSARoleConfig exists and is ready
+  fail:
+    msg: "ROSARoleConfig {{ rosa_role_config_name }} not found or not ready"
+  when:
+    - rosa_role_config_status.resources | length == 0
+    - rosa_role_config_status.resources[0].status.phase | default('') != 'Ready'
+
+- name: Extract role ARNs from ROSARoleConfig status
+  set_fact:
+    installer_role_arn: "{{ rosa_role_config_status.resources[0].status.installerRoleArn | default('') }}"
+    support_role_arn: "{{ rosa_role_config_status.resources[0].status.supportRoleArn | default('') }}"
+    worker_role_arn: "{{ rosa_role_config_status.resources[0].status.workerRoleArn | default('') }}"
+    oidc_provider_arn: "{{ rosa_role_config_status.resources[0].status.oidcProviderArn | default('') }}"
+
+- name: Display role ARNs to validate
+  debug:
+    msg: |
+      AWS Role ARNs to Validate:
+      - Installer Role: {{ installer_role_arn }}
+      - Support Role: {{ support_role_arn }}
+      - Worker Role: {{ worker_role_arn }}
+      - OIDC Provider: {{ oidc_provider_arn }}
+
+- name: Validate role ARNs are present
+  fail:
+    msg: "Required role ARN not found in ROSARoleConfig status: {{ item }}"
+  when: vars[item] == ""
+  loop:
+    - installer_role_arn
+    - support_role_arn
+    - worker_role_arn
+    - oidc_provider_arn
+
+- name: Install AWS CLI in temporary container (if needed)
+  block:
+    - name: Check if aws command is available
+      command: which aws
+      register: aws_cli_check
+      failed_when: false
+      changed_when: false
+
+    - name: Use kubectl with AWS CLI pod if aws not available locally
+      set_fact:
+        use_aws_pod: "{{ aws_cli_check.rc != 0 }}"
+        aws_command_prefix: "{{ 'kubectl run aws-cli-temp --rm -i --restart=Never --image=amazon/aws-cli:latest -- ' if aws_cli_check.rc != 0 else '' }}"
+
+- name: Validate installer role exists in AWS
+  block:
+    - name: Extract installer role name from ARN
+      set_fact:
+        installer_role_name: "{{ installer_role_arn.split('/')[-1] }}"
+
+    - name: Get installer role from AWS
+      shell: |
+        {{ aws_command_prefix }}aws iam get-role --role-name {{ installer_role_name }} --region {{ aws_region }}
+      register: installer_role_aws_result
+      failed_when: false
+      environment:
+        AWS_DEFAULT_REGION: "{{ aws_region }}"
+
+    - name: Validate installer role exists
+      set_fact:
+        validation_results: "{{ validation_results | combine({'installer_role_exists': installer_role_aws_result.rc == 0}) }}"
+
+    - name: Parse installer role details
+      set_fact:
+        installer_role_details: "{{ installer_role_aws_result.stdout | from_json }}"
+      when: installer_role_aws_result.rc == 0
+
+    - name: Display installer role validation
+      debug:
+        msg: |
+          Installer Role Validation:
+          - Role Name: {{ installer_role_name }}
+          - Exists in AWS: {{ validation_results.installer_role_exists }}
+          {% if installer_role_aws_result.rc == 0 %}
+          - ARN: {{ installer_role_details.Role.Arn }}
+          - Creation Date: {{ installer_role_details.Role.CreateDate }}
+          - Trust Policy Principal: {{ installer_role_details.Role.AssumeRolePolicyDocument | from_json | json_query('Statement[0].Principal.AWS') }}
+          {% else %}
+          - Error: {{ installer_role_aws_result.stderr | default('Unknown error') }}
+          {% endif %}
+
+  rescue:
+    - name: Handle installer role validation failure
+      set_fact:
+        validation_results: "{{ validation_results | combine({'installer_role_exists': false, 'installer_role_error': ansible_failed_result.msg | default('Unknown error')}) }}"
+
+- name: Validate support role exists in AWS
+  block:
+    - name: Extract support role name from ARN
+      set_fact:
+        support_role_name: "{{ support_role_arn.split('/')[-1] }}"
+
+    - name: Get support role from AWS
+      shell: |
+        {{ aws_command_prefix }}aws iam get-role --role-name {{ support_role_name }} --region {{ aws_region }}
+      register: support_role_aws_result
+      failed_when: false
+      environment:
+        AWS_DEFAULT_REGION: "{{ aws_region }}"
+
+    - name: Validate support role exists
+      set_fact:
+        validation_results: "{{ validation_results | combine({'support_role_exists': support_role_aws_result.rc == 0}) }}"
+
+    - name: Parse support role details
+      set_fact:
+        support_role_details: "{{ support_role_aws_result.stdout | from_json }}"
+      when: support_role_aws_result.rc == 0
+
+    - name: Display support role validation
+      debug:
+        msg: |
+          Support Role Validation:
+          - Role Name: {{ support_role_name }}
+          - Exists in AWS: {{ validation_results.support_role_exists }}
+          {% if support_role_aws_result.rc == 0 %}
+          - ARN: {{ support_role_details.Role.Arn }}
+          - Creation Date: {{ support_role_details.Role.CreateDate }}
+          - Trust Policy Principal: {{ support_role_details.Role.AssumeRolePolicyDocument | from_json | json_query('Statement[0].Principal.AWS') }}
+          {% endif %}
+
+  rescue:
+    - name: Handle support role validation failure
+      set_fact:
+        validation_results: "{{ validation_results | combine({'support_role_exists': false, 'support_role_error': ansible_failed_result.msg | default('Unknown error')}) }}"
+
+- name: Validate worker role exists in AWS
+  block:
+    - name: Extract worker role name from ARN
+      set_fact:
+        worker_role_name: "{{ worker_role_arn.split('/')[-1] }}"
+
+    - name: Get worker role from AWS
+      shell: |
+        {{ aws_command_prefix }}aws iam get-role --role-name {{ worker_role_name }} --region {{ aws_region }}
+      register: worker_role_aws_result
+      failed_when: false
+      environment:
+        AWS_DEFAULT_REGION: "{{ aws_region }}"
+
+    - name: Validate worker role exists
+      set_fact:
+        validation_results: "{{ validation_results | combine({'worker_role_exists': worker_role_aws_result.rc == 0}) }}"
+
+    - name: Parse worker role details
+      set_fact:
+        worker_role_details: "{{ worker_role_aws_result.stdout | from_json }}"
+      when: worker_role_aws_result.rc == 0
+
+    - name: Display worker role validation
+      debug:
+        msg: |
+          Worker Role Validation:
+          - Role Name: {{ worker_role_name }}
+          - Exists in AWS: {{ validation_results.worker_role_exists }}
+          {% if worker_role_aws_result.rc == 0 %}
+          - ARN: {{ worker_role_details.Role.Arn }}
+          - Creation Date: {{ worker_role_details.Role.CreateDate }}
+          - Trust Policy Principal: {{ worker_role_details.Role.AssumeRolePolicyDocument | from_json | json_query('Statement[0].Principal.Service') }}
+          {% endif %}
+
+  rescue:
+    - name: Handle worker role validation failure
+      set_fact:
+        validation_results: "{{ validation_results | combine({'worker_role_exists': false, 'worker_role_error': ansible_failed_result.msg | default('Unknown error')}) }}"
+
+- name: Validate role policies are attached
+  block:
+    - name: Get installer role attached policies
+      shell: |
+        {{ aws_command_prefix }}aws iam list-attached-role-policies --role-name {{ installer_role_name }} --region {{ aws_region }}
+      register: installer_policies_result
+      failed_when: false
+      when: validation_results.installer_role_exists | default(false)
+
+    - name: Get support role attached policies
+      shell: |
+        {{ aws_command_prefix }}aws iam list-attached-role-policies --role-name {{ support_role_name }} --region {{ aws_region }}
+      register: support_policies_result
+      failed_when: false
+      when: validation_results.support_role_exists | default(false)
+
+    - name: Get worker role attached policies
+      shell: |
+        {{ aws_command_prefix }}aws iam list-attached-role-policies --role-name {{ worker_role_name }} --region {{ aws_region }}
+      register: worker_policies_result
+      failed_when: false
+      when: validation_results.worker_role_exists | default(false)
+
+    - name: Parse policy information
+      set_fact:
+        installer_policies: "{{ installer_policies_result.stdout | from_json | json_query('AttachedPolicies[*].PolicyName') if installer_policies_result.rc == 0 else [] }}"
+        support_policies: "{{ support_policies_result.stdout | from_json | json_query('AttachedPolicies[*].PolicyName') if support_policies_result.rc == 0 else [] }}"
+        worker_policies: "{{ worker_policies_result.stdout | from_json | json_query('AttachedPolicies[*].PolicyName') if worker_policies_result.rc == 0 else [] }}"
+
+    - name: Display policy validation
+      debug:
+        msg: |
+          Role Policies Validation:
+          - Installer Role Policies: {{ installer_policies | length }} attached
+            {% for policy in installer_policies %}
+            * {{ policy }}
+            {% endfor %}
+          - Support Role Policies: {{ support_policies | length }} attached
+            {% for policy in support_policies %}
+            * {{ policy }}
+            {% endfor %}
+          - Worker Role Policies: {{ worker_policies | length }} attached
+            {% for policy in worker_policies %}
+            * {{ policy }}
+            {% endfor %}
+
+    - name: Update validation results with policy information
+      set_fact:
+        validation_results: "{{ validation_results | combine({
+          'installer_policies_count': installer_policies | length,
+          'support_policies_count': support_policies | length,
+          'worker_policies_count': worker_policies | length
+        }) }}"
+
+  rescue:
+    - name: Handle policy validation failure
+      debug:
+        msg: "Policy validation encountered errors, but continuing with role validation"
+
+- name: Validate OIDC provider exists in AWS
+  block:
+    - name: Extract OIDC provider path from ARN
+      set_fact:
+        oidc_provider_path: "{{ oidc_provider_arn.split('/')[-1] }}"
+
+    - name: Get OIDC provider from AWS
+      shell: |
+        {{ aws_command_prefix }}aws iam get-open-id-connect-provider --open-id-connect-provider-arn {{ oidc_provider_arn }} --region {{ aws_region }}
+      register: oidc_provider_aws_result
+      failed_when: false
+      environment:
+        AWS_DEFAULT_REGION: "{{ aws_region }}"
+
+    - name: Validate OIDC provider exists
+      set_fact:
+        validation_results: "{{ validation_results | combine({'oidc_provider_exists': oidc_provider_aws_result.rc == 0}) }}"
+
+    - name: Parse OIDC provider details
+      set_fact:
+        oidc_provider_details: "{{ oidc_provider_aws_result.stdout | from_json }}"
+      when: oidc_provider_aws_result.rc == 0
+
+    - name: Display OIDC provider validation
+      debug:
+        msg: |
+          OIDC Provider Validation:
+          - Provider ARN: {{ oidc_provider_arn }}
+          - Exists in AWS: {{ validation_results.oidc_provider_exists }}
+          {% if oidc_provider_aws_result.rc == 0 %}
+          - URL: {{ oidc_provider_details.Url }}
+          - Client IDs: {{ oidc_provider_details.ClientIDList | join(', ') }}
+          - Thumbprints: {{ oidc_provider_details.ThumbprintList | join(', ') }}
+          - Creation Date: {{ oidc_provider_details.CreateDate }}
+          {% endif %}
+
+  rescue:
+    - name: Handle OIDC provider validation failure
+      set_fact:
+        validation_results: "{{ validation_results | combine({'oidc_provider_exists': false, 'oidc_provider_error': ansible_failed_result.msg | default('Unknown error')}) }}"
+
+- name: Calculate overall validation status
+  set_fact:
+    aws_roles_validation_passed: "{{
+      validation_results.installer_role_exists | default(false) and
+      validation_results.support_role_exists | default(false) and
+      validation_results.worker_role_exists | default(false) and
+      validation_results.oidc_provider_exists | default(false)
+    }}"
+
+- name: Display overall validation summary
+  debug:
+    msg: |
+      AWS Roles Validation Summary:
+      ================================
+      ✓ Installer Role Exists: {{ validation_results.installer_role_exists | default(false) }}
+      ✓ Support Role Exists: {{ validation_results.support_role_exists | default(false) }}
+      ✓ Worker Role Exists: {{ validation_results.worker_role_exists | default(false) }}
+      ✓ OIDC Provider Exists: {{ validation_results.oidc_provider_exists | default(false) }}
+
+      Overall Validation: {{ 'PASSED' if aws_roles_validation_passed else 'FAILED' }}
+
+      Policy Counts:
+      - Installer Role: {{ validation_results.installer_policies_count | default(0) }} policies
+      - Support Role: {{ validation_results.support_policies_count | default(0) }} policies
+      - Worker Role: {{ validation_results.worker_policies_count | default(0) }} policies
+
+- name: Set final validation facts
+  set_fact:
+    aws_roles_validated: true
+    aws_roles_validation_successful: "{{ aws_roles_validation_passed }}"
+    aws_roles_validation_details: "{{ validation_results }}"
+
+- name: Fail if validation unsuccessful
+  fail:
+    msg: |
+      AWS roles validation failed!
+
+      Validation Results:
+      {% for key, value in validation_results.items() %}
+      - {{ key }}: {{ value }}
+      {% endfor %}
+
+      Troubleshooting:
+      1. Verify AWS credentials have sufficient permissions
+      2. Check if ROSARoleConfig completed successfully
+      3. Verify AWS account ID and region are correct
+      4. Check for AWS service limits or restrictions
+  when: not aws_roles_validation_passed
+
+rescue:
+  - name: Handle AWS validation failure
+    debug:
+      msg: |
+        AWS roles validation encountered an error.
+        This could indicate AWS connectivity issues or permission problems.
+
+  - name: Set validation failure facts
+    set_fact:
+      aws_roles_validated: false
+      aws_roles_validation_successful: false
+      aws_roles_validation_error: "{{ ansible_failed_result.msg | default('Unknown validation error') }}"
+
+  - name: Display validation failure guidance
+    debug:
+      msg: |
+        AWS Roles Validation Failed - Troubleshooting:
+
+        1. Check AWS CLI access:
+           aws sts get-caller-identity
+
+        2. Verify AWS credentials:
+           kubectl get secret {{ rosa_creds_secret }} -n {{ capa_system_namespace }}
+
+        3. Check ROSARoleConfig status:
+           kubectl describe rosaroleconfig {{ rosa_role_config_name }} -n {{ capi_namespace }}
+
+        4. Verify network connectivity to AWS:
+           curl -I https://iam.{{ aws_region }}.amazonaws.com
+
+        5. Check AWS permissions required for role validation:
+           - iam:GetRole
+           - iam:ListAttachedRolePolicies
+           - iam:GetOpenIDConnectProvider

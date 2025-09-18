@@ -1,0 +1,26 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureManagedControlPlane
+metadata:
+  name: "{{ cluster_name }}-control-plane"
+  namespace: "{{ capi_namespace }}"
+  labels:
+    app.kubernetes.io/managed-by: "automation-capi"
+    automation.openshift.io/provider: "azure"
+spec:
+  version: "{{ cluster_version | default('1.28') }}"
+  resourceGroupName: "{{ cluster_name }}-rg"
+  location: "{{ azure_location | default('East US') }}"
+  networkPolicy: "{{ azure_network_policy | default('azure') }}"
+  networkPlugin: "{{ azure_network_plugin | default('azure') }}"
+  sku:
+    tier: "{{ azure_sku_tier | default('Standard') }}"
+  dnsServiceIP: "{{ azure_dns_service_ip | default('10.0.0.10') }}"
+  serviceCidr: "{{ azure_service_cidr | default('10.0.0.0/16') }}"
+  subscriptionID: "{{ lookup('env', 'AZURE_SUBSCRIPTION_ID') }}"
+  {% if azure_identity_name is defined %}
+  identity:
+    type: SystemAssigned
+  {% endif %}
+  {% if azure_node_resource_group is defined %}
+  nodeResourceGroupName: "{{ azure_node_resource_group }}"
+  {% endif %}

@@ -1,0 +1,191 @@
+---
+# Create ROSARoleConfig for ACM-21162
+# Automates AWS IAM role creation for ROSA HCP clusters
+# Eliminates manual role setup requirements
+
+- name: Set ROSARoleConfig creation variables
+  set_fact:
+    rosa_role_config_name: "{{ cluster_name }}-roles"
+    template_name: "rosa-role-config"
+    template_category: "features"
+    template_extension: ".yaml.j2"
+    template_debug: true
+
+- name: Validate required variables for ROSARoleConfig
+  fail:
+    msg: "Required variable {{ item }} is not defined"
+  when: vars[item] is not defined or vars[item] == ""
+  loop:
+    - cluster_name
+    - aws_account_id
+    - aws_region
+    - capi_namespace
+
+- name: Resolve ROSARoleConfig template
+  include_tasks: tasks/template_resolver.yml
+
+- name: Create output directory for ROSARoleConfig
+  file:
+    path: "{{ output_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Generate ROSARoleConfig from template
+  template:
+    src: "{{ resolved_template_path }}"
+    dest: "{{ output_dir }}/{{ rosa_role_config_name }}.yaml"
+    mode: '0644'
+  register: rosa_role_config_template_result
+
+- name: Display ROSARoleConfig generation info
+  debug:
+    msg: |
+      ROSARoleConfig generated:
+      - Name: {{ rosa_role_config_name }}
+      - Template Source: {{ template_source }}
+      - Template Path: {{ resolved_template_path }}
+      - Output File: {{ output_dir }}/{{ rosa_role_config_name }}.yaml
+      - AWS Account ID: {{ aws_account_id }}
+      - AWS Region: {{ aws_region }}
+      - Namespace: {{ capi_namespace }}
+
+- name: Check if ROSARoleConfig already exists
+  kubernetes.core.k8s_info:
+    api_version: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: ROSARoleConfig
+    name: "{{ rosa_role_config_name }}"
+    namespace: "{{ capi_namespace }}"
+  register: existing_rosa_role_config
+  failed_when: false
+
+- name: Display existing ROSARoleConfig status
+  debug:
+    msg: |
+      ROSARoleConfig {{ rosa_role_config_name }} already exists in namespace {{ capi_namespace }}
+      Creation will update existing resource.
+  when: existing_rosa_role_config.resources | length > 0
+
+- name: Apply ROSARoleConfig to cluster
+  kubernetes.core.k8s:
+    state: present
+    src: "{{ output_dir }}/{{ rosa_role_config_name }}.yaml"
+    wait: true
+    wait_condition:
+      type: Ready
+      status: "True"
+    wait_timeout: 600
+  register: rosa_role_config_apply_result
+
+- name: Display ROSARoleConfig apply result
+  debug:
+    msg: |
+      ROSARoleConfig application result:
+      - Status: {{ rosa_role_config_apply_result.result.status | default('Unknown') }}
+      - Method: {{ rosa_role_config_apply_result.method }}
+      - Name: {{ rosa_role_config_apply_result.result.metadata.name }}
+      - Namespace: {{ rosa_role_config_apply_result.result.metadata.namespace }}
+      - Creation Timestamp: {{ rosa_role_config_apply_result.result.metadata.creationTimestamp | default('N/A') }}
+
+- name: Wait for ROSARoleConfig to be ready
+  kubernetes.core.k8s_info:
+    api_version: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: ROSARoleConfig
+    name: "{{ rosa_role_config_name }}"
+    namespace: "{{ capi_namespace }}"
+    wait: true
+    wait_condition:
+      type: Ready
+      status: "True"
+    wait_timeout: 900
+  register: rosa_role_config_ready_result
+
+- name: Set ROSARoleConfig facts for subsequent tasks
+  set_fact:
+    rosa_role_config_created: true
+    rosa_role_config_resource: "{{ rosa_role_config_ready_result.resources[0] }}"
+    installer_role_arn: "{{ rosa_role_config_ready_result.resources[0].status.installerRoleArn | default('') }}"
+    support_role_arn: "{{ rosa_role_config_ready_result.resources[0].status.supportRoleArn | default('') }}"
+    worker_role_arn: "{{ rosa_role_config_ready_result.resources[0].status.workerRoleArn | default('') }}"
+    oidc_provider_arn: "{{ rosa_role_config_ready_result.resources[0].status.oidcProviderArn | default('') }}"
+
+- name: Display created AWS resources
+  debug:
+    msg: |
+      ROSARoleConfig {{ rosa_role_config_name }} created successfully!
+
+      AWS Resources Created:
+      - Installer Role ARN: {{ installer_role_arn }}
+      - Support Role ARN: {{ support_role_arn }}
+      - Worker Role ARN: {{ worker_role_arn }}
+      - OIDC Provider ARN: {{ oidc_provider_arn }}
+
+      ROSARoleConfig Status: {{ rosa_role_config_resource.status.phase | default('Unknown') }}
+      Ready Condition: {{ rosa_role_config_resource.status.conditions | selectattr('type', 'equalto', 'Ready') | list | first | default({}) }}
+
+rescue:
+  - name: Handle ROSARoleConfig creation failure
+    debug:
+      msg: |
+        ROSARoleConfig creation failed!
+        Error details will be logged for debugging.
+
+  - name: Get ROSARoleConfig events for debugging
+    kubernetes.core.k8s_info:
+      api_version: v1
+      kind: Event
+      namespace: "{{ capi_namespace }}"
+      field_selectors:
+        - involvedObject.name={{ rosa_role_config_name }}
+        - involvedObject.kind=ROSARoleConfig
+    register: rosa_role_config_events
+    failed_when: false
+
+  - name: Display ROSARoleConfig events
+    debug:
+      msg: |
+        Recent events for ROSARoleConfig {{ rosa_role_config_name }}:
+        {% for event in rosa_role_config_events.resources %}
+        - {{ event.firstTimestamp }}: {{ event.reason }} - {{ event.message }}
+        {% endfor %}
+    when: rosa_role_config_events.resources is defined
+
+  - name: Get ROSARoleConfig status for debugging
+    kubernetes.core.k8s_info:
+      api_version: infrastructure.cluster.x-k8s.io/v1beta1
+      kind: ROSARoleConfig
+      name: "{{ rosa_role_config_name }}"
+      namespace: "{{ capi_namespace }}"
+    register: failed_rosa_role_config
+    failed_when: false
+
+  - name: Display ROSARoleConfig failure details
+    debug:
+      msg: |
+        ROSARoleConfig Status Details:
+        {% if failed_rosa_role_config.resources %}
+        - Phase: {{ failed_rosa_role_config.resources[0].status.phase | default('Unknown') }}
+        - Conditions:
+        {% for condition in failed_rosa_role_config.resources[0].status.conditions | default([]) %}
+          - Type: {{ condition.type }}, Status: {{ condition.status }}, Reason: {{ condition.reason | default('N/A') }}
+            Message: {{ condition.message | default('N/A') }}
+        {% endfor %}
+        {% else %}
+        - ROSARoleConfig resource not found or failed to retrieve
+        {% endif %}
+    when: failed_rosa_role_config.resources is defined
+
+  - name: Set failure facts
+    set_fact:
+      rosa_role_config_created: false
+      rosa_role_config_creation_failed: true
+
+  - name: Fail the task with detailed error information
+    fail:
+      msg: |
+        ROSARoleConfig creation failed for {{ rosa_role_config_name }}.
+        Please check the events and status details above for more information.
+        Common issues:
+        - AWS credentials not properly configured
+        - Insufficient AWS permissions for role creation
+        - Network connectivity issues
+        - CAPA controller not running or misconfigured

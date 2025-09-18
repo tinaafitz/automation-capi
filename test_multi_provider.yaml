@@ -1,0 +1,75 @@
+- name: Test multi-provider functionality
+  hosts: localhost
+  any_errors_fatal: true
+  vars_files:
+    - vars/vars.yml
+    - vars/user_vars.yml
+  tasks:
+    - name: Test AWS provider
+      block:
+        - name: Set AWS provider
+          set_fact:
+            cloud_provider: "aws"
+
+        - name: Load AWS provider configuration
+          include_vars: "providers/aws/vars/main.yml"
+
+        - name: Validate AWS provider variables
+          assert:
+            that:
+              - provider_name == "aws"
+              - credential_secret_name == "rosa-creds-secret"
+              - control_plane_kind == "ROSAControlPlane"
+            fail_msg: "AWS provider configuration validation failed"
+
+        - name: Display AWS provider status
+          debug:
+            msg: "✓ AWS provider configuration validated successfully"
+
+    - name: Test Azure provider
+      block:
+        - name: Set Azure provider
+          set_fact:
+            cloud_provider: "azure"
+
+        - name: Load Azure provider configuration
+          include_vars: "providers/azure/vars/main.yml"
+
+        - name: Validate Azure provider variables
+          assert:
+            that:
+              - provider_name == "azure"
+              - credential_secret_name == "azure-creds-secret"
+              - control_plane_kind == "AzureManagedControlPlane"
+            fail_msg: "Azure provider configuration validation failed"
+
+        - name: Display Azure provider status
+          debug:
+            msg: "✓ Azure provider configuration validated successfully"
+
+    - name: Test provider switching
+      block:
+        - name: Test invalid provider
+          set_fact:
+            cloud_provider: "invalid"
+
+        - name: Load common configuration
+          include_vars: "providers/common/vars/main.yml"
+
+        - name: Validate provider fails with invalid provider
+          assert:
+            that:
+              - cloud_provider not in supported_providers
+            fail_msg: "Invalid provider should not be in supported list"
+
+        - name: Display provider validation status
+          debug:
+            msg: "✓ Provider validation working correctly"
+
+    - name: Display test results
+      debug:
+        msg: |
+          Multi-provider testing completed successfully:
+          - AWS provider configuration: ✓
+          - Azure provider configuration: ✓  
+          - Provider validation: ✓
