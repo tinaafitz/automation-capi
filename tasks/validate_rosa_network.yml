@@ -1,0 +1,165 @@
+---
+# Validate ROSANetwork configuration and status
+- name: "Validate ROSANetwork for cluster {{ cluster_name }}"
+  block:
+    - name: Get ROSANetwork resource
+      kubernetes.core.k8s_info:
+        api_version: infrastructure.cluster.x-k8s.io/v1beta2
+        kind: ROSANetwork
+        name: "{{ rosa_network_config_name | default(cluster_name + '-network') }}"
+        namespace: "{{ capi_namespace }}"
+      register: network_info
+
+    - name: Validate ROSANetwork exists
+      assert:
+        that:
+          - network_info.resources | length > 0
+        fail_msg: "ROSANetwork {{ rosa_network_config_name | default(cluster_name + '-network') }} not found"
+        success_msg: "ROSANetwork resource found"
+
+    - name: Extract network resource details
+      set_fact:
+        network_resource: "{{ network_info.resources[0] }}"
+        network_spec: "{{ network_info.resources[0].spec }}"
+        network_status: "{{ network_info.resources[0].status | default({}) }}"
+
+    - name: Display ROSANetwork specification
+      debug:
+        msg:
+          - "ROSANetwork Specification:"
+          - "- Name: {{ network_resource.metadata.name }}"
+          - "- Namespace: {{ network_resource.metadata.namespace }}"
+          - "- CIDR Block: {{ network_spec.cidrBlock }}"
+          - "- Availability Zones: {{ network_spec.availabilityZones | join(', ') }}"
+          - "- Identity Ref: {{ network_spec.identityRef.name }}"
+
+    - name: Validate ROSANetwork specification
+      assert:
+        that:
+          - network_spec.cidrBlock is defined
+          - network_spec.availabilityZones | length >= 2
+          - network_spec.identityRef is defined
+          - network_spec.credentialsSecretRef is defined
+        fail_msg: "ROSANetwork specification is incomplete"
+        success_msg: "ROSANetwork specification is valid"
+
+    - name: Check ROSANetwork readiness
+      assert:
+        that:
+          - network_status.ready is defined
+          - network_status.ready == true
+        fail_msg: "ROSANetwork is not ready"
+        success_msg: "ROSANetwork is ready"
+
+    - name: Validate created AWS resources
+      assert:
+        that:
+          - network_status.vpcId is defined
+          - network_status.vpcId != ""
+          - network_status.publicSubnets is defined
+          - network_status.publicSubnets | length > 0
+          - network_status.privateSubnets is defined
+          - network_status.privateSubnets | length > 0
+        fail_msg: "Required AWS resources (VPC, subnets) were not created"
+        success_msg: "All required AWS resources were created"
+
+    - name: Validate subnet distribution across availability zones
+      block:
+        - name: Check public subnet distribution
+          set_fact:
+            public_subnet_azs: "{{ network_status.publicSubnets | map(attribute='availabilityZone') | list | unique }}"
+            private_subnet_azs: "{{ network_status.privateSubnets | map(attribute='availabilityZone') | list | unique }}"
+
+        - name: Validate multi-AZ subnet distribution
+          assert:
+            that:
+              - public_subnet_azs | length >= 2
+              - private_subnet_azs | length >= 2
+              - public_subnet_azs | length == network_spec.availabilityZones | length
+              - private_subnet_azs | length == network_spec.availabilityZones | length
+            fail_msg: "Subnets are not properly distributed across availability zones"
+            success_msg: "Subnets are properly distributed across all availability zones"
+
+        - name: Display subnet distribution
+          debug:
+            msg:
+              - "Subnet Distribution Validation:"
+              - "- Public subnets in AZs: {{ public_subnet_azs | join(', ') }}"
+              - "- Private subnets in AZs: {{ private_subnet_azs | join(', ') }}"
+              - "- Expected AZs: {{ network_spec.availabilityZones | join(', ') }}"
+
+    - name: Validate CloudFormation stack status
+      block:
+        - name: Check CloudFormation stack information
+          debug:
+            msg:
+              - "CloudFormation Stack: {{ network_status.stackName | default('Not reported') }}"
+              - "Stack Status: {{ network_status.stackStatus | default('Not reported') }}"
+          when: network_status.stackName is defined
+
+        - name: Validate stack exists
+          assert:
+            that:
+              - network_status.stackName is defined
+              - network_status.stackName != ""
+            fail_msg: "CloudFormation stack information not available"
+            success_msg: "CloudFormation stack information available"
+          when: network_status.stackName is defined
+
+    - name: Validate network conditions
+      block:
+        - name: Check network conditions
+          set_fact:
+            network_conditions: "{{ network_status.conditions | default([]) }}"
+
+        - name: Display network conditions
+          debug:
+            msg:
+              - "Network Conditions:"
+              - "{% for condition in network_conditions %}"
+              - "- {{ condition.type }}: {{ condition.status }} ({{ condition.reason | default('N/A') }})"
+              - "{% endfor %}"
+          when: network_conditions | length > 0
+
+        - name: Check for failure conditions
+          assert:
+            that:
+              - network_conditions | selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True') | list | length > 0
+            fail_msg: "ROSANetwork does not have Ready=True condition"
+            success_msg: "ROSANetwork has Ready=True condition"
+          when: network_conditions | length > 0
+
+    - name: Final validation summary
+      debug:
+        msg:
+          - "✓ ROSANetwork Validation Summary:"
+          - "✓ Resource exists and is ready"
+          - "✓ VPC created: {{ network_status.vpcId }}"
+          - "✓ Public subnets: {{ network_status.publicSubnets | length }}"
+          - "✓ Private subnets: {{ network_status.privateSubnets | length }}"
+          - "✓ Multi-AZ distribution validated"
+          - "✓ CloudFormation stack: {{ network_status.stackName | default('N/A') }}"
+          - "✓ ROSANetwork validation completed successfully"
+
+  rescue:
+    - name: Handle ROSANetwork validation failure
+      debug:
+        msg: "ROSANetwork validation failed: {{ ansible_failed_result.msg | default('Unknown validation error') }}"
+
+    - name: Get current ROSANetwork for debugging
+      kubernetes.core.k8s_info:
+        api_version: infrastructure.cluster.x-k8s.io/v1beta2
+        kind: ROSANetwork
+        name: "{{ rosa_network_config_name | default(cluster_name + '-network') }}"
+        namespace: "{{ capi_namespace }}"
+      register: debug_network_validation
+      ignore_errors: true
+
+    - name: Display ROSANetwork for debugging
+      debug:
+        var: debug_network_validation.resources[0]
+      when: debug_network_validation.resources | length > 0
+
+    - name: Fail the validation
+      fail:
+        msg: "ROSANetwork validation failed for cluster {{ cluster_name }}"

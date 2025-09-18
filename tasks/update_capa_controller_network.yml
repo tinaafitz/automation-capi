@@ -1,0 +1,172 @@
+---
+# Update CAPA controller image for ROSANetwork support (Milan's image)
+- name: Update CAPA controller image for ROSANetwork support
+  block:
+    - name: Get current CAPA controller deployment
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: capa-controller-manager
+        namespace: capa-system
+      register: current_deployment
+
+    - name: Display current CAPA controller image
+      debug:
+        msg: "Current CAPA controller image: {{ current_deployment.resources[0].spec.template.spec.containers[0].image }}"
+      when: current_deployment.resources | length > 0
+
+    - name: Backup current deployment configuration
+      copy:
+        content: "{{ current_deployment.resources[0] | to_nice_yaml }}"
+        dest: "{{ output_dir }}/capa-controller-backup-{{ ansible_date_time.epoch }}.yaml"
+        mode: '0644'
+      when: current_deployment.resources | length > 0
+
+    - name: Update CAPA controller deployment with Milan's network image
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: capa-controller-manager
+            namespace: capa-system
+          spec:
+            template:
+              metadata:
+                annotations:
+                  automation.acm.redhat.com/updated-for: "ACM-21174-ROSANetwork"
+                  automation.acm.redhat.com/updated-timestamp: "{{ ansible_date_time.iso8601 }}"
+                  automation.acm.redhat.com/original-image: "{{ current_deployment.resources[0].spec.template.spec.containers[0].image }}"
+              spec:
+                containers:
+                  - name: manager
+                    image: "{{ capa_controller_network.image }}:{{ capa_controller_network.tag }}"
+                    env:
+                      - name: EXP_ROSA
+                        value: "true"
+                      - name: EXP_MACHINE_POOL
+                        value: "true"
+                      - name: CLUSTER_TOPOLOGY
+                        value: "true"
+        merge_type: strategic-merge-patch
+      register: image_update_result
+
+    - name: Wait for CAPA controller deployment to be updated
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: capa-controller-manager
+        namespace: capa-system
+        wait: true
+        wait_condition:
+          type: Progressing
+          status: "True"
+          reason: NewReplicaSetAvailable
+        wait_timeout: 300
+      register: deployment_updated
+
+    - name: Wait for CAPA controller pods to be ready with new image
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: capa-system
+        label_selectors:
+          - control-plane=capa-controller-manager
+        wait: true
+        wait_condition:
+          type: Ready
+          status: "True"
+        wait_timeout: 300
+      register: pods_ready
+
+    - name: Verify new image is running
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: capa-controller-manager
+        namespace: capa-system
+      register: updated_deployment
+
+    - name: Display updated CAPA controller image
+      debug:
+        msg: "Updated CAPA controller image: {{ updated_deployment.resources[0].spec.template.spec.containers[0].image }}"
+
+    - name: Validate image update
+      assert:
+        that:
+          - updated_deployment.resources[0].spec.template.spec.containers[0].image == capa_controller_network.image + ":" + capa_controller_network.tag
+        fail_msg: "CAPA controller image was not updated correctly"
+        success_msg: "CAPA controller successfully updated to Milan's network image"
+
+    - name: Check controller logs for ROSANetwork support
+      command: kubectl logs -n capa-system deployment/capa-controller-manager --tail=20
+      register: controller_logs
+
+    - name: Display recent controller logs
+      debug:
+        msg: "Recent CAPA controller logs: {{ controller_logs.stdout_lines[-10:] }}"
+
+    - name: Verify ROSANetwork CRD support in logs
+      set_fact:
+        rosanetwork_support_detected: "{{ 'rosanetwork' in controller_logs.stdout.lower() or 'network' in controller_logs.stdout.lower() }}"
+
+    - name: Display ROSANetwork support status
+      debug:
+        msg: "ROSANetwork support detected in logs: {{ rosanetwork_support_detected }}"
+
+    - name: Set controller update success fact
+      set_fact:
+        capa_network_controller_updated: true
+
+  rescue:
+    - name: Handle image update failure
+      debug:
+        msg: "Failed to update CAPA controller image: {{ ansible_failed_result.msg | default('Unknown error') }}"
+
+    - name: Get CAPA controller logs for debugging
+      command: kubectl logs -n capa-system deployment/capa-controller-manager --tail=50
+      register: controller_error_logs
+      ignore_errors: true
+
+    - name: Display controller logs for debugging
+      debug:
+        var: controller_error_logs.stdout
+      when: controller_error_logs is defined
+
+    - name: Attempt rollback to previous image
+      block:
+        - name: Rollback to previous deployment
+          kubernetes.core.k8s:
+            state: present
+            src: "{{ output_dir }}/capa-controller-backup-{{ ansible_date_time.epoch }}.yaml"
+          when: current_deployment.resources | length > 0
+
+        - name: Display rollback attempt
+          debug:
+            msg: "Attempted rollback to previous CAPA controller image"
+
+      ignore_errors: true
+
+    - name: Set controller update failure fact
+      set_fact:
+        capa_network_controller_updated: false
+
+    - name: Provide troubleshooting guidance
+      debug:
+        msg:
+          - "CAPA controller image update failed. Troubleshooting steps:"
+          - "1. Check deployment status:"
+          - "   kubectl get deployment capa-controller-manager -n capa-system"
+          - "2. Check pod status:"
+          - "   kubectl get pods -n capa-system"
+          - "3. Check controller logs:"
+          - "   kubectl logs deployment/capa-controller-manager -n capa-system"
+          - "4. Verify image accessibility:"
+          - "   docker pull {{ capa_controller_network.image }}:{{ capa_controller_network.tag }}"
+          - "5. Check if ROSANetwork CRDs are installed:"
+          - "   kubectl get crd rosanetworks.infrastructure.cluster.x-k8s.io"
+
+    - name: Fail the task
+      fail:
+        msg: "CAPA controller image update failed"
