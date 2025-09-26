@@ -7,6 +7,7 @@ import { CreateCluster } from './pages/CreateCluster';
 import { ClusterList } from './pages/ClusterList';
 import { ClusterDetails } from './pages/ClusterDetails';
 import { Diagnostics } from './pages/Diagnostics';
+import { GuidedSetup } from './pages/GuidedSetup';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
       <div className="min-h-screen bg-gray-50">
         <Routes>
           <Route path="/" element={<WhatCanIHelp />} />
+          <Route path="/setup" element={<GuidedSetup />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/diagnostics" element={<Diagnostics />} />
           <Route path="/clusters" element={<ClusterList />} />
