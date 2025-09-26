@@ -1,11 +1,18 @@
 # Template Resolver Tasks
-# Handles smart template lookup with fallback logic
+# Handles smart template lookup with fallback logic for versioned OpenShift deployments
+
+- name: Validate OpenShift version
+  fail:
+    msg: "OpenShift version '{{ openshift_version }}' is not supported. Supported versions: {{ supported_versions | join(', ') }}"
+  when: openshift_version not in supported_versions
 
 - name: Set template resolver variables
   set_fact:
     template_name: "{{ template_name | default('') }}"
     template_category: "{{ template_category | default('cluster-configs') }}"
     template_extension: "{{ template_extension | default('.yaml.j2') }}"
+    version_templates: "templates/versions/{{ openshift_version }}"
+    common_templates: "templates/common"
 
 - name: Construct template paths
   set_fact:

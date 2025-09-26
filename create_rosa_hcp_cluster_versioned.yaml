@@ -7,15 +7,19 @@
   vars_prompt:
     - name: openshift_version_selection
       prompt: |
-       Select OpenShift version:
-          1 - OpenShift 4.18 (Stable - Basic features)
-          2 - OpenShift 4.19 (Current - Enhanced features) 
-          3 - OpenShift 4.20 (Latest - Premium features)
+        Select OpenShift version:
+          1 - 4.18 (Stable - Basic features, recommended for production)
+          2 - 4.19 (Enhanced - Advanced features, current release)
+          3 - 4.20 (Latest - Premium features, early access)
       default: "2"
       private: no
     - name: cluster_name
       prompt: "Enter cluster name"
-      default: "rosa-hcp-demo"
+      default: "rosa-hcp-versioned"
+      private: no
+    - name: enable_advanced_features
+      prompt: "Enable advanced features for this version? (y/n)"
+      default: "n"
       private: no
     - name: apply_immediately
       prompt: "Apply configuration immediately? (y/n)"
