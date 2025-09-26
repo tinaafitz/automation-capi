@@ -2535,11 +2535,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 onClick={() => toggleSection('rosa-hcp-resources')}
               >
                 <div className="bg-purple-600 rounded-full p-1 mr-2">
-                  <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                  </svg>
-                </div>
-                <span>Configure ROSA Resources</span>
                 <div className="flex items-center ml-auto space-x-2">
                   <div className={`text-xs px-2 py-1 rounded-full font-medium ${
                     rosaHcpResources.loading ? 'bg-blue-100 text-blue-800' :
@@ -2591,36 +2586,98 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                   {rosaHcpResources.lastChecked && !rosaHcpResources.loading && (
                     <div className="space-y-3">
+                      {/* Prefix Configuration */}
+                      <div className="bg-white rounded-lg p-3 border border-purple-200">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4
+                            className="text-xs font-semibold text-purple-800 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-1 -m-1 transition-colors"
+                            onClick={() => toggleSection('prefix-configuration')}
+                          >
+                            <svg className="h-3 w-3 text-purple-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z" />
+                            </svg>
+                            Prefix
+                            <div
+                              className="ml-1 cursor-help"
+                              title="Prefix Overview: Used to prefix all ROSA resource names; Account roles, operator roles, and cluster resources will use this prefix; Maximum 4 characters; Helps organize and identify resources"
+                            >
+                              <svg className="h-3 w-3 text-purple-500 hover:text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                            <svg
+                              className={`h-3 w-3 text-purple-600 transition-transform duration-200 ml-1 ${collapsedSections.has('prefix-configuration') ? 'rotate-180' : ''}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </h4>
+                          <button
+                            onClick={() => setShowPrefixModal(true)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
+                            title={savedPrefix ? "Update prefix for ROSA resources" : "Enter prefix for ROSA resources"}
+                          >
+                            {savedPrefix ? "📝 Update Prefix" : "📝 Enter Prefix"}
+                          </button>
+                        </div>
+
+                        {!collapsedSections.has('prefix-configuration') && (
+                          <>
+                            {savedPrefix ? (
+                              <div className="bg-purple-50 rounded p-2">
+                                <div className="text-sm text-purple-600 font-mono font-bold">{savedPrefix}</div>
+                              </div>
+                            ) : (
+                              <div className="text-center py-4 text-purple-600 text-xs">
+                                <div className="mb-2">No prefix configured</div>
+                                <div className="text-purple-500">Click "Enter Prefix" to set a resource naming prefix</div>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+
                       {/* Account Roles */}
                       <div className="bg-white rounded-lg p-3 border border-purple-200">
                         <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-xs font-semibold text-purple-800 flex items-center">
+                          <h4
+                            className="text-xs font-semibold text-purple-800 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-1 -m-1 transition-colors"
+                            onClick={() => toggleSection('account-roles')}
+                          >
                             <svg className="h-3 w-3 text-purple-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>
                             Account Roles ({rosaHcpResources.accountRoles.length})
                             <div
                               className="ml-1 cursor-help"
-                              title="Account Roles Overview:
-• Installer: Provisions cluster resources and infrastructure
-• Support: Grants Red Hat SRE access for support operations
-• Worker: Manages worker node permissions and operations
-• ControlPlane: Manages control plane permissions and operations"
+                              title="Account Roles Overview: Installer - Provisions cluster resources and infrastructure; Support - Grants Red Hat SRE access for support operations; Worker - Manages worker node permissions and operations; ControlPlane - Manages control plane permissions and operations"
                             >
                               <svg className="h-3 w-3 text-purple-500 hover:text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                             </div>
+                            <svg
+                              className={`h-3 w-3 text-purple-600 transition-transform duration-200 ml-1 ${collapsedSections.has('account-roles') ? 'rotate-180' : ''}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
                           </h4>
                           <button
                             onClick={createAccountRoles}
                             className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
                             title="Create new ROSA account roles"
                           >
-                            ➕ Create Roles
+                            ➕ Create Account Roles
                           </button>
                         </div>
 
+                        {!collapsedSections.has('account-roles') && (
+                          <>
                         {rosaHcpResources.accountRoles.length === 0 ? (
                           <div className="text-center py-4 text-purple-600 text-xs">
                             <div className="mb-2">No account roles found</div>
@@ -2685,28 +2742,37 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             </div>
                           </div>
                         )}
+                          </>
+                        )}
                       </div>
 
                       {/* Operator Roles */}
                       <div className="bg-white rounded-lg p-3 border border-purple-200">
                         <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-xs font-semibold text-purple-800 flex items-center">
+                          <h4
+                            className="text-xs font-semibold text-purple-800 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-1 -m-1 transition-colors"
+                            onClick={() => toggleSection('operator-roles')}
+                          >
                             <svg className="h-3 w-3 text-purple-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                             </svg>
                             Operator Roles ({rosaHcpResources.operatorRoles.length})
                             <div
                               className="ml-1 cursor-help"
-                              title="Operator Roles Overview:
-• Ingress: Manages OpenShift ingress routing and load balancing
-• Image Registry: Manages container image registry operations
-• Cloud Credential: Manages cloud provider credentials and permissions
-• EBS CSI Driver: Manages AWS EBS storage for persistent volumes"
+                              title="Operator Roles Overview: Ingress - Manages OpenShift ingress routing and load balancing; Image Registry - Manages container image registry operations; Cloud Credential - Manages cloud provider credentials and permissions; EBS CSI Driver - Manages AWS EBS storage for persistent volumes"
                             >
                               <svg className="h-3 w-3 text-purple-500 hover:text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                             </div>
+                            <svg
+                              className={`h-3 w-3 text-purple-600 transition-transform duration-200 ml-1 ${collapsedSections.has('operator-roles') ? 'rotate-180' : ''}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
                           </h4>
                           <button
                             onClick={createOperatorRoles}
@@ -2717,6 +2783,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           </button>
                         </div>
 
+                        {!collapsedSections.has('operator-roles') && (
+                          <>
                         {rosaHcpResources.operatorRoles.length === 0 ? (
                           <div className="text-center py-4 text-purple-600 text-xs">
                             <div className="mb-2">No operator roles found</div>
@@ -2781,30 +2849,125 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             </div>
                           </div>
                         )}
+                          </>
+                        )}
                       </div>
 
                       {/* OIDC Configuration */}
                       <div className="bg-white rounded-lg p-3 border border-purple-200">
-                        <h4 className="text-xs font-semibold text-purple-800 mb-2 flex items-center">
-                          <svg className="h-3 w-3 text-purple-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                          </svg>
-                          OIDC Configuration
-                        </h4>
-                        <div className="bg-purple-50 rounded p-2">
-                          <div className="text-xs text-purple-800 font-medium mb-1">OIDC Issuer URL:</div>
-                          <div className="text-xs text-purple-600 font-mono break-all">{rosaHcpResources.oidcId}</div>
+                        <div className="flex items-center justify-between mb-3">
+                          <h4
+                            className="text-xs font-semibold text-purple-800 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-1 -m-1 transition-colors"
+                            onClick={() => toggleSection('oidc-configuration')}
+                          >
+                            <svg className="h-3 w-3 text-purple-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1721 9z" />
+                            </svg>
+                            OIDC Configuration
+                            <div
+                              className="ml-1 cursor-help"
+                              title="OIDC Provider Overview: OpenID Connect provider for secure authentication; Required for ROSA HCP cluster authentication; Manages identity and access tokens; Integrates with AWS IAM for role-based access"
+                            >
+                              <svg className="h-3 w-3 text-purple-500 hover:text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                            <svg
+                              className={`h-3 w-3 text-purple-600 transition-transform duration-200 ml-1 ${collapsedSections.has('oidc-configuration') ? 'rotate-180' : ''}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </h4>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => {
+                                setOidcModalMode('enter');
+                                setShowOidcModal(true);
+                              }}
+                              className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
+                              title={rosaHcpResources.oidcId ? "Update existing OIDC information" : "Enter existing OIDC ID"}
+                            >
+                              {rosaHcpResources.oidcId ? "📝 Update OIDC Information" : "📝 Enter OIDC Info"}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setOidcModalMode('create');
+                                setShowOidcModal(true);
+                              }}
+                              className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
+                              title="Create new OIDC provider"
+                            >
+                              ➕ Create OIDC Provider
+                            </button>
+                          </div>
                         </div>
+
+                        {!collapsedSections.has('oidc-configuration') && (
+                          <>
+                            {rosaHcpResources.oidcId ? (
+                              <div className="bg-purple-50 rounded p-2">
+                                <div className="text-xs text-purple-800 font-medium mb-1">OIDC Issuer URL:</div>
+                                <div className="text-xs text-purple-600 font-mono break-all">{rosaHcpResources.oidcId}</div>
+                              </div>
+                            ) : (
+                              <div className="text-center py-4 text-purple-600 text-xs">
+                                <div className="mb-2">No OIDC provider configured</div>
+                                <div className="text-purple-500">Click "Create OIDC Provider" to set up authentication</div>
+                              </div>
+                            )}
+                          </>
+                        )}
                       </div>
 
                       {/* Subnets */}
                       <div className="bg-white rounded-lg p-3 border border-purple-200">
-                        <h4 className="text-xs font-semibold text-purple-800 mb-2 flex items-center">
-                          <svg className="h-3 w-3 text-purple-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                          </svg>
-                          Subnets ({rosaHcpResources.subnets.length})
-                        </h4>
+                        <div className="flex items-center justify-between mb-3">
+                          <h4
+                            className="text-xs font-semibold text-purple-800 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-1 -m-1 transition-colors"
+                            onClick={() => toggleSection('subnets')}
+                          >
+                            <svg className="h-3 w-3 text-purple-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                            </svg>
+                            Subnets ({rosaHcpResources.subnets.length})
+                            <div
+                              className="ml-1 cursor-help"
+                              title="Subnets Overview: Virtual network segments for ROSA HCP clusters; Private subnets host cluster nodes; Public subnets provide internet gateway access; Required for cluster networking and connectivity"
+                            >
+                              <svg className="h-3 w-3 text-purple-500 hover:text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                            <svg
+                              className={`h-3 w-3 text-purple-600 transition-transform duration-200 ml-1 ${collapsedSections.has('subnets') ? 'rotate-180' : ''}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </h4>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => setShowSubnetModal(true)}
+                              className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
+                              title={rosaHcpResources.subnets && rosaHcpResources.subnets.length > 0 && rosaHcpResources.subnets[0].name !== 'Not configured' ? "Update existing subnet information" : "Enter existing subnet information"}
+                            >
+                              {rosaHcpResources.subnets && rosaHcpResources.subnets.length > 0 && rosaHcpResources.subnets[0].name !== 'Not configured' ? "📝 Update Subnet Information" : "📝 Enter Subnet Info"}
+                            </button>
+                            <button
+                              onClick={() => setShowCreateSubnetModal(true)}
+                              className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
+                              title="Create new subnets for ROSA HCP"
+                            >
+                              ➕ Create Subnets
+                            </button>
+                          </div>
+                        </div>
+                        {!collapsedSections.has('subnets') && (
                         <div className="grid grid-cols-1 gap-1">
                           {rosaHcpResources.subnets.map((subnet, index) => (
                             <div key={index} className="flex items-center justify-between text-xs p-2 bg-purple-50 rounded">
@@ -2824,6 +2987,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             </div>
                           ))}
                         </div>
+                        )}
                       </div>
 
                       {rosaHcpResources.lastChecked && (
@@ -2837,18 +3001,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
               )}
               </div>
 
-              {/* Manage ROSA HCP Clusters - Moved below Configure ROSA HCP Resources */}
-              <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-orange-200/50 p-6 backdrop-blur-sm hover:scale-[1.02] hover:-translate-y-1 animate-in fade-in-50 slide-in-from-bottom-4 duration-1000">
-              <h2
-                className="text-sm font-semibold text-purple-900 mb-3 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-2 -m-2 transition-colors"
-                onClick={() => toggleSection('rosa-hcp-resources')}
-              >
-                <div className="bg-purple-600 rounded-full p-1 mr-2">
-                  <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                  </svg>
-                </div>
-                <span>Configure ROSA Resources</span>
                 <div className="flex items-center ml-auto space-x-2">
                   <div className={`text-xs px-2 py-1 rounded-full font-medium ${
                     rosaHcpResources.loading ? 'bg-blue-100 text-blue-800' :
