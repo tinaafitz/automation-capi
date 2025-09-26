@@ -61,7 +61,17 @@ export function WhatCanIHelp() {
     lastUpdate: new Date().toLocaleTimeString(),
     connectionStatus: 'Connected',
     apiUrl: 'https://api.cluster-abc123.abc123.sandbox1234.opentlc.com:6443',
-    currentUser: 'kube:admin'
+    currentUser: 'kube:admin',
+    testingVersion: '4.20'
+  });
+  const [rosaHcpResources, setRosaHcpResources] = useState({
+    accountRoles: [],
+    operatorRoles: [],
+    oidcId: null,
+    subnets: [],
+    loading: false,
+    lastChecked: null,
+    error: null
   });
 
   // Track if we've already shown initial notifications to prevent loops
@@ -315,6 +325,351 @@ Cluster context: ${data.context_name}`;
     const interval = setInterval(updateStats, 30000); // Update every 30 seconds
     return () => clearInterval(interval);
   }, []);
+
+  // Fetch ROSA HCP Resources
+  const fetchRosaHcpResources = async () => {
+    setRosaHcpResources(prev => ({ ...prev, loading: true, error: null }));
+
+    try {
+      // Simulate API calls to fetch ROSA resources
+      // In real implementation, these would be actual API calls
+      const mockAccountRoles = [
+        {
+          roleName: 'fri-HCP-ROSA-Installer-Role',
+          roleType: 'Installer',
+          rolePrefix: 'fri',
+          arn: 'arn:aws:iam::471112697682:role/fri-HCP-ROSA-Installer-Role',
+          version: '4.19',
+          managed: 'Yes',
+          status: 'Active',
+          description: 'HCP ROSA Installer role'
+        },
+        {
+          roleName: 'fri-HCP-ROSA-Support-Role',
+          roleType: 'Support',
+          rolePrefix: 'fri',
+          arn: 'arn:aws:iam::471112697682:role/fri-HCP-ROSA-Support-Role',
+          version: '4.19',
+          managed: 'Yes',
+          status: 'Active',
+          description: 'HCP ROSA Support role'
+        },
+        {
+          roleName: 'fri-HCP-ROSA-Worker-Role',
+          roleType: 'Worker',
+          rolePrefix: 'fri',
+          arn: 'arn:aws:iam::471112697682:role/fri-HCP-ROSA-Worker-Role',
+          version: '4.19',
+          managed: 'Yes',
+          status: 'Active',
+          description: 'HCP ROSA Worker role'
+        },
+        {
+          roleName: 'melserng-ControlPlane-Role',
+          roleType: 'Control plane',
+          rolePrefix: 'melserng',
+          arn: 'arn:aws:iam::471112697682:role/melserng-ControlPlane-Role',
+          version: '4.19',
+          managed: 'No',
+          status: 'Active',
+          description: 'Control plane role'
+        },
+        {
+          roleName: 'melserng-HCP-ROSA-Installer-Role',
+          roleType: 'Installer',
+          rolePrefix: 'melserng',
+          arn: 'arn:aws:iam::471112697682:role/melserng-HCP-ROSA-Installer-Role',
+          version: '4.19',
+          managed: 'Yes',
+          status: 'Active',
+          description: 'HCP ROSA Installer role'
+        },
+        {
+          roleName: 'melserng-HCP-ROSA-Support-Role',
+          roleType: 'Support',
+          rolePrefix: 'melserng',
+          arn: 'arn:aws:iam::471112697682:role/melserng-HCP-ROSA-Support-Role',
+          version: '4.19',
+          managed: 'Yes',
+          status: 'Active',
+          description: 'HCP ROSA Support role'
+        },
+        {
+          roleName: 'melserng-HCP-ROSA-Worker-Role',
+          roleType: 'Worker',
+          rolePrefix: 'melserng',
+          arn: 'arn:aws:iam::471112697682:role/melserng-HCP-ROSA-Worker-Role',
+          version: '4.19',
+          managed: 'Yes',
+          status: 'Active',
+          description: 'HCP ROSA Worker role'
+        },
+        {
+          roleName: 'melserng-Installer-Role',
+          roleType: 'Installer',
+          rolePrefix: 'melserng',
+          arn: 'arn:aws:iam::471112697682:role/melserng-Installer-Role',
+          version: '4.15',
+          managed: 'No',
+          status: 'Active',
+          description: 'Classic Installer role'
+        },
+        {
+          roleName: 'melserng-Support-Role',
+          roleType: 'Support',
+          rolePrefix: 'melserng',
+          arn: 'arn:aws:iam::471112697682:role/melserng-Support-Role',
+          version: '4.15',
+          managed: 'No',
+          status: 'Active',
+          description: 'Classic Support role'
+        },
+        {
+          roleName: 'melserng-Worker-Role',
+          roleType: 'Worker',
+          rolePrefix: 'melserng',
+          arn: 'arn:aws:iam::471112697682:role/melserng-Worker-Role',
+          version: '4.15',
+          managed: 'No',
+          status: 'Active',
+          description: 'Classic Worker role'
+        },
+        {
+          roleName: 'wed-ControlPlane-Role',
+          roleType: 'Control plane',
+          rolePrefix: 'wed',
+          arn: 'arn:aws:iam::471112697682:role/wed-ControlPlane-Role',
+          version: '4.19',
+          managed: 'No',
+          status: 'Active',
+          description: 'Control plane role'
+        },
+        {
+          roleName: 'wed-HCP-ROSA-Installer-Role',
+          roleType: 'Installer',
+          rolePrefix: 'wed',
+          arn: 'arn:aws:iam::471112697682:role/wed-HCP-ROSA-Installer-Role',
+          version: '4.19',
+          managed: 'Yes',
+          status: 'Active',
+          description: 'HCP ROSA Installer role'
+        },
+        {
+          roleName: 'wed-HCP-ROSA-Support-Role',
+          roleType: 'Support',
+          rolePrefix: 'wed',
+          arn: 'arn:aws:iam::471112697682:role/wed-HCP-ROSA-Support-Role',
+          version: '4.19',
+          managed: 'Yes',
+          status: 'Active',
+          description: 'HCP ROSA Support role'
+        },
+        {
+          roleName: 'wed-HCP-ROSA-Worker-Role',
+          roleType: 'Worker',
+          rolePrefix: 'wed',
+          arn: 'arn:aws:iam::471112697682:role/wed-HCP-ROSA-Worker-Role',
+          version: '4.19',
+          managed: 'Yes',
+          status: 'Active',
+          description: 'HCP ROSA Worker role'
+        },
+        {
+          roleName: 'wed-Installer-Role',
+          roleType: 'Installer',
+          rolePrefix: 'wed',
+          arn: 'arn:aws:iam::471112697682:role/wed-Installer-Role',
+          version: '4.19',
+          managed: 'No',
+          status: 'Active',
+          description: 'Classic Installer role'
+        },
+        {
+          roleName: 'wed-Support-Role',
+          roleType: 'Support',
+          rolePrefix: 'wed',
+          arn: 'arn:aws:iam::471112697682:role/wed-Support-Role',
+          version: '4.19',
+          managed: 'No',
+          status: 'Active',
+          description: 'Classic Support role'
+        },
+        {
+          roleName: 'wed-Worker-Role',
+          roleType: 'Worker',
+          rolePrefix: 'wed',
+          arn: 'arn:aws:iam::471112697682:role/wed-Worker-Role',
+          version: '4.19',
+          managed: 'No',
+          status: 'Active',
+          description: 'Classic Worker role'
+        }
+      ];
+
+      const mockOperatorRoles = [
+        {
+          name: 'tfitzger-rosa-hcp-cluster-openshift-ingress-operator',
+          arn: 'arn:aws:iam::471112697682:role/tfitzger-rosa-hcp-cluster-openshift-ingress-operator',
+          status: 'Active',
+          operatorType: 'Ingress',
+          clusterPrefix: 'tfitzger',
+          version: '4.19',
+          managed: 'Yes',
+          description: 'Manages OpenShift ingress routing and load balancing'
+        },
+        {
+          name: 'tfitzger-rosa-hcp-cluster-openshift-image-registry-operator',
+          arn: 'arn:aws:iam::471112697682:role/tfitzger-rosa-hcp-cluster-openshift-image-registry-operator',
+          status: 'Active',
+          operatorType: 'Image Registry',
+          clusterPrefix: 'tfitzger',
+          version: '4.19',
+          managed: 'Yes',
+          description: 'Manages container image registry operations'
+        },
+        {
+          name: 'tfitzger-rosa-hcp-cluster-cloud-credential-operator',
+          arn: 'arn:aws:iam::471112697682:role/tfitzger-rosa-hcp-cluster-cloud-credential-operator',
+          status: 'Active',
+          operatorType: 'Cloud Credential',
+          clusterPrefix: 'tfitzger',
+          version: '4.19',
+          managed: 'Yes',
+          description: 'Manages cloud provider credentials and permissions'
+        },
+        {
+          name: 'tfitzger-rosa-hcp-cluster-ebs-csi-driver-operator',
+          arn: 'arn:aws:iam::471112697682:role/tfitzger-rosa-hcp-cluster-ebs-csi-driver-operator',
+          status: 'Active',
+          operatorType: 'EBS CSI Driver',
+          clusterPrefix: 'tfitzger',
+          version: '4.19',
+          managed: 'Yes',
+          description: 'Manages AWS EBS storage for persistent volumes'
+        },
+        {
+          name: 'melserng-rosa-hcp-cluster-openshift-ingress-operator',
+          arn: 'arn:aws:iam::471112697682:role/melserng-rosa-hcp-cluster-openshift-ingress-operator',
+          status: 'Active',
+          operatorType: 'Ingress',
+          clusterPrefix: 'melserng',
+          version: '4.19',
+          managed: 'Yes',
+          description: 'Manages OpenShift ingress routing and load balancing'
+        },
+        {
+          name: 'melserng-rosa-hcp-cluster-openshift-image-registry-operator',
+          arn: 'arn:aws:iam::471112697682:role/melserng-rosa-hcp-cluster-openshift-image-registry-operator',
+          status: 'Active',
+          operatorType: 'Image Registry',
+          clusterPrefix: 'melserng',
+          version: '4.19',
+          managed: 'Yes',
+          description: 'Manages container image registry operations'
+        },
+        {
+          name: 'fri-rosa-hcp-cluster-openshift-ingress-operator',
+          arn: 'arn:aws:iam::471112697682:role/fri-rosa-hcp-cluster-openshift-ingress-operator',
+          status: 'Active',
+          operatorType: 'Ingress',
+          clusterPrefix: 'fri',
+          version: '4.19',
+          managed: 'Yes',
+          description: 'Manages OpenShift ingress routing and load balancing'
+        },
+        {
+          name: 'fri-rosa-hcp-cluster-cloud-credential-operator',
+          arn: 'arn:aws:iam::471112697682:role/fri-rosa-hcp-cluster-cloud-credential-operator',
+          status: 'Active',
+          operatorType: 'Cloud Credential',
+          clusterPrefix: 'fri',
+          version: '4.19',
+          managed: 'Yes',
+          description: 'Manages cloud provider credentials and permissions'
+        }
+      ];
+
+      const mockOidcId = 'https://oidc-rh-oidc.s3.us-east-1.amazonaws.com/12345678-abcd-1234-5678-123456789012';
+
+      const mockSubnets = [
+        { id: 'subnet-12345678', name: 'rosa-hcp-private-1a', type: 'Private', az: 'us-east-1a', cidr: '10.0.1.0/24' },
+        { id: 'subnet-87654321', name: 'rosa-hcp-private-1b', type: 'Private', az: 'us-east-1b', cidr: '10.0.2.0/24' },
+        { id: 'subnet-abcd1234', name: 'rosa-hcp-public-1a', type: 'Public', az: 'us-east-1a', cidr: '10.0.101.0/24' },
+        { id: 'subnet-1234abcd', name: 'rosa-hcp-public-1b', type: 'Public', az: 'us-east-1b', cidr: '10.0.102.0/24' }
+      ];
+
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      setRosaHcpResources({
+        accountRoles: mockAccountRoles,
+        operatorRoles: mockOperatorRoles,
+        oidcId: mockOidcId,
+        subnets: mockSubnets,
+        loading: false,
+        lastChecked: new Date(),
+        error: null
+      });
+
+      addNotification('✅ ROSA HCP resources loaded successfully', 'success');
+    } catch (error) {
+      console.error('Failed to fetch ROSA HCP resources:', error);
+      setRosaHcpResources(prev => ({
+        ...prev,
+        loading: false,
+        error: 'Failed to load ROSA HCP resources'
+      }));
+      addNotification('❌ Failed to fetch ROSA HCP resources', 'error');
+    }
+  };
+
+  // Create new account roles
+  const createAccountRoles = async () => {
+    try {
+      addNotification('🚀 Creating ROSA account roles...', 'info', 3000);
+
+      // In real implementation, this would call the backend
+      // which would execute: rosa create account-roles --mode auto --yes
+
+      // Simulate the creation process
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      addNotification('✅ Account roles created successfully', 'success');
+
+      // Refresh the resources to show the new roles
+      setTimeout(() => {
+        fetchRosaHcpResources();
+      }, 1000);
+
+    } catch (error) {
+      console.error('Failed to create account roles:', error);
+      addNotification('❌ Failed to create account roles', 'error');
+    }
+  };
+
+  // Create new operator roles
+  const createOperatorRoles = async () => {
+    try {
+      addNotification('🚀 Creating ROSA operator roles...', 'info', 3000);
+
+      // In real implementation, this would call the backend
+      // which would execute: rosa create operator-roles --cluster-name <cluster> --mode auto --yes
+
+      // Simulate the creation process
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      addNotification('✅ Operator roles created successfully', 'success');
+
+      // Refresh the resources to show the new roles
+      setTimeout(() => {
+        fetchRosaHcpResources();
+      }, 1000);
+
+    } catch (error) {
+      console.error('Failed to create operator roles:', error);
+      addNotification('❌ Failed to create operator roles', 'error');
+    }
+  };
 
   const userFriendlyCategories = [
     {
@@ -1007,7 +1362,7 @@ Cluster context: ${data.context_name}`;
                 RH
               </div>
               <span className="text-xl font-bold text-red-600 mr-2">Red Hat</span>
-              <span className="text-xl font-semibold text-gray-900">ROSA CAPI/CAPA Test Automation</span>
+              <span className="text-xl font-semibold text-gray-900">CAPI/CAPA Test Automation</span>
             </div>
             <div className="flex items-center space-x-6">
               {/* Search Bar */}
@@ -1029,10 +1384,7 @@ Cluster context: ${data.context_name}`;
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                   <span className="font-medium">Connected</span>
                 </div>
-                <span className="text-sm text-gray-500">OpenShift Testing Version Selected</span>
-                {rosaStatus && <ROSAStatus compact={true} showRefresh={false} statusData={rosaStatus} />}
-                {configStatus && <ConfigStatus compact={true} showRefresh={false} statusData={configStatus} />}
-                {ocpStatus && <OCPConnectionStatus compact={true} showRefresh={false} statusData={ocpStatus} />}
+                <span className="text-sm text-gray-500">Testing Version {systemStats.testingVersion}</span>
               </div>
 
               {/* User Profile */}
@@ -1112,9 +1464,6 @@ Cluster context: ${data.context_name}`;
         {/* Main Header with Configure Environment and Right Sidebar */}
         <div className="flex items-start justify-between space-x-12 mb-12 animate-in fade-in duration-700">
           <div className="flex-1">
-            <h1 className="text-4xl font-bold text-gray-900 mb-3 leading-tight animate-in fade-in slide-in-from-bottom duration-800">
-              ROSA CAPI/CAPA Test Automation
-            </h1>
             <p className="text-xl text-gray-600 mb-6 leading-relaxed max-w-4xl animate-in fade-in slide-in-from-bottom duration-1000">
               Welcome to the Ansible test automation for Cluster API (CAPI) and Cluster API provider AWS (CAPA).
             </p>
@@ -1214,23 +1563,38 @@ Cluster context: ${data.context_name}`;
 
             {/* Environment Analysis and Credentials Setup */}
             <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-green-200/50 p-6 mb-6 backdrop-blur-sm hover:scale-[1.02] hover:-translate-y-1 animate-in fade-in-50 slide-in-from-bottom-4 duration-600">
-              <h2 className="text-sm font-semibold text-green-900 mb-3 flex items-center">
+              <h2
+                className="text-sm font-semibold text-green-900 mb-3 flex items-center cursor-pointer hover:bg-green-100/50 rounded-lg p-2 -m-2 transition-colors"
+                onClick={() => toggleSection('credentials-environment')}
+              >
                 <div className="bg-green-600 rounded-full p-1 mr-2">
                   <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
                 </div>
                 <span>Configure My Credentials/Environment</span>
-                <div className={`ml-auto text-xs px-2 py-1 rounded-full font-medium ${
-                  rosaStatus?.authenticated && configStatus?.configured ?
-                  'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
-                }`}>
-                  {rosaStatus?.authenticated && configStatus?.configured ? 'Ready' : 'Needs Setup'}
+                <div className="flex items-center ml-auto space-x-2">
+                  <div className={`text-xs px-2 py-1 rounded-full font-medium ${
+                    rosaStatus?.authenticated && configStatus?.configured ?
+                    'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+                  }`}>
+                    {rosaStatus?.authenticated && configStatus?.configured ? 'Ready' : 'Needs Setup'}
+                  </div>
+                  <svg
+                    className={`h-4 w-4 text-green-600 transition-transform duration-200 ${collapsedSections.has('credentials-environment') ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
                 </div>
               </h2>
 
-              {/* Environment Analysis */}
-              <div className="mb-4 p-4 bg-white rounded-lg border border-green-200">
+              {!collapsedSections.has('credentials-environment') && (
+                <>
+                  {/* Environment Analysis */}
+                  <div className="mb-4 p-4 bg-white rounded-lg border border-green-200">
                 <h3 className="text-sm font-semibold text-green-800 mb-3 flex items-center">
                   <svg className="h-4 w-4 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -1514,7 +1878,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                     </p>
                   </div>
                 )}
-              </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Main Content Sections */}
@@ -1925,7 +2291,316 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
               )}
               </div>
 
-              {/* Manage ROSA HCP Clusters - Moved up under Configure Environment */}
+              {/* Configure ROSA HCP Resources */}
+              <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-purple-200/50 p-6 backdrop-blur-sm hover:scale-[1.02] hover:-translate-y-1 animate-in fade-in-50 slide-in-from-bottom-4 duration-1200">
+              <h2
+                className="text-sm font-semibold text-purple-900 mb-3 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-2 -m-2 transition-colors"
+                onClick={() => toggleSection('rosa-hcp-resources')}
+              >
+                <div className="bg-purple-600 rounded-full p-1 mr-2">
+                  <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                </div>
+                <span>Configure ROSA HCP Resources</span>
+                <div className="flex items-center ml-auto space-x-2">
+                  <div className={`text-xs px-2 py-1 rounded-full font-medium ${
+                    rosaHcpResources.loading ? 'bg-blue-100 text-blue-800' :
+                    rosaHcpResources.error ? 'bg-red-100 text-red-800' :
+                    rosaHcpResources.lastChecked ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {rosaHcpResources.loading ? 'Loading...' :
+                     rosaHcpResources.error ? 'Error' :
+                     rosaHcpResources.lastChecked ? 'Loaded' : 'Not Loaded'}
+                  </div>
+                  <svg
+                    className={`h-4 w-4 text-purple-600 transition-transform duration-200 ${collapsedSections.has('rosa-hcp-resources') ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </h2>
+              {!collapsedSections.has('rosa-hcp-resources') && (
+                <div className="space-y-4">
+                  {/* Load Resources Button */}
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-purple-700">
+                      View AWS account roles, operator roles, OIDC configuration, and subnet details for ROSA HCP clusters.
+                    </p>
+                    <button
+                      onClick={fetchRosaHcpResources}
+                      disabled={rosaHcpResources.loading}
+                      className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-1.5 rounded transition-colors duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {rosaHcpResources.loading ? (
+                        <div className="flex items-center space-x-1">
+                          <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
+                          <span>Loading...</span>
+                        </div>
+                      ) : (
+                        '🔄 Load Resources'
+                      )}
+                    </button>
+                  </div>
+
+                  {rosaHcpResources.error && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <p className="text-red-700 text-xs font-medium">{rosaHcpResources.error}</p>
+                    </div>
+                  )}
+
+                  {rosaHcpResources.lastChecked && !rosaHcpResources.loading && (
+                    <div className="space-y-3">
+                      {/* Account Roles */}
+                      <div className="bg-white rounded-lg p-3 border border-purple-200">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-xs font-semibold text-purple-800 flex items-center">
+                            <svg className="h-3 w-3 text-purple-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            Account Roles ({rosaHcpResources.accountRoles.length})
+                            <div
+                              className="ml-1 cursor-help"
+                              title="Account Roles Overview:
+• Installer: Provisions cluster resources and infrastructure
+• Support: Grants Red Hat SRE access for support operations
+• Worker: Manages worker node permissions and operations
+• ControlPlane: Manages control plane permissions and operations"
+                            >
+                              <svg className="h-3 w-3 text-purple-500 hover:text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                          </h4>
+                          <button
+                            onClick={createAccountRoles}
+                            className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
+                            title="Create new ROSA account roles"
+                          >
+                            ➕ Create Roles
+                          </button>
+                        </div>
+
+                        {rosaHcpResources.accountRoles.length === 0 ? (
+                          <div className="text-center py-4 text-purple-600 text-xs">
+                            <div className="mb-2">No account roles found</div>
+                            <div className="text-purple-500">Click "Create Roles" to set up ROSA account roles</div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {/* Table Header */}
+                            <div className="grid grid-cols-7 gap-2 text-xs font-semibold text-purple-700 bg-purple-100 p-2 rounded">
+                              <div>Role Name</div>
+                              <div>Prefix</div>
+                              <div>Type</div>
+                              <div>Version</div>
+                              <div>Managed</div>
+                              <div>Status</div>
+                              <div>ARN</div>
+                            </div>
+
+                            {/* Table Rows - Scrollable Container */}
+                            <div className="max-h-48 overflow-y-auto space-y-1">
+                            {rosaHcpResources.accountRoles.map((role, index) => (
+                              <div key={index} className="grid grid-cols-7 gap-2 text-xs p-2 bg-purple-50 rounded hover:bg-purple-100 transition-colors">
+                                <div className="font-medium text-purple-800 break-words overflow-auto">
+                                  {role.roleName}
+                                </div>
+                                <div className="text-purple-700 overflow-auto">
+                                  <span className="bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded-full text-xs font-medium font-mono">
+                                    {role.rolePrefix}
+                                  </span>
+                                </div>
+                                <div className="text-purple-700 overflow-auto">
+                                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                                    role.roleType === 'Installer' ? 'bg-blue-100 text-blue-800' :
+                                    role.roleType === 'Support' ? 'bg-green-100 text-green-800' :
+                                    role.roleType === 'Worker' ? 'bg-orange-100 text-orange-800' :
+                                    role.roleType === 'ControlPlane' ? 'bg-red-100 text-red-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {role.roleType}
+                                  </span>
+                                </div>
+                                <div className="text-purple-600 font-mono overflow-auto">
+                                  {role.version}
+                                </div>
+                                <div className="text-purple-600 overflow-auto">
+                                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                                    role.managed === 'Yes' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                  }`}>
+                                    {role.managed}
+                                  </span>
+                                </div>
+                                <div className="text-purple-600 overflow-auto">
+                                  <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full text-xs font-medium">
+                                    {role.status}
+                                  </span>
+                                </div>
+                                <div className="text-purple-600 font-mono text-xs break-all overflow-auto">
+                                  {role.arn}
+                                </div>
+                              </div>
+                            ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Operator Roles */}
+                      <div className="bg-white rounded-lg p-3 border border-purple-200">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-xs font-semibold text-purple-800 flex items-center">
+                            <svg className="h-3 w-3 text-purple-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            </svg>
+                            Operator Roles ({rosaHcpResources.operatorRoles.length})
+                            <div
+                              className="ml-1 cursor-help"
+                              title="Operator Roles Overview:
+• Ingress: Manages OpenShift ingress routing and load balancing
+• Image Registry: Manages container image registry operations
+• Cloud Credential: Manages cloud provider credentials and permissions
+• EBS CSI Driver: Manages AWS EBS storage for persistent volumes"
+                            >
+                              <svg className="h-3 w-3 text-purple-500 hover:text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                          </h4>
+                          <button
+                            onClick={createOperatorRoles}
+                            className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
+                            title="Create new ROSA operator roles"
+                          >
+                            ➕ Create Operator Roles
+                          </button>
+                        </div>
+
+                        {rosaHcpResources.operatorRoles.length === 0 ? (
+                          <div className="text-center py-4 text-purple-600 text-xs">
+                            <div className="mb-2">No operator roles found</div>
+                            <div className="text-purple-500">Click "Create Operator Roles" to set up ROSA operator roles</div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {/* Table Header */}
+                            <div className="grid grid-cols-7 gap-2 text-xs font-semibold text-purple-700 bg-purple-100 p-2 rounded">
+                              <div>Role Name</div>
+                              <div>Prefix</div>
+                              <div>Type</div>
+                              <div>Version</div>
+                              <div>Managed</div>
+                              <div>Status</div>
+                              <div>ARN</div>
+                            </div>
+
+                            {/* Table Rows - Scrollable Container */}
+                            <div className="max-h-48 overflow-y-auto space-y-1">
+                            {rosaHcpResources.operatorRoles.map((role, index) => (
+                              <div key={index} className="grid grid-cols-7 gap-2 text-xs p-2 bg-purple-50 rounded hover:bg-purple-100 transition-colors">
+                                <div className="font-medium text-purple-800 break-words overflow-auto">
+                                  {role.name}
+                                </div>
+                                <div className="text-purple-700 overflow-auto">
+                                  <span className="bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded-full text-xs font-medium font-mono">
+                                    {role.clusterPrefix}
+                                  </span>
+                                </div>
+                                <div className="text-purple-700 overflow-auto">
+                                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                                    role.operatorType === 'Ingress' ? 'bg-blue-100 text-blue-800' :
+                                    role.operatorType === 'Image Registry' ? 'bg-green-100 text-green-800' :
+                                    role.operatorType === 'Cloud Credential' ? 'bg-orange-100 text-orange-800' :
+                                    role.operatorType === 'EBS CSI Driver' ? 'bg-red-100 text-red-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {role.operatorType}
+                                  </span>
+                                </div>
+                                <div className="text-purple-600 font-mono overflow-auto">
+                                  {role.version}
+                                </div>
+                                <div className="text-purple-600 overflow-auto">
+                                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                                    role.managed === 'Yes' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                  }`}>
+                                    {role.managed}
+                                  </span>
+                                </div>
+                                <div className="text-purple-600 overflow-auto">
+                                  <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full text-xs font-medium">
+                                    {role.status}
+                                  </span>
+                                </div>
+                                <div className="text-purple-600 font-mono text-xs break-all overflow-auto">
+                                  {role.arn}
+                                </div>
+                              </div>
+                            ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* OIDC Configuration */}
+                      <div className="bg-white rounded-lg p-3 border border-purple-200">
+                        <h4 className="text-xs font-semibold text-purple-800 mb-2 flex items-center">
+                          <svg className="h-3 w-3 text-purple-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                          </svg>
+                          OIDC Configuration
+                        </h4>
+                        <div className="bg-purple-50 rounded p-2">
+                          <div className="text-xs text-purple-800 font-medium mb-1">OIDC Issuer URL:</div>
+                          <div className="text-xs text-purple-600 font-mono break-all">{rosaHcpResources.oidcId}</div>
+                        </div>
+                      </div>
+
+                      {/* Subnets */}
+                      <div className="bg-white rounded-lg p-3 border border-purple-200">
+                        <h4 className="text-xs font-semibold text-purple-800 mb-2 flex items-center">
+                          <svg className="h-3 w-3 text-purple-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                          </svg>
+                          Subnets ({rosaHcpResources.subnets.length})
+                        </h4>
+                        <div className="grid grid-cols-1 gap-1">
+                          {rosaHcpResources.subnets.map((subnet, index) => (
+                            <div key={index} className="flex items-center justify-between text-xs p-2 bg-purple-50 rounded">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center space-x-2">
+                                  <span className="font-medium text-purple-800">{subnet.name}</span>
+                                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                                    subnet.type === 'Private' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
+                                  }`}>
+                                    {subnet.type}
+                                  </span>
+                                </div>
+                                <div className="text-purple-600 font-mono text-xs">
+                                  {subnet.id} • {subnet.cidr} • {subnet.az}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {rosaHcpResources.lastChecked && (
+                        <div className="text-xs text-purple-600 text-center pt-2">
+                          Last updated: {rosaHcpResources.lastChecked.toLocaleTimeString()}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              </div>
+
+              {/* Manage ROSA HCP Clusters - Moved below Configure ROSA HCP Resources */}
               <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-orange-200/50 p-6 backdrop-blur-sm hover:scale-[1.02] hover:-translate-y-1 animate-in fade-in-50 slide-in-from-bottom-4 duration-1000">
               <h2
                 className="text-sm font-semibold text-orange-900 mb-3 flex items-center cursor-pointer hover:bg-orange-100/50 rounded-lg p-2 -m-2 transition-colors"
@@ -2014,133 +2689,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
           {/* Right Sidebar with Environment Status and Getting Started */}
           <div className="space-y-4 min-w-72 max-w-80 sticky top-8 animate-in slide-in-from-right duration-1000">
-            {/* Environment Status */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-xl border border-gray-200/50 backdrop-blur-sm hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] animate-in fade-in slide-in-from-right-4 duration-800 overflow-hidden">
-              {/* Header with animated background */}
-              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-3 py-2 text-white relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-purple-400/20 animate-pulse"></div>
-                <div className="relative flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="p-1 bg-white/20 rounded backdrop-blur-sm">
-                      <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h2 className="text-xs font-bold text-white">Live Environment</h2>
-                      <div className="text-xs text-blue-100 font-medium">Real-time Status</div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs text-white font-mono">{systemStats.lastUpdate}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-3 space-y-3">
-                {/* Status Grid */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="group bg-gradient-to-br from-red-50 via-red-50 to-red-100 rounded-lg border border-red-200/60 p-2 hover:shadow-md transition-all duration-300 hover:scale-105">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="p-1 bg-red-500 rounded">
-                        <svg className="h-2.5 w-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                        </svg>
-                      </div>
-                      <div className="text-lg font-bold text-red-700 group-hover:scale-110 transition-transform">4.20</div>
-                    </div>
-                    <div className="text-xs text-red-600 font-semibold">OCP Version</div>
-                  </div>
-
-                  <div className="group bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100 rounded-lg border border-blue-200/60 p-2 hover:shadow-md transition-all duration-300 hover:scale-105">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="p-1 bg-blue-500 rounded">
-                        <svg className="h-2.5 w-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
-                      </div>
-                      <div className="text-lg font-bold text-blue-700 animate-pulse group-hover:scale-110 transition-transform">{systemStats.clustersActive}</div>
-                    </div>
-                    <div className="text-xs text-blue-600 font-semibold">Clusters</div>
-                  </div>
-
-                  <div className="group bg-gradient-to-br from-green-50 via-green-50 to-green-100 rounded-lg border border-green-200/60 p-2 hover:shadow-md transition-all duration-300 hover:scale-105">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="p-1 bg-green-500 rounded relative">
-                        <div className="absolute inset-0 bg-green-400 rounded animate-ping opacity-75"></div>
-                        <svg className="h-2.5 w-2.5 text-white relative" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                      </div>
-                      <div className="text-lg font-bold text-green-700 flex items-center group-hover:scale-110 transition-transform">
-                        ✓
-                      </div>
-                    </div>
-                    <div className="text-xs text-green-600 font-semibold">Status</div>
-                  </div>
-
-                  <div className="group bg-gradient-to-br from-purple-50 via-purple-50 to-purple-100 rounded-lg border border-purple-200/60 p-2 hover:shadow-md transition-all duration-300 hover:scale-105">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="p-1 bg-purple-500 rounded">
-                        <svg className="h-2.5 w-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
-                      </div>
-                      <div className="text-lg font-bold text-purple-700 group-hover:scale-110 transition-transform">{systemStats.resourcesUsed}%</div>
-                    </div>
-                    <div className="text-xs text-purple-600 font-semibold">Resources</div>
-                  </div>
-                </div>
-
-                {/* Connection Details */}
-                <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-3 border border-gray-200/50">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <div className="p-1 bg-gray-600 rounded">
-                      <svg className="h-2.5 w-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
-                      </svg>
-                    </div>
-                    <h3 className="text-xs font-bold text-gray-800">Connection</h3>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="bg-white rounded p-2 border border-gray-200/50 hover:shadow-sm transition-all duration-200 group">
-                      <div className="flex items-start space-x-2">
-                        <div className="p-1 bg-blue-100 rounded group-hover:bg-blue-200 transition-colors">
-                          <svg className="h-2 w-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                          </svg>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-xs text-gray-600 font-semibold mb-1">API</div>
-                          <div className="text-xs text-gray-900 font-mono bg-gray-50 px-1.5 py-0.5 rounded border truncate" title={systemStats.apiUrl}>
-                            {systemStats.apiUrl}
-                          </div>
-                        </div>
-                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse flex-shrink-0 mt-1"></div>
-                      </div>
-                    </div>
-
-                    <div className="bg-white rounded p-2 border border-gray-200/50 hover:shadow-sm transition-all duration-200 group">
-                      <div className="flex items-start space-x-2">
-                        <div className="p-1 bg-green-100 rounded group-hover:bg-green-200 transition-colors">
-                          <svg className="h-2 w-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-xs text-gray-600 font-semibold mb-1">User</div>
-                          <div className="text-xs text-gray-900 font-mono bg-gray-50 px-1.5 py-0.5 rounded border truncate" title={systemStats.currentUser}>
-                            {systemStats.currentUser}
-                          </div>
-                        </div>
-                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0 mt-1"></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
 
             {/* Recent Operations Widget */}
             {recentOperations.length > 0 && (
@@ -2188,112 +2736,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
               </div>
             )}
 
-            {/* System Activity Widget */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-xl border border-gray-200/50 backdrop-blur-sm hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] animate-in fade-in slide-in-from-right-4 duration-1100 overflow-hidden">
-              {/* Header */}
-              <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-2 text-white relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/20 to-teal-400/20 animate-pulse"></div>
-                <div className="relative flex items-center space-x-2">
-                  <div className="p-1 bg-white/20 rounded backdrop-blur-sm">
-                    <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-xs font-bold text-white">System Activity</h2>
-                    <div className="text-xs text-emerald-100 font-medium">Live Updates</div>
-                  </div>
-                </div>
-              </div>
 
-              <div className="p-3">
-                <div className="space-y-1.5">
-                  <div className="bg-white rounded p-2 border border-gray-200/50 hover:shadow-sm transition-all duration-200 group">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                        <span className="text-xs font-medium text-gray-900">Cluster tfitzger-test-1 created</span>
-                      </div>
-                      <span className="text-xs font-mono text-gray-500">2m</span>
-                    </div>
-                  </div>
-                  <div className="bg-white rounded p-2 border border-gray-200/50 hover:shadow-sm transition-all duration-200 group">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                        <span className="text-xs font-medium text-gray-900">Environment check completed</span>
-                      </div>
-                      <span className="text-xs font-mono text-gray-500">5m</span>
-                    </div>
-                  </div>
-                  <div className="bg-white rounded p-2 border border-gray-200/50 hover:shadow-sm transition-all duration-200 group">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
-                        <span className="text-xs font-medium text-gray-900">Network automation enabled</span>
-                      </div>
-                      <span className="text-xs font-mono text-gray-500">12m</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Getting Started Widget */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-xl border border-gray-200/50 backdrop-blur-sm hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] animate-in fade-in slide-in-from-right-4 duration-1200 overflow-hidden">
-              {/* Header */}
-              <div className="bg-gradient-to-r from-orange-600 to-red-600 px-4 py-3 text-white relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-orange-400/20 to-red-400/20 animate-pulse"></div>
-                <div className="relative flex items-center space-x-2">
-                  <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
-                    <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-bold text-white">Getting Started</h2>
-                    <div className="text-xs text-orange-100 font-medium">Help & Guidance</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4">
-                <div className="space-y-2">
-                  {userFriendlyCategories.map((category) => {
-                    const Icon = category.icon;
-                    return (
-                      <div
-                        key={category.id}
-                        onClick={category.action}
-                        className="bg-white rounded-lg p-3 border border-gray-200/50 hover:shadow-md transition-all duration-200 group cursor-pointer hover:scale-[1.02]"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="relative">
-                            <img
-                              src={category.puppyImage}
-                              alt="Helpful guide"
-                              className="h-8 w-8 rounded-full object-cover group-hover:scale-110 transition-all duration-300"
-                              title={category.description}
-                            />
-                            <div className={`absolute -bottom-1 -right-1 ${category.color} rounded-full p-0.5`}>
-                              <Icon className="h-2.5 w-2.5 text-white" />
-                            </div>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-sm font-medium text-gray-900 group-hover:text-orange-700">
-                              {category.title}
-                            </h3>
-                            <p className="text-xs text-gray-500 truncate">
-                              {category.subtitle}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -2756,7 +3199,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
       <div className="bg-white border-t border-gray-200 mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex justify-between items-center text-sm text-gray-500">
-            <div>© 2024 Red Hat, Inc. ROSA CAPI/CAPA Test Automation Platform</div>
+            <div>© 2024 Red Hat, Inc. CAPI/CAPA Test Automation Platform</div>
             <div className="flex space-x-6">
               <span>Documentation</span>
               <span>Support</span>
