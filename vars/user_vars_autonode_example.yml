@@ -1,0 +1,140 @@
+# Example user_vars.yml configuration with AutoNode support
+# Copy these variables to your vars/user_vars.yml file and update values
+
+# Existing OCP Hub and AWS configuration
+OCP_HUB_API_URL: "https://api.your-cluster.domain.com:6443"
+OCP_HUB_CLUSTER_USER: "kubeadmin"
+OCP_HUB_CLUSTER_PASSWORD: "your-password"
+MCE_NAMESPACE: "multiclusterengine"
+AWS_REGION: "us-west-2"
+AWS_ACCESS_KEY_ID: "your-access-key"
+AWS_SECRET_ACCESS_KEY: "your-secret-key"
+AWS_B64ENCODED_CREDENTIALS: "your-base64-encoded-credentials"
+OCM_CLIENT_ID: "your-ocm-client-id"
+OCM_CLIENT_SECRET: "your-ocm-client-secret"
+
+#==== AutoNode (Karpenter) Configuration ====
+# Enable/disable AutoNode testing
+AUTONODE_TESTING_ENABLED: true
+
+# Default AutoNode configuration
+AUTONODE_DEFAULT_MODE: "enabled"  # Options: enabled, disabled
+
+# Karpenter IAM Role ARN (REQUIRED when AutoNode mode is enabled)
+# This role must have the permissions listed in KARPENTER_IAM_PERMISSIONS.md
+AUTONODE_KARPENTER_ROLE_ARN: "arn:aws:iam::{{ aws_account_id }}:role/KarpenterNodeRole"
+
+# AWS Account ID (for ARN construction)
+AWS_ACCOUNT_ID: "471112697682"
+
+# OIDC Provider URL for your ROSA HCP clusters
+# Get this with: rosa describe cluster <cluster-name> --output json | jq '.aws.sts.oidc_endpoint_url'
+ROSA_OIDC_PROVIDER_URL: "rh-oidc.s3.us-east-1.amazonaws.com/your-oidc-id"
+
+#==== AutoNode Testing Scenarios ====
+# Define different test scenarios for AutoNode
+AUTONODE_TEST_SCENARIOS:
+  - name: "autonode-enabled"
+    description: "Test cluster with AutoNode enabled using Karpenter"
+    autonode_mode: "enabled"
+    karpenter_role_arn: "arn:aws:iam::{{ AWS_ACCOUNT_ID }}:role/KarpenterNodeRole"
+    cluster_name_suffix: "autonode"
+    enable_traditional_machinepool: false
+
+  - name: "autonode-disabled"
+    description: "Test cluster with AutoNode disabled using traditional machine pools"
+    autonode_mode: "disabled"
+    karpenter_role_arn: ""
+    cluster_name_suffix: "traditional"
+    enable_traditional_machinepool: true
+
+  - name: "autonode-transition"
+    description: "Test transitioning cluster from disabled to enabled AutoNode"
+    autonode_mode: "disabled"  # Start disabled, then enable in test
+    karpenter_role_arn: "arn:aws:iam::{{ AWS_ACCOUNT_ID }}:role/KarpenterNodeRole"
+    cluster_name_suffix: "transition"
+    enable_traditional_machinepool: true
+    test_mode_transition: true
+
+#==== AutoNode IAM Role Validation ====
+# Settings for validating Karpenter IAM role setup
+AUTONODE_IAM_VALIDATION:
+  # Enable pre-flight IAM role validation
+  validate_before_cluster_creation: true
+
+  # Timeout for IAM role validation (seconds)
+  validation_timeout: 300
+
+  # Required IAM permissions to check (subset for basic validation)
+  required_permissions:
+    - "ec2:RunInstances"
+    - "ec2:TerminateInstances"
+    - "ec2:DescribeInstances"
+    - "iam:PassRole"
+
+  # Trust relationship validation
+  validate_trust_relationship: true
+  expected_oidc_provider: "{{ ROSA_OIDC_PROVIDER_URL }}"
+
+#==== AutoNode Testing Configuration ====
+AUTONODE_TESTING:
+  # Timeout for AutoNode cluster creation (seconds)
+  cluster_creation_timeout: 3600  # 1 hour
+
+  # Timeout for Karpenter node provisioning tests (seconds)
+  node_provisioning_timeout: 600  # 10 minutes
+
+  # Test workload configuration for validating Karpenter
+  test_workload:
+    name: "autonode-test-workload"
+    replicas: 5
+    resource_requests:
+      cpu: "500m"
+      memory: "1Gi"
+
+  # Cleanup configuration
+  cleanup_on_success: true
+  cleanup_on_failure: false
+
+  # Generate detailed test reports
+  generate_reports: true
+  reports_dir: "{{ output_dir }}/autonode-reports"
+
+#==== AutoNode Template Configuration ====
+AUTONODE_TEMPLATES:
+  # Base template directory for AutoNode configurations
+  template_dir: "templates/autonode"
+
+  # Default cluster name prefix for AutoNode tests
+  cluster_name_prefix: "rosa-autonode"
+
+  # Default domain prefix for AutoNode clusters
+  domain_prefix_template: "autonode-{{ ansible_date_time.epoch }}"
+
+  # Default tags for AutoNode test clusters
+  default_tags:
+    AutoNodeTesting: "true"
+    KarpenterEnabled: "{{ 'true' if AUTONODE_DEFAULT_MODE == 'enabled' else 'false' }}"
+    TestType: "PR5686-Validation"
+    CreatedBy: "automation-capi"
+
+#==== Advanced AutoNode Configuration ====
+# These settings are for advanced testing scenarios
+AUTONODE_ADVANCED:
+  # Test different Karpenter configurations
+  test_spot_instances: true
+  test_mixed_instance_types: true
+
+  # Node consolidation testing
+  test_node_consolidation: true
+  consolidation_wait_time: 300  # 5 minutes
+
+  # Scaling behavior testing
+  test_scale_up: true
+  test_scale_down: true
+  scale_test_pod_count: 10
+
+  # Resource limits for Karpenter testing
+  max_nodes: 10
+  max_cpu: "100"
+  max_memory: "400Gi"

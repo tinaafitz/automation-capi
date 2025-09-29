@@ -1,0 +1,227 @@
+---
+# AutoNode (Karpenter) Setup Validation Tasks
+# These tasks validate IAM role setup and prerequisites before cluster creation
+
+- name: Check if AutoNode testing is enabled
+  debug:
+    msg: "AutoNode testing enabled: {{ AUTONODE_TESTING_ENABLED | default(false) }}"
+
+- name: Validate AutoNode configuration
+  block:
+    - name: Check if Karpenter role ARN is provided when AutoNode is enabled
+      fail:
+        msg: |
+          AUTONODE_KARPENTER_ROLE_ARN is required when AutoNode mode is 'enabled'.
+          Please set this variable in vars/user_vars.yml.
+          Example: AUTONODE_KARPENTER_ROLE_ARN: "arn:aws:iam::123456789012:role/KarpenterNodeRole"
+      when:
+        - AUTONODE_DEFAULT_MODE | default('disabled') == 'enabled'
+        - AUTONODE_KARPENTER_ROLE_ARN is not defined or AUTONODE_KARPENTER_ROLE_ARN == ""
+
+    - name: Validate Karpenter role ARN format
+      fail:
+        msg: |
+          Invalid Karpenter role ARN format: {{ AUTONODE_KARPENTER_ROLE_ARN }}
+          Expected format: arn:aws:iam::ACCOUNT-ID:role/ROLE-NAME
+          Example: arn:aws:iam::123456789012:role/KarpenterNodeRole
+      when:
+        - AUTONODE_KARPENTER_ROLE_ARN is defined
+        - AUTONODE_KARPENTER_ROLE_ARN != ""
+        - not (AUTONODE_KARPENTER_ROLE_ARN | regex_search('^arn:aws:iam::\d{12}:role\/[a-zA-Z0-9+=,.@_-]+$'))
+
+    - name: Extract AWS account ID from Karpenter role ARN
+      set_fact:
+        extracted_aws_account: "{{ AUTONODE_KARPENTER_ROLE_ARN.split(':')[4] }}"
+        extracted_role_name: "{{ AUTONODE_KARPENTER_ROLE_ARN.split('/')[-1] }}"
+      when:
+        - AUTONODE_KARPENTER_ROLE_ARN is defined
+        - AUTONODE_KARPENTER_ROLE_ARN != ""
+
+    - name: Display extracted role information
+      debug:
+        msg: |
+          Karpenter Role Information:
+          - Account ID: {{ extracted_aws_account | default('Not extracted') }}
+          - Role Name: {{ extracted_role_name | default('Not extracted') }}
+          - Full ARN: {{ AUTONODE_KARPENTER_ROLE_ARN | default('Not provided') }}
+
+  when: AUTONODE_TESTING_ENABLED | default(false)
+
+- name: Validate AWS credentials for AutoNode
+  block:
+    - name: Check AWS credentials are provided
+      fail:
+        msg: "AWS credentials are required for AutoNode testing. Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY."
+      when:
+        - AWS_ACCESS_KEY_ID is not defined or AWS_ACCESS_KEY_ID == ""
+        - AWS_SECRET_ACCESS_KEY is not defined or AWS_SECRET_ACCESS_KEY == ""
+
+    - name: Check AWS region is set
+      fail:
+        msg: "AWS_REGION is required for AutoNode testing."
+      when: AWS_REGION is not defined or AWS_REGION == ""
+
+    - name: Verify AWS CLI availability
+      shell: which aws
+      register: aws_cli_check
+      failed_when: aws_cli_check.rc != 0
+      ignore_errors: yes
+
+    - name: Warning about AWS CLI
+      debug:
+        msg: |
+          WARNING: AWS CLI not found. IAM role validation will be limited.
+          To enable full validation, install AWS CLI: pip install awscli
+      when: aws_cli_check.rc != 0
+
+  when: AUTONODE_TESTING_ENABLED | default(false)
+
+- name: Validate Karpenter IAM role (if AWS CLI available)
+  block:
+    - name: Check if Karpenter IAM role exists
+      shell: |
+        aws iam get-role --role-name {{ extracted_role_name }} --region {{ AWS_REGION }}
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ AWS_ACCESS_KEY_ID }}"
+        AWS_SECRET_ACCESS_KEY: "{{ AWS_SECRET_ACCESS_KEY }}"
+        AWS_DEFAULT_REGION: "{{ AWS_REGION }}"
+      register: karpenter_role_check
+      failed_when: false
+      when:
+        - extracted_role_name is defined
+        - aws_cli_check.rc == 0
+
+    - name: Display role validation result
+      debug:
+        msg: |
+          Karpenter Role Validation:
+          {% if karpenter_role_check.rc == 0 %}
+          ✅ Role {{ extracted_role_name }} exists in AWS account
+          {% else %}
+          ❌ Role {{ extracted_role_name }} not found or access denied
+          Error: {{ karpenter_role_check.stderr }}
+          {% endif %}
+      when: karpenter_role_check is defined
+
+    - name: Validate role trust relationship (basic check)
+      shell: |
+        aws iam get-role --role-name {{ extracted_role_name }} \
+          --query 'Role.AssumeRolePolicyDocument' --output text --region {{ AWS_REGION }}
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ AWS_ACCESS_KEY_ID }}"
+        AWS_SECRET_ACCESS_KEY: "{{ AWS_SECRET_ACCESS_KEY }}"
+        AWS_DEFAULT_REGION: "{{ AWS_REGION }}"
+      register: role_trust_policy
+      failed_when: false
+      when:
+        - karpenter_role_check.rc == 0
+        - extracted_role_name is defined
+
+    - name: Check if trust policy includes OIDC
+      debug:
+        msg: |
+          Trust Policy Check:
+          {% if role_trust_policy.rc == 0 %}
+          {% if 'oidc-provider' in role_trust_policy.stdout %}
+          ✅ Role trust policy includes OIDC provider configuration
+          {% else %}
+          ⚠️  Role trust policy may not include OIDC provider.
+          Manual verification recommended.
+          {% endif %}
+          {% else %}
+          ❌ Could not retrieve trust policy
+          {% endif %}
+      when: role_trust_policy is defined
+
+  when:
+    - AUTONODE_TESTING_ENABLED | default(false)
+    - AUTONODE_IAM_VALIDATION.validate_before_cluster_creation | default(true)
+    - aws_cli_check.rc == 0
+    - extracted_role_name is defined
+
+- name: Validate ROSA CLI for AutoNode
+  block:
+    - name: Check ROSA CLI availability
+      shell: which rosa
+      register: rosa_cli_check
+      failed_when: rosa_cli_check.rc != 0
+
+    - name: Verify ROSA login status
+      shell: rosa whoami
+      register: rosa_whoami_check
+      failed_when: rosa_whoami_check.rc != 0
+
+    - name: Display ROSA status
+      debug:
+        msg: |
+          ROSA CLI Status:
+          ✅ ROSA CLI available
+          ✅ Logged in as: {{ rosa_whoami_check.stdout.split('\n')[0] }}
+
+  rescue:
+    - name: ROSA CLI validation failed
+      fail:
+        msg: |
+          ROSA CLI validation failed. AutoNode testing requires:
+          1. ROSA CLI installed and in PATH
+          2. Logged into ROSA environment
+
+          Run: rosa login --token=<your-token>
+          Or: rosa login
+
+  when: AUTONODE_TESTING_ENABLED | default(false)
+
+- name: Check CAPA controller readiness for AutoNode
+  block:
+    - name: Check if CAPA controller is running
+      shell: |
+        oc get pods -n {{ capa_system_namespace }} -l app.kubernetes.io/name=cluster-api-provider-aws
+      register: capa_controller_check
+      failed_when: false
+
+    - name: Display CAPA controller status
+      debug:
+        msg: |
+          CAPA Controller Status:
+          {% if capa_controller_check.rc == 0 and 'Running' in capa_controller_check.stdout %}
+          ✅ CAPA controller is running
+          {% else %}
+          ⚠️  CAPA controller status unclear or not running
+          {% endif %}
+
+    - name: Check CAPA controller version/support for AutoNode
+      shell: |
+        oc get deployment -n {{ capa_system_namespace }} capa-controller-manager \
+          -o jsonpath='{.spec.template.spec.containers[0].image}'
+      register: capa_image_check
+      failed_when: false
+
+    - name: Display CAPA image information
+      debug:
+        msg: |
+          CAPA Controller Image: {{ capa_image_check.stdout | default('Could not retrieve') }}
+          Note: Ensure this image includes PR #5686 AutoNode support
+
+  when:
+    - AUTONODE_TESTING_ENABLED | default(false)
+    - capa_system_namespace is defined
+
+- name: AutoNode validation summary
+  debug:
+    msg: |
+      🎯 AutoNode Validation Summary:
+      ================================
+
+      Configuration:
+      - AutoNode Mode: {{ AUTONODE_DEFAULT_MODE | default('disabled') }}
+      - Karpenter Role: {{ AUTONODE_KARPENTER_ROLE_ARN | default('Not configured') }}
+      - AWS Region: {{ AWS_REGION | default('Not set') }}
+
+      Prerequisites:
+      {% if aws_cli_check.rc == 0 %}✅{% else %}❌{% endif %} AWS CLI
+      {% if rosa_whoami_check.rc == 0 %}✅{% else %}❌{% endif %} ROSA Login
+      {% if extracted_role_name is defined %}✅{% else %}❌{% endif %} Role ARN Format
+      {% if karpenter_role_check.rc == 0 %}✅{% else %}⚠️ {% endif %} IAM Role Exists
+
+      Ready for AutoNode Testing: {{ 'YES' if (aws_cli_check.rc == 0 and rosa_whoami_check.rc == 0 and extracted_role_name is defined) else 'NO - Fix issues above' }}
+  when: AUTONODE_TESTING_ENABLED | default(false)

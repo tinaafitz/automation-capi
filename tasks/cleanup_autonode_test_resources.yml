@@ -1,0 +1,193 @@
+---
+# Cleanup AutoNode test resources
+# This task removes test clusters and associated resources after testing
+
+- name: Initialize cleanup process
+  debug:
+    msg: |
+      🧹 Starting AutoNode Test Cleanup
+      ================================
+      Cleanup Policy: {{ 'Enabled' if AUTONODE_TESTING.cleanup_on_success else 'Disabled' }}
+
+- name: Identify test clusters to cleanup
+  shell: |
+    oc get clusters -n {{ capi_namespace }} -o jsonpath='{.items[?(@.metadata.name=="rosa-e2e-autonode" || @.metadata.name=="rosa-e2e-traditional")].metadata.name}'
+  register: test_clusters_found
+  failed_when: false
+
+- name: Display clusters found for cleanup
+  debug:
+    msg: |
+      Test clusters found: {{ test_clusters_found.stdout.split() if test_clusters_found.stdout else 'None' }}
+
+- name: Cleanup test clusters
+  block:
+    - name: Delete AutoNode test clusters
+      shell: |
+        oc delete cluster {{ item }} -n {{ capi_namespace }} --timeout=600s
+      register: cluster_delete_result
+      failed_when: false
+      loop: "{{ test_clusters_found.stdout.split() }}"
+      when: test_clusters_found.stdout != ""
+
+    - name: Wait for cluster deletion completion
+      shell: |
+        oc get cluster {{ item }} -n {{ capi_namespace }}
+      register: cluster_exists_check
+      until: cluster_exists_check.rc != 0
+      retries: 60  # 30 minutes max
+      delay: 30
+      failed_when: false
+      loop: "{{ test_clusters_found.stdout.split() }}"
+      when: test_clusters_found.stdout != ""
+
+    - name: Display cleanup results
+      debug:
+        msg: |
+          🧹 Cleanup Results:
+          {% for cluster in test_clusters_found.stdout.split() %}
+          - {{ cluster }}: {{ 'Deleted' if hostvars[inventory_hostname]['cluster_exists_check']['results'][loop.index0]['rc'] != 0 else 'May still exist' }}
+          {% endfor %}
+
+  when:
+    - AUTONODE_TESTING.cleanup_on_success | default(true)
+    - test_clusters_found.stdout != ""
+
+- name: Cleanup test workloads
+  block:
+    - name: Remove test deployments
+      shell: |
+        oc delete deployment autonode-scale-test -n default --ignore-not-found=true
+        oc delete deployment autonode-test -n default --ignore-not-found=true
+      register: workload_cleanup
+      failed_when: false
+
+    - name: Display workload cleanup status
+      debug:
+        msg: "Test workloads cleanup: {{ 'Completed' if workload_cleanup.rc == 0 else 'Some issues encountered' }}"
+
+  when: AUTONODE_TESTING.cleanup_on_success | default(true)
+
+- name: Cleanup temporary files
+  block:
+    - name: Find temporary cluster configuration files
+      find:
+        paths: "/tmp"
+        patterns: "*autonode*.yaml"
+        file_type: file
+      register: temp_config_files
+
+    - name: Remove temporary configuration files
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ temp_config_files.files }}"
+
+    - name: Display file cleanup status
+      debug:
+        msg: "Removed {{ temp_config_files.files | length }} temporary configuration files"
+
+- name: Check for remaining AutoNode resources
+  block:
+    - name: Check for remaining ROSAControlPlanes with AutoNode
+      shell: |
+        oc get rosacontrolplanes -n {{ capi_namespace }} -o yaml | grep -B 5 -A 5 "autoNode:" || echo "No AutoNode configurations found"
+      register: remaining_autonode_resources
+      failed_when: false
+
+    - name: Check for remaining test pods
+      shell: |
+        oc get pods -A -l app=autonode-scale-test -o name || echo "No test pods found"
+      register: remaining_test_pods
+      failed_when: false
+
+    - name: Display remaining resources check
+      debug:
+        msg: |
+          🔍 Remaining Resources Check:
+
+          AutoNode Configurations:
+          {{ remaining_autonode_resources.stdout | default('None found') }}
+
+          Test Pods:
+          {{ remaining_test_pods.stdout | default('None found') }}
+
+- name: Generate cleanup report
+  copy:
+    content: |
+      # AutoNode Test Cleanup Report
+
+      **Cleanup Timestamp:** {{ ansible_date_time.iso8601 }}
+      **Cleanup Policy:** {{ 'Enabled' if AUTONODE_TESTING.cleanup_on_success else 'Disabled' }}
+
+      ## Cleanup Summary
+
+      ### Test Clusters
+      {% if test_clusters_found.stdout %}
+      Clusters processed for cleanup:
+      {% for cluster in test_clusters_found.stdout.split() %}
+      - {{ cluster }}
+      {% endfor %}
+      {% else %}
+      No test clusters found for cleanup.
+      {% endif %}
+
+      ### Temporary Files
+      - Configuration files removed: {{ temp_config_files.files | length }}
+
+      ### Test Workloads
+      - Test deployments cleanup: {{ 'Completed' if workload_cleanup.rc == 0 else 'Issues encountered' }}
+
+      ## Manual Cleanup (if needed)
+
+      If any resources remain, use these commands for manual cleanup:
+
+      ```bash
+      # Remove any remaining test clusters
+      oc get clusters -n {{ capi_namespace }} | grep -E "(autonode|e2e)" | awk '{print $1}' | xargs -I {} oc delete cluster {} -n {{ capi_namespace }}
+
+      # Remove test workloads
+      oc delete deployment autonode-scale-test autonode-test -n default --ignore-not-found=true
+
+      # Check for any AutoNode-related resources
+      oc get rosacontrolplanes -n {{ capi_namespace }} -o yaml | grep -B 10 -A 10 autoNode
+
+      # Remove temporary files
+      rm -f /tmp/*autonode*.yaml
+      ```
+
+      ## AWS Resources
+
+      Note: Some AWS resources may have been created during testing:
+      - EC2 instances (should be terminated automatically)
+      - Launch templates (may need manual cleanup)
+      - IAM roles (test roles should be cleaned up manually)
+
+      Check AWS console or use AWS CLI:
+      ```bash
+      # List EC2 instances with AutoNode tags
+      aws ec2 describe-instances --filters "Name=tag:AutoNodeTesting,Values=true" --query 'Reservations[*].Instances[*].[InstanceId,State.Name,Tags[?Key==`Name`].Value|[0]]' --output table
+
+      # List launch templates created during testing
+      aws ec2 describe-launch-templates --filters "Name=tag:AutoNodeTesting,Values=true" --query 'LaunchTemplates[*].[LaunchTemplateName,LaunchTemplateId]' --output table
+      ```
+
+    dest: "{{ AUTONODE_TESTING.reports_dir | default('results/autonode-tests') }}/cleanup-report-{{ ansible_date_time.epoch }}.md"
+
+- name: Final cleanup status
+  debug:
+    msg: |
+      ✅ AutoNode Test Cleanup Completed
+      =================================
+
+      {% if AUTONODE_TESTING.cleanup_on_success %}
+      - Test clusters: {{ 'Cleaned up' if test_clusters_found.stdout else 'None to clean' }}
+      - Temporary files: Removed
+      - Test workloads: Removed
+      {% else %}
+      - Cleanup was disabled - manual cleanup may be required
+      {% endif %}
+
+      📋 Cleanup report: {{ AUTONODE_TESTING.reports_dir | default('results/autonode-tests') }}/cleanup-report-{{ ansible_date_time.epoch }}.md
+
+      ⚠️  Note: Check AWS console for any remaining AWS resources that may incur costs.

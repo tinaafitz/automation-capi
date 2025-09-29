@@ -1,0 +1,267 @@
+---
+# Individual AutoNode test scenario execution
+# This task runs a single test scenario for AutoNode functionality
+
+- name: Initialize scenario variables
+  set_fact:
+    scenario_name: "{{ current_scenario.name }}"
+    scenario_autonode_mode: "{{ current_scenario.autonode_mode }}"
+    scenario_cluster_name: "{{ current_scenario.cluster_name }}"
+    scenario_config_file: "{{ current_scenario.config_file }}"
+    scenario_start_time: "{{ ansible_date_time.iso8601 }}"
+    scenario_result:
+      name: "{{ current_scenario.name }}"
+      status: "running"
+      start_time: "{{ ansible_date_time.iso8601 }}"
+
+- name: "Scenario {{ scenario_index }}: {{ current_scenario.description }}"
+  debug:
+    msg: |
+      🧪 Starting Test Scenario {{ scenario_index }}
+      ==========================================
+      Name: {{ scenario_name }}
+      Description: {{ current_scenario.description }}
+      AutoNode Mode: {{ scenario_autonode_mode }}
+      Expected Outcome: {{ current_scenario.expected_outcome }}
+
+- name: Execute test scenario
+  block:
+    # Phase 1: Pre-test validation
+    - name: Phase 1 - Pre-test validation
+      block:
+        - name: Validate scenario configuration
+          debug:
+            msg: |
+              📋 Validating scenario configuration:
+              - Config file: {{ scenario_config_file }}
+              - Cluster name: {{ scenario_cluster_name }}
+              - AutoNode mode: {{ scenario_autonode_mode }}
+
+        - name: Set AutoNode environment for scenario
+          set_fact:
+            AUTONODE_DEFAULT_MODE: "{{ scenario_autonode_mode }}"
+            cluster_config_file: "{{ scenario_config_file }}"
+
+        - name: Validate AutoNode setup for scenario
+          include_tasks: tasks/validate_autonode_setup.yml
+          when: scenario_autonode_mode == "enabled"
+
+    # Phase 2: Cluster creation
+    - name: Phase 2 - Cluster creation
+      block:
+        - name: Create cluster with AutoNode configuration
+          include_tasks: tasks/create_rosa_control_plane_autonode.yml
+
+        - name: Wait for cluster to be provisioning
+          shell: |
+            oc get cluster {{ scenario_cluster_name }} -n {{ capi_namespace }} -o jsonpath='{.status.phase}'
+          register: cluster_phase_check
+          until: cluster_phase_check.stdout in ["Provisioning", "Provisioned"]
+          retries: 10
+          delay: 30
+          failed_when: false
+
+        - name: Record cluster creation status
+          set_fact:
+            cluster_creation_success: "{{ cluster_phase_check.rc == 0 }}"
+
+    # Phase 3: AutoNode-specific validation (if enabled)
+    - name: Phase 3 - AutoNode functionality validation
+      block:
+        - name: Wait for control plane to be ready
+          shell: |
+            oc get rosacontrolplane {{ scenario_cluster_name }}-cp -n {{ capi_namespace }} -o jsonpath='{.status.ready}'
+          register: controlplane_ready
+          until: controlplane_ready.stdout == "true"
+          retries: 60
+          delay: 60
+          failed_when: false
+
+        - name: Verify AutoNode configuration in cluster
+          shell: |
+            oc get rosacontrolplane {{ scenario_cluster_name }}-cp -n {{ capi_namespace }} -o yaml | grep -A 5 "autoNode:"
+          register: autonode_config_verify
+          failed_when: false
+
+        - name: Validate AutoNode mode in cluster spec
+          assert:
+            that:
+              - "'mode: enabled' in autonode_config_verify.stdout"
+            fail_msg: "AutoNode mode not set to 'enabled' in cluster specification"
+            success_msg: "✅ AutoNode mode correctly set to 'enabled'"
+          when: scenario_autonode_mode == "enabled"
+
+        - name: Check for Karpenter role ARN in cluster spec
+          assert:
+            that:
+              - "AUTONODE_KARPENTER_ROLE_ARN in autonode_config_verify.stdout"
+            fail_msg: "Karpenter role ARN not found in cluster specification"
+            success_msg: "✅ Karpenter role ARN correctly configured"
+          when:
+            - scenario_autonode_mode == "enabled"
+            - AUTONODE_KARPENTER_ROLE_ARN is defined
+
+        - name: Wait for cluster to be fully provisioned
+          shell: |
+            oc get cluster {{ scenario_cluster_name }} -n {{ capi_namespace }} -o jsonpath='{.status.phase}'
+          register: final_cluster_phase
+          until: final_cluster_phase.stdout == "Provisioned"
+          retries: 120  # 2 hours max
+          delay: 60
+          failed_when: false
+
+        - name: Check cluster provisioning result
+          set_fact:
+            cluster_provisioned: "{{ final_cluster_phase.stdout == 'Provisioned' }}"
+
+      when: scenario_autonode_mode == "enabled"
+
+    # Phase 4: Workload testing (for AutoNode enabled scenarios)
+    - name: Phase 4 - AutoNode scaling validation
+      block:
+        - name: Get cluster kubeconfig
+          shell: |
+            rosa describe cluster {{ scenario_cluster_name }} --output json | jq -r '.api.url'
+          register: cluster_api_url
+          failed_when: false
+
+        - name: Deploy test workload for AutoNode scaling
+          shell: |
+            oc apply -f - <<EOF
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: autonode-scale-test
+              namespace: default
+            spec:
+              replicas: 3
+              selector:
+                matchLabels:
+                  app: autonode-scale-test
+              template:
+                metadata:
+                  labels:
+                    app: autonode-scale-test
+                spec:
+                  containers:
+                  - name: test-container
+                    image: nginx:alpine
+                    resources:
+                      requests:
+                        cpu: 500m
+                        memory: 1Gi
+            EOF
+          register: test_workload_deploy
+          failed_when: false
+
+        - name: Wait for pods to be scheduled
+          shell: |
+            oc get pods -l app=autonode-scale-test -o jsonpath='{.items[*].status.phase}' | grep -o Running | wc -l
+          register: running_pods_count
+          until: running_pods_count.stdout|int >= 3
+          retries: 20
+          delay: 30
+          failed_when: false
+
+        - name: Check if Karpenter provisioned nodes
+          shell: |
+            oc get nodes --show-labels | grep karpenter || echo "No Karpenter nodes found"
+          register: karpenter_nodes_check
+          failed_when: false
+
+        - name: Record AutoNode scaling test results
+          set_fact:
+            autonode_scaling_success: "{{ running_pods_count.stdout|int >= 3 }}"
+            karpenter_nodes_found: "{{ 'karpenter' in karpenter_nodes_check.stdout }}"
+
+      when:
+        - scenario_autonode_mode == "enabled"
+        - cluster_provisioned | default(false)
+
+    # Update scenario result on success
+    - name: Record successful test result
+      set_fact:
+        scenario_result: "{{ scenario_result | combine({
+          'status': 'success',
+          'end_time': ansible_date_time.iso8601,
+          'cluster_provisioned': cluster_provisioned | default(false),
+          'autonode_scaling_tested': autonode_scaling_success | default(false),
+          'karpenter_nodes_found': karpenter_nodes_found | default(false),
+          'duration_minutes': ((ansible_date_time.epoch|int - (scenario_start_time | to_datetime('%Y-%m-%dT%H:%M:%SZ')).strftime('%s')|int) / 60) | round(2)
+        }) }}"
+
+  rescue:
+    # Handle test failures
+    - name: Record failed test result
+      set_fact:
+        scenario_result: "{{ scenario_result | combine({
+          'status': 'failed',
+          'end_time': ansible_date_time.iso8601,
+          'error_message': ansible_failed_result.msg | default('Unknown error'),
+          'duration_minutes': ((ansible_date_time.epoch|int - (scenario_start_time | to_datetime('%Y-%m-%dT%H:%M:%SZ')).strftime('%s')|int) / 60) | round(2)
+        }) }}"
+
+    - name: Display failure information
+      debug:
+        msg: |
+          ❌ Test Scenario {{ scenario_index }} Failed
+          =========================================
+          Error: {{ ansible_failed_result.msg | default('Unknown error') }}
+
+          Troubleshooting commands:
+          oc get cluster {{ scenario_cluster_name }} -n {{ capi_namespace }} -o yaml
+          oc get rosacontrolplane {{ scenario_cluster_name }}-cp -n {{ capi_namespace }} -o yaml
+          oc logs -n {{ capa_system_namespace }} -l app.kubernetes.io/name=cluster-api-provider-aws --tail=50
+
+  always:
+    # Always record test results
+    - name: Add scenario result to test results
+      set_fact:
+        test_results: "{{ test_results + [scenario_result] }}"
+
+    - name: Display scenario completion
+      debug:
+        msg: |
+          📊 Scenario {{ scenario_index }} Completed
+          ==============================
+          Name: {{ scenario_name }}
+          Status: {{ scenario_result.status }}
+          Duration: {{ scenario_result.duration_minutes | default('N/A') }} minutes
+          {% if scenario_result.status == 'success' %}
+          ✅ Test passed successfully
+          {% else %}
+          ❌ Test failed: {{ scenario_result.error_message | default('See logs for details') }}
+          {% endif %}
+
+    # Cleanup scenario resources (if configured)
+    - name: Cleanup scenario cluster
+      block:
+        - name: Delete test cluster
+          shell: |
+            oc delete cluster {{ scenario_cluster_name }} -n {{ capi_namespace }} --timeout=300s
+          register: cluster_delete_result
+          failed_when: false
+
+        - name: Wait for cluster deletion
+          shell: |
+            oc get cluster {{ scenario_cluster_name }} -n {{ capi_namespace }}
+          register: cluster_exists_check
+          until: cluster_exists_check.rc != 0
+          retries: 30
+          delay: 30
+          failed_when: false
+
+        - name: Display cleanup status
+          debug:
+            msg: |
+              🧹 Cleanup Status:
+              {% if cluster_exists_check.rc != 0 %}
+              ✅ Cluster {{ scenario_cluster_name }} successfully deleted
+              {% else %}
+              ⚠️  Cluster {{ scenario_cluster_name }} may still exist - manual cleanup may be required
+              {% endif %}
+
+      when:
+        - AUTONODE_TESTING.cleanup_on_success | default(true)
+        - scenario_result.status == 'success'
+      ignore_errors: yes
