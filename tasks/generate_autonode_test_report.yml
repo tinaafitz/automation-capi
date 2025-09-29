@@ -1,0 +1,269 @@
+---
+# Generate comprehensive test report for AutoNode testing
+# This task creates detailed reports of test execution and results
+
+- name: Initialize report variables
+  set_fact:
+    report_timestamp: "{{ ansible_date_time.iso8601 }}"
+    report_dir: "{{ AUTONODE_TESTING.reports_dir | default('results/autonode-tests') }}"
+    total_scenarios: "{{ test_results | length }}"
+    successful_scenarios: "{{ test_results | selectattr('status', 'equalto', 'success') | list | length }}"
+    failed_scenarios: "{{ test_results | selectattr('status', 'equalto', 'failed') | list | length }}"
+
+- name: Calculate test statistics
+  set_fact:
+    success_rate: "{{ ((successful_scenarios | int) / (total_scenarios | int) * 100) | round(1) if total_scenarios | int > 0 else 0 }}"
+    total_duration: "{{ test_results | map(attribute='duration_minutes') | map('default', 0) | list | sum | round(2) }}"
+
+- name: Create detailed test report
+  copy:
+    content: |
+      # AutoNode Testing Report - PR #5686
+
+      **Generated:** {{ report_timestamp }}
+      **Test Environment:** {{ OCP_HUB_API_URL }}
+      **AWS Region:** {{ AWS_REGION }}
+
+      ## Executive Summary
+
+      | Metric | Value |
+      |--------|-------|
+      | Total Scenarios | {{ total_scenarios }} |
+      | Successful | {{ successful_scenarios }} |
+      | Failed | {{ failed_scenarios }} |
+      | Success Rate | {{ success_rate }}% |
+      | Total Duration | {{ total_duration }} minutes |
+
+      ## Test Environment Details
+
+      ### Configuration
+      - **CAPI Namespace:** {{ capi_namespace }}
+      - **CAPA System Namespace:** {{ capa_system_namespace }}
+      - **MCE Namespace:** {{ mce_namespace }}
+      - **AutoNode Testing Enabled:** {{ AUTONODE_TESTING_ENABLED | default(false) }}
+      - **Default AutoNode Mode:** {{ AUTONODE_DEFAULT_MODE | default('disabled') }}
+
+      ### Prerequisites Validation
+      {% if AUTONODE_KARPENTER_ROLE_ARN is defined %}
+      - **Karpenter Role ARN:** {{ AUTONODE_KARPENTER_ROLE_ARN }}
+      {% else %}
+      - **Karpenter Role ARN:** Not configured
+      {% endif %}
+      - **AWS Account ID:** {{ AWS_ACCOUNT_ID | default('Not specified') }}
+      - **ROSA OIDC Provider:** {{ ROSA_OIDC_PROVIDER_URL | default('Not specified') }}
+
+      ## Test Scenarios Results
+
+      {% for result in test_results %}
+      ### Scenario {{ loop.index }}: {{ result.name }}
+
+      **Status:** {% if result.status == 'success' %}✅ PASSED{% else %}❌ FAILED{% endif %}
+      **Duration:** {{ result.duration_minutes | default('N/A') }} minutes
+      **Start Time:** {{ result.start_time }}
+      **End Time:** {{ result.end_time | default('N/A') }}
+
+      {% if result.status == 'success' %}
+      **Success Metrics:**
+      - Cluster Provisioned: {{ '✅ Yes' if result.cluster_provisioned else '❌ No' }}
+      {% if result.autonode_scaling_tested is defined %}
+      - AutoNode Scaling Tested: {{ '✅ Yes' if result.autonode_scaling_tested else '❌ No' }}
+      - Karpenter Nodes Found: {{ '✅ Yes' if result.karpenter_nodes_found else '❌ No' }}
+      {% endif %}
+      {% else %}
+      **Failure Details:**
+      - Error Message: {{ result.error_message | default('No error message recorded') }}
+      {% endif %}
+
+      ---
+      {% endfor %}
+
+      ## Detailed Analysis
+
+      ### AutoNode Feature Validation
+
+      {% set autonode_enabled_tests = test_results | selectattr('name', 'search', 'autonode-enabled') | list %}
+      {% if autonode_enabled_tests | length > 0 %}
+      #### AutoNode Enabled Tests
+      {% for test in autonode_enabled_tests %}
+      - **{{ test.name }}:** {{ 'PASSED' if test.status == 'success' else 'FAILED' }}
+        {% if test.status == 'success' %}
+        - Cluster provisioning successful
+        {% if test.autonode_scaling_tested %}
+        - AutoNode scaling validation completed
+        {% endif %}
+        {% if test.karpenter_nodes_found %}
+        - Karpenter nodes detected in cluster
+        {% endif %}
+        {% endif %}
+      {% endfor %}
+      {% else %}
+      No AutoNode enabled tests were executed.
+      {% endif %}
+
+      ### Traditional Scaling Baseline
+
+      {% set traditional_tests = test_results | selectattr('name', 'search', 'disabled') | list %}
+      {% if traditional_tests | length > 0 %}
+      #### Traditional Machine Pool Tests (Baseline)
+      {% for test in traditional_tests %}
+      - **{{ test.name }}:** {{ 'PASSED' if test.status == 'success' else 'FAILED' }}
+      {% endfor %}
+      {% else %}
+      No traditional scaling baseline tests were executed.
+      {% endif %}
+
+      ## Key Findings
+
+      {% if successful_scenarios | int == total_scenarios | int %}
+      ### ✅ All Tests Passed
+      - All AutoNode test scenarios completed successfully
+      - PR #5686 AutoNode feature is functioning correctly
+      - Both enabled and disabled AutoNode modes work as expected
+      {% elif successful_scenarios | int > 0 %}
+      ### ⚠️ Partial Success
+      - {{ successful_scenarios }}/{{ total_scenarios }} test scenarios passed
+      - Review failed scenarios for specific issues
+      {% else %}
+      ### ❌ All Tests Failed
+      - Critical issues detected with AutoNode implementation
+      - Requires immediate attention before merge
+      {% endif %}
+
+      ### AutoNode Feature Assessment
+
+      {% set autonode_tests = test_results | selectattr('name', 'search', 'autonode') | list %}
+      {% if autonode_tests | length > 0 %}
+      {% set autonode_success = autonode_tests | selectattr('status', 'equalto', 'success') | list | length %}
+      - AutoNode feature success rate: {{ ((autonode_success / (autonode_tests | length)) * 100) | round(1) }}%
+      {% if autonode_success == autonode_tests | length %}
+      - **Recommendation:** AutoNode feature is ready for production use
+      {% elif autonode_success > 0 %}
+      - **Recommendation:** AutoNode feature needs minor fixes before production
+      {% else %}
+      - **Recommendation:** AutoNode feature requires significant fixes
+      {% endif %}
+      {% endif %}
+
+      ## Troubleshooting Information
+
+      ### Failed Test Analysis
+      {% set failed_tests = test_results | selectattr('status', 'equalto', 'failed') | list %}
+      {% if failed_tests | length > 0 %}
+      {% for failed_test in failed_tests %}
+      #### {{ failed_test.name }}
+      - **Error:** {{ failed_test.error_message | default('No error message') }}
+      - **Duration before failure:** {{ failed_test.duration_minutes | default('N/A') }} minutes
+      - **Recommended investigation:**
+        - Check CAPA controller logs: `oc logs -n {{ capa_system_namespace }} -l app.kubernetes.io/name=cluster-api-provider-aws`
+        - Review cluster events: `oc get events -n {{ capi_namespace }}`
+        - Validate IAM permissions for AutoNode role
+      {% endfor %}
+      {% else %}
+      No failed tests to analyze.
+      {% endif %}
+
+      ### Commands for Manual Verification
+
+      ```bash
+      # Check CAPA controller status
+      oc get pods -n {{ capa_system_namespace }} -l app.kubernetes.io/name=cluster-api-provider-aws
+
+      # Monitor cluster creation
+      oc get clusters -n {{ capi_namespace }} -w
+
+      # Check AutoNode configuration
+      oc get rosacontrolplanes -n {{ capi_namespace }} -o yaml | grep -A 10 autoNode
+
+      # Validate Karpenter (for enabled clusters)
+      oc get pods -n karpenter
+      oc get nodes --show-labels | grep karpenter
+
+      # Check AWS IAM role
+      aws iam get-role --role-name KarpenterNodeRole
+      ```
+
+      ## Next Steps
+
+      {% if failed_scenarios | int == 0 %}
+      1. **Ready for Merge:** All tests passed - PR #5686 is ready for integration
+      2. **Documentation:** Update user documentation with AutoNode configuration examples
+      3. **Monitoring:** Set up production monitoring for AutoNode clusters
+      {% else %}
+      1. **Fix Issues:** Address failed test scenarios before proceeding
+      2. **Re-test:** Run failed scenarios individually for debugging
+      3. **IAM Validation:** Verify Karpenter IAM role permissions
+      4. **OIDC Configuration:** Confirm OIDC provider trust relationships
+      {% endif %}
+
+      ---
+      *Report generated by automation-capi AutoNode testing framework*
+    dest: "{{ report_dir }}/autonode-test-report-{{ ansible_date_time.epoch }}.md"
+
+- name: Create JSON report for programmatic access
+  copy:
+    content: |
+      {
+        "test_summary": {
+          "timestamp": "{{ report_timestamp }}",
+          "environment": {
+            "ocp_hub_url": "{{ OCP_HUB_API_URL }}",
+            "aws_region": "{{ AWS_REGION }}",
+            "capi_namespace": "{{ capi_namespace }}",
+            "capa_system_namespace": "{{ capa_system_namespace }}"
+          },
+          "statistics": {
+            "total_scenarios": {{ total_scenarios }},
+            "successful_scenarios": {{ successful_scenarios }},
+            "failed_scenarios": {{ failed_scenarios }},
+            "success_rate_percent": {{ success_rate }},
+            "total_duration_minutes": {{ total_duration }}
+          },
+          "configuration": {
+            "autonode_testing_enabled": {{ AUTONODE_TESTING_ENABLED | default(false) | to_json }},
+            "default_autonode_mode": "{{ AUTONODE_DEFAULT_MODE | default('disabled') }}",
+            "karpenter_role_arn": "{{ AUTONODE_KARPENTER_ROLE_ARN | default('') }}",
+            "aws_account_id": "{{ AWS_ACCOUNT_ID | default('') }}"
+          }
+        },
+        "test_results": {{ test_results | to_json }}
+      }
+    dest: "{{ report_dir }}/autonode-test-results-{{ ansible_date_time.epoch }}.json"
+
+- name: Display test summary
+  debug:
+    msg: |
+      🎯 AutoNode Testing Summary
+      ==========================
+
+      📊 **Results Overview:**
+      - Total Scenarios: {{ total_scenarios }}
+      - Successful: {{ successful_scenarios }}
+      - Failed: {{ failed_scenarios }}
+      - Success Rate: {{ success_rate }}%
+      - Total Duration: {{ total_duration }} minutes
+
+      {% if successful_scenarios | int == total_scenarios | int %}
+      🎉 **All tests passed!** PR #5686 AutoNode feature is working correctly.
+      {% elif failed_scenarios | int > 0 %}
+      ⚠️  **Some tests failed.** Review the detailed report for troubleshooting guidance.
+      {% endif %}
+
+      📋 **Reports Generated:**
+      - Detailed Report: {{ report_dir }}/autonode-test-report-{{ ansible_date_time.epoch }}.md
+      - JSON Results: {{ report_dir }}/autonode-test-results-{{ ansible_date_time.epoch }}.json
+
+      🔍 **Quick Analysis:**
+      {% for result in test_results %}
+      - {{ result.name }}: {{ 'PASSED' if result.status == 'success' else 'FAILED' }} ({{ result.duration_minutes | default('N/A') }}min)
+      {% endfor %}
+
+- name: Set overall test status
+  set_fact:
+    autonode_testing_passed: "{{ failed_scenarios | int == 0 }}"
+
+- name: Final test status
+  debug:
+    msg: |
+      🏁 **Final Status: {{ 'PASSED' if autonode_testing_passed else 'FAILED' }}**
+
+      {{ 'AutoNode testing completed successfully. PR #5686 is ready for integration!' if autonode_testing_passed else 'AutoNode testing identified issues. Review failed scenarios before proceeding.' }}

@@ -1,0 +1,198 @@
+---
+# Enhanced cluster creation task with AutoNode support
+# This task creates ROSA HCP clusters with optional AutoNode/Karpenter integration
+
+- name: Set cluster configuration facts
+  set_fact:
+    cluster_name: "{{ 'rosa-autonode-test' if AUTONODE_DEFAULT_MODE == 'enabled' else 'rosa-autonode-disabled' }}"
+    config_file: "{{ cluster_config_file }}"
+    autonode_enabled: "{{ AUTONODE_DEFAULT_MODE | default('disabled') == 'enabled' }}"
+
+- name: Generate dynamic cluster configuration
+  block:
+    - name: Create temporary cluster config from template
+      template:
+        src: "{{ config_file }}"
+        dest: "/tmp/{{ cluster_name }}-config.yaml"
+      vars:
+        # Template variables for dynamic configuration
+        cluster_name_override: "{{ cluster_name }}"
+        autonode_mode: "{{ AUTONODE_DEFAULT_MODE | default('disabled') }}"
+        karpenter_role_arn: "{{ AUTONODE_KARPENTER_ROLE_ARN | default('') }}"
+        aws_account_id: "{{ AWS_ACCOUNT_ID | default('') }}"
+        aws_region: "{{ AWS_REGION }}"
+
+    - name: Display generated cluster configuration
+      debug:
+        msg: |
+          📄 Generated cluster configuration:
+          - File: /tmp/{{ cluster_name }}-config.yaml
+          - Cluster: {{ cluster_name }}
+          - AutoNode: {{ autonode_enabled }}
+          {% if autonode_enabled %}
+          - Karpenter Role: {{ AUTONODE_KARPENTER_ROLE_ARN }}
+          {% endif %}
+
+  rescue:
+    - name: Fallback to static configuration file
+      set_fact:
+        cluster_config_path: "{{ config_file }}"
+
+    - name: Use static configuration
+      debug:
+        msg: "Using static configuration file: {{ cluster_config_path }}"
+
+- name: Pre-cluster creation validation
+  block:
+    - name: Validate cluster configuration file exists
+      stat:
+        path: "/tmp/{{ cluster_name }}-config.yaml"
+      register: config_file_stat
+
+    - name: Set final configuration path
+      set_fact:
+        final_config_path: "{{ '/tmp/' + cluster_name + '-config.yaml' if config_file_stat.stat.exists else config_file }}"
+
+    - name: Display final configuration path
+      debug:
+        msg: "Final configuration file: {{ final_config_path }}"
+
+    - name: Validate AutoNode configuration in YAML
+      shell: |
+        grep -A 5 "autoNode:" {{ final_config_path }}
+      register: autonode_config_check
+      failed_when: false
+
+    - name: Display AutoNode configuration from file
+      debug:
+        msg: |
+          AutoNode configuration in cluster file:
+          {{ autonode_config_check.stdout | default('No AutoNode configuration found') }}
+
+- name: Apply cluster configuration
+  block:
+    - name: Create ROSA HCP cluster
+      shell: |
+        oc apply -f {{ final_config_path }}
+      register: cluster_creation_result
+
+    - name: Display cluster creation result
+      debug:
+        msg: |
+          🎉 Cluster creation initiated:
+          {{ cluster_creation_result.stdout }}
+
+  rescue:
+    - name: Handle cluster creation failure
+      debug:
+        msg: |
+          ❌ Cluster creation failed:
+          {{ cluster_creation_result.stderr | default('Unknown error') }}
+
+    - name: Provide troubleshooting guidance
+      debug:
+        msg: |
+          🔧 Troubleshooting steps:
+          1. Check cluster configuration: cat {{ final_config_path }}
+          2. Verify CAPA controller logs: oc logs -n {{ capa_system_namespace }} -l app.kubernetes.io/name=cluster-api-provider-aws
+          3. Check cluster events: oc get events -n {{ capi_namespace }}
+          {% if autonode_enabled %}
+          4. Validate AutoNode IAM role: aws iam get-role --role-name {{ extracted_role_name | default('KarpenterRole') }}
+          5. Check OIDC provider configuration
+          {% endif %}
+
+    - fail:
+        msg: "Cluster creation failed. See troubleshooting guidance above."
+
+- name: Post-creation monitoring (AutoNode clusters)
+  block:
+    - name: Wait for ROSAControlPlane to be created
+      shell: |
+        oc get rosacontrolplane {{ cluster_name }}-cp -n {{ capi_namespace }} -o jsonpath='{.status.ready}'
+      register: controlplane_status
+      until: controlplane_status.stdout == "true"
+      retries: 30
+      delay: 60
+      failed_when: false
+
+    - name: Check AutoNode status in cluster
+      shell: |
+        oc get rosacontrolplane {{ cluster_name }}-cp -n {{ capi_namespace }} -o yaml | grep -A 5 autoNode
+      register: autonode_status_check
+      failed_when: false
+
+    - name: Display AutoNode status
+      debug:
+        msg: |
+          🔍 AutoNode Status Check:
+          {{ autonode_status_check.stdout | default('Could not retrieve AutoNode status') }}
+
+    - name: Monitor cluster creation progress
+      shell: |
+        oc get cluster {{ cluster_name }} -n {{ capi_namespace }} -o jsonpath='{.status.phase}'
+      register: cluster_phase
+      failed_when: false
+
+    - name: Display cluster status
+      debug:
+        msg: |
+          📊 Cluster Creation Status:
+          - Cluster Phase: {{ cluster_phase.stdout | default('Unknown') }}
+          - Control Plane Ready: {{ controlplane_status.stdout | default('Unknown') }}
+          {% if autonode_enabled %}
+          - AutoNode Mode: enabled
+          - Next: Karpenter will handle node provisioning automatically
+          {% else %}
+          - AutoNode Mode: disabled
+          - Next: Traditional machine pools will handle node provisioning
+          {% endif %}
+
+  when: autonode_enabled
+
+- name: Create cluster monitoring task
+  debug:
+    msg: |
+      🎯 Next Steps:
+
+      Monitor cluster creation:
+      oc get cluster {{ cluster_name }} -n {{ capi_namespace }} -w
+
+      Check control plane status:
+      oc get rosacontrolplane {{ cluster_name }}-cp -n {{ capi_namespace }} -o yaml
+
+      {% if autonode_enabled %}
+      Monitor AutoNode/Karpenter activity:
+      # Once cluster is ready, check Karpenter installation
+      oc get pods -n karpenter
+
+      # Monitor node provisioning
+      oc get nodes --show-labels | grep karpenter
+
+      # Test AutoNode scaling
+      kubectl apply -f - <<EOF
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: autonode-test
+      spec:
+        replicas: 5
+        selector:
+          matchLabels:
+            app: autonode-test
+        template:
+          metadata:
+            labels:
+              app: autonode-test
+          spec:
+            containers:
+            - name: test
+              image: nginx:alpine
+              resources:
+                requests:
+                  cpu: 500m
+                  memory: 1Gi
+      EOF
+      {% endif %}
+
+      Check cluster logs if issues occur:
+      oc logs -n {{ capa_system_namespace }} -l app.kubernetes.io/name=cluster-api-provider-aws --tail=100

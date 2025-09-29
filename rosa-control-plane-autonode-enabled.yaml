@@ -1,0 +1,93 @@
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: "rosa-autonode-test"
+  namespace: "ns-rosa-hcp"
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks: ["192.168.0.0/16"]
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+    kind: ROSACluster
+    name: "rosa-autonode-test"
+    namespace: "ns-rosa-hcp"
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta2
+    kind: ROSAControlPlane
+    name: "rosa-cp-autonode"
+    namespace: "ns-rosa-hcp"
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSACluster
+metadata:
+  name: "rosa-autonode-test"
+  namespace: "ns-rosa-hcp"
+spec: {}
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta2
+kind: ROSAControlPlane
+metadata:
+  name: "rosa-cp-autonode"
+  namespace: "ns-rosa-hcp"
+spec:
+  rosaClusterName: rosa-autonode-test
+  domainPrefix: rosa-autonode
+  version: "4.20.0"
+  channelGroup: candidate
+  ## The region should match the aws region used to create the VPC and subnets
+  region: "us-west-2"
+
+  ## Replace the IAM account roles below with the IAM roles created in the prerequisite steps
+  ## List the IAM account roles using command 'rosa list account-roles'
+  installerRoleARN: "arn:aws:iam::471112697682:role/rt3-HCP-ROSA-Installer-Role"
+  supportRoleARN: "arn:aws:iam::471112697682:role/rt3-HCP-ROSA-Support-Role"
+  workerRoleARN: "arn:aws:iam::471112697682:role/rt3-HCP-ROSA-Worker-Role"
+
+  ## Replace the oidc config below with the oidc config created in the prerequisite steps
+  ## List the oidc config using command `rosa list oidc-providers`
+  oidcID: "2j1ob5s4mvqq9ra6fnnrdogi4l0c7dhq"
+
+  ## Replace IAM operator roles below with the IAM roles created in the prerequisite steps
+  ## List the operator roles using command `rosa list operator-roles --prefix your-prefix`
+  rolesRef:
+    ingressARN: "arn:aws:iam::471112697682:role/rt3-openshift-ingress-operator-cloud-credentials"
+    imageRegistryARN: "arn:aws:iam::471112697682:role/rt3-openshift-image-registry-installer-cloud-credentials"
+    storageARN: "arn:aws:iam::471112697682:role/rt3-openshift-cluster-csi-drivers-ebs-cloud-credentials"
+    networkARN: "arn:aws:iam::471112697682:role/rt3-openshift-cloud-network-config-controller-cloud-credentials"
+    kubeCloudControllerARN: "arn:aws:iam::471112697682:role/rt3-kube-system-kube-controller-manager"
+    nodePoolManagementARN: "arn:aws:iam::471112697682:role/rt3-kube-system-capa-controller-manager"
+    controlPlaneOperatorARN: "arn:aws:iam::471112697682:role/rt3-kube-system-control-plane-operator"
+
+  ## Replace the subnets and availabilityZones with the subnets created in the prerequisite steps
+  subnets:
+    - "subnet-062e797b5126b599a"
+    - "subnet-0bbe3b8c424bcc607"
+
+  availabilityZones:
+   - "us-west-2b"
+  network:
+    machineCIDR: "10.0.0.0/16"
+    podCIDR: "10.128.0.0/14"
+    serviceCIDR: "172.30.0.0/16"
+
+  ## AutoNode Configuration for Karpenter Integration
+  ## Enable AutoNode to use Karpenter for automatic node scaling
+  autoNode:
+    mode: enabled
+    roleARN: "arn:aws:iam::471112697682:role/KarpenterNodeRole"
+
+  ## NOTE: When AutoNode is enabled, defaultMachinePoolSpec becomes optional
+  ## Karpenter will handle node provisioning automatically based on workload demands
+  defaultMachinePoolSpec:
+    instanceType: "m5.xlarge"
+    autoscaling:
+      maxReplicas: 3
+      minReplicas: 2
+
+  additionalTags:
+    env: "demo"
+    profile: "hcp"
+    autonode: "enabled"
+    karpenter: "true"
