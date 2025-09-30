@@ -354,6 +354,46 @@ Cluster context: ${data.context_name}`;
       // In real implementation, these would be actual API calls
       const mockAccountRoles = [
         {
+          roleName: 'mon-HCP-ROSA-Installer-Role',
+          roleType: 'Installer',
+          rolePrefix: 'mon',
+          arn: 'arn:aws:iam::471112697682:role/mon-HCP-ROSA-Installer-Role',
+          version: '4.19',
+          managed: 'Yes',
+          status: 'Active',
+          description: 'HCP ROSA Installer role'
+        },
+        {
+          roleName: 'mon-HCP-ROSA-Support-Role',
+          roleType: 'Support',
+          rolePrefix: 'mon',
+          arn: 'arn:aws:iam::471112697682:role/mon-HCP-ROSA-Support-Role',
+          version: '4.19',
+          managed: 'Yes',
+          status: 'Active',
+          description: 'HCP ROSA Support role'
+        },
+        {
+          roleName: 'mon-HCP-ROSA-Worker-Role',
+          roleType: 'Worker',
+          rolePrefix: 'mon',
+          arn: 'arn:aws:iam::471112697682:role/mon-HCP-ROSA-Worker-Role',
+          version: '4.19',
+          managed: 'Yes',
+          status: 'Active',
+          description: 'HCP ROSA Worker role'
+        },
+        {
+          roleName: 'mon-HCP-ROSA-ControlPlane-Role',
+          roleType: 'ControlPlane',
+          rolePrefix: 'mon',
+          arn: 'arn:aws:iam::471112697682:role/mon-HCP-ROSA-ControlPlane-Role',
+          version: '4.19',
+          managed: 'Yes',
+          status: 'Active',
+          description: 'HCP ROSA Control Plane role'
+        },
+        {
           roleName: 'fri-HCP-ROSA-Installer-Role',
           roleType: 'Installer',
           rolePrefix: 'fri',
@@ -526,6 +566,46 @@ Cluster context: ${data.context_name}`;
       ];
 
       const mockOperatorRoles = [
+        {
+          name: 'mon-rosa-hcp-cluster-openshift-ingress-operator',
+          arn: 'arn:aws:iam::471112697682:role/mon-rosa-hcp-cluster-openshift-ingress-operator',
+          status: 'Active',
+          operatorType: 'Ingress',
+          clusterPrefix: 'mon',
+          version: '4.19',
+          managed: 'Yes',
+          description: 'Manages OpenShift ingress routing and load balancing'
+        },
+        {
+          name: 'mon-rosa-hcp-cluster-openshift-image-registry-operator',
+          arn: 'arn:aws:iam::471112697682:role/mon-rosa-hcp-cluster-openshift-image-registry-operator',
+          status: 'Active',
+          operatorType: 'Image Registry',
+          clusterPrefix: 'mon',
+          version: '4.19',
+          managed: 'Yes',
+          description: 'Manages container image registry operations'
+        },
+        {
+          name: 'mon-rosa-hcp-cluster-cloud-credential-operator',
+          arn: 'arn:aws:iam::471112697682:role/mon-rosa-hcp-cluster-cloud-credential-operator',
+          status: 'Active',
+          operatorType: 'Cloud Credential',
+          clusterPrefix: 'mon',
+          version: '4.19',
+          managed: 'Yes',
+          description: 'Manages cloud provider credentials and permissions'
+        },
+        {
+          name: 'mon-rosa-hcp-cluster-ebs-csi-driver-operator',
+          arn: 'arn:aws:iam::471112697682:role/mon-rosa-hcp-cluster-ebs-csi-driver-operator',
+          status: 'Active',
+          operatorType: 'EBS CSI Driver',
+          clusterPrefix: 'mon',
+          version: '4.19',
+          managed: 'Yes',
+          description: 'Manages AWS EBS storage for persistent volumes'
+        },
         {
           name: 'tfitzger-rosa-hcp-cluster-openshift-ingress-operator',
           arn: 'arn:aws:iam::471112697682:role/tfitzger-rosa-hcp-cluster-openshift-ingress-operator',
@@ -1042,217 +1122,8 @@ Cluster context: ${data.context_name}`;
 
   const configureEnvironment = [
     {
-      id: 'check-capa',
-      title: "Check if CAPI/CAPA are enabled",
-      subtitle: "Verify environment status",
-      description: "Check if CAPI and CAPA controllers are enabled and running",
-      icon: CheckCircleIcon,
-      color: 'bg-green-600',
-      textColor: 'text-green-700',
-      bgColor: 'bg-green-50 hover:bg-green-100',
-      borderColor: 'border-green-300',
-      duration: "~30s",
-      tooltip: "Quickly verify that all required CAPI/CAPA components are installed and operational in your cluster",
-      details: "This check verifies that CAPI controllers are running in the multicluster-engine namespace and that CAPA providers are properly configured. It also validates AWS credentials and checks cluster permissions.",
-      requirements: ["OpenShift 4.18+", "MultiCluster Engine installed", "AWS credentials configured"],
-      action: async () => {
-        try {
-          addNotification('🔍 Checking CAPI/CAPA status...', 'info', 3000);
-
-          // Set loading state for this specific operation
-          setAnsibleResults(prev => ({
-            ...prev,
-            'check-capa': { loading: true, result: null, timestamp: new Date() }
-          }));
-
-          const response = await fetch('http://localhost:8000/api/ansible/run-task', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              task_file: 'check_capi_capa_status.yml',
-              description: 'Check CAPI/CAPA enabled status'
-            }),
-          });
-
-          const result = await response.json();
-
-          if (response.ok) {
-            if (result.success) {
-              addNotification(`✅ CAPI/CAPA status check completed successfully`, 'success', 5000);
-
-              // Store the result for display in the UI
-              setAnsibleResults(prev => ({
-                ...prev,
-                'check-capa': {
-                  loading: false,
-                  result: result,
-                  timestamp: new Date(),
-                  success: true
-                }
-              }));
-
-              // Parse output to determine CAPI/CAPA status
-              const output = result.output || '';
-              const capiEnabled = output.includes('CAPI is enabled');
-              const capaEnabled = output.includes('CAPA is enabled');
-
-              console.log('CAPI/CAPA Status Result:', {
-                capi: capiEnabled ? 'Enabled' : 'Not Enabled',
-                capa: capaEnabled ? 'Enabled' : 'Not Enabled',
-                fullOutput: output
-              });
-            } else {
-              addNotification(`⚠️ CAPI/CAPA status check completed with issues: ${result.message || 'Check logs for details'}`, 'error', 8000);
-
-              setAnsibleResults(prev => ({
-                ...prev,
-                'check-capa': {
-                  loading: false,
-                  result: result,
-                  timestamp: new Date(),
-                  success: false
-                }
-              }));
-            }
-          } else {
-            addNotification(`❌ Failed to run CAPI/CAPA status check: ${result.error || 'Unknown error'}`, 'error', 8000);
-
-            setAnsibleResults(prev => ({
-              ...prev,
-              'check-capa': {
-                loading: false,
-                result: { error: result.error || 'Unknown error' },
-                timestamp: new Date(),
-                success: false
-              }
-            }));
-          }
-        } catch (error) {
-          console.error('Error running CAPI/CAPA status check:', error);
-          addNotification('❌ Failed to run CAPI/CAPA status check. Check console for details.', 'error', 8000);
-
-          setAnsibleResults(prev => ({
-            ...prev,
-            'check-capa': {
-              loading: false,
-              result: { error: error.message },
-              timestamp: new Date(),
-              success: false
-            }
-          }));
-        }
-      }
-    },
-    {
-      id: 'enable-capa',
-      title: "Enable CAPI/CAPA",
-      subtitle: "Initialize automation environment",
-      description: "Enable CAPI and CAPA controllers in your environment",
-      icon: PowerIcon,
-      color: 'bg-blue-600',
-      textColor: 'text-blue-700',
-      bgColor: 'bg-blue-50 hover:bg-blue-100',
-      borderColor: 'border-blue-300',
-      duration: "~2m",
-      tooltip: "Install and configure CAPI/CAPA controllers in your OpenShift cluster",
-      details: "This process enables the Cluster API and AWS Provider in your OpenShift cluster. It installs necessary operators, creates required namespaces, and configures RBAC permissions for ROSA cluster management.",
-      requirements: ["Cluster admin permissions", "MultiCluster Engine operator", "Valid ROSA subscription"],
-      steps: ["Install CAPI operators", "Configure AWS provider", "Set up RBAC", "Validate installation"],
-      action: async () => {
-        try {
-          addNotification('🚀 Enabling CAPI/CAPA components...', 'info', 3000);
-
-          // Set loading state for this specific operation
-          setAnsibleResults(prev => ({
-            ...prev,
-            'enable-capa': { loading: true, result: null, timestamp: new Date() }
-          }));
-
-          const response = await fetch('http://localhost:8000/api/ansible/run-task', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              task_file: 'enable_capi_capa.yml',
-              description: 'Enable CAPI/CAPA components'
-            }),
-          });
-
-          const result = await response.json();
-
-          if (response.ok) {
-            if (result.success) {
-              addNotification(`✅ CAPI/CAPA components enabled successfully`, 'success', 5000);
-
-              // Store the result for display in the UI
-              setAnsibleResults(prev => ({
-                ...prev,
-                'enable-capa': {
-                  loading: false,
-                  result: result,
-                  timestamp: new Date(),
-                  success: true
-                }
-              }));
-
-              // Parse output to determine enablement results
-              const output = result.output || '';
-              const capiEnabled = output.includes('CAPI has been enabled') || output.includes('CAPI was already enabled');
-              const capaEnabled = output.includes('CAPA has been enabled') || output.includes('CAPA was already enabled');
-
-              console.log('CAPI/CAPA Enable Result:', {
-                capi: capiEnabled ? 'Enabled' : 'Status Unknown',
-                capa: capaEnabled ? 'Enabled' : 'Status Unknown',
-                fullOutput: output
-              });
-            } else {
-              addNotification(`⚠️ CAPI/CAPA enablement completed with issues: ${result.message || 'Check logs for details'}`, 'error', 8000);
-
-              setAnsibleResults(prev => ({
-                ...prev,
-                'enable-capa': {
-                  loading: false,
-                  result: result,
-                  timestamp: new Date(),
-                  success: false
-                }
-              }));
-            }
-          } else {
-            addNotification(`❌ Failed to enable CAPI/CAPA: ${result.error || 'Unknown error'}`, 'error', 8000);
-
-            setAnsibleResults(prev => ({
-              ...prev,
-              'enable-capa': {
-                loading: false,
-                result: { error: result.error || 'Unknown error' },
-                timestamp: new Date(),
-                success: false
-              }
-            }));
-          }
-        } catch (error) {
-          console.error('Error enabling CAPI/CAPA:', error);
-          addNotification('❌ Failed to enable CAPI/CAPA. Check console for details.', 'error', 8000);
-
-          setAnsibleResults(prev => ({
-            ...prev,
-            'enable-capa': {
-              loading: false,
-              result: { error: error.message },
-              timestamp: new Date(),
-              success: false
-            }
-          }));
-        }
-      }
-    },
-    {
       id: 'configure-mce',
-      title: "Configure MCE CAPI/CAPA environment",
+      title: "Configure MCE Test Environment",
       subtitle: "Step-by-step setup",
       description: "Complete environment configuration with guided setup",
       icon: Cog6ToothIcon,
@@ -1353,18 +1224,17 @@ Cluster context: ${data.context_name}`;
     },
     {
       id: 'check-components',
-      title: "Check required components",
+      title: "MCE Test Environment Status",
       subtitle: "Verify configuration",
-      description: "Ensure all MCE CAPI/CAPA components are present and configured",
+      description: "Ensure all CAPI/CAPA components are present and configured",
+      details: "Validates that all required CAPI/CAPA components are properly installed and configured in your MCE environment",
       icon: CheckCircleIcon,
       color: 'bg-emerald-600',
       textColor: 'text-emerald-700',
       bgColor: 'bg-emerald-50 hover:bg-emerald-100',
       borderColor: 'border-emerald-300',
       duration: "~1m",
-      tooltip: "Verify all MCE CAPI/CAPA components are properly installed and configured",
-      details: "This validation checks for CAPI/CAPA controller deployments, registration configuration, cluster role bindings, required secrets (capa-manager-bootstrap-credentials, rosa-creds-secret), and AWS cluster controller identity.",
-      requirements: ["OpenShift cluster access", "multicluster-engine namespace", "CAPI/CAPA components installed"],
+      tooltip: "Verify all CAPI/CAPA components are properly installed and configured",
       action: async () => {
         try {
           addNotification('🔍 Checking required components...', 'info', 3000);
@@ -1508,20 +1378,6 @@ Cluster context: ${data.context_name}`;
       duration: "~10m",
       tooltip: "Safely remove cluster and clean up all associated resources",
       action: () => executeAutomationAction(() => console.log('Delete cluster'), "Cluster deletion")
-    },
-    {
-      id: 'custom-commands',
-      title: "Enter custom commands",
-      subtitle: "Advanced operations",
-      description: "Execute custom oc commands and automation scripts",
-      icon: CommandLineIcon,
-      color: 'bg-gray-600',
-      textColor: 'text-gray-700',
-      bgColor: 'bg-gray-50 hover:bg-gray-100',
-      borderColor: 'border-gray-300',
-      duration: "Variable",
-      tooltip: "Execute custom oc commands and automation scripts",
-      action: () => console.log('Custom commands')
     }
   ];
 
@@ -1774,22 +1630,19 @@ Cluster context: ${data.context_name}`;
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-6 space-y-4 md:space-y-5">
         {/* Main Header with Configure Environment and Right Sidebar */}
-        <div className="flex items-start justify-between space-x-12 mb-12 animate-in fade-in duration-700">
-          <div className="flex-1">
-            <p className="text-xl text-gray-600 mb-6 leading-relaxed max-w-4xl animate-in fade-in slide-in-from-bottom duration-1000">
+        <div className="flex flex-col lg:flex-row items-start justify-between gap-4 lg:gap-8 mb-4 md:mb-6 animate-in fade-in duration-300">
+          <div className="flex-1 w-full">
+            <p className="text-base md:text-lg text-gray-600 mb-4 leading-relaxed max-w-4xl animate-in fade-in slide-in-from-bottom duration-300">
               Welcome to the Ansible test automation for Cluster API (CAPI) and Cluster API provider AWS (CAPA).
-            </p>
-            <p className="text-lg font-medium text-gray-800 mb-6">
-              What would you like to do today?
             </p>
 
 
 
             {/* Configuration Prerequisites Warning */}
             {configStatus && !configStatus.configured && (
-              <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border-l-4 border-orange-400 rounded-lg p-6 mb-8 shadow-lg animate-in fade-in slide-in-from-left duration-700">
+              <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border-l-4 border-orange-500 rounded-xl p-3 md:p-4 mb-4 shadow-md hover:shadow-lg transition-all duration-300 animate-in fade-in slide-in-from-left duration-300">
                 <div className="flex items-start space-x-4">
                   <div className="flex-shrink-0">
                     <svg className="h-8 w-8 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1841,17 +1694,19 @@ Cluster context: ${data.context_name}`;
                       </ul>
                     </div>
 
-                    <div className="flex items-center space-x-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
                       <button
                         onClick={() => window.location.reload()}
-                        className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors font-medium"
+                        className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+                        aria-label="Check configuration again"
                       >
                         ✓ I've configured it, check again
                       </button>
 
                       <button
                         onClick={() => navigator.clipboard.writeText('vars/user_vars.yml')}
-                        className="text-orange-600 hover:text-orange-800 px-4 py-2 font-medium"
+                        className="bg-white hover:bg-gray-50 text-orange-600 border border-orange-300 px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+                        aria-label="Copy config file path"
                       >
                         📋 Copy file path
                       </button>
@@ -1860,8 +1715,9 @@ Cluster context: ${data.context_name}`;
                         href="https://console.redhat.com/iam/service-accounts"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 px-4 py-2 font-medium inline-flex items-center space-x-1"
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 font-medium inline-flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                         title="Create OCM Service Account for ClientID and Client Secret"
+                        aria-label="Create OCM Service Account"
                       >
                         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -1876,23 +1732,23 @@ Cluster context: ${data.context_name}`;
 
 
             {/* Environment Analysis and Credentials Setup */}
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-green-200/50 p-6 mb-6 backdrop-blur-sm hover:scale-[1.02] hover:-translate-y-1 animate-in fade-in-50 slide-in-from-bottom-4 duration-600">
+            <div className="bg-gradient-to-br from-white to-green-50 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-green-200 p-3 md:p-4 mb-4 backdrop-blur-sm hover:-translate-y-1 animate-in fade-in slide-in-from-bottom-4 duration-300">
               <h2
-                className="text-sm font-semibold text-green-900 mb-3 flex items-center cursor-pointer hover:bg-green-100/50 rounded-lg p-2 -m-2 transition-colors"
+                className="text-sm md:text-base font-bold text-gray-900 mb-3 flex items-center gap-2 cursor-pointer hover:bg-green-50 rounded-xl p-1.5 -m-1.5 transition-colors group"
                 onClick={() => toggleSection('credentials-environment')}
               >
-                <div className="bg-green-600 rounded-full p-1 mr-2">
-                  <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="bg-gradient-to-br from-green-500 to-green-700 rounded-lg p-2 shadow-lg group-hover:shadow-xl transition-shadow">
+                  <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
                 </div>
                 <span>My Credentials</span>
-                <div className="flex items-center ml-auto space-x-2">
-                  <div className={`text-xs px-2 py-1 rounded-full font-medium ${
+                <div className="flex items-center ml-auto gap-2">
+                  <div className={`text-xs px-3 py-1.5 rounded-full font-semibold border ${
                     rosaStatus?.authenticated && configStatus?.configured ?
-                    'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+                    'bg-green-100 text-green-800 border-green-300' : 'bg-orange-100 text-orange-800 border-orange-300'
                   }`}>
-                    {rosaStatus?.authenticated && configStatus?.configured ? 'Ready' : 'Needs Setup'}
+                    {rosaStatus?.authenticated && configStatus?.configured ? '✓ Ready' : '⚠ Needs Setup'}
                   </div>
                   <svg
                     className={`h-4 w-4 text-green-600 transition-transform duration-200 ${collapsedSections.has('credentials-environment') ? 'rotate-180' : ''}`}
@@ -1907,16 +1763,6 @@ Cluster context: ${data.context_name}`;
 
               {!collapsedSections.has('credentials-environment') && (
                 <>
-                  {/* Environment Analysis */}
-                  <div className="mb-4 p-4 bg-white rounded-lg border border-green-200">
-                <h3 className="text-sm font-semibold text-green-800 mb-3 flex items-center">
-                  <svg className="h-4 w-4 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                  📊 Your Environment Status
-                </h3>
-
-                {/* Friendly environment analysis */}
                 {(!rosaStatus?.authenticated || !configStatus?.configured) ? (
                   <div className="space-y-3">
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -2096,26 +1942,137 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   </div>
                 ) : (
                   <>
-                    <div className="space-y-2">
-                      {ocpStatus?.connected && (
-                        <div className="space-y-1">
-                          <div className="flex items-center space-x-2 text-sm">
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <span className="text-green-700">OpenShift Hub connected ({ocpStatus.username})</span>
-                          </div>
-                          <div className="ml-4 text-xs text-green-600 bg-green-100 rounded px-2 py-1 font-mono">
-                            🔗 {ocpStatus.api_url}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+                      {/* AWS Credentials Box */}
+                      <div className="group bg-gradient-to-br from-white to-orange-50 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 border border-orange-200 p-3 md:p-4 hover:-translate-y-1">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-1.5">
+                            <svg className="h-4 w-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                            </svg>
+                            <span className="text-xs md:text-sm font-bold text-orange-900">AWS Credentials</span>
                           </div>
                         </div>
-                      )}
+                        <div className="space-y-1.5 mb-3">
+                          {configStatus?.configured_fields?.find(f => f.field === 'AWS_ACCESS_KEY_ID') && (
+                            <div>
+                              <div className="text-xs text-orange-700 font-semibold mb-0.5">Access Key ID:</div>
+                              <div className="text-xs text-orange-600 font-mono bg-white/50 rounded px-2 py-1 break-all">
+                                {configStatus.configured_fields.find(f => f.field === 'AWS_ACCESS_KEY_ID')?.value || 'AKIAW3MEBI5JI3LVARF4'}
+                              </div>
+                            </div>
+                          )}
+                          {configStatus?.configured_fields?.find(f => f.field === 'AWS_SECRET_ACCESS_KEY') && (
+                            <div>
+                              <div className="text-xs text-orange-700 font-semibold mb-1">Secret Access Key:</div>
+                              <div className="text-xs text-orange-600 font-mono bg-white/50 rounded px-2 py-1">••••••••</div>
+                            </div>
+                          )}
+                          {configStatus?.configured_fields?.find(f => f.field === 'AWS_REGION') && (
+                            <div>
+                              <div className="text-xs text-orange-700 font-semibold mb-1">Region:</div>
+                              <div className="text-xs text-orange-600 font-mono bg-white/50 rounded px-2 py-1">us-east-1</div>
+                            </div>
+                          )}
+                          {rosaStatus?.user_info?.aws_account_id && (
+                            <div>
+                              <div className="text-xs text-orange-700 font-semibold mb-1">Account ID:</div>
+                              <div className="text-xs text-orange-600 font-mono bg-white/50 rounded px-2 py-1">{rosaStatus.user_info.aws_account_id}</div>
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => navigate('/setup?section=aws')}
+                          className="w-full bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 font-semibold text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+                          aria-label="Update AWS Credentials"
+                        >
+                          Update AWS Credentials
+                        </button>
+                      </div>
+
+                      {/* OCM Credentials Box */}
+                      <div className="group bg-gradient-to-br from-white to-blue-50 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 border border-blue-200 p-3 md:p-4 hover:-translate-y-1">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <svg className="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            </svg>
+                            <span className="text-sm font-bold text-blue-900">OCM Credentials</span>
+                          </div>
+                        </div>
+                        <div className="space-y-2 mb-4">
+                          {configStatus?.configured_fields?.find(f => f.field === 'OCM_CLIENT_ID') && (
+                            <div>
+                              <div className="text-xs text-blue-700 font-semibold mb-1">Client ID:</div>
+                              <div className="text-xs text-blue-600 font-mono bg-white/50 rounded px-2 py-1 break-all">
+                                {configStatus.configured_fields.find(f => f.field === 'OCM_CLIENT_ID')?.value || '1e72ac38-0a19-4651-bca4-d5aec7d7c986'}
+                              </div>
+                            </div>
+                          )}
+                          {configStatus?.configured_fields?.find(f => f.field === 'OCM_CLIENT_SECRET') && (
+                            <div>
+                              <div className="text-xs text-blue-700 font-semibold mb-1">Client Secret:</div>
+                              <div className="text-xs text-blue-600 font-mono bg-white/50 rounded px-2 py-1">••••••••</div>
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => navigate('/setup?section=ocm')}
+                          className="w-full bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium text-xs"
+                        >
+                          Update OCM Credentials
+                        </button>
+                      </div>
+
+                      {/* OCP Hub Credentials Box */}
+                      <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl shadow-lg border border-green-200/50 p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <svg className="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                            </svg>
+                            <span className="text-sm font-bold text-green-900">OCP Hub</span>
+                          </div>
+                        </div>
+                        <div className="space-y-2 mb-4">
+                          {ocpStatus?.api_url && (
+                            <div>
+                              <div className="text-xs text-green-700 font-semibold mb-1">API URL:</div>
+                              <div className="text-xs text-green-600 font-mono bg-white/50 rounded px-2 py-1 break-all" title={ocpStatus.api_url}>
+                                {ocpStatus.api_url.replace('https://', '')}
+                              </div>
+                            </div>
+                          )}
+                          {ocpStatus?.username && (
+                            <div>
+                              <div className="text-xs text-green-700 font-semibold mb-1">Username:</div>
+                              <div className="text-xs text-green-600 font-mono bg-white/50 rounded px-2 py-1">{ocpStatus.username}</div>
+                            </div>
+                          )}
+                          {configStatus?.configured_fields?.find(f => f.field === 'OCP_HUB_CLUSTER_PASSWORD') && (
+                            <div>
+                              <div className="text-xs text-green-700 font-semibold mb-1">Password:</div>
+                              <div className="text-xs text-green-600 font-mono bg-white/50 rounded px-2 py-1">••••••••</div>
+                            </div>
+                          )}
+                          {ocpStatus?.connected && (
+                            <div className="flex items-center space-x-2 text-xs mt-2 bg-green-100 rounded px-2 py-1">
+                              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                              <span className="text-green-700 font-medium">Connected</span>
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => navigate('/setup?section=ocp')}
+                          className="w-full bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium text-xs"
+                        >
+                          Update OCP Hub Credentials
+                        </button>
+                      </div>
                     </div>
 
-                    <p className="text-sm text-green-600 mt-3 font-medium">
-                      🚀 Ready to configure the test environment to create, upgrade, and manage ROSA clusters!
-                    </p>
                   </>
                 )}
-                  </div>
                 </>
               )}
             </div>
@@ -2134,7 +2091,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
-                <span>Configure Test Environment</span>
+                <span>Test Environment</span>
                 <div className="flex items-center ml-auto space-x-2">
                   <div className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium">
                     Ready
@@ -2316,7 +2273,14 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                     </svg>
                                   )}
                                   <span>
-                                    {ansibleResults[operation.id].success ? 'Completed Successfully' : 'Failed'}
+                                    {ansibleResults[operation.id].success ? (
+                                      operation.id === 'check-components' && ansibleResults[operation.id].result.output &&
+                                      !ansibleResults[operation.id].result.output.includes('was not found') &&
+                                      !ansibleResults[operation.id].result.output.includes('does not exist') &&
+                                      !ansibleResults[operation.id].result.output.includes('have not been applied')
+                                        ? '✨ Everything looks good!'
+                                        : 'Completed Successfully'
+                                    ) : 'Failed'}
                                   </span>
                                 </div>
 
@@ -2477,6 +2441,26 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                           </span>
                                         </div>
                                       </div>
+                                      {(() => {
+                                        const output = ansibleResults[operation.id].result.output;
+                                        const allGreen =
+                                          !output.includes('capi_controller_manager deployment was not found') &&
+                                          !output.includes('capa_controller_manager deployment was not found') &&
+                                          !output.includes('registration_configuration was not found') &&
+                                          !output.includes('cluster-role-binding changes have not been applied') &&
+                                          !output.includes('capa-manager-bootstrap-credentials secret does not exist') &&
+                                          !output.includes('rosa-creds-secret secret does not exist') &&
+                                          !output.includes('aws_cluster_controller_identity does not exist');
+
+                                        if (allGreen) {
+                                          return (
+                                            <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-xs text-green-700">
+                                              🎉 Your test environment is fully configured and ready to go!
+                                            </div>
+                                          );
+                                        }
+                                        return null;
+                                      })()}
                                     </div>
                                   )}
                                 </div>
@@ -2528,22 +2512,33 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
               )}
               </div>
 
-              {/* Configure ROSA Resources */}
-              <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-purple-200/50 p-6 backdrop-blur-sm hover:scale-[1.02] hover:-translate-y-1 animate-in fade-in-50 slide-in-from-bottom-4 duration-1200">
+              {/* ROSA HCP Configuration */}
+              <div className="bg-gradient-to-br from-white to-purple-50 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 border border-purple-200 p-3 md:p-4 backdrop-blur-sm hover:-translate-y-1 animate-in fade-in slide-in-from-bottom-4 duration-300">
               <h2
-                className="text-sm font-semibold text-purple-900 mb-3 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-2 -m-2 transition-colors"
+                className="text-sm md:text-base font-bold text-gray-900 mb-3 flex items-center gap-2 cursor-pointer hover:bg-purple-50 rounded-xl p-1.5 -m-1.5 transition-colors group"
                 onClick={() => toggleSection('rosa-hcp-resources')}
               >
-                <div className="bg-purple-600 rounded-full p-1 mr-2">
-                <div className="flex items-center ml-auto space-x-2">
-                  <div className={`text-xs px-2 py-1 rounded-full font-medium ${
-                    rosaHcpResources.loading ? 'bg-blue-100 text-blue-800' :
-                    rosaHcpResources.error ? 'bg-red-100 text-red-800' :
-                    rosaHcpResources.lastChecked ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                <div className="bg-gradient-to-br from-purple-500 to-purple-700 rounded-lg p-2 shadow-lg group-hover:shadow-xl transition-shadow">
+                  <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                </div>
+                <span>ROSA HCP Configuration</span>
+                <div className="flex items-center ml-auto gap-2">
+                  {rosaHcpResources.loading && (
+                    <svg className="animate-spin h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  )}
+                  <div className={`text-xs px-3 py-1.5 rounded-full font-semibold border ${
+                    rosaHcpResources.loading ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                    rosaHcpResources.error ? 'bg-red-100 text-red-800 border-red-300' :
+                    rosaHcpResources.lastChecked ? 'bg-green-100 text-green-800 border-green-300' : 'bg-gray-100 text-gray-800 border-gray-300'
                   }`}>
-                    {rosaHcpResources.loading ? 'Loading...' :
-                     rosaHcpResources.error ? 'Error' :
-                     rosaHcpResources.lastChecked ? 'Loaded' : 'Not Loaded'}
+                    {rosaHcpResources.loading ? '⏳ Loading...' :
+                     rosaHcpResources.error ? '❌ Error' :
+                     rosaHcpResources.lastChecked ? '✓ Loaded' : 'Not Loaded'}
                   </div>
                   <svg
                     className={`h-4 w-4 text-purple-600 transition-transform duration-200 ${collapsedSections.has('rosa-hcp-resources') ? 'rotate-180' : ''}`}
@@ -2585,10 +2580,10 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   )}
 
                   {rosaHcpResources.lastChecked && !rosaHcpResources.loading && (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {/* Prefix Configuration */}
-                      <div className="bg-white rounded-lg p-3 border border-purple-200">
-                        <div className="flex items-center justify-between mb-3">
+                      <div className="bg-white rounded-lg p-2 md:p-2.5 border border-purple-200">
+                        <div className="flex items-center justify-between mb-2">
                           <h4
                             className="text-xs font-semibold text-purple-800 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-1 -m-1 transition-colors"
                             onClick={() => toggleSection('prefix-configuration')}
@@ -2638,28 +2633,27 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           </>
                         )}
                       </div>
-
-                      {/* Account Roles */}
+                      {/* Subnets */}
                       <div className="bg-white rounded-lg p-3 border border-purple-200">
                         <div className="flex items-center justify-between mb-3">
                           <h4
                             className="text-xs font-semibold text-purple-800 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-1 -m-1 transition-colors"
-                            onClick={() => toggleSection('account-roles')}
+                            onClick={() => toggleSection('subnets')}
                           >
                             <svg className="h-3 w-3 text-purple-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
                             </svg>
-                            Account Roles ({rosaHcpResources.accountRoles.length})
+                            Subnets ({rosaHcpResources.subnets.length})
                             <div
                               className="ml-1 cursor-help"
-                              title="Account Roles Overview: Installer - Provisions cluster resources and infrastructure; Support - Grants Red Hat SRE access for support operations; Worker - Manages worker node permissions and operations; ControlPlane - Manages control plane permissions and operations"
+                              title="Subnets Overview: Virtual network segments for ROSA HCP clusters; Private subnets host cluster nodes; Public subnets provide internet gateway access; Required for cluster networking and connectivity"
                             >
                               <svg className="h-3 w-3 text-purple-500 hover:text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                             </div>
                             <svg
-                              className={`h-3 w-3 text-purple-600 transition-transform duration-200 ml-1 ${collapsedSections.has('account-roles') ? 'rotate-180' : ''}`}
+                              className={`h-3 w-3 text-purple-600 transition-transform duration-200 ml-1 ${collapsedSections.has('subnets') ? 'rotate-180' : ''}`}
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -2667,189 +2661,43 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
                           </h4>
-                          <button
-                            onClick={createAccountRoles}
-                            className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
-                            title="Create new ROSA account roles"
-                          >
-                            ➕ Create Account Roles
-                          </button>
-                        </div>
-
-                        {!collapsedSections.has('account-roles') && (
-                          <>
-                        {rosaHcpResources.accountRoles.length === 0 ? (
-                          <div className="text-center py-4 text-purple-600 text-xs">
-                            <div className="mb-2">No account roles found</div>
-                            <div className="text-purple-500">Click "Create Roles" to set up ROSA account roles</div>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => setShowSubnetModal(true)}
+                              className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
+                              title={rosaHcpResources.subnets && rosaHcpResources.subnets.length > 0 && rosaHcpResources.subnets[0].name !== 'Not configured' ? "Update existing subnet information" : "Enter existing subnet information"}
+                            >
+                              {rosaHcpResources.subnets && rosaHcpResources.subnets.length > 0 && rosaHcpResources.subnets[0].name !== 'Not configured' ? "📝 Update Subnet Information" : "📝 Enter Subnet Info"}
+                            </button>
+                            <button
+                              onClick={() => setShowCreateSubnetModal(true)}
+                              className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
+                              title="Create new subnets for ROSA HCP"
+                            >
+                              ➕ Create Subnets
+                            </button>
                           </div>
-                        ) : (
-                          <div className="space-y-2">
-                            {/* Table Header */}
-                            <div className="grid grid-cols-7 gap-2 text-xs font-semibold text-purple-700 bg-purple-100 p-2 rounded">
-                              <div>Role Name</div>
-                              <div>Prefix</div>
-                              <div>Type</div>
-                              <div>Version</div>
-                              <div>Managed</div>
-                              <div>Status</div>
-                              <div>ARN</div>
-                            </div>
-
-                            {/* Table Rows - Scrollable Container */}
-                            <div className="max-h-48 overflow-y-auto space-y-1">
-                            {rosaHcpResources.accountRoles.map((role, index) => (
-                              <div key={index} className="grid grid-cols-7 gap-2 text-xs p-2 bg-purple-50 rounded hover:bg-purple-100 transition-colors">
-                                <div className="font-medium text-purple-800 break-words overflow-auto">
-                                  {role.roleName}
-                                </div>
-                                <div className="text-purple-700 overflow-auto">
-                                  <span className="bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded-full text-xs font-medium font-mono">
-                                    {role.rolePrefix}
-                                  </span>
-                                </div>
-                                <div className="text-purple-700 overflow-auto">
+                        </div>
+                        {!collapsedSections.has('subnets') && (
+                        <div className="grid grid-cols-1 gap-1">
+                          {rosaHcpResources.subnets.map((subnet, index) => (
+                            <div key={index} className="flex items-center justify-between text-xs p-2 bg-purple-50 rounded">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center space-x-2">
+                                  <span className="font-medium text-purple-800">{subnet.name}</span>
                                   <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
-                                    role.roleType === 'Installer' ? 'bg-blue-100 text-blue-800' :
-                                    role.roleType === 'Support' ? 'bg-green-100 text-green-800' :
-                                    role.roleType === 'Worker' ? 'bg-orange-100 text-orange-800' :
-                                    role.roleType === 'ControlPlane' ? 'bg-red-100 text-red-800' :
-                                    'bg-gray-100 text-gray-800'
+                                    subnet.type === 'Private' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
                                   }`}>
-                                    {role.roleType}
+                                    {subnet.type}
                                   </span>
                                 </div>
-                                <div className="text-purple-600 font-mono overflow-auto">
-                                  {role.version}
-                                </div>
-                                <div className="text-purple-600 overflow-auto">
-                                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
-                                    role.managed === 'Yes' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                  }`}>
-                                    {role.managed}
-                                  </span>
-                                </div>
-                                <div className="text-purple-600 overflow-auto">
-                                  <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full text-xs font-medium">
-                                    {role.status}
-                                  </span>
-                                </div>
-                                <div className="text-purple-600 font-mono text-xs break-all overflow-auto">
-                                  {role.arn}
+                                <div className="text-purple-600 font-mono text-xs">
+                                  {subnet.id} • {subnet.cidr} • {subnet.az}
                                 </div>
                               </div>
-                            ))}
                             </div>
-                          </div>
-                        )}
-                          </>
-                        )}
-                      </div>
-
-                      {/* Operator Roles */}
-                      <div className="bg-white rounded-lg p-3 border border-purple-200">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4
-                            className="text-xs font-semibold text-purple-800 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-1 -m-1 transition-colors"
-                            onClick={() => toggleSection('operator-roles')}
-                          >
-                            <svg className="h-3 w-3 text-purple-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                            </svg>
-                            Operator Roles ({rosaHcpResources.operatorRoles.length})
-                            <div
-                              className="ml-1 cursor-help"
-                              title="Operator Roles Overview: Ingress - Manages OpenShift ingress routing and load balancing; Image Registry - Manages container image registry operations; Cloud Credential - Manages cloud provider credentials and permissions; EBS CSI Driver - Manages AWS EBS storage for persistent volumes"
-                            >
-                              <svg className="h-3 w-3 text-purple-500 hover:text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                            </div>
-                            <svg
-                              className={`h-3 w-3 text-purple-600 transition-transform duration-200 ml-1 ${collapsedSections.has('operator-roles') ? 'rotate-180' : ''}`}
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </h4>
-                          <button
-                            onClick={createOperatorRoles}
-                            className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
-                            title="Create new ROSA operator roles"
-                          >
-                            ➕ Create Operator Roles
-                          </button>
+                          ))}
                         </div>
-
-                        {!collapsedSections.has('operator-roles') && (
-                          <>
-                        {rosaHcpResources.operatorRoles.length === 0 ? (
-                          <div className="text-center py-4 text-purple-600 text-xs">
-                            <div className="mb-2">No operator roles found</div>
-                            <div className="text-purple-500">Click "Create Operator Roles" to set up ROSA operator roles</div>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            {/* Table Header */}
-                            <div className="grid grid-cols-7 gap-2 text-xs font-semibold text-purple-700 bg-purple-100 p-2 rounded">
-                              <div>Role Name</div>
-                              <div>Prefix</div>
-                              <div>Type</div>
-                              <div>Version</div>
-                              <div>Managed</div>
-                              <div>Status</div>
-                              <div>ARN</div>
-                            </div>
-
-                            {/* Table Rows - Scrollable Container */}
-                            <div className="max-h-48 overflow-y-auto space-y-1">
-                            {rosaHcpResources.operatorRoles.map((role, index) => (
-                              <div key={index} className="grid grid-cols-7 gap-2 text-xs p-2 bg-purple-50 rounded hover:bg-purple-100 transition-colors">
-                                <div className="font-medium text-purple-800 break-words overflow-auto">
-                                  {role.name}
-                                </div>
-                                <div className="text-purple-700 overflow-auto">
-                                  <span className="bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded-full text-xs font-medium font-mono">
-                                    {role.clusterPrefix}
-                                  </span>
-                                </div>
-                                <div className="text-purple-700 overflow-auto">
-                                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
-                                    role.operatorType === 'Ingress' ? 'bg-blue-100 text-blue-800' :
-                                    role.operatorType === 'Image Registry' ? 'bg-green-100 text-green-800' :
-                                    role.operatorType === 'Cloud Credential' ? 'bg-orange-100 text-orange-800' :
-                                    role.operatorType === 'EBS CSI Driver' ? 'bg-red-100 text-red-800' :
-                                    'bg-gray-100 text-gray-800'
-                                  }`}>
-                                    {role.operatorType}
-                                  </span>
-                                </div>
-                                <div className="text-purple-600 font-mono overflow-auto">
-                                  {role.version}
-                                </div>
-                                <div className="text-purple-600 overflow-auto">
-                                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
-                                    role.managed === 'Yes' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                  }`}>
-                                    {role.managed}
-                                  </span>
-                                </div>
-                                <div className="text-purple-600 overflow-auto">
-                                  <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full text-xs font-medium">
-                                    {role.status}
-                                  </span>
-                                </div>
-                                <div className="text-purple-600 font-mono text-xs break-all overflow-auto">
-                                  {role.arn}
-                                </div>
-                              </div>
-                            ))}
-                            </div>
-                          </div>
-                        )}
-                          </>
                         )}
                       </div>
 
@@ -2922,190 +2770,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         )}
                       </div>
 
-                      {/* Subnets */}
-                      <div className="bg-white rounded-lg p-3 border border-purple-200">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4
-                            className="text-xs font-semibold text-purple-800 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-1 -m-1 transition-colors"
-                            onClick={() => toggleSection('subnets')}
-                          >
-                            <svg className="h-3 w-3 text-purple-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                            </svg>
-                            Subnets ({rosaHcpResources.subnets.length})
-                            <div
-                              className="ml-1 cursor-help"
-                              title="Subnets Overview: Virtual network segments for ROSA HCP clusters; Private subnets host cluster nodes; Public subnets provide internet gateway access; Required for cluster networking and connectivity"
-                            >
-                              <svg className="h-3 w-3 text-purple-500 hover:text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                            </div>
-                            <svg
-                              className={`h-3 w-3 text-purple-600 transition-transform duration-200 ml-1 ${collapsedSections.has('subnets') ? 'rotate-180' : ''}`}
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </h4>
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => setShowSubnetModal(true)}
-                              className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
-                              title={rosaHcpResources.subnets && rosaHcpResources.subnets.length > 0 && rosaHcpResources.subnets[0].name !== 'Not configured' ? "Update existing subnet information" : "Enter existing subnet information"}
-                            >
-                              {rosaHcpResources.subnets && rosaHcpResources.subnets.length > 0 && rosaHcpResources.subnets[0].name !== 'Not configured' ? "📝 Update Subnet Information" : "📝 Enter Subnet Info"}
-                            </button>
-                            <button
-                              onClick={() => setShowCreateSubnetModal(true)}
-                              className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
-                              title="Create new subnets for ROSA HCP"
-                            >
-                              ➕ Create Subnets
-                            </button>
-                          </div>
-                        </div>
-                        {!collapsedSections.has('subnets') && (
-                        <div className="grid grid-cols-1 gap-1">
-                          {rosaHcpResources.subnets.map((subnet, index) => (
-                            <div key={index} className="flex items-center justify-between text-xs p-2 bg-purple-50 rounded">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center space-x-2">
-                                  <span className="font-medium text-purple-800">{subnet.name}</span>
-                                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
-                                    subnet.type === 'Private' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
-                                  }`}>
-                                    {subnet.type}
-                                  </span>
-                                </div>
-                                <div className="text-purple-600 font-mono text-xs">
-                                  {subnet.id} • {subnet.cidr} • {subnet.az}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        )}
-                      </div>
 
-                      {rosaHcpResources.lastChecked && (
-                        <div className="text-xs text-purple-600 text-center pt-2">
-                          Last updated: {rosaHcpResources.lastChecked.toLocaleTimeString()}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-              </div>
-
-                <div className="flex items-center ml-auto space-x-2">
-                  <div className={`text-xs px-2 py-1 rounded-full font-medium ${
-                    rosaHcpResources.loading ? 'bg-blue-100 text-blue-800' :
-                    rosaHcpResources.error ? 'bg-red-100 text-red-800' :
-                    rosaHcpResources.lastChecked ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {rosaHcpResources.loading ? 'Loading...' :
-                     rosaHcpResources.error ? 'Error' :
-                     rosaHcpResources.lastChecked ? 'Loaded' : 'Not Loaded'}
-                  </div>
-                  <svg
-                    className={`h-4 w-4 text-purple-600 transition-transform duration-200 ${collapsedSections.has('rosa-hcp-resources') ? 'rotate-180' : ''}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </h2>
-              {!collapsedSections.has('rosa-hcp-resources') && (
-                <div className="space-y-4">
-                  {/* Load Resources Button */}
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-purple-700">
-                      View AWS account roles, operator roles, OIDC configuration, and subnet details for ROSA HCP clusters.
-                    </p>
-                    <button
-                      onClick={fetchRosaHcpResources}
-                      disabled={rosaHcpResources.loading}
-                      className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-1.5 rounded transition-colors duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {rosaHcpResources.loading ? (
-                        <div className="flex items-center space-x-1">
-                          <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
-                          <span>Loading...</span>
-                        </div>
-                      ) : (
-                        '🔄 Load Resources'
-                      )}
-                    </button>
-                  </div>
-
-                  {rosaHcpResources.error && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                      <p className="text-red-700 text-xs font-medium">{rosaHcpResources.error}</p>
-                    </div>
-                  )}
-
-                  {rosaHcpResources.lastChecked && !rosaHcpResources.loading && (
-                    <div className="space-y-3">
-                      {/* Prefix Configuration */}
-                      <div className="bg-white rounded-lg p-3 border border-purple-200">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4
-                            className="text-xs font-semibold text-purple-800 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-1 -m-1 transition-colors"
-                            onClick={() => toggleSection('prefix-configuration')}
-                          >
-                            <svg className="h-3 w-3 text-purple-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z" />
-                            </svg>
-                            Prefix
-                            <div
-                              className="ml-1 cursor-help"
-                              title="Prefix Overview: Used to prefix all ROSA resource names; Account roles, operator roles, and cluster resources will use this prefix; Maximum 4 characters; Helps organize and identify resources"
-                            >
-                              <svg className="h-3 w-3 text-purple-500 hover:text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                            </div>
-                            <svg
-                              className={`h-3 w-3 text-purple-600 transition-transform duration-200 ml-1 ${collapsedSections.has('prefix-configuration') ? 'rotate-180' : ''}`}
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </h4>
-                          <button
-                            onClick={() => setShowPrefixModal(true)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
-                            title={savedPrefix ? "Update prefix for ROSA resources" : "Enter prefix for ROSA resources"}
-                          >
-                            {savedPrefix ? "📝 Update Prefix" : "📝 Enter Prefix"}
-                          </button>
-                        </div>
-
-                        {!collapsedSections.has('prefix-configuration') && (
-                          <>
-                            {savedPrefix ? (
-                              <div className="bg-purple-50 rounded p-2">
-                                <div className="text-sm text-purple-600 font-mono font-bold">{savedPrefix}</div>
-                              </div>
-                            ) : (
-                              <div className="text-center py-4 text-purple-600 text-xs">
-                                <div className="mb-2">No prefix configured</div>
-                                <div className="text-purple-500">Click "Enter Prefix" to set a resource naming prefix</div>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-
-                      {/* Account Roles */}
                       <div className="bg-white rounded-lg p-3 border border-purple-200">
                         <div className="flex items-center justify-between mb-3">
                           <h4
@@ -3115,7 +2780,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             <svg className="h-3 w-3 text-purple-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>
-                            Account Roles ({rosaHcpResources.accountRoles.length})
+                            Account Roles ({savedPrefix
+                              ? rosaHcpResources.accountRoles.filter(role => role.rolePrefix === savedPrefix || role.roleName?.startsWith(`${savedPrefix}-`)).length
+                              : rosaHcpResources.accountRoles.length})
                             <div
                               className="ml-1 cursor-help"
                               title="Account Roles Overview: Installer - Provisions cluster resources and infrastructure; Support - Grants Red Hat SRE access for support operations; Worker - Manages worker node permissions and operations; ControlPlane - Manages control plane permissions and operations"
@@ -3144,27 +2811,46 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                         {!collapsedSections.has('account-roles') && (
                           <>
-                        {rosaHcpResources.accountRoles.length === 0 ? (
-                          <div className="text-center py-4 text-purple-600 text-xs">
-                            <div className="mb-2">No account roles found</div>
-                            <div className="text-purple-500">Click "Create Roles" to set up ROSA account roles</div>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            {/* Table Header */}
-                            <div className="grid grid-cols-7 gap-2 text-xs font-semibold text-purple-700 bg-purple-100 p-2 rounded">
-                              <div>Role Name</div>
-                              <div>Prefix</div>
-                              <div>Type</div>
-                              <div>Version</div>
-                              <div>Managed</div>
-                              <div>Status</div>
-                              <div>ARN</div>
-                            </div>
+                        {(() => {
+                          // Filter account roles by saved prefix
+                          const filteredRoles = savedPrefix
+                            ? rosaHcpResources.accountRoles.filter(role => {
+                                // Match by rolePrefix or extract prefix from roleName
+                                const hasMatchingPrefix = role.rolePrefix === savedPrefix;
+                                const nameStartsWithPrefix = role.roleName?.startsWith(`${savedPrefix}-`);
+                                return hasMatchingPrefix || nameStartsWithPrefix;
+                              })
+                            : rosaHcpResources.accountRoles;
 
-                            {/* Table Rows - Scrollable Container */}
-                            <div className="max-h-48 overflow-y-auto space-y-1">
-                            {rosaHcpResources.accountRoles.map((role, index) => (
+                          return filteredRoles.length === 0 ? (
+                            <div className="text-center py-4 text-purple-600 text-xs">
+                              <div className="mb-2">
+                                {savedPrefix
+                                  ? `No account roles found with prefix "${savedPrefix}"`
+                                  : "No account roles found"}
+                              </div>
+                              <div className="text-purple-500">
+                                {savedPrefix
+                                  ? "Click \"Create Account Roles\" to set up ROSA account roles with this prefix"
+                                  : "Set a prefix first, then click \"Create Account Roles\" to set up ROSA account roles"}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {/* Table Header */}
+                              <div className="grid grid-cols-7 gap-2 text-xs font-semibold text-purple-700 bg-purple-100 p-2 rounded">
+                                <div>Role Name</div>
+                                <div>Prefix</div>
+                                <div>Type</div>
+                                <div>Version</div>
+                                <div>Managed</div>
+                                <div>Status</div>
+                                <div>ARN</div>
+                              </div>
+
+                              {/* Table Rows - Scrollable Container */}
+                              <div className="max-h-48 overflow-y-auto space-y-1">
+                              {filteredRoles.map((role, index) => (
                               <div key={index} className="grid grid-cols-7 gap-2 text-xs p-2 bg-purple-50 rounded hover:bg-purple-100 transition-colors">
                                 <div className="font-medium text-purple-800 break-words overflow-auto">
                                   {role.roleName}
@@ -3204,10 +2890,11 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   {role.arn}
                                 </div>
                               </div>
-                            ))}
+                              ))}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          );
+                        })()}
                           </>
                         )}
                       </div>
@@ -3222,7 +2909,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             <svg className="h-3 w-3 text-purple-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                             </svg>
-                            Operator Roles ({rosaHcpResources.operatorRoles.length})
+                            Operator Roles ({savedPrefix
+                              ? rosaHcpResources.operatorRoles.filter(role => role.clusterPrefix === savedPrefix || role.name?.startsWith(`${savedPrefix}-`)).length
+                              : rosaHcpResources.operatorRoles.length})
                             <div
                               className="ml-1 cursor-help"
                               title="Operator Roles Overview: Ingress - Manages OpenShift ingress routing and load balancing; Image Registry - Manages container image registry operations; Cloud Credential - Manages cloud provider credentials and permissions; EBS CSI Driver - Manages AWS EBS storage for persistent volumes"
@@ -3251,27 +2940,46 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                         {!collapsedSections.has('operator-roles') && (
                           <>
-                        {rosaHcpResources.operatorRoles.length === 0 ? (
-                          <div className="text-center py-4 text-purple-600 text-xs">
-                            <div className="mb-2">No operator roles found</div>
-                            <div className="text-purple-500">Click "Create Operator Roles" to set up ROSA operator roles</div>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            {/* Table Header */}
-                            <div className="grid grid-cols-7 gap-2 text-xs font-semibold text-purple-700 bg-purple-100 p-2 rounded">
-                              <div>Role Name</div>
-                              <div>Prefix</div>
-                              <div>Type</div>
-                              <div>Version</div>
-                              <div>Managed</div>
-                              <div>Status</div>
-                              <div>ARN</div>
-                            </div>
+                        {(() => {
+                          // Filter operator roles by saved prefix
+                          const filteredRoles = savedPrefix
+                            ? rosaHcpResources.operatorRoles.filter(role => {
+                                // Match by clusterPrefix or extract prefix from role name
+                                const hasMatchingPrefix = role.clusterPrefix === savedPrefix;
+                                const nameStartsWithPrefix = role.name?.startsWith(`${savedPrefix}-`);
+                                return hasMatchingPrefix || nameStartsWithPrefix;
+                              })
+                            : rosaHcpResources.operatorRoles;
 
-                            {/* Table Rows - Scrollable Container */}
-                            <div className="max-h-48 overflow-y-auto space-y-1">
-                            {rosaHcpResources.operatorRoles.map((role, index) => (
+                          return filteredRoles.length === 0 ? (
+                            <div className="text-center py-4 text-purple-600 text-xs">
+                              <div className="mb-2">
+                                {savedPrefix
+                                  ? `No operator roles found with prefix "${savedPrefix}"`
+                                  : "No operator roles found"}
+                              </div>
+                              <div className="text-purple-500">
+                                {savedPrefix
+                                  ? "Click \"Create Operator Roles\" to set up ROSA operator roles with this prefix"
+                                  : "Set a prefix first, then click \"Create Operator Roles\" to set up ROSA operator roles"}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {/* Table Header */}
+                              <div className="grid grid-cols-7 gap-2 text-xs font-semibold text-purple-700 bg-purple-100 p-2 rounded">
+                                <div>Role Name</div>
+                                <div>Prefix</div>
+                                <div>Type</div>
+                                <div>Version</div>
+                                <div>Managed</div>
+                                <div>Status</div>
+                                <div>ARN</div>
+                              </div>
+
+                              {/* Table Rows - Scrollable Container */}
+                              <div className="max-h-48 overflow-y-auto space-y-1">
+                              {filteredRoles.map((role, index) => (
                               <div key={index} className="grid grid-cols-7 gap-2 text-xs p-2 bg-purple-50 rounded hover:bg-purple-100 transition-colors">
                                 <div className="font-medium text-purple-800 break-words overflow-auto">
                                   {role.name}
@@ -3311,148 +3019,12 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   {role.arn}
                                 </div>
                               </div>
-                            ))}
+                              ))}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          );
+                        })()}
                           </>
-                        )}
-                      </div>
-
-                      {/* OIDC Configuration */}
-                      <div className="bg-white rounded-lg p-3 border border-purple-200">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4
-                            className="text-xs font-semibold text-purple-800 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-1 -m-1 transition-colors"
-                            onClick={() => toggleSection('oidc-configuration')}
-                          >
-                            <svg className="h-3 w-3 text-purple-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1721 9z" />
-                            </svg>
-                            OIDC Configuration
-                            <div
-                              className="ml-1 cursor-help"
-                              title="OIDC Provider Overview: OpenID Connect provider for secure authentication; Required for ROSA HCP cluster authentication; Manages identity and access tokens; Integrates with AWS IAM for role-based access"
-                            >
-                              <svg className="h-3 w-3 text-purple-500 hover:text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                            </div>
-                            <svg
-                              className={`h-3 w-3 text-purple-600 transition-transform duration-200 ml-1 ${collapsedSections.has('oidc-configuration') ? 'rotate-180' : ''}`}
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </h4>
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => {
-                                setOidcModalMode('enter');
-                                setShowOidcModal(true);
-                              }}
-                              className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
-                              title={rosaHcpResources.oidcId ? "Update existing OIDC information" : "Enter existing OIDC ID"}
-                            >
-                              {rosaHcpResources.oidcId ? "📝 Update OIDC Information" : "📝 Enter OIDC Info"}
-                            </button>
-                            <button
-                              onClick={() => {
-                                setOidcModalMode('create');
-                                setShowOidcModal(true);
-                              }}
-                              className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
-                              title="Create new OIDC provider"
-                            >
-                              ➕ Create OIDC Provider
-                            </button>
-                          </div>
-                        </div>
-
-                        {!collapsedSections.has('oidc-configuration') && (
-                          <>
-                            {rosaHcpResources.oidcId ? (
-                              <div className="bg-purple-50 rounded p-2">
-                                <div className="text-xs text-purple-800 font-medium mb-1">OIDC Issuer URL:</div>
-                                <div className="text-xs text-purple-600 font-mono break-all">{rosaHcpResources.oidcId}</div>
-                              </div>
-                            ) : (
-                              <div className="text-center py-4 text-purple-600 text-xs">
-                                <div className="mb-2">No OIDC provider configured</div>
-                                <div className="text-purple-500">Click "Create OIDC Provider" to set up authentication</div>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-
-                      {/* Subnets */}
-                      <div className="bg-white rounded-lg p-3 border border-purple-200">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4
-                            className="text-xs font-semibold text-purple-800 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-1 -m-1 transition-colors"
-                            onClick={() => toggleSection('subnets')}
-                          >
-                            <svg className="h-3 w-3 text-purple-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                            </svg>
-                            Subnets ({rosaHcpResources.subnets.length})
-                            <div
-                              className="ml-1 cursor-help"
-                              title="Subnets Overview: Virtual network segments for ROSA HCP clusters; Private subnets host cluster nodes; Public subnets provide internet gateway access; Required for cluster networking and connectivity"
-                            >
-                              <svg className="h-3 w-3 text-purple-500 hover:text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                            </div>
-                            <svg
-                              className={`h-3 w-3 text-purple-600 transition-transform duration-200 ml-1 ${collapsedSections.has('subnets') ? 'rotate-180' : ''}`}
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </h4>
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => setShowSubnetModal(true)}
-                              className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
-                              title={rosaHcpResources.subnets && rosaHcpResources.subnets.length > 0 && rosaHcpResources.subnets[0].name !== 'Not configured' ? "Update existing subnet information" : "Enter existing subnet information"}
-                            >
-                              {rosaHcpResources.subnets && rosaHcpResources.subnets.length > 0 && rosaHcpResources.subnets[0].name !== 'Not configured' ? "📝 Update Subnet Information" : "📝 Enter Subnet Info"}
-                            </button>
-                            <button
-                              onClick={() => setShowCreateSubnetModal(true)}
-                              className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
-                              title="Create new subnets for ROSA HCP"
-                            >
-                              ➕ Create Subnets
-                            </button>
-                          </div>
-                        </div>
-                        {!collapsedSections.has('subnets') && (
-                        <div className="grid grid-cols-1 gap-1">
-                          {rosaHcpResources.subnets.map((subnet, index) => (
-                            <div key={index} className="flex items-center justify-between text-xs p-2 bg-purple-50 rounded">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center space-x-2">
-                                  <span className="font-medium text-purple-800">{subnet.name}</span>
-                                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
-                                    subnet.type === 'Private' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
-                                  }`}>
-                                    {subnet.type}
-                                  </span>
-                                </div>
-                                <div className="text-purple-600 font-mono text-xs">
-                                  {subnet.id} • {subnet.cidr} • {subnet.az}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
                         )}
                       </div>
 
@@ -3467,7 +3039,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
               )}
               </div>
 
-              {/* Manage ROSA HCP Clusters - Moved below Configure ROSA Resources */}
+              {/* Manage ROSA HCP Clusters - Moved below ROSA HCP Configuration */}
               <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-orange-200/50 p-6 backdrop-blur-sm hover:scale-[1.02] hover:-translate-y-1 animate-in fade-in-50 slide-in-from-bottom-4 duration-1000">
               <h2
                 className="text-sm font-semibold text-orange-900 mb-3 flex items-center cursor-pointer hover:bg-orange-100/50 rounded-lg p-2 -m-2 transition-colors"
@@ -3499,52 +3071,78 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   const Icon = operation.icon;
                   const isVisible = visibleCards.has(`manage-${index}`);
                   const isDisabled = isAutomationDisabled();
+                  const isExpanded = expandedCards.has(operation.id);
                   return (
                     <div
                       key={operation.id}
-                      className={`flex items-center space-x-2 p-3 rounded-lg transition-all duration-500 group border ${
+                      className={`rounded-lg transition-all duration-500 border ${
                         isDisabled
                           ? 'bg-gray-100 border-gray-200 opacity-60'
-                          : 'bg-white hover:bg-orange-50 hover:shadow-lg hover:-translate-y-1 hover:scale-[1.02] border-transparent hover:border-orange-300'
+                          : 'bg-white hover:bg-orange-50 hover:shadow-lg border-transparent hover:border-orange-300'
                       } ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
                       style={{ transitionDelay: `${(index + configureEnvironment.length) * 100}ms` }}
-                      title={isDisabled ? `Disabled: ${getDisabledReason()}` : operation.tooltip || operation.title}
                     >
-                      <div className={`${operation.color} rounded p-1 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 group-active:scale-95`}>
-                        <Icon className="h-3 w-3 text-white" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <h3 className={`text-xs font-medium ${operation.textColor}`} title={operation.tooltip}>
-                            {operation.title}
-                          </h3>
-                          <div className="flex items-center space-x-1">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (!isDisabled) {
-                                  operation.action();
-                                }
-                              }}
-                              className={`text-xs px-2 py-1 rounded transition-colors duration-200 font-medium ${
-                                isDisabled
-                                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                  : 'bg-orange-600 hover:bg-orange-700 text-white'
-                              }`}
-                              title={isDisabled ? `Disabled: ${getDisabledReason()}` : `Run ${operation.title}`}
-                              disabled={isDisabled}
-                            >
-                              Run
-                            </button>
+                      <div
+                        className="flex items-center space-x-2 p-3 cursor-pointer group"
+                        onClick={() => {
+                          const newExpanded = new Set(expandedCards);
+                          if (isExpanded) {
+                            newExpanded.delete(operation.id);
+                          } else {
+                            newExpanded.add(operation.id);
+                          }
+                          setExpandedCards(newExpanded);
+                        }}
+                        title={isDisabled ? `Disabled: ${getDisabledReason()}` : operation.tooltip || operation.title}
+                      >
+                        <div className={`${operation.color} rounded p-1 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 group-active:scale-95`}>
+                          <Icon className="h-3 w-3 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h3 className={`text-xs font-medium ${operation.textColor} flex items-center gap-1`} title={operation.tooltip}>
+                              {operation.title}
+                              <svg
+                                className={`h-3 w-3 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </h3>
                             <span className="text-xs text-gray-400 font-mono bg-gray-100 px-1 rounded text-xs">
                               {operation.duration}
                             </span>
                           </div>
+                          <p className="text-xs text-gray-500 truncate" title={operation.tooltip}>
+                            {operation.subtitle}
+                          </p>
                         </div>
-                        <p className="text-xs text-gray-500 truncate" title={operation.tooltip}>
-                          {operation.subtitle}
-                        </p>
                       </div>
+
+                      {isExpanded && (
+                        <div className="px-3 pb-3 pt-1 border-t border-gray-100">
+                          <p className="text-xs text-gray-600 mb-2">{operation.description}</p>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!isDisabled) {
+                                operation.action();
+                              }
+                            }}
+                            className={`text-xs px-3 py-1.5 rounded transition-colors duration-200 font-medium ${
+                              isDisabled
+                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                : 'bg-orange-600 hover:bg-orange-700 text-white'
+                            }`}
+                            title={isDisabled ? `Disabled: ${getDisabledReason()}` : `Run ${operation.title}`}
+                            disabled={isDisabled}
+                          >
+                            Run {operation.title}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                   })}
@@ -3555,396 +3153,27 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
           </div>
 
           {/* Right Sidebar with Environment Status and Getting Started */}
-          <div className="space-y-4 min-w-72 max-w-80 sticky top-8 animate-in slide-in-from-right duration-1000">
-
-            {/* My Credentials Summary */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-xl border border-gray-200/50 backdrop-blur-sm hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] animate-in fade-in slide-in-from-right-4 duration-900 overflow-hidden">
-              {/* Header */}
-              <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-2 text-white relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/20 to-teal-400/20 animate-pulse"></div>
-                <div className="relative flex items-center space-x-2">
-                  <div className="p-1 bg-white/20 rounded backdrop-blur-sm">
-                    <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-xs font-bold text-white">My Credentials</h2>
-                    <div className="text-xs text-emerald-100 font-medium">Environment Settings</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-3 space-y-2">
-                {/* OpenShift Hub */}
-                {ocpStatus?.connected && ocpStatus?.username && (
-                  <div className="bg-white rounded p-2 border border-gray-200/50 hover:shadow-sm transition-all duration-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
-                        <span className="text-xs font-medium text-gray-900">OpenShift Hub</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <div className="text-xs text-gray-600 max-w-24 truncate" title={`${ocpStatus.username} at ${ocpStatus.api_url?.replace(/^https?:\/\//, '').replace(/:.*$/, '')}`}>
-                          <span className="text-emerald-600 font-medium">{ocpStatus.username}</span> at <span className="font-mono">{ocpStatus.api_url?.replace(/^https?:\/\//, '').replace(/:.*$/, '').substring(0, 10)}...</span>
-                        </div>
-                        <button
-                          onClick={() => {
-                            const hubInfo = `${ocpStatus.username} at ${ocpStatus.api_url?.replace(/^https?:\/\//, '').replace(/:.*$/, '')}`;
-                            navigator.clipboard.writeText(hubInfo);
-                          }}
-                          className="text-gray-400 hover:text-emerald-600 transition-colors duration-200"
-                          title="Copy OpenShift Hub info"
-                        >
-                          <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Configuration Fields */}
-                {configStatus?.configured && configStatus.configured_fields && configStatus.configured_fields.length > 0 && (
-                  configStatus.configured_fields.map((field, index) => {
-                    // Helper function to get field value from various sources
-                    const getFieldValue = (fieldName) => {
-                      // Don't show password fields
-                      if (fieldName.toLowerCase().includes('password') || fieldName.toLowerCase().includes('secret')) {
-                        return '••••••••';
-                      }
-
-                      // Get values from different status objects and known configuration
-                      switch (fieldName) {
-                        case 'OCP_HUB_API_URL':
-                          return ocpStatus?.api_url || 'https://api.cqu-mce291-y.dev09.red-chesterfield.com:6443';
-                        case 'OCP_HUB_CLUSTER_USER':
-                          return ocpStatus?.username || 'kubeadmin';
-                        case 'AWS_REGION':
-                          return 'us-east-1';
-                        case 'AWS_ACCESS_KEY_ID':
-                          return 'AKIAW3MEBI5JI3LVARF4';
-                        case 'OCM_CLIENT_ID':
-                          return '1e72ac38-0a19-4651-bca4-d5aec7d7c986';
-                        default:
-                          return '✓ configured';
-                      }
-                    };
-
-                    const value = getFieldValue(field.field);
-                    const isSecret = field.field.toLowerCase().includes('password') || field.field.toLowerCase().includes('secret');
-
-                    return (
-                      <div key={index} className="bg-white rounded p-2 border border-gray-200/50 hover:shadow-sm transition-all duration-200">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <div className="w-1.5 h-1.5 bg-teal-500 rounded-full"></div>
-                            <span className="text-xs font-medium text-gray-900">{field.field.replace(/_/g, ' ')}</span>
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <div className={`text-xs max-w-24 truncate ${isSecret ? 'text-gray-500' : 'text-teal-600 font-mono'}`} title={isSecret ? 'Hidden for security' : value}>
-                              {value}
-                            </div>
-                            {!isSecret && (
-                              <button
-                                onClick={() => {
-                                  navigator.clipboard.writeText(value);
-                                }}
-                                className="text-gray-400 hover:text-teal-600 transition-colors duration-200"
-                                title={`Copy ${field.field}`}
-                              >
-                                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                </svg>
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-
-                {/* AWS Account */}
-                {rosaStatus?.user_info?.aws_account_id && (
-                  <div className="bg-white rounded p-2 border border-gray-200/50 hover:shadow-sm transition-all duration-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
-                        <span className="text-xs font-medium text-gray-900">AWS Account</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <div className="text-xs text-amber-600 font-mono">
-                          {rosaStatus.user_info.aws_account_id}
-                        </div>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(rosaStatus.user_info.aws_account_id);
-                          }}
-                          className="text-gray-400 hover:text-amber-600 transition-colors duration-200"
-                          title="Copy AWS Account ID"
-                        >
-                          <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* ROSA Resources Summary */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-xl border border-gray-200/50 backdrop-blur-sm hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] animate-in fade-in slide-in-from-right-4 duration-800 overflow-hidden">
-              {/* Header */}
-              <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-3 py-2 text-white relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-400/20 to-indigo-400/20 animate-pulse"></div>
-                <div className="relative flex items-center space-x-2">
-                  <div className="p-1 bg-white/20 rounded backdrop-blur-sm">
-                    <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-xs font-bold text-white">ROSA Resources</h2>
-                    <div className="text-xs text-purple-100 font-medium">Configuration Summary</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-3 space-y-2">
-                {/* Prefix */}
-                <div className="bg-white rounded p-2 border border-gray-200/50 hover:shadow-sm transition-all duration-200">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-1.5 h-1.5 bg-purple-500 rounded-full"></div>
-                      <span className="text-xs font-medium text-gray-900">Prefix</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <div className="text-xs text-gray-600 font-mono">
-                        {savedPrefix || <span className="text-gray-400 italic">not set</span>}
-                      </div>
-                      {savedPrefix && (
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(savedPrefix);
-                            // Simple feedback - could be enhanced with toast notification
-                          }}
-                          className="text-gray-400 hover:text-purple-600 transition-colors duration-200"
-                          title="Copy prefix"
-                        >
-                          <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* OIDC */}
-                <div className="bg-white rounded p-2 border border-gray-200/50 hover:shadow-sm transition-all duration-200">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                      <span className="text-xs font-medium text-gray-900">OIDC</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <div className="text-xs text-gray-600 max-w-28 truncate">
-                        {rosaHcpResources.oidcId ? (
-                          <span className="text-green-600 font-mono" title={rosaHcpResources.oidcId}>
-                            {rosaHcpResources.oidcId.length > 18 ?
-                              `${rosaHcpResources.oidcId.substring(0, 18)}...` :
-                              rosaHcpResources.oidcId
-                            }
-                          </span>
-                        ) : (
-                          <span className="text-gray-400 italic">not set</span>
-                        )}
-                      </div>
-                      {rosaHcpResources.oidcId && (
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(rosaHcpResources.oidcId);
-                          }}
-                          className="text-gray-400 hover:text-green-600 transition-colors duration-200"
-                          title="Copy OIDC URL"
-                        >
-                          <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Subnets */}
-                <div className="bg-white rounded p-2 border border-gray-200/50 hover:shadow-sm transition-all duration-200">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                      <span className="text-xs font-medium text-gray-900">Subnets</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <div className="text-xs text-gray-600 max-w-28">
-                        {rosaHcpResources.subnets && rosaHcpResources.subnets.length > 0 && rosaHcpResources.subnets[0].name !== 'Not configured' ? (
-                          <div className="space-y-0.5">
-                            {rosaHcpResources.subnets.map((subnet, index) => (
-                              <div key={index} className="flex items-center space-x-1">
-                                <div className="text-blue-600 font-mono truncate" title={subnet.name}>
-                                  {subnet.name.length > 14 ? `${subnet.name.substring(0, 14)}...` : subnet.name}
-                                </div>
-                                <button
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(subnet.name);
-                                  }}
-                                  className="text-gray-400 hover:text-blue-600 transition-colors duration-200"
-                                  title={`Copy ${subnet.name}`}
-                                >
-                                  <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                  </svg>
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-gray-400 italic">not set</span>
-                        )}
-                      </div>
-                      {rosaHcpResources.subnets && rosaHcpResources.subnets.length > 0 && rosaHcpResources.subnets[0].name !== 'Not configured' && (
-                        <button
-                          onClick={() => {
-                            const subnetNames = rosaHcpResources.subnets.map(s => s.name).join(', ');
-                            navigator.clipboard.writeText(subnetNames);
-                          }}
-                          className="text-gray-400 hover:text-blue-600 transition-colors duration-200"
-                          title="Copy all subnet names"
-                        >
-                          <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Account Roles */}
-                <div className="bg-white rounded p-2 border border-gray-200/50 hover:shadow-sm transition-all duration-200">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
-                      <span className="text-xs font-medium text-gray-900">Account Roles</span>
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      {rosaHcpResources.accountRoles && rosaHcpResources.accountRoles.length > 0 ? (
-                        <span className="text-orange-600 font-medium">{rosaHcpResources.accountRoles.length} roles</span>
-                      ) : (
-                        <span className="text-gray-400 italic">not loaded</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Operator Roles */}
-                <div className="bg-white rounded p-2 border border-gray-200/50 hover:shadow-sm transition-all duration-200">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-1.5 h-1.5 bg-cyan-500 rounded-full"></div>
-                      <span className="text-xs font-medium text-gray-900">Operator Roles</span>
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      {rosaHcpResources.operatorRoles && rosaHcpResources.operatorRoles.length > 0 ? (
-                        <span className="text-cyan-600 font-medium">{rosaHcpResources.operatorRoles.length} roles</span>
-                      ) : (
-                        <span className="text-gray-400 italic">not loaded</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* ROSA Staging */}
-                {rosaStatus?.user_info?.ocm_account_email && (
-                  <div className="bg-white rounded p-2 border border-gray-200/50 hover:shadow-sm transition-all duration-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-1.5 h-1.5 bg-rose-500 rounded-full"></div>
-                        <span className="text-xs font-medium text-gray-900">ROSA Staging</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <div className="text-xs text-rose-600 font-mono max-w-24 truncate" title={rosaStatus.user_info.ocm_account_email}>
-                          {rosaStatus.user_info.ocm_account_email.length > 18 ? `${rosaStatus.user_info.ocm_account_email.substring(0, 18)}...` : rosaStatus.user_info.ocm_account_email}
-                        </div>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(rosaStatus.user_info.ocm_account_email);
-                          }}
-                          className="text-gray-400 hover:text-rose-600 transition-colors duration-200"
-                          title="Copy ROSA staging email"
-                        >
-                          <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Organization */}
-                {rosaStatus?.user_info?.ocm_organization_name && (
-                  <div className="bg-white rounded p-2 border border-gray-200/50 hover:shadow-sm transition-all duration-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></div>
-                        <span className="text-xs font-medium text-gray-900">Organization</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <div className="text-xs text-indigo-600 font-medium">
-                          {rosaStatus.user_info.ocm_organization_name}
-                        </div>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(rosaStatus.user_info.ocm_organization_name);
-                          }}
-                          className="text-gray-400 hover:text-indigo-600 transition-colors duration-200"
-                          title="Copy organization name"
-                        >
-                          <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+          <div className="space-y-3 min-w-64 max-w-72 lg:sticky lg:top-4 animate-in slide-in-from-right duration-300">
 
             {/* Recent Operations Widget */}
             {recentOperations.length > 0 && (
-              <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-xl border border-gray-200/50 backdrop-blur-sm hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] animate-in fade-in slide-in-from-right-4 duration-1000 overflow-hidden">
+              <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-md border border-gray-200 backdrop-blur-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 animate-in fade-in slide-in-from-right-4 duration-300 overflow-hidden">
                 {/* Header */}
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-3 py-2 text-white relative overflow-hidden">
+                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-2.5 py-1.5 text-white relative overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-r from-indigo-400/20 to-purple-400/20 animate-pulse"></div>
-                  <div className="relative flex items-center space-x-2">
-                    <div className="p-1 bg-white/20 rounded backdrop-blur-sm">
+                  <div className="relative flex items-center gap-1.5">
+                    <div className="p-0.5 bg-white/20 rounded backdrop-blur-sm">
                       <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
                     <div>
-                      <h2 className="text-xs font-bold text-white">Recent Operations</h2>
-                      <div className="text-xs text-indigo-100 font-medium">Quick Access</div>
+                      <h2 className="text-xs font-bold text-white leading-tight">Recent Operations</h2>
                     </div>
                   </div>
                 </div>
 
-                <div className="p-3">
+                <div className="p-2">
                   <div className="space-y-1.5">
                     {recentOperations.map((operation, index) => {
                       const timeAgo = Math.floor((Date.now() - operation.timestamp) / 60000);
@@ -4872,3 +4101,5 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
     </div>
   );
 }
+
+export default WhatCanIHelp;
