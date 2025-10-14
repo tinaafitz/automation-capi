@@ -325,7 +325,13 @@ aws iam attach-role-policy --role-name $PREFIX-autonode-operator-role --policy-a
 
 ### Step 7: Update RosaControlPlane
 
-**Edit your `rosa-control-plane.yaml` file and add the autoNode section:**
+**Edit the RosaControlPlane to add the autoNode section:**
+
+```bash
+kubectl edit rosacontrolplane <your-cluster-name> -n ns-rosa-hcp
+```
+
+**Add the autoNode configuration:**
 
 ```yaml
 apiVersion: controlplane.cluster.x-k8s.io/v1beta2
@@ -341,11 +347,6 @@ spec:
 ```
 
 **Note:** Replace the ARN with your actual AWS account ID and role name.
-
-**Apply the updated RosaControlPlane:**
-```bash
-kubectl apply -f rosa-control-plane.yaml
-```
 
 ### Step 8: Tag AWS Resources for Karpenter Discovery
 
@@ -382,32 +383,30 @@ aws ec2 create-tags \
 
 ### Step 9: Create Kubeconfig
 
-**Generate the kubeconfig file for your cluster:**
+**Create admin user and get credentials:**
 ```bash
-rosa create admin --cluster=tfitzger-rosa-hcp-combo-test
-# Follow the instructions to save the kubeconfig
+rosa create admin --cluster tfitzger-rosa-hcp-combo-test
 ```
 
-Or if you already have access:
+**Login using the credentials from the previous command:**
 ```bash
-oc login --token=<your-token> --server=<api-server-url>
+oc login https://api.<cluster-domain>:443 --username cluster-admin --password <password-from-previous-step> --insecure-skip-tls-verify=true
+```
+
+**Export the kubeconfig to a file:**
+```bash
 oc config view --minify --flatten > ./kubeconfig
 ```
 
 ### Step 10: Create OpenshiftEC2NodeClass
 
-**Check if file exists:**
-```bash
-ls ~/acm_dev/automation-capi/openshiftec2nodeclass.yaml
-```
-
-**If not found, create the file:**
+**Create the OpenshiftEC2NodeClass file:**
 ```bash
 cat > ~/acm_dev/automation-capi/openshiftec2nodeclass.yaml <<EOF
 apiVersion: karpenter.hypershift.openshift.io/v1beta1
 kind: OpenshiftEC2NodeClass
 metadata:
-  name: example-nodeclass
+  name: default-nodepool
 spec:
   securityGroupSelectorTerms:
     - tags:
@@ -418,7 +417,7 @@ spec:
 EOF
 ```
 
-**Edit the file to update the cluster ID if needed, then apply:**
+**Apply the OpenshiftEC2NodeClass:**
 ```bash
 oc --kubeconfig=./kubeconfig apply -f ~/acm_dev/automation-capi/openshiftec2nodeclass.yaml
 ```
