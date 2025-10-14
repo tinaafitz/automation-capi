@@ -305,6 +305,9 @@ All configuration files referenced in this guide should be located at:
 
 This section explains the architectural changes introduced by RosaRoleConfig and RosaNetworkConfig, showing what fields were moved out of ROSAControlPlane and how they're now managed separately.
 
+<details>
+<summary><strong>Click to expand: RosaRoleConfig - Centralized IAM Role Management</strong></summary>
+
 ### RosaRoleConfig: Centralized IAM Role Management
 
 **Purpose**: RosaRoleConfig extracts all IAM role and OIDC configuration from ROSAControlPlane into a reusable resource that can be shared across multiple clusters.
@@ -390,7 +393,12 @@ spec:
 | `rolesRef.nodePoolManagementARN` | `operatorRoleConfig.prefix` | Auto-generated from prefix |
 | `rolesRef.controlPlaneOperatorARN` | `operatorRoleConfig.prefix` | Auto-generated from prefix |
 
+</details>
+
 ---
+
+<details>
+<summary><strong>Click to expand: RosaNetworkConfig - Centralized Network Management</strong></summary>
 
 ### RosaNetworkConfig: Centralized Network Management
 
@@ -469,7 +477,12 @@ spec:
 | N/A | `cidrBlock` | NEW: VPC CIDR block configuration |
 | `region` | `region` | Moved to RosaNetworkConfig (still available in ROSAControlPlane) |
 
+</details>
+
 ---
+
+<details>
+<summary><strong>Click to expand: AutoNode (Karpenter) Configuration</strong></summary>
 
 ### AutoNode (Karpenter) Configuration in ROSAControlPlane
 
@@ -510,27 +523,53 @@ spec:
 
 **Note**: When AutoNode is enabled, `defaultMachinePoolSpec` becomes optional. Karpenter automatically provisions nodes based on pod scheduling requirements.
 
-#### Provision Shard Configuration
+#### Provision Shard Configuration (Required for AutoNode)
 
-The `provisionShardID` specifies where the hosted control plane is deployed:
+The `provisionShardID` specifies where the hosted control plane is deployed and is **required** when using AutoNode:
 
 ```yaml
 spec:
-  # Provision shard ID for hosted control plane placement
+  # Provision shard ID for hosted control plane placement (REQUIRED for AutoNode)
   provisionShardID: "18d315bc-88bf-11f0-a4d5-0a580a80065d"
 ```
 
 **Purpose**:
+- **Required for AutoNode**: Ensures control plane is deployed on a shard that supports Karpenter
 - Controls which Red Hat infrastructure shard hosts your control plane
-- Useful for testing specific control plane environments
-- Optional field; if not specified, a default shard is selected
+- Enables Karpenter functionality for automatic node provisioning
 
 **When to Use**:
+- **Always required when AutoNode is enabled**
 - Testing control plane features on specific infrastructure
 - Regulatory or compliance requirements for control plane location
 - Performance testing across different shards
 
+#### Complete AutoNode Configuration Example
+
+```yaml
+spec:
+  # AutoNode configuration
+  autoNode:
+    mode: enabled
+    roleARN: "arn:aws:iam::471112697682:role/KarpenterNodeRole"
+
+  # Provision shard (REQUIRED for AutoNode)
+  provisionShardID: "18d315bc-88bf-11f0-a4d5-0a580a80065d"
+
+  # Optional: Machine pool spec
+  defaultMachinePoolSpec:
+    instanceType: "m5.xlarge"
+    autoscaling:
+      maxReplicas: 3
+      minReplicas: 2
+```
+
+</details>
+
 ---
+
+<details>
+<summary><strong>Click to expand: Complete Field Migration Summary</strong></summary>
 
 ### Complete Field Migration Summary
 
@@ -601,15 +640,15 @@ spec:
     mode: enabled
     roleARN: "arn:aws:iam::471112697682:role/KarpenterNodeRole"
 
+  # Provision shard (REQUIRED for AutoNode)
+  provisionShardID: "18d315bc-88bf-11f0-a4d5-0a580a80065d"
+
   # Optional: defaultMachinePoolSpec (still configurable but optional with AutoNode)
   defaultMachinePoolSpec:
     instanceType: "m5.xlarge"
     autoscaling:
       maxReplicas: 3
       minReplicas: 2
-
-  # NEW: Optional provision shard configuration
-  provisionShardID: "18d315bc-88bf-11f0-a4d5-0a580a80065d"
 
   additionalTags:
     env: "tue"
@@ -635,11 +674,13 @@ spec:
 - ✅ `autoNode` → AutoNode (Karpenter) configuration for automatic node scaling
   - `autoNode.mode` → Enable/disable Karpenter (values: `enabled`, `disabled`)
   - `autoNode.roleARN` → IAM role ARN for Karpenter node provisioning
-- ✅ `provisionShardID` → Optional control plane shard placement
+- ✅ `provisionShardID` → Control plane shard placement (REQUIRED for AutoNode)
 
 **New Resources Created**:
 - ✅ `RosaRoleConfig` → Manages all IAM roles and OIDC configuration
 - ✅ `RosaNetworkConfig` → Manages VPC, subnets, and network infrastructure
+
+</details>
 
 ---
 
