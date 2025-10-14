@@ -1,4 +1,4 @@
-# What's New: RosaRoleConfig, RosaNetworkConfig, and AutoNode
+# What's New
 
 ## Overview
 
