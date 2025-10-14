@@ -1,4 +1,4 @@
-# QE Testing for AutoNode Enhancement
+# AutoNode Test Guide
 
 ## Overview
 This guide provides step-by-step instructions for testing the AutoNode feature for ROSA HCP clusters using CAPI/CAPA.
@@ -20,12 +20,7 @@ This guide provides step-by-step instructions for testing the AutoNode feature f
 
 ### Step 1: Create AutoNode IAM Policy
 
-**Check if policy file exists:**
-```bash
-ls ~/acm_dev/automation-capi/autonode-private-preview-policy.json
-```
-
-**If not found, create the policy file:**
+**Create the policy file:**
 ```bash
 cat > ~/acm_dev/automation-capi/autonode-private-preview-policy.json <<'EOF'
 {
@@ -430,12 +425,7 @@ default           112m
 
 ### Step 11: Create NodePool
 
-**Check if file exists:**
-```bash
-ls ~/acm_dev/automation-capi/test-nodepool.yaml
-```
-
-**If not found, create the file:**
+**Create the file:**
 ```bash
 cat > ~/acm_dev/automation-capi/test-nodepool.yaml <<'EOF'
 apiVersion: karpenter.sh/v1
