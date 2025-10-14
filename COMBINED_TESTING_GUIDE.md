@@ -471,25 +471,44 @@ spec:
 
 ---
 
-### Autoscaling Configuration in ROSAControlPlane
+### AutoNode (Karpenter) Configuration in ROSAControlPlane
 
-The `defaultMachinePoolSpec` section configures the default worker node pool with autoscaling capabilities.
+The `autoNode` section enables Karpenter-based automatic node scaling for ROSA HCP clusters, replacing traditional machine pool autoscaling.
 
-#### Autoscaling Fields in ROSAControlPlane
+#### AutoNode Fields in ROSAControlPlane
 
 ```yaml
 spec:
+  # AutoNode Configuration for Karpenter Integration
+  autoNode:
+    mode: enabled                       # Enable/disable AutoNode (values: enabled, disabled)
+    roleARN: "arn:aws:iam::471112697682:role/KarpenterNodeRole"  # IAM role for Karpenter
+
+  # Optional: defaultMachinePoolSpec still configurable when AutoNode enabled
   defaultMachinePoolSpec:
-    instanceType: "m5.xlarge"          # EC2 instance type for worker nodes
+    instanceType: "m5.xlarge"
     autoscaling:
-      maxReplicas: 3                    # Maximum number of worker nodes
-      minReplicas: 2                    # Minimum number of worker nodes
+      maxReplicas: 3
+      minReplicas: 2
 ```
 
-**How Autoscaling Works**:
-- **minReplicas**: The cluster always maintains at least this many worker nodes
-- **maxReplicas**: The cluster can scale up to this many worker nodes based on workload demand
-- **instanceType**: All worker nodes in this pool use this EC2 instance type
+**How AutoNode Works**:
+- **mode: enabled**: Karpenter handles automatic node provisioning based on workload demands
+- **mode: disabled**: Traditional machine pool autoscaling is used (default behavior)
+- **roleARN**: IAM role ARN with Karpenter permissions for node provisioning
+- **Karpenter Advantages**:
+  - Faster node provisioning (seconds vs. minutes)
+  - More efficient bin-packing and resource utilization
+  - Automatic instance type selection based on pod requirements
+  - Cost optimization through consolidation and right-sizing
+
+**When to Use AutoNode**:
+- **Production Workloads**: Fast auto-scaling for variable workloads
+- **Cost Optimization**: Automatic node consolidation reduces costs
+- **Dynamic Requirements**: Workloads with changing resource needs
+- **Batch Processing**: Rapid scale-up/scale-down for batch jobs
+
+**Note**: When AutoNode is enabled, `defaultMachinePoolSpec` becomes optional. Karpenter automatically provisions nodes based on pod scheduling requirements.
 
 #### Provision Shard Configuration
 
@@ -576,6 +595,13 @@ spec:
     machineCIDR: "10.0.0.0/16"
     podCIDR: "10.128.0.0/14"
     serviceCIDR: "172.30.0.0/16"
+
+  # NEW: AutoNode configuration for Karpenter-based autoscaling
+  autoNode:
+    mode: enabled
+    roleARN: "arn:aws:iam::471112697682:role/KarpenterNodeRole"
+
+  # Optional: defaultMachinePoolSpec (still configurable but optional with AutoNode)
   defaultMachinePoolSpec:
     instanceType: "m5.xlarge"
     autoscaling:
@@ -606,6 +632,9 @@ spec:
 **To ROSAControlPlane.spec**:
 - ✅ `rosaRoleConfigRef` → Reference to RosaRoleConfig resource
 - ✅ `rosaNetworkRef` → Reference to RosaNetworkConfig resource
+- ✅ `autoNode` → AutoNode (Karpenter) configuration for automatic node scaling
+  - `autoNode.mode` → Enable/disable Karpenter (values: `enabled`, `disabled`)
+  - `autoNode.roleARN` → IAM role ARN for Karpenter node provisioning
 - ✅ `provisionShardID` → Optional control plane shard placement
 
 **New Resources Created**:
