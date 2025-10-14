@@ -157,6 +157,31 @@ oc apply -f rosa_role_config.yaml
 oc apply -f capi-network-roles-autonode-test.yml
 ```
 
+### Step 17: Configure AutoNode (Optional)
+
+For detailed AutoNode configuration, validation, and testing procedures, refer to the comprehensive [AutoNode Testing Guide](AUTONODE_TESTING_GUIDE.md).
+
+The AutoNode Testing Guide covers:
+- **IAM Role Requirements**: Setting up Karpenter IAM roles with proper trust relationships
+- **CAPA Controller Updates**: Ensuring AutoNode support in your CAPA build
+- **Configuration Options**: Detailed examples of AutoNode enabled/disabled configurations
+- **Validation Steps**: Pre-test validation and monitoring procedures
+- **Troubleshooting**: Common AutoNode issues and diagnostic commands
+- **Testing Scenarios**: Multiple test configurations and expected results
+
+**Quick AutoNode Configuration Check:**
+
+```bash
+# Verify AutoNode configuration in ROSAControlPlane
+oc get rosacontrolplanes -n ns-rosa-hcp -o yaml | grep -A 10 autoNode
+
+# Check if Karpenter IAM role exists
+aws iam get-role --role-name KarpenterNodeRole
+
+# Verify provision shard ID is set
+oc get rosacontrolplanes -n ns-rosa-hcp -o yaml | grep provisionShardID
+```
+
 ---
 
 ## Verification
