@@ -127,6 +127,7 @@ oc create ns ns-rosa-hcp
 ### Step 12: Apply AWS Identity Configuration
 
 ```bash
+cd ~/acm_dev/automation-capi
 oc apply -f awsIdentity.yaml
 ```
 
@@ -297,6 +298,319 @@ All configuration files referenced in this guide should be located at:
 - The kind cluster provides a local Kubernetes environment for testing
 - All ROSA resources are created in the `ns-rosa-hcp` namespace
 - The CAPA controller runs in the `capa-system` namespace
+
+---
+
+## Understanding RosaRoleConfig and RosaNetworkConfig Changes
+
+This section explains the architectural changes introduced by RosaRoleConfig and RosaNetworkConfig, showing what fields were moved out of ROSAControlPlane and how they're now managed separately.
+
+### RosaRoleConfig: Centralized IAM Role Management
+
+**Purpose**: RosaRoleConfig extracts all IAM role and OIDC configuration from ROSAControlPlane into a reusable resource that can be shared across multiple clusters.
+
+**Key Benefits**:
+- **Reusability**: Create IAM roles once, reference them in multiple clusters
+- **Simplified Management**: Automatic role creation and lifecycle management
+- **Consistency**: Ensures all clusters use the same role configuration
+- **Reduced Complexity**: No need to manually specify individual role ARNs
+
+#### Fields Removed from ROSAControlPlane
+
+The following fields are **NO LONGER** specified in `ROSAControlPlane.spec`:
+
+```yaml
+# REMOVED FIELDS (now managed by RosaRoleConfig):
+installerRoleARN: "arn:aws:iam::471112697682:role/rt3-HCP-ROSA-Installer-Role"
+supportRoleARN: "arn:aws:iam::471112697682:role/rt3-HCP-ROSA-Support-Role"
+workerRoleARN: "arn:aws:iam::471112697682:role/rt3-HCP-ROSA-Worker-Role"
+oidcID: "2j1ob5s4mvqq9ra6fnnrdogi4l0c7dhq"
+
+rolesRef:
+  ingressARN: "arn:aws:iam::471112697682:role/rt3-openshift-ingress-operator-cloud-credentials"
+  imageRegistryARN: "arn:aws:iam::471112697682:role/rt3-openshift-image-registry-installer-cloud-credentials"
+  storageARN: "arn:aws:iam::471112697682:role/rt3-openshift-cluster-csi-drivers-ebs-cloud-credentials"
+  networkARN: "arn:aws:iam::471112697682:role/rt3-openshift-cloud-network-config-controller-cloud-credentials"
+  kubeCloudControllerARN: "arn:aws:iam::471112697682:role/rt3-kube-system-kube-controller-manager"
+  nodePoolManagementARN: "arn:aws:iam::471112697682:role/rt3-kube-system-capa-controller-manager"
+  controlPlaneOperatorARN: "arn:aws:iam::471112697682:role/rt3-kube-system-control-plane-operator"
+```
+
+#### Fields Added to RosaRoleConfig
+
+The new `ROSARoleConfig` resource manages these configurations:
+
+```yaml
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSARoleConfig
+metadata:
+  name: tfitzger-rosa-role-config
+  namespace: ns-rosa-hcp
+spec:
+  # AWS credentials and identity
+  identityRef:
+    kind: AWSClusterControllerIdentity
+    name: default
+  credentialsSecretRef:
+    name: rosa-creds-secret
+
+  # Account role configuration (replaces installerRoleARN, supportRoleARN, workerRoleARN)
+  accountRoleConfig:
+    prefix: "tfm"
+    version: "4.19.10"
+
+  # Operator role configuration (replaces all rolesRef ARNs)
+  operatorRoleConfig:
+    prefix: "tfm"
+```
+
+#### Reference in ROSAControlPlane
+
+Instead of listing all role ARNs, you now simply reference the RosaRoleConfig:
+
+```yaml
+spec:
+  # NEW: Reference to RosaRoleConfig
+  rosaRoleConfigRef:
+    name: tfitzger-rosa-role-config
+```
+
+**Field Mapping**:
+| Old ROSAControlPlane Fields | New RosaRoleConfig Fields | Relationship |
+|----------------------------|---------------------------|--------------|
+| `installerRoleARN` | `accountRoleConfig.prefix` | Auto-generated from prefix |
+| `supportRoleARN` | `accountRoleConfig.prefix` | Auto-generated from prefix |
+| `workerRoleARN` | `accountRoleConfig.prefix` | Auto-generated from prefix |
+| `oidcID` | Auto-created by controller | Automatically managed |
+| `rolesRef.ingressARN` | `operatorRoleConfig.prefix` | Auto-generated from prefix |
+| `rolesRef.imageRegistryARN` | `operatorRoleConfig.prefix` | Auto-generated from prefix |
+| `rolesRef.storageARN` | `operatorRoleConfig.prefix` | Auto-generated from prefix |
+| `rolesRef.networkARN` | `operatorRoleConfig.prefix` | Auto-generated from prefix |
+| `rolesRef.kubeCloudControllerARN` | `operatorRoleConfig.prefix` | Auto-generated from prefix |
+| `rolesRef.nodePoolManagementARN` | `operatorRoleConfig.prefix` | Auto-generated from prefix |
+| `rolesRef.controlPlaneOperatorARN` | `operatorRoleConfig.prefix` | Auto-generated from prefix |
+
+---
+
+### RosaNetworkConfig: Centralized Network Management
+
+**Purpose**: RosaNetworkConfig extracts network configuration from ROSAControlPlane into a reusable resource that automatically creates and manages VPC, subnets, and networking infrastructure.
+
+**Key Benefits**:
+- **Automatic VPC Creation**: No need to manually create VPCs and subnets
+- **Reusability**: Share network configuration across multiple clusters
+- **Simplified Configuration**: Specify CIDR blocks and availability zones; the rest is automated
+- **Lifecycle Management**: Automatic cleanup of network resources when deleted
+
+#### Fields Removed from ROSAControlPlane
+
+The following fields are **NO LONGER** specified in `ROSAControlPlane.spec`:
+
+```yaml
+# REMOVED FIELDS (now managed by RosaNetworkConfig):
+subnets:
+  - "subnet-062e797b5126b599a"
+  - "subnet-0bbe3b8c424bcc607"
+
+availabilityZones:
+  - "us-west-2b"
+```
+
+#### Fields Added to RosaNetworkConfig
+
+The new `ROSANetwork` resource manages network infrastructure:
+
+```yaml
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSANetwork
+metadata:
+  name: tfitzger-rosa-network
+  namespace: ns-rosa-hcp
+spec:
+  # AWS region for network resources
+  region: us-west-2
+
+  # CloudFormation stack name for tracking resources
+  stackName: tf1-network-test-stack
+
+  # Number of availability zones (auto-selects zones)
+  availabilityZoneCount: 1
+
+  # Optional: Explicitly specify availability zones
+  # availabilityZones:
+  #   - us-west-2b
+
+  # VPC CIDR block
+  cidrBlock: 10.0.0.0/16
+
+  # AWS credentials identity
+  identityRef:
+    kind: AWSClusterControllerIdentity
+    name: default
+```
+
+#### Reference in ROSAControlPlane
+
+Instead of specifying subnets and availability zones, you now reference the RosaNetworkConfig:
+
+```yaml
+spec:
+  # NEW: Reference to RosaNetworkConfig
+  rosaNetworkRef:
+    name: tfitzger-rosa-network
+```
+
+**Field Mapping**:
+| Old ROSAControlPlane Fields | New RosaNetworkConfig Fields | Relationship |
+|----------------------------|------------------------------|--------------|
+| `subnets[]` | Auto-created by controller | Subnets created automatically based on `cidrBlock` and `availabilityZoneCount` |
+| `availabilityZones[]` | `availabilityZones[]` or `availabilityZoneCount` | Either specify explicitly or auto-select by count |
+| N/A | `stackName` | NEW: CloudFormation stack name for resource tracking |
+| N/A | `cidrBlock` | NEW: VPC CIDR block configuration |
+| `region` | `region` | Moved to RosaNetworkConfig (still available in ROSAControlPlane) |
+
+---
+
+### Autoscaling Configuration in ROSAControlPlane
+
+The `defaultMachinePoolSpec` section configures the default worker node pool with autoscaling capabilities.
+
+#### Autoscaling Fields in ROSAControlPlane
+
+```yaml
+spec:
+  defaultMachinePoolSpec:
+    instanceType: "m5.xlarge"          # EC2 instance type for worker nodes
+    autoscaling:
+      maxReplicas: 3                    # Maximum number of worker nodes
+      minReplicas: 2                    # Minimum number of worker nodes
+```
+
+**How Autoscaling Works**:
+- **minReplicas**: The cluster always maintains at least this many worker nodes
+- **maxReplicas**: The cluster can scale up to this many worker nodes based on workload demand
+- **instanceType**: All worker nodes in this pool use this EC2 instance type
+
+#### Provision Shard Configuration
+
+The `provisionShardID` specifies where the hosted control plane is deployed:
+
+```yaml
+spec:
+  # Provision shard ID for hosted control plane placement
+  provisionShardID: "18d315bc-88bf-11f0-a4d5-0a580a80065d"
+```
+
+**Purpose**:
+- Controls which Red Hat infrastructure shard hosts your control plane
+- Useful for testing specific control plane environments
+- Optional field; if not specified, a default shard is selected
+
+**When to Use**:
+- Testing control plane features on specific infrastructure
+- Regulatory or compliance requirements for control plane location
+- Performance testing across different shards
+
+---
+
+### Complete Field Migration Summary
+
+#### ROSAControlPlane: Before vs. After
+
+**BEFORE (Old Structure)**:
+```yaml
+spec:
+  # IAM Roles (now in RosaRoleConfig)
+  installerRoleARN: "..."
+  supportRoleARN: "..."
+  workerRoleARN: "..."
+  oidcID: "..."
+  rolesRef:
+    ingressARN: "..."
+    imageRegistryARN: "..."
+    storageARN: "..."
+    networkARN: "..."
+    kubeCloudControllerARN: "..."
+    nodePoolManagementARN: "..."
+    controlPlaneOperatorARN: "..."
+
+  # Network Config (now in RosaNetworkConfig)
+  subnets:
+    - "subnet-062e797b5126b599a"
+    - "subnet-0bbe3b8c424bcc607"
+  availabilityZones:
+    - "us-west-2b"
+
+  # Cluster Config (remains in ROSAControlPlane)
+  rosaClusterName: rosa-rt3
+  domainPrefix: rosa-hcp4
+  version: "4.19.0-ec.5"
+  region: "us-west-2"
+  network:
+    machineCIDR: "10.0.0.0/16"
+    podCIDR: "10.128.0.0/14"
+    serviceCIDR: "172.30.0.0/16"
+  defaultMachinePoolSpec:
+    instanceType: "m5.xlarge"
+    autoscaling:
+      maxReplicas: 3
+      minReplicas: 2
+```
+
+**AFTER (New Structure with References)**:
+```yaml
+spec:
+  # NEW: References to separate configs
+  rosaRoleConfigRef:
+    name: tfitzger-rosa-role-config
+  rosaNetworkRef:
+    name: tfitzger-rosa-network
+
+  # Cluster Config (unchanged)
+  rosaClusterName: tfitzger-rosa-hcp-combo-test
+  domainPrefix: tf-combo
+  version: "4.19.10"
+  region: "us-west-2"
+  channelGroup: stable
+  network:
+    machineCIDR: "10.0.0.0/16"
+    podCIDR: "10.128.0.0/14"
+    serviceCIDR: "172.30.0.0/16"
+  defaultMachinePoolSpec:
+    instanceType: "m5.xlarge"
+    autoscaling:
+      maxReplicas: 3
+      minReplicas: 2
+
+  # NEW: Optional provision shard configuration
+  provisionShardID: "18d315bc-88bf-11f0-a4d5-0a580a80065d"
+
+  additionalTags:
+    env: "tue"
+    profile: "tue"
+```
+
+#### Summary of Removed Fields
+
+**From ROSAControlPlane.spec**:
+- ❌ `installerRoleARN` → Moved to `RosaRoleConfig.spec.accountRoleConfig`
+- ❌ `supportRoleARN` → Moved to `RosaRoleConfig.spec.accountRoleConfig`
+- ❌ `workerRoleARN` → Moved to `RosaRoleConfig.spec.accountRoleConfig`
+- ❌ `oidcID` → Automatically managed by RosaRoleConfig
+- ❌ `rolesRef.*` (all 7 operator role ARNs) → Moved to `RosaRoleConfig.spec.operatorRoleConfig`
+- ❌ `subnets[]` → Automatically created by RosaNetworkConfig
+- ❌ `availabilityZones[]` → Moved to `RosaNetworkConfig.spec.availabilityZones` or `availabilityZoneCount`
+
+#### Summary of Added Fields
+
+**To ROSAControlPlane.spec**:
+- ✅ `rosaRoleConfigRef` → Reference to RosaRoleConfig resource
+- ✅ `rosaNetworkRef` → Reference to RosaNetworkConfig resource
+- ✅ `provisionShardID` → Optional control plane shard placement
+
+**New Resources Created**:
+- ✅ `RosaRoleConfig` → Manages all IAM roles and OIDC configuration
+- ✅ `RosaNetworkConfig` → Manages VPC, subnets, and network infrastructure
 
 ---
 
