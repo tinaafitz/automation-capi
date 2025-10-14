@@ -495,7 +495,10 @@ spec:
   # AutoNode Configuration for Karpenter Integration
   autoNode:
     mode: enabled                       # Enable/disable AutoNode (values: enabled, disabled)
-    roleARN: "arn:aws:iam::471112697682:role/KarpenterNodeRole"  # IAM role for Karpenter
+    roleARN: "arn:aws:iam::<account-id>:role/KarpenterNodeRole"  # IAM role for Karpenter
+
+  # Provision shard (REQUIRED for AutoNode)
+  provisionShardID: "<your-provision-shard-id>"
 
   # Optional: defaultMachinePoolSpec still configurable when AutoNode enabled
   defaultMachinePoolSpec:
@@ -530,7 +533,7 @@ The `provisionShardID` specifies where the hosted control plane is deployed and 
 ```yaml
 spec:
   # Provision shard ID for hosted control plane placement (REQUIRED for AutoNode)
-  provisionShardID: "18d315bc-88bf-11f0-a4d5-0a580a80065d"
+  provisionShardID: "<your-provision-shard-id>"
 ```
 
 **Purpose**:
@@ -551,10 +554,10 @@ spec:
   # AutoNode configuration
   autoNode:
     mode: enabled
-    roleARN: "arn:aws:iam::471112697682:role/KarpenterNodeRole"
+    roleARN: "arn:aws:iam::<account-id>:role/KarpenterNodeRole"
 
   # Provision shard (REQUIRED for AutoNode)
-  provisionShardID: "18d315bc-88bf-11f0-a4d5-0a580a80065d"
+  provisionShardID: "<your-provision-shard-id>"
 
   # Optional: Machine pool spec
   defaultMachinePoolSpec:
@@ -638,10 +641,10 @@ spec:
   # NEW: AutoNode configuration for Karpenter-based autoscaling
   autoNode:
     mode: enabled
-    roleARN: "arn:aws:iam::471112697682:role/KarpenterNodeRole"
+    roleARN: "arn:aws:iam::<account-id>:role/KarpenterNodeRole"
 
   # Provision shard (REQUIRED for AutoNode)
-  provisionShardID: "18d315bc-88bf-11f0-a4d5-0a580a80065d"
+  provisionShardID: "<your-provision-shard-id>"
 
   # Optional: defaultMachinePoolSpec (still configurable but optional with AutoNode)
   defaultMachinePoolSpec:
