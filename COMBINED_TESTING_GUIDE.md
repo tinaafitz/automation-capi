@@ -157,6 +157,38 @@ oc apply -f rosa_role_config.yaml
 oc apply -f capi-network-roles-autonode-test.yml
 ```
 
+### Step 17: Configure AutoNode (Optional)
+
+For detailed AutoNode configuration, IAM role setup, and testing procedures, refer to the comprehensive [QE AutoNode Test Guide](QE_AUTONODE_TEST_GUIDE.md).
+
+The QE AutoNode Test Guide provides complete step-by-step instructions for:
+- **IAM Policy Creation**: Creating the AutoNode IAM policy with all required permissions
+- **Trust Policy Configuration**: Setting up trust relationships with OIDC providers
+- **IAM Role Setup**: Creating and configuring the Karpenter IAM role
+- **Resource Tagging**: Tagging security groups and subnets for Karpenter discovery
+- **OpenshiftEC2NodeClass**: Creating and applying EC2 node class configurations
+- **NodePool Configuration**: Setting up node pools with autoscaling parameters
+- **Verification Steps**: Testing AutoNode functionality and scaling
+- **Troubleshooting**: Common issues and diagnostic procedures
+
+**Reference**: [AutoNode GitLab Documentation](https://gitlab.cee.redhat.com/service/uhc-clusters-service/-/blob/master/docs/rosa_hcp/autonode.md)
+
+**Quick AutoNode Configuration Check:**
+
+```bash
+# Verify AutoNode configuration in ROSAControlPlane
+oc get rosacontrolplanes -n ns-rosa-hcp -o yaml | grep -A 10 autoNode
+
+# Check if Karpenter IAM role exists
+aws iam get-role --role-name <prefix>-autonode-operator-role
+
+# Verify provision shard ID is set
+oc get rosacontrolplanes -n ns-rosa-hcp -o yaml | grep provisionShardID
+
+# Check AutoNode policy
+aws iam get-policy --policy-arn arn:aws:iam::<account-id>:policy/autonode-private-preview
+```
+
 ---
 
 ## Verification
