@@ -305,7 +305,7 @@ All configuration files referenced in this guide should be located at:
 
 This section explains the architectural changes introduced by RosaRoleConfig and RosaNetworkConfig, showing what fields were moved out of ROSAControlPlane and how they're now managed separately.
 
-<details>
+<details open>
 <summary><strong>Click to expand: RosaRoleConfig - Centralized IAM Role Management</strong></summary>
 
 ### RosaRoleConfig: Centralized IAM Role Management
@@ -397,7 +397,7 @@ spec:
 
 ---
 
-<details>
+<details open>
 <summary><strong>Click to expand: RosaNetworkConfig - Centralized Network Management</strong></summary>
 
 ### RosaNetworkConfig: Centralized Network Management
@@ -481,7 +481,7 @@ spec:
 
 ---
 
-<details>
+<details open>
 <summary><strong>Click to expand: AutoNode (Karpenter) Configuration</strong></summary>
 
 ### AutoNode (Karpenter) Configuration in ROSAControlPlane
@@ -571,7 +571,7 @@ spec:
 
 ---
 
-<details>
+<details open>
 <summary><strong>Click to expand: Complete Field Migration Summary</strong></summary>
 
 ### Complete Field Migration Summary
