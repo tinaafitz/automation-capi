@@ -246,12 +246,7 @@ echo "Policy ARN: $POLICY_ARN"
 
 ### Step 3: Create Trust Policy Template
 
-**Check if trust policy template exists:**
-```bash
-ls ~/acm_dev/automation-capi/trust-policy-template.json
-```
-
-**If not found, create the trust policy template:**
+**Create the trust policy template:**
 ```bash
 cat > ~/acm_dev/automation-capi/trust-policy-template.json <<'EOF'
 {
@@ -343,10 +338,10 @@ spec:
   # ... existing configuration ...
   autoNode:
     mode: enabled
-    roleARN: "arn:aws:iam::471112697682:role/tfm-autonode-operator-role"
+    roleARN: "arn:aws:iam::<YOUR_AWS_ACCOUNT_ID>:role/<PREFIX>-autonode-operator-role"
 ```
 
-**Note:** Replace the ARN with your actual AWS account ID and role name.
+**Note:** Replace `<YOUR_AWS_ACCOUNT_ID>` with your actual AWS account ID and `<PREFIX>` with the prefix you used in Step 6.
 
 ### Step 8: Tag AWS Resources for Karpenter Discovery
 
