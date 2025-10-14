@@ -72,17 +72,17 @@ git pull
 
 **Login to Quay.io:**
 ```bash
-podman login -u='tinaafitz+test' -p='9BTFQ3XRG67TUQLH8VIZLPN90IU51L9BN3G04RRTZ53NC3TSOYRQ8L4S9R6DZAL2' quay.io
+podman login quay.io
 ```
 
 **Build the image:**
 ```bash
-podman build -f Dockerfile.simple -t quay.io/tinaafitz/cluster-api-provider-aws:latest .
+podman build -f Dockerfile.simple -t quay.io/<your-username>/cluster-api-provider-aws:latest .
 ```
 
 **Push to registry:**
 ```bash
-podman push quay.io/tinaafitz/cluster-api-provider-aws:latest
+podman push quay.io/<your-username>/cluster-api-provider-aws:latest
 ```
 
 ### Step 8: Update CAPA Controller Image
@@ -95,7 +95,7 @@ oc edit deploy capa-controller-manager -n capa-system
 
 **Update the image field to:**
 ```yaml
-image: quay.io/tinaafitz/cluster-api-provider-aws:latest
+image: quay.io/<your-username>/cluster-api-provider-aws:latest
 ```
 
 Save and exit the editor. The deployment will automatically restart with the new image.
@@ -194,7 +194,7 @@ oc get deployment capa-controller-manager -n capa-system -o jsonpath='{.spec.tem
 
 Expected output:
 ```
-quay.io/tinaafitz/cluster-api-provider-aws:latest
+quay.io/<your-username>/cluster-api-provider-aws:latest
 ```
 
 ---
@@ -710,13 +710,13 @@ clusterctl init --infrastructure aws
 # OPTIONAL: Build and deploy custom image (only if you made code changes)
 # cd /Users/tinafitzgerald/sd_dev/cluster-api-provider-aws
 # git pull
-# podman login -u='tinaafitz+test' -p='9BTFQ3XRG67TUQLH8VIZLPN90IU51L9BN3G04RRTZ53NC3TSOYRQ8L4S9R6DZAL2' quay.io
-# podman build -f Dockerfile.simple -t quay.io/tinaafitz/cluster-api-provider-aws:latest .
-# podman push quay.io/tinaafitz/cluster-api-provider-aws:latest
+# podman login quay.io
+# podman build -f Dockerfile.simple -t quay.io/<your-username>/cluster-api-provider-aws:latest .
+# podman push quay.io/<your-username>/cluster-api-provider-aws:latest
 
 # Update image (requires manual edit)
 oc edit deploy capa-controller-manager -n capa-system
-# Change image to: quay.io/tinaafitz/cluster-api-provider-aws:latest
+# Change image to: quay.io/<your-username>/cluster-api-provider-aws:latest
 
 # Apply CRDs
 cd /Users/tinafitzgerald/sd_dev/cluster-api-provider-aws
