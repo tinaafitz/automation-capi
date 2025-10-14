@@ -19,11 +19,14 @@ This guide provides step-by-step instructions for testing RosaRoleConfig, RosaNe
 
 ## Setup Steps
 
-### Step 1: Source AWS Environment Variables
+### Step 1: Source AWS Environment Variables and Verify ROSA Login
 
 ```bash
 source ~/aws_env_vars
+rosa whoami
 ```
+
+Ensure you are logged into ROSA stage environment.
 
 ### Step 2: Create Kind Cluster
 
@@ -59,13 +62,13 @@ clusterctl init --infrastructure aws
 cd /Users/tinafitzgerald/sd_dev/cluster-api-provider-aws
 ```
 
-### Step 6: Get Latest Code
+### Step 6: Get Latest Code (Optional - only if rebuilding image)
 
 ```bash
 git pull
 ```
 
-### Step 7: Build and Push Custom CAPA Image
+### Step 7: Build and Push Custom CAPA Image (Optional - only if rebuilding image)
 
 **Login to Quay.io:**
 ```bash
@@ -82,21 +85,7 @@ podman build -f Dockerfile.simple -t quay.io/tinaafitz/cluster-api-provider-aws:
 podman push quay.io/tinaafitz/cluster-api-provider-aws:latest
 ```
 
-### Step 8: Apply Custom Resource Definitions (CRDs)
-
-```bash
-kubectl apply -f config/crd/bases/controlplane.cluster.x-k8s.io_rosacontrolplanes.yaml
-kubectl apply -f config/crd/bases/infrastructure.cluster.x-k8s.io_rosanetworks.yaml
-kubectl apply -f config/crd/bases/infrastructure.cluster.x-k8s.io_rosaroleconfigs.yaml
-```
-
-### Step 9: Deploy CAPA Default Configuration
-
-```bash
-oc apply -k config/default/
-```
-
-### Step 10: Update CAPA Controller Image
+### Step 8: Update CAPA Controller Image
 
 Edit the deployment to use your custom Quay image:
 
@@ -110,6 +99,20 @@ image: quay.io/tinaafitz/cluster-api-provider-aws:latest
 ```
 
 Save and exit the editor. The deployment will automatically restart with the new image.
+
+### Step 9: Apply Custom Resource Definitions (CRDs)
+
+```bash
+kubectl apply -f config/crd/bases/controlplane.cluster.x-k8s.io_rosacontrolplanes.yaml
+kubectl apply -f config/crd/bases/infrastructure.cluster.x-k8s.io_rosanetworks.yaml
+kubectl apply -f config/crd/bases/infrastructure.cluster.x-k8s.io_rosaroleconfigs.yaml
+```
+
+### Step 10: Deploy CAPA Default Configuration
+
+```bash
+oc apply -k config/default/
+```
 
 ---
 
@@ -302,8 +305,9 @@ All configuration files referenced in this guide should be located at:
 **Complete setup in one go:**
 
 ```bash
-# Environment setup
+# Environment setup and verify ROSA login
 source ~/aws_env_vars
+rosa whoami
 kind create cluster --name capa-karpenter-test
 
 # Export variables
@@ -316,24 +320,25 @@ export AWS_B64ENCODED_CREDENTIALS=$(clusterawsadm bootstrap credentials encode-a
 # Initialize cluster
 clusterctl init --infrastructure aws
 
-# Build and deploy custom image
-cd /Users/tinafitzgerald/sd_dev/cluster-api-provider-aws
-git pull
-podman login -u='tinaafitz+test' -p='9BTFQ3XRG67TUQLH8VIZLPN90IU51L9BN3G04RRTZ53NC3TSOYRQ8L4S9R6DZAL2' quay.io
-podman build -f Dockerfile.simple -t quay.io/tinaafitz/cluster-api-provider-aws:latest .
-podman push quay.io/tinaafitz/cluster-api-provider-aws:latest
+# OPTIONAL: Build and deploy custom image (only if you made code changes)
+# cd /Users/tinafitzgerald/sd_dev/cluster-api-provider-aws
+# git pull
+# podman login -u='tinaafitz+test' -p='9BTFQ3XRG67TUQLH8VIZLPN90IU51L9BN3G04RRTZ53NC3TSOYRQ8L4S9R6DZAL2' quay.io
+# podman build -f Dockerfile.simple -t quay.io/tinaafitz/cluster-api-provider-aws:latest .
+# podman push quay.io/tinaafitz/cluster-api-provider-aws:latest
+
+# Update image (requires manual edit)
+oc edit deploy capa-controller-manager -n capa-system
+# Change image to: quay.io/tinaafitz/cluster-api-provider-aws:latest
 
 # Apply CRDs
+cd /Users/tinafitzgerald/sd_dev/cluster-api-provider-aws
 kubectl apply -f config/crd/bases/controlplane.cluster.x-k8s.io_rosacontrolplanes.yaml
 kubectl apply -f config/crd/bases/infrastructure.cluster.x-k8s.io_rosanetworks.yaml
 kubectl apply -f config/crd/bases/infrastructure.cluster.x-k8s.io_rosaroleconfigs.yaml
 
 # Deploy CAPA
 oc apply -k config/default/
-
-# Update image (requires manual edit)
-oc edit deploy capa-controller-manager -n capa-system
-# Change image to: quay.io/tinaafitz/cluster-api-provider-aws:latest
 
 # Deploy cluster
 cd ~/acm_dev/automation-capi
