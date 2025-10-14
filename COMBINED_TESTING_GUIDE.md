@@ -337,9 +337,6 @@ All configuration files referenced in this guide should be located at:
 
 This section explains the architectural changes introduced by RosaRoleConfig and RosaNetworkConfig, showing what fields were moved out of ROSAControlPlane and how they're now managed separately.
 
-<details open>
-<summary><strong>Click to expand: RosaRoleConfig - Centralized IAM Role Management</strong></summary>
-
 ### RosaRoleConfig: Centralized IAM Role Management
 
 **Purpose**: RosaRoleConfig extracts all IAM role and OIDC configuration from ROSAControlPlane into a reusable resource that can be shared across multiple clusters.
@@ -509,72 +506,44 @@ spec:
 | N/A | `cidrBlock` | NEW: VPC CIDR block configuration |
 | `region` | `region` | Moved to RosaNetworkConfig (still available in ROSAControlPlane) |
 
-</details>
-
 ---
 
-<details open>
-<summary><strong>Click to expand: AutoNode (Karpenter) Configuration</strong></summary>
+### Autoscaling Configuration in ROSAControlPlane
 
-### AutoNode (Karpenter) Configuration in ROSAControlPlane
+The `defaultMachinePoolSpec` section configures the default worker node pool with autoscaling capabilities.
 
-The `autoNode` section enables Karpenter-based automatic node scaling for ROSA HCP clusters, replacing traditional machine pool autoscaling.
-
-#### AutoNode Fields in ROSAControlPlane
+#### Autoscaling Fields in ROSAControlPlane
 
 ```yaml
 spec:
-  # AutoNode Configuration for Karpenter Integration
-  autoNode:
-    mode: enabled                       # Enable/disable AutoNode (values: enabled, disabled)
-    roleARN: "arn:aws:iam::<account-id>:role/KarpenterNodeRole"  # IAM role for Karpenter
-
-  # Provision shard (REQUIRED for AutoNode)
-  provisionShardID: "<your-provision-shard-id>"
-
-  # Optional: defaultMachinePoolSpec still configurable when AutoNode enabled
   defaultMachinePoolSpec:
-    instanceType: "m5.xlarge"
+    instanceType: "m5.xlarge"          # EC2 instance type for worker nodes
     autoscaling:
-      maxReplicas: 3
-      minReplicas: 2
+      maxReplicas: 3                    # Maximum number of worker nodes
+      minReplicas: 2                    # Minimum number of worker nodes
 ```
 
-**How AutoNode Works**:
-- **mode: enabled**: Karpenter handles automatic node provisioning based on workload demands
-- **mode: disabled**: Traditional machine pool autoscaling is used (default behavior)
-- **roleARN**: IAM role ARN with Karpenter permissions for node provisioning
-- **Karpenter Advantages**:
-  - Faster node provisioning (seconds vs. minutes)
-  - More efficient bin-packing and resource utilization
-  - Automatic instance type selection based on pod requirements
-  - Cost optimization through consolidation and right-sizing
+**How Autoscaling Works**:
+- **minReplicas**: The cluster always maintains at least this many worker nodes
+- **maxReplicas**: The cluster can scale up to this many worker nodes based on workload demand
+- **instanceType**: All worker nodes in this pool use this EC2 instance type
 
-**When to Use AutoNode**:
-- **Production Workloads**: Fast auto-scaling for variable workloads
-- **Cost Optimization**: Automatic node consolidation reduces costs
-- **Dynamic Requirements**: Workloads with changing resource needs
-- **Batch Processing**: Rapid scale-up/scale-down for batch jobs
+#### Provision Shard Configuration
 
-**Note**: When AutoNode is enabled, `defaultMachinePoolSpec` becomes optional. Karpenter automatically provisions nodes based on pod scheduling requirements.
-
-#### Provision Shard Configuration (Required for AutoNode)
-
-The `provisionShardID` specifies where the hosted control plane is deployed and is **required** when using AutoNode:
+The `provisionShardID` specifies where the hosted control plane is deployed:
 
 ```yaml
 spec:
-  # Provision shard ID for hosted control plane placement (REQUIRED for AutoNode)
-  provisionShardID: "<your-provision-shard-id>"
+  # Provision shard ID for hosted control plane placement
+  provisionShardID: "18d315bc-88bf-11f0-a4d5-0a580a80065d"
 ```
 
 **Purpose**:
-- **Required for AutoNode**: Ensures control plane is deployed on a shard that supports Karpenter
 - Controls which Red Hat infrastructure shard hosts your control plane
-- Enables Karpenter functionality for automatic node provisioning
+- Useful for testing specific control plane environments
+- Optional field; if not specified, a default shard is selected
 
 **When to Use**:
-- **Always required when AutoNode is enabled**
 - Testing control plane features on specific infrastructure
 - Regulatory or compliance requirements for control plane location
 - Performance testing across different shards
@@ -714,8 +683,6 @@ spec:
 **New Resources Created**:
 - ✅ `RosaRoleConfig` → Manages all IAM roles and OIDC configuration
 - ✅ `RosaNetworkConfig` → Manages VPC, subnets, and network infrastructure
-
-</details>
 
 ---
 
