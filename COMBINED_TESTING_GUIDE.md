@@ -136,7 +136,7 @@ oc apply -f awsIdentity.yaml
 Run the secret creation script:
 
 ```bash
-/Users/tinafitzgerald/create-ocmclient-secret.sh
+./create-ocmclient-secret.sh
 ```
 
 ### Step 14: Create RosaNetworkConfig
@@ -287,7 +287,7 @@ All configuration files referenced in this guide should be located at:
 - `~/acm_dev/automation-capi/rosa_network_config.yaml`
 - `~/acm_dev/automation-capi/rosa_role_config.yaml`
 - `~/acm_dev/automation-capi/capi-network-roles-autonode-test.yml`
-- `/Users/tinafitzgerald/create-ocmclient-secret.sh`
+- `~/acm_dev/automation-capi/create-ocmclient-secret.sh`
 
 ---
 
@@ -324,19 +324,19 @@ The following fields are **NO LONGER** specified in `ROSAControlPlane.spec`:
 
 ```yaml
 # REMOVED FIELDS (now managed by RosaRoleConfig):
-installerRoleARN: "arn:aws:iam::471112697682:role/rt3-HCP-ROSA-Installer-Role"
-supportRoleARN: "arn:aws:iam::471112697682:role/rt3-HCP-ROSA-Support-Role"
-workerRoleARN: "arn:aws:iam::471112697682:role/rt3-HCP-ROSA-Worker-Role"
-oidcID: "2j1ob5s4mvqq9ra6fnnrdogi4l0c7dhq"
+installerRoleARN: "arn:aws:iam::<account-id>:role/<prefix>-HCP-ROSA-Installer-Role"
+supportRoleARN: "arn:aws:iam::<account-id>:role/<prefix>-HCP-ROSA-Support-Role"
+workerRoleARN: "arn:aws:iam::<account-id>:role/<prefix>-HCP-ROSA-Worker-Role"
+oidcID: "<oidc-config-id>"
 
 rolesRef:
-  ingressARN: "arn:aws:iam::471112697682:role/rt3-openshift-ingress-operator-cloud-credentials"
-  imageRegistryARN: "arn:aws:iam::471112697682:role/rt3-openshift-image-registry-installer-cloud-credentials"
-  storageARN: "arn:aws:iam::471112697682:role/rt3-openshift-cluster-csi-drivers-ebs-cloud-credentials"
-  networkARN: "arn:aws:iam::471112697682:role/rt3-openshift-cloud-network-config-controller-cloud-credentials"
-  kubeCloudControllerARN: "arn:aws:iam::471112697682:role/rt3-kube-system-kube-controller-manager"
-  nodePoolManagementARN: "arn:aws:iam::471112697682:role/rt3-kube-system-capa-controller-manager"
-  controlPlaneOperatorARN: "arn:aws:iam::471112697682:role/rt3-kube-system-control-plane-operator"
+  ingressARN: "arn:aws:iam::<account-id>:role/<prefix>-openshift-ingress-operator-cloud-credentials"
+  imageRegistryARN: "arn:aws:iam::<account-id>:role/<prefix>-openshift-image-registry-installer-cloud-credentials"
+  storageARN: "arn:aws:iam::<account-id>:role/<prefix>-openshift-cluster-csi-drivers-ebs-cloud-credentials"
+  networkARN: "arn:aws:iam::<account-id>:role/<prefix>-openshift-cloud-network-config-controller-cloud-credentials"
+  kubeCloudControllerARN: "arn:aws:iam::<account-id>:role/<prefix>-kube-system-kube-controller-manager"
+  nodePoolManagementARN: "arn:aws:iam::<account-id>:role/<prefix>-kube-system-capa-controller-manager"
+  controlPlaneOperatorARN: "arn:aws:iam::<account-id>:role/<prefix>-kube-system-control-plane-operator"
 ```
 
 #### Fields Added to RosaRoleConfig
@@ -417,11 +417,11 @@ The following fields are **NO LONGER** specified in `ROSAControlPlane.spec`:
 ```yaml
 # REMOVED FIELDS (now managed by RosaNetworkConfig):
 subnets:
-  - "subnet-062e797b5126b599a"
-  - "subnet-0bbe3b8c424bcc607"
+  - "subnet-xxxxxxxxxxxxxxxxx"
+  - "subnet-yyyyyyyyyyyyyyyyy"
 
 availabilityZones:
-  - "us-west-2b"
+  - "us-west-2a"
 ```
 
 #### Fields Added to RosaNetworkConfig
@@ -597,10 +597,10 @@ spec:
 
   # Network Config (now in RosaNetworkConfig)
   subnets:
-    - "subnet-062e797b5126b599a"
-    - "subnet-0bbe3b8c424bcc607"
+    - "subnet-xxxxxxxxxxxxxxxxx"
+    - "subnet-yyyyyyyyyyyyyyyyy"
   availabilityZones:
-    - "us-west-2b"
+    - "us-west-2a"
 
   # Cluster Config (remains in ROSAControlPlane)
   rosaClusterName: rosa-rt3
@@ -731,7 +731,7 @@ oc apply -k config/default/
 cd ~/acm_dev/automation-capi
 oc create ns ns-rosa-hcp
 oc apply -f awsIdentity.yaml
-/Users/tinafitzgerald/create-ocmclient-secret.sh
+./create-ocmclient-secret.sh
 oc apply -f rosa_network_config.yaml
 oc apply -f rosa_role_config.yaml
 oc apply -f capi-network-roles-autonode-test.yml
