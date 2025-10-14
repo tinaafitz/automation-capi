@@ -1,4 +1,4 @@
-# Combined Testing Guide: RosaRoleConfig, RosaNetworkConfig and Karpenter
+# Combined features test guide
 
 ## Overview
 This guide provides step-by-step instructions for testing RosaRoleConfig, RosaNetworkConfig, and Karpenter changes using a local kind cluster and custom CAPA build.
