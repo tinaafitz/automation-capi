@@ -255,8 +255,8 @@ export CLUSTER_ID=2ltb620qsji1abmblpslsjjdf834770l
 
 **Export the OIDC Provider ID and OIDC Provider URL (replace with your actual values):**
 ```bash
-export OIDC_CONFIG_ID=2ltb5uj6o7jr8udn9q2c9lu953hn91tc
-export OIDC_PROVIDER_URL=rh-oidc.s3.us-east-1.amazonaws.com/2ltb5uj6o7jr8udn9q2c9lu953hn91tc
+export OIDC_CONFIG_ID=<your-oidc-config-id>
+export OIDC_PROVIDER_URL=<your-oidc-provider-url>
 ```
 
 ### Step 5: Create Trust Policy Template
@@ -270,7 +270,7 @@ cat > ~/acm_dev/automation-capi/trust-policy-template.json <<'EOF'
         {
             "Effect": "Allow",
             "Principal": {
-                "Federated": "arn:aws:iam::765374464689:oidc-provider/{OIDC_PROVIDER_URL}"
+                "Federated": "arn:aws:iam::<YOUR_AWS_ACCOUNT_ID>:oidc-provider/{OIDC_PROVIDER_URL}"
             },
             "Action": "sts:AssumeRoleWithWebIdentity",
             "Condition": {
