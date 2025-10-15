@@ -20,7 +20,7 @@ This guide provides step-by-step instructions for testing the AutoNode feature f
 
 ### Step 1: Create AutoNode IAM Policy
 
-**Create the policy file:**
+**Create the Policy File:**
 ```bash
 cat > ~/acm_dev/automation-capi/autonode-private-preview-policy.json <<'EOF'
 {
@@ -241,19 +241,19 @@ echo "Policy ARN: $POLICY_ARN"
 
 ### Step 3: Get Cluster Information
 
-**Replace `tfitzger-rosa-hcp-combo-test` with your cluster name:**
+**Replace `<your-cluster-name>` With Your Actual Cluster Name:**
 ```bash
-rosa describe cluster --cluster tfitzger-rosa-hcp-combo-test
+rosa describe cluster --cluster <your-cluster-name>
 ```
 
-**Export the Cluster ID (replace with your actual cluster ID):**
+**Export the Cluster ID (Replace With Your Actual Cluster ID):**
 ```bash
-export CLUSTER_ID=2ltb620qsji1abmblpslsjjdf834770l
+export CLUSTER_ID=<your-cluster-id>
 ```
 
 ### Step 4: Get OIDC Provider Information
 
-**Export the OIDC Provider ID and OIDC Provider URL (replace with your actual values):**
+**Export the OIDC Provider ID and OIDC Provider URL (Replace With Your Actual Values):**
 ```bash
 export OIDC_CONFIG_ID=<your-oidc-config-id>
 export OIDC_PROVIDER_URL=<your-oidc-provider-url>
@@ -261,7 +261,7 @@ export OIDC_PROVIDER_URL=<your-oidc-provider-url>
 
 ### Step 5: Create Trust Policy Template
 
-**Create the trust policy template:**
+**Create the Trust Policy Template:**
 ```bash
 cat > ~/acm_dev/automation-capi/trust-policy-template.json <<'EOF'
 {
@@ -286,36 +286,36 @@ EOF
 
 ### Step 6: Create IAM Role for AutoNode
 
-**Set a prefix for your role name:**
+**Set a Prefix for Your Role Name:**
 ```bash
-export PREFIX=tfm
+export PREFIX=<your-prefix>
 ```
 
-**Generate the trust policy with your OIDC provider:**
+**Generate the Trust Policy With Your OIDC Provider:**
 ```bash
 sed "s|{OIDC_PROVIDER_URL}|$OIDC_PROVIDER_URL|g" ~/acm_dev/automation-capi/trust-policy-template.json > ~/acm_dev/automation-capi/$PREFIX-trust-policy.json
 ```
 
-**Create the IAM role:**
+**Create the IAM Role:**
 ```bash
 aws iam create-role --role-name $PREFIX-autonode-operator-role \
   --assume-role-policy-document file://~/acm_dev/automation-capi/$PREFIX-trust-policy.json
 ```
 
-**Attach the policy to the role:**
+**Attach the Policy to the Role:**
 ```bash
 aws iam attach-role-policy --role-name $PREFIX-autonode-operator-role --policy-arn $POLICY_ARN
 ```
 
 ### Step 7: Update RosaControlPlane
 
-**Edit the RosaControlPlane to add the autoNode section:**
+**Edit the RosaControlPlane to Add the autoNode Section:**
 
 ```bash
 kubectl edit rosacontrolplane <your-cluster-name> -n ns-rosa-hcp
 ```
 
-**Add the autoNode configuration:**
+**Add the autoNode Configuration:**
 
 ```yaml
 apiVersion: controlplane.cluster.x-k8s.io/v1beta2
@@ -334,12 +334,12 @@ spec:
 
 ### Step 8: Tag AWS Resources for Karpenter Discovery
 
-**Set AWS region:**
+**Set AWS Region:**
 ```bash
-export AWS_REGION=us-west-2
+export AWS_REGION=<your-aws-region>
 ```
 
-**Get the security group ID:**
+**Get the Security Group ID:**
 ```bash
 export SECURITY_GROUP_ID=$(aws ec2 describe-security-groups \
   --filters "Name=tag:Name,Values=$CLUSTER_ID-default-sg" \
@@ -348,7 +348,7 @@ export SECURITY_GROUP_ID=$(aws ec2 describe-security-groups \
 echo "Security Group ID: $SECURITY_GROUP_ID"
 ```
 
-**Get the private subnet ID:**
+**Get the Private Subnet ID:**
 ```bash
 export PRIVATE_SUBNET_ID=$(aws ec2 describe-subnets \
   --filters "Name=tag:kubernetes.io/role/internal-elb,Values=*" \
@@ -358,7 +358,7 @@ export PRIVATE_SUBNET_ID=$(aws ec2 describe-subnets \
 echo "Private Subnet ID: $PRIVATE_SUBNET_ID"
 ```
 
-**Tag the resources for Karpenter discovery:**
+**Tag the Resources for Karpenter Discovery:**
 ```bash
 aws ec2 create-tags \
   --resources "$SECURITY_GROUP_ID" "$PRIVATE_SUBNET_ID" \
@@ -367,24 +367,24 @@ aws ec2 create-tags \
 
 ### Step 9: Create Kubeconfig
 
-**Create admin user and get credentials:**
+**Create Admin User and Get Credentials:**
 ```bash
-rosa create admin --cluster tfitzger-rosa-hcp-combo-test
+rosa create admin --cluster <your-cluster-name>
 ```
 
-**Login using the credentials from the previous command:**
+**Log in Using the Credentials From the Previous Command:**
 ```bash
 oc login https://api.<cluster-domain>:443 --username cluster-admin --password <password-from-previous-step> --insecure-skip-tls-verify=true
 ```
 
-**Export the kubeconfig to a file:**
+**Export the Kubeconfig to a File:**
 ```bash
 oc config view --minify --flatten > ./kubeconfig
 ```
 
 ### Step 10: Create OpenshiftEC2NodeClass
 
-**Create the OpenshiftEC2NodeClass file:**
+**Create the OpenshiftEC2NodeClass File:**
 ```bash
 cat > ~/acm_dev/automation-capi/openshiftec2nodeclass.yaml <<EOF
 apiVersion: karpenter.hypershift.openshift.io/v1beta1
@@ -406,7 +406,7 @@ EOF
 oc --kubeconfig=./kubeconfig apply -f ~/acm_dev/automation-capi/openshiftec2nodeclass.yaml
 ```
 
-**Verify the EC2NodeClass was created:**
+**Verify the EC2NodeClass Was Created:**
 ```bash
 oc --kubeconfig=./kubeconfig get EC2NodeClass
 ```
@@ -419,7 +419,7 @@ default           112m
 
 ### Step 11: Create NodePool
 
-**Create the file:**
+**Create the File:**
 ```bash
 cat > ~/acm_dev/automation-capi/test-nodepool.yaml <<'EOF'
 apiVersion: karpenter.sh/v1
@@ -454,7 +454,7 @@ EOF
 oc --kubeconfig=./kubeconfig apply -f ~/acm_dev/automation-capi/test-nodepool.yaml
 ```
 
-**Verify the NodePool was created:**
+**Verify the NodePool Was Created:**
 ```bash
 oc --kubeconfig=./kubeconfig get nodepools -o yaml
 ```
@@ -465,7 +465,7 @@ oc --kubeconfig=./kubeconfig get nodepools -o yaml
 
 ### Check AutoNode Components
 
-**Check Karpenter pods:**
+**Check Karpenter Pods:**
 ```bash
 oc --kubeconfig=./kubeconfig get pods -n kube-system | grep karpenter
 ```
@@ -482,7 +482,7 @@ oc --kubeconfig=./kubeconfig get ec2nodeclass
 
 ### Test AutoNode Scaling
 
-**Create a test deployment to trigger scaling:**
+**Create a Test Deployment to Trigger Scaling:**
 ```bash
 cat > test-deployment.yaml <<'EOF'
 apiVersion: apps/v1
@@ -511,12 +511,12 @@ EOF
 oc --kubeconfig=./kubeconfig apply -f test-deployment.yaml
 ```
 
-**Watch for new nodes:**
+**Watch for New Nodes:**
 ```bash
 oc --kubeconfig=./kubeconfig get nodes -w
 ```
 
-**Check Karpenter logs:**
+**Check Karpenter Logs:**
 ```bash
 oc --kubeconfig=./kubeconfig logs -n kube-system -l app.kubernetes.io/name=karpenter -f
 ```
@@ -563,7 +563,7 @@ oc --kubeconfig=./kubeconfig describe nodepool ondemand-and-spot
 
 ## Cleanup
 
-**Delete test deployment:**
+**Delete Test Deployment:**
 ```bash
 oc --kubeconfig=./kubeconfig delete deployment autonode-test
 ```
@@ -573,13 +573,13 @@ oc --kubeconfig=./kubeconfig delete deployment autonode-test
 oc --kubeconfig=./kubeconfig delete -f ~/acm_dev/automation-capi/test-nodepool.yaml
 ```
 
-**Disable AutoNode (edit RosaControlPlane):**
+**Disable AutoNode (Edit RosaControlPlane):**
 ```yaml
 autoNode:
   mode: disabled
 ```
 
-**Delete IAM resources:**
+**Delete IAM Resources:**
 ```bash
 aws iam detach-role-policy --role-name $PREFIX-autonode-operator-role --policy-arn $POLICY_ARN
 aws iam delete-role --role-name $PREFIX-autonode-operator-role
