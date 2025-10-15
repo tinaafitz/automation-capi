@@ -239,7 +239,27 @@ export POLICY_ARN=$(aws iam create-policy --policy-name autonode-private-preview
 echo "Policy ARN: $POLICY_ARN"
 ```
 
-### Step 3: Create Trust Policy Template
+### Step 3: Get Cluster Information
+
+**Replace `tfitzger-rosa-hcp-combo-test` with your cluster name:**
+```bash
+rosa describe cluster --cluster tfitzger-rosa-hcp-combo-test
+```
+
+**Export the Cluster ID (replace with your actual cluster ID):**
+```bash
+export CLUSTER_ID=2ltb620qsji1abmblpslsjjdf834770l
+```
+
+### Step 4: Get OIDC Provider Information
+
+**Export the OIDC Provider ID and OIDC Provider URL (replace with your actual values):**
+```bash
+export OIDC_CONFIG_ID=2ltb5uj6o7jr8udn9q2c9lu953hn91tc
+export OIDC_PROVIDER_URL=rh-oidc.s3.us-east-1.amazonaws.com/2ltb5uj6o7jr8udn9q2c9lu953hn91tc
+```
+
+### Step 5: Create Trust Policy Template
 
 **Create the trust policy template:**
 ```bash
@@ -262,32 +282,6 @@ cat > ~/acm_dev/automation-capi/trust-policy-template.json <<'EOF'
     ]
 }
 EOF
-```
-
-### Step 4: Get Cluster Information
-
-**Replace `tfitzger-rosa-hcp-combo-test` with your cluster name:**
-```bash
-rosa describe cluster --cluster tfitzger-rosa-hcp-combo-test
-```
-
-**Export the Cluster ID (replace with your actual cluster ID):**
-```bash
-export CLUSTER_ID=2ltb620qsji1abmblpslsjjdf834770l
-```
-
-### Step 5: Get OIDC Provider Information
-
-**Export the OIDC Provider ID (replace with your actual OIDC config ID):**
-```bash
-export OIDC_CONFIG_ID=2ltb5uj6o7jr8udn9q2c9lu953hn91tc
-```
-
-**Get the OIDC Provider URL:**
-```bash
-export OIDC_PROVIDER_URL=$(rosa list oidcconfig | grep $OIDC_CONFIG_ID | awk '{ gsub(/^https:\/\//, "", $3); print $3 }')
-
-echo "OIDC Provider URL: $OIDC_PROVIDER_URL"
 ```
 
 ### Step 6: Create IAM Role for AutoNode
