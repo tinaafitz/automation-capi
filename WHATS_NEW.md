@@ -322,7 +322,7 @@ The `provisionShardID` specifies where the hosted control plane is deployed:
 ```yaml
 spec:
   # Provision shard ID for hosted control plane placement
-  provisionShardID: "18d315bc-88bf-11f0-a4d5-0a580a80065d"
+  provisionShardID: "<your-provision-shard-id>"
 ```
 
 **Purpose**:

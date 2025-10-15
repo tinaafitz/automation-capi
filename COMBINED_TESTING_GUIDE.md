@@ -1,4 +1,4 @@
-# Combined features test guide
+# Combined Features Test Guide
 
 ## Overview
 This guide provides step-by-step instructions for testing RosaRoleConfig, RosaNetworkConfig, and Karpenter changes using a local kind cluster and custom CAPA build.
@@ -13,7 +13,7 @@ This guide provides step-by-step instructions for testing RosaRoleConfig, RosaNe
 - `podman` installed
 - AWS credentials configured
 - Quay.io account with credentials
-- CAPA source code cloned at `/Users/tinafitzgerald/sd_dev/cluster-api-provider-aws`
+- CAPA source code cloned locally
 
 ---
 
@@ -59,28 +59,28 @@ clusterctl init --infrastructure aws
 ### Step 5: Navigate to CAPA Source Directory
 
 ```bash
-cd /Users/tinafitzgerald/sd_dev/cluster-api-provider-aws
+cd <path-to-capa-source>/cluster-api-provider-aws
 ```
 
-### Step 6: Get Latest Code (Optional - only if rebuilding image)
+### Step 6: Get Latest Code (Optional - Only if Rebuilding Image)
 
 ```bash
 git pull
 ```
 
-### Step 7: Build and Push Custom CAPA Image (Optional - only if rebuilding image)
+### Step 7: Build and Push Custom CAPA Image (Optional - Only if Rebuilding Image)
 
-**Login to Quay.io:**
+**Log in to Quay.io:**
 ```bash
 podman login quay.io
 ```
 
-**Build the image:**
+**Build the Image:**
 ```bash
 podman build -f Dockerfile.simple -t quay.io/<your-username>/cluster-api-provider-aws:latest .
 ```
 
-**Push to registry:**
+**Push to Registry:**
 ```bash
 podman push quay.io/<your-username>/cluster-api-provider-aws:latest
 ```
@@ -93,7 +93,7 @@ Edit the deployment to use your custom Quay image:
 oc edit deploy capa-controller-manager -n capa-system
 ```
 
-**Update the image field to:**
+**Update the Image Field to:**
 ```yaml
 image: quay.io/<your-username>/cluster-api-provider-aws:latest
 ```
@@ -182,8 +182,8 @@ oc get rosacontrolplanes -n ns-rosa-hcp -o yaml | grep -A 10 autoNode
 # Check if Karpenter IAM role exists
 aws iam get-role --role-name <prefix>-autonode-operator-role
 
-# Verify provision shard ID is set
-oc get rosacontrolplanes -n ns-rosa-hcp -o yaml | grep provisionShardID
+# Verify AutoNode is enabled
+oc get rosacontrolplanes -n ns-rosa-hcp -o yaml | grep -A 2 autoNode
 
 # Check AutoNode policy
 aws iam get-policy --policy-arn arn:aws:iam::<account-id>:policy/autonode-private-preview
@@ -241,7 +241,7 @@ quay.io/<your-username>/cluster-api-provider-aws:latest
 - Check pod events: `oc describe pod -n capa-system <pod-name>`
 
 **Issue: CRDs not applying**
-- Ensure you're in the correct directory: `/Users/tinafitzgerald/sd_dev/cluster-api-provider-aws`
+- Ensure you're in the correct CAPA source directory
 - Check CRD status: `kubectl get crd | grep rosa`
 
 **Issue: Cluster not creating**
@@ -348,7 +348,7 @@ The What's New document provides:
 
 ## Quick Reference
 
-**Complete setup in one go:**
+**Complete Setup in One Go:**
 
 ```bash
 # Environment setup and verify ROSA login
@@ -367,7 +367,7 @@ export AWS_B64ENCODED_CREDENTIALS=$(clusterawsadm bootstrap credentials encode-a
 clusterctl init --infrastructure aws
 
 # OPTIONAL: Build and deploy custom image (only if you made code changes)
-# cd /Users/tinafitzgerald/sd_dev/cluster-api-provider-aws
+# cd <path-to-capa-source>/cluster-api-provider-aws
 # git pull
 # podman login quay.io
 # podman build -f Dockerfile.simple -t quay.io/<your-username>/cluster-api-provider-aws:latest .
@@ -378,7 +378,7 @@ oc edit deploy capa-controller-manager -n capa-system
 # Change image to: quay.io/<your-username>/cluster-api-provider-aws:latest
 
 # Apply CRDs
-cd /Users/tinafitzgerald/sd_dev/cluster-api-provider-aws
+cd <path-to-capa-source>/cluster-api-provider-aws
 kubectl apply -f config/crd/bases/controlplane.cluster.x-k8s.io_rosacontrolplanes.yaml
 kubectl apply -f config/crd/bases/infrastructure.cluster.x-k8s.io_rosanetworks.yaml
 kubectl apply -f config/crd/bases/infrastructure.cluster.x-k8s.io_rosaroleconfigs.yaml
