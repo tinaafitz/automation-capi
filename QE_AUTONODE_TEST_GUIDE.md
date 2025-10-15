@@ -239,32 +239,7 @@ export POLICY_ARN=$(aws iam create-policy --policy-name autonode-private-preview
 echo "Policy ARN: $POLICY_ARN"
 ```
 
-### Step 3: Create Trust Policy Template
-
-**Create the trust policy template:**
-```bash
-cat > ~/acm_dev/automation-capi/trust-policy-template.json <<'EOF'
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Principal": {
-                "Federated": "arn:aws:iam::765374464689:oidc-provider/{OIDC_PROVIDER_URL}"
-            },
-            "Action": "sts:AssumeRoleWithWebIdentity",
-            "Condition": {
-                "StringEquals": {
-                    "{OIDC_PROVIDER_URL}:sub": "system:serviceaccount:kube-system:karpenter"
-                }
-            }
-        }
-    ]
-}
-EOF
-```
-
-### Step 4: Get Cluster Information
+### Step 3: Get Cluster Information
 
 **Replace `tfitzger-rosa-hcp-combo-test` with your cluster name:**
 ```bash
@@ -276,18 +251,37 @@ rosa describe cluster --cluster tfitzger-rosa-hcp-combo-test
 export CLUSTER_ID=2ltb620qsji1abmblpslsjjdf834770l
 ```
 
-### Step 5: Get OIDC Provider Information
+### Step 4: Get OIDC Provider Information
 
-**Export the OIDC Provider ID (replace with your actual OIDC config ID):**
+**Export the OIDC Provider ID and OIDC Provider URL (replace with your actual values):**
 ```bash
-export OIDC_CONFIG_ID=2ltb5uj6o7jr8udn9q2c9lu953hn91tc
+export OIDC_CONFIG_ID=<your-oidc-config-id>
+export OIDC_PROVIDER_URL=<your-oidc-provider-url>
 ```
 
-**Get the OIDC Provider URL:**
-```bash
-export OIDC_PROVIDER_URL=$(rosa list oidcconfig | grep $OIDC_CONFIG_ID | awk '{ gsub(/^https:\/\//, "", $3); print $3 }')
+### Step 5: Create Trust Policy Template
 
-echo "OIDC Provider URL: $OIDC_PROVIDER_URL"
+**Create the trust policy template:**
+```bash
+cat > ~/acm_dev/automation-capi/trust-policy-template.json <<'EOF'
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "Federated": "arn:aws:iam::<YOUR_AWS_ACCOUNT_ID>:oidc-provider/{OIDC_PROVIDER_URL}"
+            },
+            "Action": "sts:AssumeRoleWithWebIdentity",
+            "Condition": {
+                "StringEquals": {
+                    "{OIDC_PROVIDER_URL}:sub": "system:serviceaccount:kube-system:karpenter"
+                }
+            }
+        }
+    ]
+}
+EOF
 ```
 
 ### Step 6: Create IAM Role for AutoNode
