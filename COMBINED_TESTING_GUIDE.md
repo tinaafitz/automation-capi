@@ -1,4 +1,4 @@
-# Combined features test guide
+# Combined Features Test Guide
 
 ## Overview
 This guide provides step-by-step instructions for testing RosaRoleConfig, RosaNetworkConfig, and Karpenter changes using a local kind cluster and custom CAPA build.
@@ -62,25 +62,25 @@ clusterctl init --infrastructure aws
 cd <path-to-capa-source>/cluster-api-provider-aws
 ```
 
-### Step 6: Get Latest Code (Optional - only if rebuilding image)
+### Step 6: Get Latest Code (Optional - Only if Rebuilding Image)
 
 ```bash
 git pull
 ```
 
-### Step 7: Build and Push Custom CAPA Image (Optional - only if rebuilding image)
+### Step 7: Build and Push Custom CAPA Image (Optional - Only if Rebuilding Image)
 
-**Login to Quay.io:**
+**Log in to Quay.io:**
 ```bash
 podman login quay.io
 ```
 
-**Build the image:**
+**Build the Image:**
 ```bash
 podman build -f Dockerfile.simple -t quay.io/<your-username>/cluster-api-provider-aws:latest .
 ```
 
-**Push to registry:**
+**Push to Registry:**
 ```bash
 podman push quay.io/<your-username>/cluster-api-provider-aws:latest
 ```
@@ -93,7 +93,7 @@ Edit the deployment to use your custom Quay image:
 oc edit deploy capa-controller-manager -n capa-system
 ```
 
-**Update the image field to:**
+**Update the Image Field to:**
 ```yaml
 image: quay.io/<your-username>/cluster-api-provider-aws:latest
 ```
@@ -348,7 +348,7 @@ The What's New document provides:
 
 ## Quick Reference
 
-**Complete setup in one go:**
+**Complete Setup in One Go:**
 
 ```bash
 # Environment setup and verify ROSA login
