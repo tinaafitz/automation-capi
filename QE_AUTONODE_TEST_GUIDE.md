@@ -241,14 +241,14 @@ echo "Policy ARN: $POLICY_ARN"
 
 ### Step 3: Get Cluster Information
 
-**Replace `tfitzger-rosa-hcp-combo-test` with your cluster name:**
+**Replace `<your-cluster-name>` with your actual cluster name:**
 ```bash
-rosa describe cluster --cluster tfitzger-rosa-hcp-combo-test
+rosa describe cluster --cluster <your-cluster-name>
 ```
 
 **Export the Cluster ID (replace with your actual cluster ID):**
 ```bash
-export CLUSTER_ID=2ltb620qsji1abmblpslsjjdf834770l
+export CLUSTER_ID=<your-cluster-id>
 ```
 
 ### Step 4: Get OIDC Provider Information
@@ -288,7 +288,7 @@ EOF
 
 **Set a prefix for your role name:**
 ```bash
-export PREFIX=tfm
+export PREFIX=<your-prefix>
 ```
 
 **Generate the trust policy with your OIDC provider:**
@@ -336,7 +336,7 @@ spec:
 
 **Set AWS region:**
 ```bash
-export AWS_REGION=us-west-2
+export AWS_REGION=<your-aws-region>
 ```
 
 **Get the security group ID:**
@@ -369,7 +369,7 @@ aws ec2 create-tags \
 
 **Create admin user and get credentials:**
 ```bash
-rosa create admin --cluster tfitzger-rosa-hcp-combo-test
+rosa create admin --cluster <your-cluster-name>
 ```
 
 **Login using the credentials from the previous command:**
