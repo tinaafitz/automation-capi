@@ -1640,115 +1640,41 @@ Cluster context: ${data.context_name}`;
 
 
 
-            {/* Configuration Prerequisites Warning */}
-            {configStatus && !configStatus.configured && (
-              <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border-l-4 border-orange-500 rounded-xl p-3 md:p-4 mb-4 shadow-md hover:shadow-lg transition-all duration-300 animate-in fade-in slide-in-from-left duration-300">
-                <div className="flex items-start space-x-4">
-                  <div className="flex-shrink-0">
-                    <svg className="h-8 w-8 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-orange-800 mb-2">
-                      ⚙️ Configuration Required
-                    </h3>
-                    <p className="text-orange-700 mb-4">
-                      {configStatus.message}. <strong>All automation features are disabled</strong> until configuration is complete.
-                    </p>
-
-                    <div className="bg-white rounded-lg p-4 border border-orange-200 mb-4">
-                      <h4 className="font-semibold text-orange-800 mb-2">What needs to be configured?</h4>
-                      <p className="text-orange-700 text-sm mb-3">
-                        File: <code className="bg-orange-100 px-2 py-1 rounded text-orange-800">{configStatus.config_file_path}</code>
-                      </p>
-
-                      {configStatus.total_configured > 0 && (
-                        <div className="mb-3">
-                          <div className="flex items-center justify-between text-sm text-orange-700 mb-2">
-                            <span>Progress:</span>
-                            <span className="font-semibold">{configStatus.total_configured}/{configStatus.total_required} configured</span>
-                          </div>
-                          <div className="bg-orange-200 rounded-full h-2">
-                            <div
-                              className="bg-orange-500 h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${(configStatus.total_configured / configStatus.total_required) * 100}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="text-sm text-orange-600">
-                        Missing: {[...(configStatus.empty_fields || []), ...(configStatus.missing_fields || [])].length} required fields
-                      </div>
-                    </div>
-
-                    <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mb-4">
-                      <h4 className="font-semibold text-yellow-800 mb-2">⚠️ Impact on Automation</h4>
-                      <ul className="text-sm text-yellow-700 space-y-1">
-                        <li>• Cluster creation/deletion disabled</li>
-                        <li>• Machine pool operations unavailable</li>
-                        <li>• Upgrade operations blocked</li>
-                        <li>• Network configuration disabled</li>
-                        <li>• All CAPI/CAPA automation features offline</li>
-                      </ul>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                      <button
-                        onClick={() => window.location.reload()}
-                        className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-                        aria-label="Check configuration again"
-                      >
-                        ✓ I've configured it, check again
-                      </button>
-
-                      <button
-                        onClick={() => navigator.clipboard.writeText('vars/user_vars.yml')}
-                        className="bg-white hover:bg-gray-50 text-orange-600 border border-orange-300 px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-                        aria-label="Copy config file path"
-                      >
-                        📋 Copy file path
-                      </button>
-
-                      <a
-                        href="https://console.redhat.com/iam/service-accounts"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 font-medium inline-flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                        title="Create OCM Service Account for ClientID and Client Secret"
-                        aria-label="Create OCM Service Account"
-                      >
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                        <span>🔑 Create OCM Service Account</span>
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
 
             {/* Environment Analysis and Credentials Setup */}
             <div className="bg-gradient-to-br from-white to-green-50 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-green-200 p-3 md:p-4 mb-4 backdrop-blur-sm hover:-translate-y-1 animate-in fade-in slide-in-from-bottom-4 duration-300">
               <h2
-                className="text-sm md:text-base font-bold text-gray-900 mb-3 flex items-center gap-2 cursor-pointer hover:bg-green-50 rounded-xl p-1.5 -m-1.5 transition-colors group"
+                className="text-sm font-semibold text-gray-900 mb-3 flex items-center cursor-pointer hover:bg-green-50 rounded-lg p-2 -m-2 transition-colors"
                 onClick={() => toggleSection('credentials-environment')}
               >
-                <div className="bg-gradient-to-br from-green-500 to-green-700 rounded-lg p-2 shadow-lg group-hover:shadow-xl transition-shadow">
-                  <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="bg-green-600 rounded-full p-1 mr-2">
+                  <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
                 </div>
-                <span>My Credentials</span>
+                <span>User Credentials</span>
                 <div className="flex items-center ml-auto gap-2">
                   <div className={`text-xs px-3 py-1.5 rounded-full font-semibold border ${
-                    rosaStatus?.authenticated && configStatus?.configured ?
-                    'bg-green-100 text-green-800 border-green-300' : 'bg-orange-100 text-orange-800 border-orange-300'
+                    (() => {
+                      // Check if all 5 required fields (AWS + OCM) are configured
+                      const requiredFields = ['AWS_REGION', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'OCM_CLIENT_ID', 'OCM_CLIENT_SECRET'];
+                      const hasAllRequiredFields = configStatus?.configured_fields &&
+                        requiredFields.every(field =>
+                          configStatus.configured_fields.some(f => f.field === field)
+                        );
+                      return rosaStatus?.authenticated && hasAllRequiredFields ?
+                        'bg-green-100 text-green-800 border-green-300' : 'bg-orange-100 text-orange-800 border-orange-300';
+                    })()
                   }`}>
-                    {rosaStatus?.authenticated && configStatus?.configured ? '✓ Ready' : '⚠ Needs Setup'}
+                    {(() => {
+                      // Check if all 5 required fields (AWS + OCM) are configured
+                      const requiredFields = ['AWS_REGION', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'OCM_CLIENT_ID', 'OCM_CLIENT_SECRET'];
+                      const hasAllRequiredFields = configStatus?.configured_fields &&
+                        requiredFields.every(field =>
+                          configStatus.configured_fields.some(f => f.field === field)
+                        );
+                      return rosaStatus?.authenticated && hasAllRequiredFields ? '✓ Ready' : '⚠ Needs Setup';
+                    })()}
                   </div>
                   <svg
                     className={`h-4 w-4 text-green-600 transition-transform duration-200 ${collapsedSections.has('credentials-environment') ? 'rotate-180' : ''}`}
@@ -1763,7 +1689,43 @@ Cluster context: ${data.context_name}`;
 
               {!collapsedSections.has('credentials-environment') && (
                 <>
-                {(!rosaStatus?.authenticated || !configStatus?.configured) ? (
+                {(() => {
+                  // Check if all required fields are configured
+                  const requiredFields = ['AWS_REGION', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'OCM_CLIENT_ID', 'OCM_CLIENT_SECRET'];
+                  // If a field is in configured_fields array, it's configured (backend doesn't include 'value' property)
+                  const hasAllRequiredFields = configStatus?.configured_fields &&
+                    requiredFields.every(field =>
+                      configStatus.configured_fields.some(f => f.field === field)
+                    );
+
+                  // DEBUG LOGGING - CRITICAL FIELD ANALYSIS
+                  console.log('🔍🔍🔍 [OUTER CHECK - Line 1676] configStatus?.configured:', configStatus?.configured);
+                  console.log('🔍🔍🔍 [OUTER CHECK - Line 1676] FULL configStatus object:', JSON.stringify(configStatus, null, 2));
+                  console.log('🔍🔍🔍 [OUTER CHECK - Line 1676] Required fields we are looking for:', requiredFields);
+
+                  const fieldsFromBackend = configStatus?.configured_fields?.map(f => f.field) || [];
+                  console.log('🔍🔍🔍 [OUTER CHECK - Line 1676] *** Fields ACTUALLY RETURNED from backend ***:', fieldsFromBackend);
+                  console.log('🔍🔍🔍 [OUTER CHECK - Line 1676] Number of fields from backend:', fieldsFromBackend.length);
+                  console.log('🔍🔍🔍 [OUTER CHECK - Line 1676] Number of required fields:', requiredFields.length);
+
+                  // Check which required fields are missing
+                  const missingFields = requiredFields.filter(reqField =>
+                    !configStatus?.configured_fields?.some(f => f.field === reqField && f.value && f.value.trim() !== '')
+                  );
+                  console.log('🔍🔍🔍 [OUTER CHECK - Line 1676] *** MISSING REQUIRED FIELDS ***:', missingFields);
+
+                  console.log('🔍🔍🔍 [OUTER CHECK - Line 1676] hasAllRequiredFields:', hasAllRequiredFields);
+                  console.log('🔍🔍🔍 [OUTER CHECK - Line 1676] rosaStatus?.authenticated:', rosaStatus?.authenticated);
+                  console.log('🔍🔍🔍 [OUTER CHECK - Line 1676] Should show "Needs Setup"?', !rosaStatus?.authenticated || !hasAllRequiredFields);
+
+                  // Show "Needs Setup" section ONLY when user_vars has NO values at all
+                  const totalConfigured = configStatus?.total_configured || 0;
+                  const shouldShowNeedsSetup = totalConfigured === 0;
+                  console.log('🔍🔍🔍 [OUTER CHECK - Line 1706] total_configured value:', totalConfigured);
+                  console.log('🔍🔍🔍 [OUTER CHECK - Line 1706] shouldShowNeedsSetup (total_configured === 0):', shouldShowNeedsSetup);
+                  console.log('🔍🔍🔍 [TERNARY RESULT - Line 1711] Rendering which section?', shouldShowNeedsSetup ? '❌ NEEDS SETUP SECTION' : '✅ CREDENTIALS CONFIGURED SECTION');
+                  return shouldShowNeedsSetup;
+                })() ? (
                   <div className="space-y-3">
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                       <h4 className="font-semibold text-blue-800 mb-2">👋 Let's get you set up!</h4>
@@ -1778,20 +1740,67 @@ Cluster context: ${data.context_name}`;
                             <span className="text-blue-700">ROSA CLI needs authentication with staging environment</span>
                           </div>
                         )}
-                        {!configStatus?.configured && (
-                          <div className="flex items-center space-x-2 text-sm">
-                            <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
-                            <span className="text-blue-700">
-                              Configuration file needs setup ({configStatus?.total_configured || 0}/{configStatus?.total_required || 8} fields configured)
-                            </span>
-                          </div>
-                        )}
-                        {ocpStatus && !ocpStatus.connected && (
-                          <div className="flex items-center space-x-2 text-sm">
-                            <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
-                            <span className="text-blue-700">OpenShift Hub credentials need a quick fix - one of your connection details isn't quite right</span>
-                          </div>
-                        )}
+                        {(() => {
+                          // Check if all required fields are configured
+                          const requiredFields = ['AWS_REGION', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'OCM_CLIENT_ID', 'OCM_CLIENT_SECRET'];
+                          // If a field is in configured_fields array, it's configured (backend doesn't include 'value' property)
+                          const hasAllRequiredFields = configStatus?.configured_fields &&
+                            requiredFields.every(field =>
+                              configStatus.configured_fields.some(f => f.field === field)
+                            );
+
+                          // Check if OCP fields are present (checking just field name, not value)
+                          const ocpFields = ['OCP_HUB_API_URL', 'OCP_HUB_CLUSTER_USER', 'OCP_HUB_CLUSTER_PASSWORD'];
+                          const hasAnyOcpField = configStatus?.configured_fields &&
+                            ocpFields.some(field =>
+                              configStatus.configured_fields.some(f => f.field === field)
+                            );
+
+                          // DEBUG LOGGING
+                          console.log('🔍 [INNER CHECK - Line 1701] hasAllRequiredFields:', hasAllRequiredFields);
+                          console.log('🔍 [INNER CHECK - Line 1701] hasAnyOcpField:', hasAnyOcpField);
+                          console.log('🔍 [INNER CHECK - Line 1701] Message to show:',
+                            hasAllRequiredFields && !hasAnyOcpField
+                              ? "NEW MESSAGE (Great! You have all...)"
+                              : (configStatus?.total_configured || 0) === 0
+                              ? "We see you haven't set up your configuration yet"
+                              : "Configuration file needs additional setup"
+                          );
+
+                          return (
+                            <div className="flex items-center space-x-2 text-sm">
+                              <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+                              <span className="text-blue-700">
+                                {hasAllRequiredFields && !hasAnyOcpField
+                                  ? "Great! You have all the required fields configured. You just need to set up a cluster connection - either use a local Kind cluster or provide OCP Hub credentials."
+                                  : (configStatus?.total_configured || 0) === 0
+                                  ? "We see you haven't set up your configuration yet. We can help you with that!"
+                                  : "Configuration file needs additional setup"
+                                }
+                              </span>
+                            </div>
+                          );
+                        })()}
+                        {ocpStatus && !ocpStatus.connected && (configStatus?.total_configured || 0) > 0 && (() => {
+                          // Only show this message if we DON'T have all required fields
+                          const requiredFields = ['AWS_REGION', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'OCM_CLIENT_ID', 'OCM_CLIENT_SECRET'];
+                          const hasAllRequiredFields = configStatus?.configured_fields &&
+                            requiredFields.every(field =>
+                              configStatus.configured_fields.some(f => f.field === field)
+                            );
+
+                          // Don't show this message if we have all required fields - the other message will handle that
+                          if (hasAllRequiredFields) {
+                            return null;
+                          }
+
+                          return (
+                            <div className="flex items-center space-x-2 text-sm">
+                              <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+                              <span className="text-blue-700">OpenShift Hub credentials need a quick fix - one of your connection details isn't quite right</span>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* ROSA Authentication Help */}
@@ -1821,12 +1830,20 @@ Cluster context: ${data.context_name}`;
                       )}
 
                       {/* OpenShift Hub Connection Help */}
-                      {ocpStatus && !ocpStatus.connected && (
-                        <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
-                          <h4 className="font-semibold text-blue-800 mb-2 text-sm">🔌 Cluster Connection Options</h4>
-                          <p className="text-blue-700 mb-3 text-xs">
-                            {ocpStatus.message === 'Invalid username or password' ? 'There\'s a problem with the OCM username and/or password specified. We can help you fix it or you can use a Kind cluster.' : `Connection failed: ${ocpStatus.message}. Choose an option below:`}
-                          </p>
+                      {(() => {
+                        // Only show cluster connection options if required fields are configured
+                        const requiredFields = ['AWS_REGION', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'OCM_CLIENT_ID', 'OCM_CLIENT_SECRET'];
+                        const hasRequiredFields = configStatus?.configured_fields &&
+                          requiredFields.every(field =>
+                            configStatus.configured_fields.some(f => f.field === field && f.value && f.value.trim() !== '')
+                          );
+
+                        return ocpStatus && !ocpStatus.connected && hasRequiredFields && (
+                          <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <h4 className="font-semibold text-blue-800 mb-2 text-sm">🔌 Cluster Connection Options</h4>
+                            <p className="text-blue-700 mb-3 text-xs">
+                              {ocpStatus.message === 'Invalid username or password' ? 'There\'s a problem with the OCM username and/or password specified. We can help you fix it or you can use a Kind cluster.' : `Connection failed: ${ocpStatus.message}. Choose an option below:`}
+                            </p>
 
                           <div className="flex flex-wrap gap-2">
                             <button
@@ -1851,7 +1868,8 @@ Cluster context: ${data.context_name}`;
                             </button>
                           </div>
                         </div>
-                      )}
+                      )
+                      })()}
 
                       {/* Guided Setup Prompt - Compact Version */}
                       {showSetupPrompt && guidedSetupStatus && (
@@ -2079,6 +2097,170 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
             {/* Main Content Sections */}
             <div className="space-y-6">
+              {/* Local Test Environment */}
+              <div className="bg-gradient-to-br from-cyan-50 to-teal-50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-cyan-200/50 p-6 backdrop-blur-sm hover:scale-[1.02] hover:-translate-y-1 animate-in fade-in-50 slide-in-from-bottom-4 duration-800">
+              <h2
+                className="text-sm font-semibold text-cyan-900 mb-3 flex items-center cursor-pointer hover:bg-cyan-100/50 rounded-lg p-2 -m-2 transition-colors"
+                onClick={() => toggleSection('local-environment')}
+              >
+                <div className="bg-cyan-600 rounded-full p-1 mr-2">
+                  <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <span>Local Test Environment</span>
+                <div className="flex items-center ml-auto space-x-2">
+                  <div className="bg-cyan-100 text-cyan-800 text-xs px-2 py-1 rounded-full font-medium">
+                    Kind
+                  </div>
+                  <svg
+                    className={`h-4 w-4 text-cyan-600 transition-transform duration-200 ${collapsedSections.has('local-environment') ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </h2>
+              {!collapsedSections.has('local-environment') && (
+                <div className="space-y-4">
+                  <p className="text-sm text-cyan-700 mb-4">
+                    Set up and manage your local Kind (Kubernetes in Docker) cluster for testing and development.
+                  </p>
+
+                  {/* Kind Cluster Verification Status */}
+                  <div className="bg-gradient-to-r from-cyan-50 to-teal-50 rounded-lg p-4 border border-cyan-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-cyan-800 flex items-center">
+                        <svg className="h-4 w-4 text-cyan-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Kind Cluster Status
+                      </h3>
+                      <div className="flex items-center space-x-2">
+                        <div className="flex items-center text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-semibold">
+                          <div className="w-2 h-2 bg-green-500 rounded-full mr-1.5 animate-pulse"></div>
+                          90% Complete
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Cluster Info */}
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="bg-white rounded-lg p-2 border border-cyan-100">
+                        <div className="text-xs text-cyan-600 font-semibold mb-1">Cluster Name</div>
+                        <div className="text-xs text-cyan-900 font-mono">capa-karpenter-test</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-2 border border-cyan-100">
+                        <div className="text-xs text-cyan-600 font-semibold mb-1">Namespace</div>
+                        <div className="text-xs text-cyan-900 font-mono">ns-rosa-hcp</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-2 border border-cyan-100">
+                        <div className="text-xs text-cyan-600 font-semibold mb-1">API Server</div>
+                        <div className="text-xs text-cyan-900 font-mono">https://127.0.0.1:50926</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-2 border border-cyan-100">
+                        <div className="text-xs text-cyan-600 font-semibold mb-1">Verified</div>
+                        <div className="text-xs text-cyan-900">Wed Oct 15, 2025</div>
+                      </div>
+                    </div>
+
+                    {/* Quick Status Summary */}
+                    <div className="grid grid-cols-3 gap-2 mb-4">
+                      <div className="bg-green-50 rounded p-2 border border-green-200">
+                        <div className="text-lg font-bold text-green-700 mb-0.5">30</div>
+                        <div className="text-xs text-green-600">Checks Passed</div>
+                      </div>
+                      <div className="bg-orange-50 rounded p-2 border border-orange-200">
+                        <div className="text-lg font-bold text-orange-700 mb-0.5">1</div>
+                        <div className="text-xs text-orange-600">Warning</div>
+                      </div>
+                      <div className="bg-red-50 rounded p-2 border border-red-200">
+                        <div className="text-lg font-bold text-red-700 mb-0.5">1</div>
+                        <div className="text-xs text-red-600">Failed</div>
+                      </div>
+                    </div>
+
+                    {/* Component Status */}
+                    <div className="bg-white rounded-lg p-3 border border-cyan-100 mb-3">
+                      <h4 className="text-xs font-semibold text-cyan-800 mb-2 flex items-center">
+                        <svg className="h-3 w-3 text-cyan-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Key Components
+                      </h4>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-cyan-700">✅ Kind Cluster</span>
+                          <span className="text-green-600 font-medium">Running</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-cyan-700">✅ Cert Manager</span>
+                          <span className="text-green-600 font-medium">3 pods running</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-cyan-700">✅ CAPI Controller</span>
+                          <span className="text-green-600 font-medium">1/1 ready</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-cyan-700">✅ CAPA Controller</span>
+                          <span className="text-green-600 font-medium">1/1 ready</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-cyan-700">✅ ROSA CRDs</span>
+                          <span className="text-green-600 font-medium">All installed</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-cyan-700">⚠️ AWS Credentials</span>
+                          <span className="text-orange-600 font-medium">Not configured</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-cyan-700">❌ OCM Client Secret</span>
+                          <span className="text-red-600 font-medium">Missing</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Active Resources */}
+                    <div className="bg-white rounded-lg p-3 border border-cyan-100">
+                      <h4 className="text-xs font-semibold text-cyan-800 mb-2 flex items-center">
+                        <svg className="h-3 w-3 text-cyan-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                        Active Resources
+                      </h4>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-cyan-700">CAPI Clusters</span>
+                          <span className="text-cyan-900 font-medium">1 (tfitzger-rosa-hcp-combo-test)</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-cyan-700">RosaControlPlane</span>
+                          <span className="text-green-600 font-medium">1 ready</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-cyan-700">RosaNetwork</span>
+                          <span className="text-cyan-900 font-medium">1 configured</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-cyan-700">RosaRoleConfig</span>
+                          <span className="text-cyan-900 font-medium">1 configured</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleKindClusterCheck()}
+                      className="w-full mt-3 bg-cyan-600 hover:bg-cyan-700 text-white text-sm px-4 py-2 rounded-lg transition-colors duration-200 font-medium"
+                    >
+                      🐳 Re-verify Kind Cluster
+                    </button>
+                  </div>
+                </div>
+              )}
+              </div>
+
               {/* Configure Test Environment - Next to getting started */}
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-blue-200/50 p-6 backdrop-blur-sm hover:scale-[1.02] hover:-translate-y-1 animate-in fade-in-50 slide-in-from-bottom-4 duration-700">
               <h2
@@ -2091,7 +2273,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
-                <span>Test Environment</span>
+                <span>MCE Test Environment</span>
                 <div className="flex items-center ml-auto space-x-2">
                   <div className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium">
                     Ready
@@ -2515,11 +2697,11 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
               {/* ROSA HCP Configuration */}
               <div className="bg-gradient-to-br from-white to-purple-50 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 border border-purple-200 p-3 md:p-4 backdrop-blur-sm hover:-translate-y-1 animate-in fade-in slide-in-from-bottom-4 duration-300">
               <h2
-                className="text-sm md:text-base font-bold text-gray-900 mb-3 flex items-center gap-2 cursor-pointer hover:bg-purple-50 rounded-xl p-1.5 -m-1.5 transition-colors group"
+                className="text-sm font-semibold text-purple-900 mb-3 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-2 -m-2 transition-colors"
                 onClick={() => toggleSection('rosa-hcp-resources')}
               >
-                <div className="bg-gradient-to-br from-purple-500 to-purple-700 rounded-lg p-2 shadow-lg group-hover:shadow-xl transition-shadow">
-                  <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="bg-purple-600 rounded-full p-1 mr-2">
+                  <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                   </svg>
                 </div>
@@ -3204,22 +3386,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
           </div>
         </div>
 
-
-        {/* Getting Started Note */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-start space-x-3">
-            <svg className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div>
-              <h3 className="text-sm font-medium text-blue-800">Getting Started</h3>
-              <p className="text-sm text-blue-700 mt-1">
-                New to ROSA CAPI/CAPA test automation? Choose <strong>"I have no clue"</strong> for guided onboarding,
-                or <strong>"Tell me about my environment"</strong> to see your current setup.
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Command Palette Modal */}
