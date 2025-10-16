@@ -2309,8 +2309,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         </div>
                       </div>
                     </div>
-                      </>
-                    )}
 
                     <button
                       onClick={() => handleKindClusterCheck()}
