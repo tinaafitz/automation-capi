@@ -2137,9 +2137,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 </div>
                 <span>Local Test Environment</span>
                 <div className="flex items-center ml-auto space-x-2">
-                  <div className="bg-cyan-100 text-cyan-800 text-xs px-2 py-1 rounded-full font-medium">
-                    Kind
-                  </div>
                   <svg
                     className={`h-4 w-4 text-cyan-600 transition-transform duration-200 ${collapsedSections.has('local-environment') ? 'rotate-180' : ''}`}
                     fill="none"
