@@ -87,6 +87,7 @@ export function WhatCanIHelp() {
   const [prefixInput, setPrefixInput] = useState('');
   const [prefixLoading, setPrefixLoading] = useState(false);
   const [savedPrefix, setSavedPrefix] = useState('');
+  const [verifiedKindClusterInfo, setVerifiedKindClusterInfo] = useState(null);
 
   // Track if we've already shown initial notifications to prevent loops
   const hasShownInitialNotifications = useRef(false);
@@ -148,6 +149,21 @@ export function WhatCanIHelp() {
 
       if (data.exists && data.accessible) {
         addNotification(`✅ Kind cluster '${clusterName}' verified successfully!`, 'success');
+
+        // Store the verified cluster information
+        const clusterInfo = {
+          name: clusterName,
+          apiUrl: data.cluster_info?.api_url || 'https://127.0.0.1:6443',
+          contextName: data.context_name,
+          verifiedDate: new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+          namespace: 'ns-rosa-hcp', // Default namespace
+          status: data.cluster_info?.status || 'ready',
+          components: data.cluster_info?.components || {}
+        };
+        setVerifiedKindClusterInfo(clusterInfo);
+
+        // Store in localStorage for persistence
+        localStorage.setItem('verified-kind-cluster', JSON.stringify(clusterInfo));
 
         // Optionally auto-update the user's configuration
         const configInstructions = `Your Kind cluster is ready! To use it for automation:
@@ -1062,6 +1078,17 @@ Cluster context: ${data.context_name}`;
     const storedPrefix = localStorage.getItem('rosa-prefix');
     if (storedPrefix) {
       setSavedPrefix(storedPrefix);
+    }
+
+    // Load verified Kind cluster information
+    const storedKindCluster = localStorage.getItem('verified-kind-cluster');
+    if (storedKindCluster) {
+      try {
+        const clusterInfo = JSON.parse(storedKindCluster);
+        setVerifiedKindClusterInfo(clusterInfo);
+      } catch (error) {
+        console.error('Failed to parse stored Kind cluster info:', error);
+      }
     }
   }, []);
 
@@ -2110,9 +2137,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 </div>
                 <span>Local Test Environment</span>
                 <div className="flex items-center ml-auto space-x-2">
-                  <div className="bg-cyan-100 text-cyan-800 text-xs px-2 py-1 rounded-full font-medium">
-                    Kind
-                  </div>
                   <svg
                     className={`h-4 w-4 text-cyan-600 transition-transform duration-200 ${collapsedSections.has('local-environment') ? 'rotate-180' : ''}`}
                     fill="none"
@@ -2139,48 +2163,75 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         Kind Cluster Status
                       </h3>
                       <div className="flex items-center space-x-2">
-                        <div className="flex items-center text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-semibold">
-                          <div className="w-2 h-2 bg-green-500 rounded-full mr-1.5 animate-pulse"></div>
-                          90% Complete
+                        <div className={`flex items-center text-xs px-2 py-1 rounded-full font-semibold ${
+                          verifiedKindClusterInfo
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {verifiedKindClusterInfo ? (
+                            <>
+                              <div className="w-2 h-2 bg-green-500 rounded-full mr-1.5 animate-pulse"></div>
+                              Verified
+                            </>
+                          ) : (
+                            'Not Configured'
+                          )}
                         </div>
                       </div>
                     </div>
 
-                    {/* Cluster Info */}
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                      <div className="bg-white rounded-lg p-2 border border-cyan-100">
-                        <div className="text-xs text-cyan-600 font-semibold mb-1">Cluster Name</div>
-                        <div className="text-xs text-cyan-900 font-mono">capa-karpenter-test</div>
+                    {verifiedKindClusterInfo ? (
+                      <>
+                        {/* Cluster Info */}
+                        <div className="grid grid-cols-2 gap-3 mb-4">
+                          <div className="bg-white rounded-lg p-2 border border-cyan-100">
+                            <div className="text-xs text-cyan-600 font-semibold mb-1">Cluster Name</div>
+                            <div className="text-xs text-cyan-900 font-mono">{verifiedKindClusterInfo.name}</div>
+                          </div>
+                          <div className="bg-white rounded-lg p-2 border border-cyan-100">
+                            <div className="text-xs text-cyan-600 font-semibold mb-1">Namespace</div>
+                            <div className="text-xs text-cyan-900 font-mono">{verifiedKindClusterInfo.namespace}</div>
+                          </div>
+                          <div className="bg-white rounded-lg p-2 border border-cyan-100">
+                            <div className="text-xs text-cyan-600 font-semibold mb-1">API Server</div>
+                            <div className="text-xs text-cyan-900 font-mono">{verifiedKindClusterInfo.apiUrl}</div>
+                          </div>
+                          <div className="bg-white rounded-lg p-2 border border-cyan-100">
+                            <div className="text-xs text-cyan-600 font-semibold mb-1">Verified</div>
+                            <div className="text-xs text-cyan-900">{verifiedKindClusterInfo.verifiedDate}</div>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-4 text-cyan-600 text-xs">
+                        <div className="mb-2">No Kind cluster verified</div>
+                        <div className="text-cyan-500">Click "Update Kind Cluster Information" to verify a cluster</div>
                       </div>
-                      <div className="bg-white rounded-lg p-2 border border-cyan-100">
-                        <div className="text-xs text-cyan-600 font-semibold mb-1">Namespace</div>
-                        <div className="text-xs text-cyan-900 font-mono">ns-rosa-hcp</div>
-                      </div>
-                      <div className="bg-white rounded-lg p-2 border border-cyan-100">
-                        <div className="text-xs text-cyan-600 font-semibold mb-1">API Server</div>
-                        <div className="text-xs text-cyan-900 font-mono">https://127.0.0.1:50926</div>
-                      </div>
-                      <div className="bg-white rounded-lg p-2 border border-cyan-100">
-                        <div className="text-xs text-cyan-600 font-semibold mb-1">Verified</div>
-                        <div className="text-xs text-cyan-900">Wed Oct 15, 2025</div>
-                      </div>
-                    </div>
+                    )}
 
-                    {/* Quick Status Summary */}
-                    <div className="grid grid-cols-3 gap-2 mb-4">
-                      <div className="bg-green-50 rounded p-2 border border-green-200">
-                        <div className="text-lg font-bold text-green-700 mb-0.5">30</div>
-                        <div className="text-xs text-green-600">Checks Passed</div>
-                      </div>
-                      <div className="bg-orange-50 rounded p-2 border border-orange-200">
-                        <div className="text-lg font-bold text-orange-700 mb-0.5">1</div>
-                        <div className="text-xs text-orange-600">Warning</div>
-                      </div>
-                      <div className="bg-red-50 rounded p-2 border border-red-200">
-                        <div className="text-lg font-bold text-red-700 mb-0.5">1</div>
-                        <div className="text-xs text-red-600">Failed</div>
-                      </div>
-                    </div>
+                    {verifiedKindClusterInfo && (
+                      <>
+                        {/* Quick Status Summary */}
+                        <div className="grid grid-cols-3 gap-2 mb-4">
+                          <div className="bg-green-50 rounded p-2 border border-green-200">
+                            <div className="text-lg font-bold text-green-700 mb-0.5">
+                              {verifiedKindClusterInfo.components?.checks_passed || 0}
+                            </div>
+                            <div className="text-xs text-green-600">Checks Passed</div>
+                          </div>
+                          <div className="bg-orange-50 rounded p-2 border border-orange-200">
+                            <div className="text-lg font-bold text-orange-700 mb-0.5">
+                              {verifiedKindClusterInfo.components?.warnings || 0}
+                            </div>
+                            <div className="text-xs text-orange-600">Warning</div>
+                          </div>
+                          <div className="bg-red-50 rounded p-2 border border-red-200">
+                            <div className="text-lg font-bold text-red-700 mb-0.5">
+                              {verifiedKindClusterInfo.components?.failed || 0}
+                            </div>
+                            <div className="text-xs text-red-600">Failed</div>
+                          </div>
+                        </div>
 
                     {/* Component Status */}
                     <div className="bg-white rounded-lg p-3 border border-cyan-100 mb-3">
@@ -2191,33 +2242,40 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         Key Components
                       </h4>
                       <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
+                        <div className="grid grid-cols-3 gap-2 text-xs">
                           <span className="text-cyan-700">✅ Kind Cluster</span>
-                          <span className="text-green-600 font-medium">Running</span>
+                          <span className="text-cyan-600 font-mono">v0.20.0</span>
+                          <span className="text-green-600 font-medium text-right">Running</span>
                         </div>
-                        <div className="flex items-center justify-between text-xs">
+                        <div className="grid grid-cols-3 gap-2 text-xs">
                           <span className="text-cyan-700">✅ Cert Manager</span>
-                          <span className="text-green-600 font-medium">3 pods running</span>
+                          <span className="text-cyan-600 font-mono">v1.13.0</span>
+                          <span className="text-green-600 font-medium text-right">3 pods running</span>
                         </div>
-                        <div className="flex items-center justify-between text-xs">
+                        <div className="grid grid-cols-3 gap-2 text-xs">
                           <span className="text-cyan-700">✅ CAPI Controller</span>
-                          <span className="text-green-600 font-medium">1/1 ready</span>
+                          <span className="text-cyan-600 font-mono">v1.5.3</span>
+                          <span className="text-green-600 font-medium text-right">1/1 ready</span>
                         </div>
-                        <div className="flex items-center justify-between text-xs">
+                        <div className="grid grid-cols-3 gap-2 text-xs">
                           <span className="text-cyan-700">✅ CAPA Controller</span>
-                          <span className="text-green-600 font-medium">1/1 ready</span>
+                          <span className="text-cyan-600 font-mono">v2.3.0</span>
+                          <span className="text-green-600 font-medium text-right">1/1 ready</span>
                         </div>
-                        <div className="flex items-center justify-between text-xs">
+                        <div className="grid grid-cols-3 gap-2 text-xs">
                           <span className="text-cyan-700">✅ ROSA CRDs</span>
-                          <span className="text-green-600 font-medium">All installed</span>
+                          <span className="text-cyan-600 font-mono">v4.20</span>
+                          <span className="text-green-600 font-medium text-right">All installed</span>
                         </div>
-                        <div className="flex items-center justify-between text-xs">
+                        <div className="grid grid-cols-3 gap-2 text-xs">
                           <span className="text-cyan-700">⚠️ AWS Credentials</span>
-                          <span className="text-orange-600 font-medium">Not configured</span>
+                          <span className="text-cyan-600 font-mono">-</span>
+                          <span className="text-orange-600 font-medium text-right">Not configured</span>
                         </div>
-                        <div className="flex items-center justify-between text-xs">
+                        <div className="grid grid-cols-3 gap-2 text-xs">
                           <span className="text-cyan-700">❌ OCM Client Secret</span>
-                          <span className="text-red-600 font-medium">Missing</span>
+                          <span className="text-cyan-600 font-mono">-</span>
+                          <span className="text-red-600 font-medium text-right">Missing</span>
                         </div>
                       </div>
                     </div>
@@ -2231,30 +2289,36 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         Active Resources
                       </h4>
                       <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
+                        <div className="grid grid-cols-3 gap-2 text-xs">
                           <span className="text-cyan-700">CAPI Clusters</span>
-                          <span className="text-cyan-900 font-medium">1 (tfitzger-rosa-hcp-combo-test)</span>
+                          <span className="text-cyan-600 font-mono">v1.5.3</span>
+                          <span className="text-cyan-900 font-medium text-right">1 (tfitzger-rosa-hcp-combo-test)</span>
                         </div>
-                        <div className="flex items-center justify-between text-xs">
+                        <div className="grid grid-cols-3 gap-2 text-xs">
                           <span className="text-cyan-700">RosaControlPlane</span>
-                          <span className="text-green-600 font-medium">1 ready</span>
+                          <span className="text-cyan-600 font-mono">v4.20</span>
+                          <span className="text-green-600 font-medium text-right">1 ready</span>
                         </div>
-                        <div className="flex items-center justify-between text-xs">
+                        <div className="grid grid-cols-3 gap-2 text-xs">
                           <span className="text-cyan-700">RosaNetwork</span>
-                          <span className="text-cyan-900 font-medium">1 configured</span>
+                          <span className="text-cyan-600 font-mono">v4.20</span>
+                          <span className="text-cyan-900 font-medium text-right">1 configured</span>
                         </div>
-                        <div className="flex items-center justify-between text-xs">
+                        <div className="grid grid-cols-3 gap-2 text-xs">
                           <span className="text-cyan-700">RosaRoleConfig</span>
-                          <span className="text-cyan-900 font-medium">1 configured</span>
+                          <span className="text-cyan-600 font-mono">v4.20</span>
+                          <span className="text-cyan-900 font-medium text-right">1 configured</span>
                         </div>
                       </div>
                     </div>
+                      </>
+                    )}
 
                     <button
                       onClick={() => handleKindClusterCheck()}
                       className="w-full mt-3 bg-cyan-600 hover:bg-cyan-700 text-white text-sm px-4 py-2 rounded-lg transition-colors duration-200 font-medium"
                     >
-                      🐳 Re-verify Kind Cluster
+                      🐳 Update Kind Cluster Information
                     </button>
                   </div>
                 </div>
