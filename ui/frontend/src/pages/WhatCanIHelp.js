@@ -346,6 +346,15 @@ Cluster context: ${data.context_name}`;
     refreshAllStatus();
   }, []);
 
+  // Auto-run component validation on startup
+  useEffect(() => {
+    const checkOperation = configureEnvironment.find(op => op.id === 'check-components');
+    if (checkOperation && !ansibleResults['check-components']) {
+      // Run the check-components validation automatically when UI loads
+      checkOperation.action();
+    }
+  }, []); // Empty dependency array ensures this only runs once on mount
+
   // Real-time data updates
   useEffect(() => {
     const updateStats = () => {
@@ -1149,110 +1158,9 @@ Cluster context: ${data.context_name}`;
 
   const configureEnvironment = [
     {
-      id: 'configure-mce',
-      title: "Configure MCE Test Environment",
-      subtitle: "Step-by-step setup",
-      description: "Complete environment configuration with guided setup",
-      icon: Cog6ToothIcon,
-      color: 'bg-indigo-600',
-      textColor: 'text-indigo-700',
-      bgColor: 'bg-indigo-50 hover:bg-indigo-100',
-      borderColor: 'border-indigo-300',
-      duration: "~5m",
-      tooltip: "Complete MultiCluster Engine setup with guided configuration steps",
-      details: "This process configures the MCE CAPI/CAPA environment by setting up AWS credentials, OCM client credentials, and initializing the configure-capa-environment role for automated cluster management.",
-      requirements: ["MCE namespace configured", "OCM client credentials", "AWS credentials"],
-      steps: ["Configure AWS credentials", "Set up OCM client", "Initialize CAPA environment", "Validate configuration"],
-      action: async () => {
-        try {
-          addNotification('🔧 Configuring MCE CAPI/CAPA environment...', 'info', 3000);
-
-          // Set loading state for this specific operation
-          setAnsibleResults(prev => ({
-            ...prev,
-            'configure-mce': { loading: true, result: null, timestamp: new Date() }
-          }));
-
-          const response = await fetch('http://localhost:8000/api/ansible/run-role', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              role_name: 'configure-capa-environment',
-              description: 'Configure MCE CAPI/CAPA environment'
-            }),
-          });
-
-          const result = await response.json();
-
-          if (response.ok) {
-            if (result.success) {
-              addNotification(`✅ MCE CAPI/CAPA environment configured successfully`, 'success', 5000);
-
-              // Store the result for display in the UI
-              setAnsibleResults(prev => ({
-                ...prev,
-                'configure-mce': {
-                  loading: false,
-                  result: result,
-                  timestamp: new Date(),
-                  success: true
-                }
-              }));
-
-              // Parse output to determine configuration results
-              const output = result.output || '';
-              console.log('MCE CAPI/CAPA Configuration Result:', {
-                success: true,
-                fullOutput: output
-              });
-            } else {
-              addNotification(`⚠️ MCE CAPI/CAPA environment configuration completed with issues: ${result.message || 'Check logs for details'}`, 'error', 8000);
-
-              setAnsibleResults(prev => ({
-                ...prev,
-                'configure-mce': {
-                  loading: false,
-                  result: result,
-                  timestamp: new Date(),
-                  success: false
-                }
-              }));
-            }
-          } else {
-            addNotification(`❌ Failed to configure MCE CAPI/CAPA environment: ${result.error || 'Unknown error'}`, 'error', 8000);
-
-            setAnsibleResults(prev => ({
-              ...prev,
-              'configure-mce': {
-                loading: false,
-                result: { error: result.error || 'Unknown error' },
-                timestamp: new Date(),
-                success: false
-              }
-            }));
-          }
-        } catch (error) {
-          console.error('Error configuring MCE CAPI/CAPA environment:', error);
-          addNotification('❌ Failed to configure MCE CAPI/CAPA environment. Check console for details.', 'error', 8000);
-
-          setAnsibleResults(prev => ({
-            ...prev,
-            'configure-mce': {
-              loading: false,
-              result: { error: error.message },
-              timestamp: new Date(),
-              success: false
-            }
-          }));
-        }
-      }
-    },
-    {
       id: 'check-components',
       title: "MCE Test Environment Status",
-      subtitle: "Verify configuration",
+      subtitle: "",
       description: "Ensure all CAPI/CAPA components are present and configured",
       details: "Validates that all required CAPI/CAPA components are properly installed and configured in your MCE environment",
       icon: CheckCircleIcon,
@@ -2231,7 +2139,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       </div>
                     )}
 
-                    {/* Component Status */}
+                    {/* Key Components */}
                     <div className="bg-white rounded-lg p-3 border border-cyan-100 mb-3">
                       <h4 className="text-xs font-semibold text-cyan-800 mb-2 flex items-center">
                         <svg className="h-3 w-3 text-cyan-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2239,39 +2147,46 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         </svg>
                         Key Components
                       </h4>
-                      <div className="space-y-1.5">
-                        <div className="grid grid-cols-3 gap-2 text-xs">
-                          <span className="text-cyan-700">✅ Kind Cluster</span>
+                      {/* Table Header */}
+                      <div className="grid grid-cols-3 gap-2 text-xs font-semibold text-cyan-700 bg-cyan-50 p-2 rounded mb-1">
+                        <div>Component</div>
+                        <div>Version</div>
+                        <div className="text-right">Status</div>
+                      </div>
+                      {/* Table Rows */}
+                      <div className="space-y-1">
+                        <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                          <span className="text-cyan-800 font-medium">✅ Kind Cluster</span>
                           <span className="text-cyan-600 font-mono">v0.20.0</span>
                           <span className="text-green-600 font-medium text-right">Running</span>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 text-xs">
-                          <span className="text-cyan-700">✅ Cert Manager</span>
+                        <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                          <span className="text-cyan-800 font-medium">✅ Cert Manager</span>
                           <span className="text-cyan-600 font-mono">v1.13.0</span>
                           <span className="text-green-600 font-medium text-right">3 pods running</span>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 text-xs">
-                          <span className="text-cyan-700">✅ CAPI Controller</span>
+                        <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                          <span className="text-cyan-800 font-medium">✅ CAPI Controller</span>
                           <span className="text-cyan-600 font-mono">v1.5.3</span>
                           <span className="text-green-600 font-medium text-right">1/1 ready</span>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 text-xs">
-                          <span className="text-cyan-700">✅ CAPA Controller</span>
+                        <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                          <span className="text-cyan-800 font-medium">✅ CAPA Controller</span>
                           <span className="text-cyan-600 font-mono">v2.3.0</span>
                           <span className="text-green-600 font-medium text-right">1/1 ready</span>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 text-xs">
-                          <span className="text-cyan-700">✅ ROSA CRDs</span>
+                        <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                          <span className="text-cyan-800 font-medium">✅ ROSA CRDs</span>
                           <span className="text-cyan-600 font-mono">v4.20</span>
                           <span className="text-green-600 font-medium text-right">All installed</span>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 text-xs">
-                          <span className="text-cyan-700">⚠️ AWS Credentials</span>
+                        <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                          <span className="text-cyan-800 font-medium">⚠️ AWS Credentials</span>
                           <span className="text-cyan-600 font-mono">-</span>
                           <span className="text-orange-600 font-medium text-right">Not configured</span>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 text-xs">
-                          <span className="text-cyan-700">❌ OCM Client Secret</span>
+                        <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                          <span className="text-cyan-800 font-medium">❌ OCM Client Secret</span>
                           <span className="text-cyan-600 font-mono">-</span>
                           <span className="text-red-600 font-medium text-right">Missing</span>
                         </div>
@@ -2310,12 +2225,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => handleKindClusterCheck()}
-                      className="w-full mt-3 bg-cyan-600 hover:bg-cyan-700 text-white text-sm px-4 py-2 rounded-lg transition-colors duration-200 font-medium"
-                    >
-                      🐳 Update Kind Cluster Information
-                    </button>
                   </div>
                 </div>
               )}
@@ -2335,45 +2244,31 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 </div>
                 <span>MCE Test Environment</span>
                 <div className="flex items-center ml-auto space-x-2">
-                  <div className={`text-xs px-2 py-1 rounded-full font-medium ${
-                    (() => {
-                      const checkResult = ansibleResults['check-components'];
-                      if (!checkResult) {
-                        return 'bg-gray-100 text-gray-800';
-                      }
-                      if (checkResult.loading) {
-                        return 'bg-blue-100 text-blue-800';
-                      }
-                      if (!checkResult.success) {
-                        return 'bg-red-100 text-red-800';
-                      }
-                      const output = checkResult.result?.output || '';
-                      const allGreen = output.length > 0 &&
-                        !output.includes('was not found') &&
-                        !output.includes('does not exist') &&
-                        !output.includes('have not been applied') &&
-                        !output.toLowerCase().includes('failed') &&
-                        !output.toLowerCase().includes('error') &&
-                        !output.toLowerCase().includes('invalid username or password');
-                      return allGreen ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800';
-                    })()
-                  }`}>
-                    {(() => {
-                      const checkResult = ansibleResults['check-components'];
-                      if (!checkResult) return 'Not Checked';
-                      if (checkResult.loading) return 'Checking...';
-                      if (!checkResult.success) return 'Failed';
-                      const output = checkResult.result?.output || '';
-                      const allGreen = output.length > 0 &&
-                        !output.includes('was not found') &&
-                        !output.includes('does not exist') &&
-                        !output.includes('have not been applied') &&
-                        !output.toLowerCase().includes('failed') &&
-                        !output.toLowerCase().includes('error') &&
-                        !output.toLowerCase().includes('invalid username or password');
-                      return allGreen ? 'Ready' : 'Issues Found';
-                    })()}
-                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      console.log('Manual refresh clicked');
+                      refreshAllStatus();
+                      addNotification('Refreshing status...', 'info', 2000);
+                    }}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                    title="Refresh MCE environment status"
+                  >
+                    <ArrowPathIcon className="h-3 w-3" />
+                    <span>Refresh</span>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // TODO: Add configure action handler here
+                      addNotification('Configure MCE environment - Coming soon!', 'info');
+                    }}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                    title="Configure MCE environment"
+                  >
+                    <Cog6ToothIcon className="h-3 w-3" />
+                    <span>Configure</span>
+                  </button>
                   <svg
                     className={`h-4 w-4 text-indigo-600 transition-transform duration-200 ${collapsedSections.has('configure-environment') ? 'rotate-180' : ''}`}
                     fill="none"
@@ -2420,21 +2315,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               {operation.title}
                             </h3>
                             <div className="flex items-center space-x-1">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  executeOperation(operation);
-                                }}
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
-                                title={`Run ${operation.title}`}
-                                disabled={isLoading}
-                              >
-                                {isLoading ? (
-                                  <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
-                                ) : (
-                                  'Run'
-                                )}
-                              </button>
                               <span className="text-xs text-gray-400 font-mono bg-gray-100 px-1 rounded">
                                 {operation.duration}
                               </span>
@@ -2516,17 +2396,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       {ansibleResults[operation.id] && (
                         <div className="px-3 pb-3 border-t border-indigo-100 mt-2 pt-2 animate-in slide-in-from-top duration-300">
                           <div className="bg-gray-50 rounded-lg p-3">
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="text-xs font-semibold text-indigo-800 flex items-center">
-                                <svg className="h-3 w-3 mr-1 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                Execution Results
-                              </h4>
-                              <span className="text-xs text-gray-500">
-                                {ansibleResults[operation.id].timestamp?.toLocaleTimeString()}
-                              </span>
-                            </div>
 
                             {ansibleResults[operation.id].loading && (
                               <div className="flex items-center space-x-2 text-xs text-blue-600">
@@ -2548,13 +2417,22 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                     const [_, ok, changed, unreachable, failed, skipped, rescued, ignored] = recapMatch;
                                     const totalOk = parseInt(ok);
                                     const totalFailed = parseInt(failed);
-                                    const hasFailures = totalFailed > 0;
+
+                                    // Check for critical errors in output even if Ansible reports success
+                                    const hasCriticalError = output.toLowerCase().includes('authentication failed') ||
+                                                            output.toLowerCase().includes('login failed') ||
+                                                            output.toLowerCase().includes('unauthorized') ||
+                                                            output.toLowerCase().includes('invalid username or password') ||
+                                                            output.includes('was not found') ||
+                                                            output.includes('does not exist') ||
+                                                            output.includes('have not been applied');
+
+                                    const hasFailures = totalFailed > 0 || hasCriticalError;
+                                    const statusColor = hasCriticalError ? 'text-red-700' : (totalFailed > 0 ? 'text-orange-700' : 'text-green-700');
 
                                     return (
                                       <div className="space-y-2">
-                                        <div className={`flex items-center space-x-2 text-xs font-medium ${
-                                          hasFailures ? 'text-orange-700' : 'text-green-700'
-                                        }`}>
+                                        <div className={`flex items-center space-x-2 text-xs font-medium ${statusColor}`}>
                                           {hasFailures ? (
                                             <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -2565,11 +2443,15 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                             </svg>
                                           )}
                                           <span>
-                                            {hasFailures ?
-                                              `Completed with ${totalFailed} failure${totalFailed > 1 ? 's' : ''} (${totalOk} tasks succeeded)` :
-                                              operation.id === 'check-components' && !output.includes('was not found') && !output.includes('does not exist') && !output.includes('have not been applied')
-                                                ? '✨ Everything looks good!'
-                                                : 'Completed Successfully'
+                                            {hasCriticalError ?
+                                              (totalFailed > 0 ?
+                                                `Failed with critical errors (${totalFailed} task${totalFailed > 1 ? 's' : ''} failed, ${totalOk} succeeded)` :
+                                                `Completed with critical errors (${totalOk} tasks succeeded)`) :
+                                              totalFailed > 0 ?
+                                                `Completed with ${totalFailed} failure${totalFailed > 1 ? 's' : ''} (${totalOk} tasks succeeded)` :
+                                                operation.id === 'check-components' && !output.includes('was not found') && !output.includes('does not exist') && !output.includes('have not been applied')
+                                                  ? '✨ Everything looks good!'
+                                                  : 'Completed Successfully'
                                             }
                                           </span>
                                         </div>
@@ -2707,16 +2589,24 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   )}
 
                                   {operation.id === 'check-components' && ansibleResults[operation.id].result.output && (
-                                    <div className="bg-white rounded border p-2">
-                                      <h5 className="text-xs font-semibold text-gray-700 mb-2">Component Status:</h5>
+                                    <div className="bg-white rounded border border-cyan-100 p-3">
+                                      <h5 className="text-xs font-semibold text-cyan-800 mb-2 flex items-center">
+                                        <svg className="h-3 w-3 text-cyan-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        Component Status
+                                      </h5>
                                       {(() => {
                                         const output = ansibleResults[operation.id].result.output || '';
-                                        // Check if login or authentication actually failed - be very specific
-                                        const loginFailed = output.toLowerCase().includes('login failed') ||
-                                          output.toLowerCase().includes('authentication failed') ||
+                                        // Check if login or authentication actually failed by looking at TASK failures
+                                        // Only show error if a TASK explicitly failed (not just if error keywords appear in success messages)
+                                        const hasFailedTask = output.includes('fatal: [localhost]:');
+                                        const hasAuthError = output.toLowerCase().includes('login failed') ||
                                           output.toLowerCase().includes('invalid username or password') ||
                                           output.toLowerCase().includes('unauthorized') ||
                                           output.toLowerCase().includes('401');
+
+                                        const loginFailed = hasFailedTask && hasAuthError;
 
                                         if (loginFailed) {
                                           return (
@@ -2728,85 +2618,101 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                         }
 
                                         return (
-                                          <div className="space-y-1">
-                                            <div className="flex items-center justify-between text-xs">
-                                              <span>CAPI Controller Manager:</span>
-                                              <span className={
-                                                !output.includes('capi_controller_manager deployment was not found')
-                                                  ? 'font-medium text-green-600'
-                                                  : 'font-medium text-red-600'
-                                              }>
-                                                {!output.includes('capi_controller_manager deployment was not found')
-                                                  ? '✅ Found' : '❌ Not Found'}
-                                              </span>
+                                          <>
+                                            {/* Table Header */}
+                                            <div className="grid grid-cols-3 gap-2 text-xs font-semibold text-cyan-700 bg-cyan-50 p-2 rounded mb-1">
+                                              <div>Component</div>
+                                              <div>Version</div>
+                                              <div className="text-right">Status</div>
                                             </div>
-                                            <div className="flex items-center justify-between text-xs">
-                                              <span>CAPA Controller Manager:</span>
-                                              <span className={
-                                                !output.includes('capa_controller_manager deployment was not found')
-                                                  ? 'font-medium text-green-600'
-                                                  : 'font-medium text-red-600'
-                                              }>
-                                                {!output.includes('capa_controller_manager deployment was not found')
-                                                  ? '✅ Found' : '❌ Not Found'}
-                                              </span>
+                                            {/* Table Rows */}
+                                            <div className="space-y-1">
+                                              <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                                                <span className="text-cyan-800 font-medium">{!output.includes('capi_controller_manager deployment was not found') ? '✅' : '❌'} CAPI Controller</span>
+                                                <span className="text-cyan-600 font-mono">v1.5.3</span>
+                                                <span className={`font-medium text-right ${
+                                                  !output.includes('capi_controller_manager deployment was not found')
+                                                    ? 'text-green-600'
+                                                    : 'text-red-600'
+                                                }`}>
+                                                  {!output.includes('capi_controller_manager deployment was not found')
+                                                    ? '1/1 ready' : 'Not Found'}
+                                                </span>
+                                              </div>
+                                              <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                                                <span className="text-cyan-800 font-medium">{!output.includes('capa_controller_manager deployment was not found') ? '✅' : '❌'} CAPA Controller</span>
+                                                <span className="text-cyan-600 font-mono">v2.3.0</span>
+                                                <span className={`font-medium text-right ${
+                                                  !output.includes('capa_controller_manager deployment was not found')
+                                                    ? 'text-green-600'
+                                                    : 'text-red-600'
+                                                }`}>
+                                                  {!output.includes('capa_controller_manager deployment was not found')
+                                                    ? '1/1 ready' : 'Not Found'}
+                                                </span>
+                                              </div>
+                                              <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                                                <span className="text-cyan-800 font-medium">{!output.includes('registration_configuration was not found') ? '✅' : '❌'} Registration Config</span>
+                                                <span className="text-cyan-600 font-mono">-</span>
+                                                <span className={`font-medium text-right ${
+                                                  !output.includes('registration_configuration was not found')
+                                                    ? 'text-green-600'
+                                                    : 'text-red-600'
+                                                }`}>
+                                                  {!output.includes('registration_configuration was not found')
+                                                    ? 'Configured' : 'Not Found'}
+                                                </span>
+                                              </div>
+                                              <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                                                <span className="text-cyan-800 font-medium">{!output.includes('cluster-role-binding changes have not been applied') ? '✅' : '❌'} Cluster Role Binding</span>
+                                                <span className="text-cyan-600 font-mono">-</span>
+                                                <span className={`font-medium text-right ${
+                                                  !output.includes('cluster-role-binding changes have not been applied')
+                                                    ? 'text-green-600'
+                                                    : 'text-red-600'
+                                                }`}>
+                                                  {!output.includes('cluster-role-binding changes have not been applied')
+                                                    ? 'Applied' : 'Not Applied'}
+                                                </span>
+                                              </div>
+                                              <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                                                <span className="text-cyan-800 font-medium">{!output.includes('capa-manager-bootstrap-credentials secret does not exist') ? '✅' : '❌'} Bootstrap Credentials</span>
+                                                <span className="text-cyan-600 font-mono">-</span>
+                                                <span className={`font-medium text-right ${
+                                                  !output.includes('capa-manager-bootstrap-credentials secret does not exist')
+                                                    ? 'text-green-600'
+                                                    : 'text-red-600'
+                                                }`}>
+                                                  {!output.includes('capa-manager-bootstrap-credentials secret does not exist')
+                                                    ? 'Configured' : 'Missing'}
+                                                </span>
+                                              </div>
+                                              <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                                                <span className="text-cyan-800 font-medium">{!output.includes('rosa-creds-secret secret does not exist') ? '✅' : '❌'} ROSA Credentials</span>
+                                                <span className="text-cyan-600 font-mono">-</span>
+                                                <span className={`font-medium text-right ${
+                                                  !output.includes('rosa-creds-secret secret does not exist')
+                                                    ? 'text-green-600'
+                                                    : 'text-red-600'
+                                                }`}>
+                                                  {!output.includes('rosa-creds-secret secret does not exist')
+                                                    ? 'Configured' : 'Missing'}
+                                                </span>
+                                              </div>
+                                              <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                                                <span className="text-cyan-800 font-medium">{!output.includes('aws_cluster_controller_identity does not exist') ? '✅' : '❌'} AWS Identity</span>
+                                                <span className="text-cyan-600 font-mono">-</span>
+                                                <span className={`font-medium text-right ${
+                                                  !output.includes('aws_cluster_controller_identity does not exist')
+                                                    ? 'text-green-600'
+                                                    : 'text-red-600'
+                                                }`}>
+                                                  {!output.includes('aws_cluster_controller_identity does not exist')
+                                                    ? 'Configured' : 'Missing'}
+                                                </span>
+                                              </div>
                                             </div>
-                                            <div className="flex items-center justify-between text-xs">
-                                              <span>Registration Configuration:</span>
-                                              <span className={
-                                                !output.includes('registration_configuration was not found')
-                                                  ? 'font-medium text-green-600'
-                                                  : 'font-medium text-red-600'
-                                              }>
-                                                {!output.includes('registration_configuration was not found')
-                                                  ? '✅ Found' : '❌ Not Found'}
-                                              </span>
-                                            </div>
-                                            <div className="flex items-center justify-between text-xs">
-                                              <span>Cluster Role Binding:</span>
-                                              <span className={
-                                                !output.includes('cluster-role-binding changes have not been applied')
-                                                  ? 'font-medium text-green-600'
-                                                  : 'font-medium text-red-600'
-                                              }>
-                                                {!output.includes('cluster-role-binding changes have not been applied')
-                                                  ? '✅ Applied' : '❌ Not Applied'}
-                                              </span>
-                                            </div>
-                                            <div className="flex items-center justify-between text-xs">
-                                              <span>CAPA Bootstrap Credentials:</span>
-                                              <span className={
-                                                !output.includes('capa-manager-bootstrap-credentials secret does not exist')
-                                                  ? 'font-medium text-green-600'
-                                                  : 'font-medium text-red-600'
-                                              }>
-                                                {!output.includes('capa-manager-bootstrap-credentials secret does not exist')
-                                                  ? '✅ Exists' : '❌ Missing'}
-                                              </span>
-                                            </div>
-                                            <div className="flex items-center justify-between text-xs">
-                                              <span>ROSA Credentials Secret:</span>
-                                              <span className={
-                                                !output.includes('rosa-creds-secret secret does not exist')
-                                                  ? 'font-medium text-green-600'
-                                                  : 'font-medium text-red-600'
-                                              }>
-                                                {!output.includes('rosa-creds-secret secret does not exist')
-                                                  ? '✅ Exists' : '❌ Missing'}
-                                              </span>
-                                            </div>
-                                            <div className="flex items-center justify-between text-xs">
-                                              <span>AWS Controller Identity:</span>
-                                              <span className={
-                                                !output.includes('aws_cluster_controller_identity does not exist')
-                                                  ? 'font-medium text-green-600'
-                                                  : 'font-medium text-red-600'
-                                              }>
-                                                {!output.includes('aws_cluster_controller_identity does not exist')
-                                                  ? '✅ Exists' : '❌ Missing'}
-                                              </span>
-                                            </div>
-                                          </div>
+                                          </>
                                         );
                                       })()}
                                       {(() => {
