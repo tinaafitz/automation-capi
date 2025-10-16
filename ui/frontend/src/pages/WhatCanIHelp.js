@@ -2137,6 +2137,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 </div>
                 <span>Local Test Environment</span>
                 <div className="flex items-center ml-auto space-x-2">
+                  <div className="bg-cyan-100 text-cyan-800 text-xs px-2 py-1 rounded-full font-medium">
+                    Kind
+                  </div>
                   <svg
                     className={`h-4 w-4 text-cyan-600 transition-transform duration-200 ${collapsedSections.has('local-environment') ? 'rotate-180' : ''}`}
                     fill="none"
@@ -2201,16 +2204,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             <div className="text-xs text-cyan-900">{verifiedKindClusterInfo.verifiedDate}</div>
                           </div>
                         </div>
-                      </>
-                    ) : (
-                      <div className="text-center py-4 text-cyan-600 text-xs">
-                        <div className="mb-2">No Kind cluster verified</div>
-                        <div className="text-cyan-500">Click "Update Kind Cluster Information" to verify a cluster</div>
-                      </div>
-                    )}
 
-                    {verifiedKindClusterInfo && (
-                      <>
                         {/* Quick Status Summary */}
                         <div className="grid grid-cols-3 gap-2 mb-4">
                           <div className="bg-green-50 rounded p-2 border border-green-200">
@@ -2232,6 +2226,13 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             <div className="text-xs text-red-600">Failed</div>
                           </div>
                         </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-4 text-cyan-600 text-xs">
+                        <div className="mb-2">No Kind cluster verified</div>
+                        <div className="text-cyan-500">Click "Update Kind Cluster Information" to verify a cluster</div>
+                      </div>
+                    )}
 
                     {/* Component Status */}
                     <div className="bg-white rounded-lg p-3 border border-cyan-100 mb-3">
