@@ -2340,8 +2340,44 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 </div>
                 <span>MCE Test Environment</span>
                 <div className="flex items-center ml-auto space-x-2">
-                  <div className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium">
-                    Ready
+                  <div className={`text-xs px-2 py-1 rounded-full font-medium ${
+                    (() => {
+                      const checkResult = ansibleResults['check-components'];
+                      if (!checkResult) {
+                        return 'bg-gray-100 text-gray-800';
+                      }
+                      if (checkResult.loading) {
+                        return 'bg-blue-100 text-blue-800';
+                      }
+                      if (!checkResult.success) {
+                        return 'bg-red-100 text-red-800';
+                      }
+                      const output = checkResult.result?.output || '';
+                      const allGreen = output.length > 0 &&
+                        !output.includes('was not found') &&
+                        !output.includes('does not exist') &&
+                        !output.includes('have not been applied') &&
+                        !output.toLowerCase().includes('failed') &&
+                        !output.toLowerCase().includes('error') &&
+                        !output.toLowerCase().includes('invalid username or password');
+                      return allGreen ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800';
+                    })()
+                  }`}>
+                    {(() => {
+                      const checkResult = ansibleResults['check-components'];
+                      if (!checkResult) return 'Not Checked';
+                      if (checkResult.loading) return 'Checking...';
+                      if (!checkResult.success) return 'Failed';
+                      const output = checkResult.result?.output || '';
+                      const allGreen = output.length > 0 &&
+                        !output.includes('was not found') &&
+                        !output.includes('does not exist') &&
+                        !output.includes('have not been applied') &&
+                        !output.toLowerCase().includes('failed') &&
+                        !output.toLowerCase().includes('error') &&
+                        !output.toLowerCase().includes('invalid username or password');
+                      return allGreen ? 'Ready' : 'Issues Found';
+                    })()}
                   </div>
                   <svg
                     className={`h-4 w-4 text-indigo-600 transition-transform duration-200 ${collapsedSections.has('configure-environment') ? 'rotate-180' : ''}`}
@@ -2506,30 +2542,99 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                             {!ansibleResults[operation.id].loading && ansibleResults[operation.id].result && (
                               <div className="space-y-2">
-                                {/* Status Summary */}
-                                <div className={`flex items-center space-x-2 text-xs font-medium ${
-                                  ansibleResults[operation.id].success ? 'text-green-700' : 'text-red-700'
-                                }`}>
-                                  {ansibleResults[operation.id].success ? (
-                                    <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                  ) : (
-                                    <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                  )}
-                                  <span>
-                                    {ansibleResults[operation.id].success ? (
-                                      operation.id === 'check-components' && ansibleResults[operation.id].result.output &&
-                                      !ansibleResults[operation.id].result.output.includes('was not found') &&
-                                      !ansibleResults[operation.id].result.output.includes('does not exist') &&
-                                      !ansibleResults[operation.id].result.output.includes('have not been applied')
-                                        ? '✨ Everything looks good!'
-                                        : 'Completed Successfully'
-                                    ) : 'Failed'}
-                                  </span>
-                                </div>
+                                {/* Status Summary with Task Breakdown */}
+                                {(() => {
+                                  const output = ansibleResults[operation.id].result.output || '';
+                                  // Parse PLAY RECAP to get task statistics
+                                  // Match pattern: ok=21    changed=11   unreachable=0    failed=1    skipped=0    rescued=0    ignored=0
+                                  const recapMatch = output.match(/ok=(\d+)\s+changed=(\d+)\s+unreachable=(\d+)\s+failed=(\d+)\s+skipped=(\d+)\s+rescued=(\d+)\s+ignored=(\d+)/);
+
+                                  if (recapMatch) {
+                                    const [_, ok, changed, unreachable, failed, skipped, rescued, ignored] = recapMatch;
+                                    const totalOk = parseInt(ok);
+                                    const totalFailed = parseInt(failed);
+                                    const hasFailures = totalFailed > 0;
+
+                                    return (
+                                      <div className="space-y-2">
+                                        <div className={`flex items-center space-x-2 text-xs font-medium ${
+                                          hasFailures ? 'text-orange-700' : 'text-green-700'
+                                        }`}>
+                                          {hasFailures ? (
+                                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                            </svg>
+                                          ) : (
+                                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                          )}
+                                          <span>
+                                            {hasFailures ?
+                                              `Completed with ${totalFailed} failure${totalFailed > 1 ? 's' : ''} (${totalOk} tasks succeeded)` :
+                                              operation.id === 'check-components' && !output.includes('was not found') && !output.includes('does not exist') && !output.includes('have not been applied')
+                                                ? '✨ Everything looks good!'
+                                                : 'Completed Successfully'
+                                            }
+                                          </span>
+                                        </div>
+
+                                        {/* Task Statistics */}
+                                        <div className="grid grid-cols-4 gap-2 text-xs">
+                                          <div className="bg-green-50 border border-green-200 rounded p-1.5 text-center">
+                                            <div className="font-bold text-green-700">{totalOk}</div>
+                                            <div className="text-green-600 text-xs">Successful</div>
+                                          </div>
+                                          {totalFailed > 0 && (
+                                            <div className="bg-red-50 border border-red-200 rounded p-1.5 text-center">
+                                              <div className="font-bold text-red-700">{totalFailed}</div>
+                                              <div className="text-red-600 text-xs">Failed</div>
+                                            </div>
+                                          )}
+                                          {parseInt(changed) > 0 && (
+                                            <div className="bg-blue-50 border border-blue-200 rounded p-1.5 text-center">
+                                              <div className="font-bold text-blue-700">{changed}</div>
+                                              <div className="text-blue-600 text-xs">Changed</div>
+                                            </div>
+                                          )}
+                                          {parseInt(skipped) > 0 && (
+                                            <div className="bg-gray-50 border border-gray-200 rounded p-1.5 text-center">
+                                              <div className="font-bold text-gray-700">{skipped}</div>
+                                              <div className="text-gray-600 text-xs">Skipped</div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  }
+
+                                  // Fallback to original simple status if no PLAY RECAP found
+                                  return (
+                                    <div className={`flex items-center space-x-2 text-xs font-medium ${
+                                      ansibleResults[operation.id].success ? 'text-green-700' : 'text-red-700'
+                                    }`}>
+                                      {ansibleResults[operation.id].success ? (
+                                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                      ) : (
+                                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                      )}
+                                      <span>
+                                        {ansibleResults[operation.id].success ? (
+                                          operation.id === 'check-components' && ansibleResults[operation.id].result.output &&
+                                          !ansibleResults[operation.id].result.output.includes('was not found') &&
+                                          !ansibleResults[operation.id].result.output.includes('does not exist') &&
+                                          !ansibleResults[operation.id].result.output.includes('have not been applied')
+                                            ? '✨ Everything looks good!'
+                                            : 'Completed Successfully'
+                                        ) : 'Failed'}
+                                      </span>
+                                    </div>
+                                  );
+                                })()}
 
                                 {/* Operation-specific results */}
                                 <div className="space-y-2">
@@ -2609,95 +2714,125 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   {operation.id === 'check-components' && ansibleResults[operation.id].result.output && (
                                     <div className="bg-white rounded border p-2">
                                       <h5 className="text-xs font-semibold text-gray-700 mb-2">Component Status:</h5>
-                                      <div className="space-y-1">
-                                        <div className="flex items-center justify-between text-xs">
-                                          <span>CAPI Controller Manager:</span>
-                                          <span className={
-                                            !ansibleResults[operation.id].result.output.includes('capi_controller_manager deployment was not found')
-                                              ? 'font-medium text-green-600'
-                                              : 'font-medium text-red-600'
-                                          }>
-                                            {!ansibleResults[operation.id].result.output.includes('capi_controller_manager deployment was not found')
-                                              ? '✅ Found' : '❌ Not Found'}
-                                          </span>
-                                        </div>
-                                        <div className="flex items-center justify-between text-xs">
-                                          <span>CAPA Controller Manager:</span>
-                                          <span className={
-                                            !ansibleResults[operation.id].result.output.includes('capa_controller_manager deployment was not found')
-                                              ? 'font-medium text-green-600'
-                                              : 'font-medium text-red-600'
-                                          }>
-                                            {!ansibleResults[operation.id].result.output.includes('capa_controller_manager deployment was not found')
-                                              ? '✅ Found' : '❌ Not Found'}
-                                          </span>
-                                        </div>
-                                        <div className="flex items-center justify-between text-xs">
-                                          <span>Registration Configuration:</span>
-                                          <span className={
-                                            !ansibleResults[operation.id].result.output.includes('registration_configuration was not found')
-                                              ? 'font-medium text-green-600'
-                                              : 'font-medium text-red-600'
-                                          }>
-                                            {!ansibleResults[operation.id].result.output.includes('registration_configuration was not found')
-                                              ? '✅ Found' : '❌ Not Found'}
-                                          </span>
-                                        </div>
-                                        <div className="flex items-center justify-between text-xs">
-                                          <span>Cluster Role Binding:</span>
-                                          <span className={
-                                            !ansibleResults[operation.id].result.output.includes('cluster-role-binding changes have not been applied')
-                                              ? 'font-medium text-green-600'
-                                              : 'font-medium text-red-600'
-                                          }>
-                                            {!ansibleResults[operation.id].result.output.includes('cluster-role-binding changes have not been applied')
-                                              ? '✅ Applied' : '❌ Not Applied'}
-                                          </span>
-                                        </div>
-                                        <div className="flex items-center justify-between text-xs">
-                                          <span>CAPA Bootstrap Credentials:</span>
-                                          <span className={
-                                            !ansibleResults[operation.id].result.output.includes('capa-manager-bootstrap-credentials secret does not exist')
-                                              ? 'font-medium text-green-600'
-                                              : 'font-medium text-red-600'
-                                          }>
-                                            {!ansibleResults[operation.id].result.output.includes('capa-manager-bootstrap-credentials secret does not exist')
-                                              ? '✅ Exists' : '❌ Missing'}
-                                          </span>
-                                        </div>
-                                        <div className="flex items-center justify-between text-xs">
-                                          <span>ROSA Credentials Secret:</span>
-                                          <span className={
-                                            !ansibleResults[operation.id].result.output.includes('rosa-creds-secret secret does not exist')
-                                              ? 'font-medium text-green-600'
-                                              : 'font-medium text-red-600'
-                                          }>
-                                            {!ansibleResults[operation.id].result.output.includes('rosa-creds-secret secret does not exist')
-                                              ? '✅ Exists' : '❌ Missing'}
-                                          </span>
-                                        </div>
-                                        <div className="flex items-center justify-between text-xs">
-                                          <span>AWS Controller Identity:</span>
-                                          <span className={
-                                            !ansibleResults[operation.id].result.output.includes('aws_cluster_controller_identity does not exist')
-                                              ? 'font-medium text-green-600'
-                                              : 'font-medium text-red-600'
-                                          }>
-                                            {!ansibleResults[operation.id].result.output.includes('aws_cluster_controller_identity does not exist')
-                                              ? '✅ Exists' : '❌ Missing'}
-                                          </span>
-                                        </div>
-                                      </div>
                                       {(() => {
-                                        const output = ansibleResults[operation.id].result.output;
-                                        const allGreen =
+                                        const output = ansibleResults[operation.id].result.output || '';
+                                        // Check if login or authentication actually failed - be very specific
+                                        const loginFailed = output.toLowerCase().includes('login failed') ||
+                                          output.toLowerCase().includes('authentication failed') ||
+                                          output.toLowerCase().includes('invalid username or password') ||
+                                          output.toLowerCase().includes('unauthorized') ||
+                                          output.toLowerCase().includes('401');
+
+                                        if (loginFailed) {
+                                          return (
+                                            <div className="text-center py-4 text-red-600 text-xs">
+                                              <div className="mb-2">❌ Cannot check component status</div>
+                                              <div className="text-red-500">Authentication failed - please check your credentials</div>
+                                            </div>
+                                          );
+                                        }
+
+                                        return (
+                                          <div className="space-y-1">
+                                            <div className="flex items-center justify-between text-xs">
+                                              <span>CAPI Controller Manager:</span>
+                                              <span className={
+                                                !output.includes('capi_controller_manager deployment was not found')
+                                                  ? 'font-medium text-green-600'
+                                                  : 'font-medium text-red-600'
+                                              }>
+                                                {!output.includes('capi_controller_manager deployment was not found')
+                                                  ? '✅ Found' : '❌ Not Found'}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-xs">
+                                              <span>CAPA Controller Manager:</span>
+                                              <span className={
+                                                !output.includes('capa_controller_manager deployment was not found')
+                                                  ? 'font-medium text-green-600'
+                                                  : 'font-medium text-red-600'
+                                              }>
+                                                {!output.includes('capa_controller_manager deployment was not found')
+                                                  ? '✅ Found' : '❌ Not Found'}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-xs">
+                                              <span>Registration Configuration:</span>
+                                              <span className={
+                                                !output.includes('registration_configuration was not found')
+                                                  ? 'font-medium text-green-600'
+                                                  : 'font-medium text-red-600'
+                                              }>
+                                                {!output.includes('registration_configuration was not found')
+                                                  ? '✅ Found' : '❌ Not Found'}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-xs">
+                                              <span>Cluster Role Binding:</span>
+                                              <span className={
+                                                !output.includes('cluster-role-binding changes have not been applied')
+                                                  ? 'font-medium text-green-600'
+                                                  : 'font-medium text-red-600'
+                                              }>
+                                                {!output.includes('cluster-role-binding changes have not been applied')
+                                                  ? '✅ Applied' : '❌ Not Applied'}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-xs">
+                                              <span>CAPA Bootstrap Credentials:</span>
+                                              <span className={
+                                                !output.includes('capa-manager-bootstrap-credentials secret does not exist')
+                                                  ? 'font-medium text-green-600'
+                                                  : 'font-medium text-red-600'
+                                              }>
+                                                {!output.includes('capa-manager-bootstrap-credentials secret does not exist')
+                                                  ? '✅ Exists' : '❌ Missing'}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-xs">
+                                              <span>ROSA Credentials Secret:</span>
+                                              <span className={
+                                                !output.includes('rosa-creds-secret secret does not exist')
+                                                  ? 'font-medium text-green-600'
+                                                  : 'font-medium text-red-600'
+                                              }>
+                                                {!output.includes('rosa-creds-secret secret does not exist')
+                                                  ? '✅ Exists' : '❌ Missing'}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-xs">
+                                              <span>AWS Controller Identity:</span>
+                                              <span className={
+                                                !output.includes('aws_cluster_controller_identity does not exist')
+                                                  ? 'font-medium text-green-600'
+                                                  : 'font-medium text-red-600'
+                                              }>
+                                                {!output.includes('aws_cluster_controller_identity does not exist')
+                                                  ? '✅ Exists' : '❌ Missing'}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        );
+                                      })()}
+                                      {(() => {
+                                        const output = ansibleResults[operation.id].result.output || '';
+                                        const success = ansibleResults[operation.id].success;
+
+                                        // Only show success message if task succeeded AND no errors found
+                                        const allGreen = success &&
+                                          output.length > 0 &&
                                           !output.includes('capi_controller_manager deployment was not found') &&
                                           !output.includes('capa_controller_manager deployment was not found') &&
                                           !output.includes('registration_configuration was not found') &&
                                           !output.includes('cluster-role-binding changes have not been applied') &&
                                           !output.includes('capa-manager-bootstrap-credentials secret does not exist') &&
                                           !output.includes('rosa-creds-secret secret does not exist') &&
-                                          !output.includes('aws_cluster_controller_identity does not exist');
+                                          !output.includes('aws_cluster_controller_identity does not exist') &&
+                                          !output.toLowerCase().includes('failed') &&
+                                          !output.toLowerCase().includes('error') &&
+                                          !output.toLowerCase().includes('invalid username or password') &&
+                                          !output.toLowerCase().includes('unauthorized') &&
+                                          !output.toLowerCase().includes('401');
 
                                         if (allGreen) {
                                           return (
@@ -3403,24 +3538,24 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
           <div className="space-y-3 min-w-64 max-w-72 lg:sticky lg:top-4 animate-in slide-in-from-right duration-300">
 
             {/* Recent Operations Widget */}
-            {recentOperations.length > 0 && (
-              <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-md border border-gray-200 backdrop-blur-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 animate-in fade-in slide-in-from-right-4 duration-300 overflow-hidden">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-2.5 py-1.5 text-white relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-r from-indigo-400/20 to-purple-400/20 animate-pulse"></div>
-                  <div className="relative flex items-center gap-1.5">
-                    <div className="p-0.5 bg-white/20 rounded backdrop-blur-sm">
-                      <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h2 className="text-xs font-bold text-white leading-tight">Recent Operations</h2>
-                    </div>
+            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-md border border-gray-200 backdrop-blur-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 animate-in fade-in slide-in-from-right-4 duration-300 overflow-hidden">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-2.5 py-1.5 text-white relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-400/20 to-purple-400/20 animate-pulse"></div>
+                <div className="relative flex items-center gap-1.5">
+                  <div className="p-0.5 bg-white/20 rounded backdrop-blur-sm">
+                    <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-xs font-bold text-white leading-tight">Recent Operations</h2>
                   </div>
                 </div>
+              </div>
 
-                <div className="p-2">
+              <div className="p-2">
+                {recentOperations.length > 0 ? (
                   <div className="space-y-1.5">
                     {recentOperations.map((operation, index) => {
                       const timeAgo = Math.floor((Date.now() - operation.timestamp) / 60000);
@@ -3443,9 +3578,17 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       );
                     })}
                   </div>
-                </div>
+                ) : (
+                  <div className="text-center py-6 px-4">
+                    <svg className="h-10 w-10 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-xs text-gray-500 font-medium mb-1">No recent operations</p>
+                    <p className="text-xs text-gray-400">Run an operation to see it here</p>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
 
           </div>
