@@ -1,0 +1,36 @@
+# Python virtual environments
+venv/
+env/
+ENV/
+*.pyc
+__pycache__/
+
+# Node modules
+node_modules/
+
+# IDE files
+.idea/
+.vscode/
+.DS_Store
+
+# Local development
+.claude/
+
+# Environment files
+.env
+.env.local
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Cache directories
+.cache/
+
+# Log files
+*.log
+
+# Backup directories (temporary)
+ui (original)/
+ui (original 2)/
