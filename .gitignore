@@ -27,6 +27,8 @@ dist/
 
 # Cache directories
 .cache/
+**/.cache/
+**/*.pack
 
 # Log files
 *.log

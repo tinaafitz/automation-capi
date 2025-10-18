@@ -18,6 +18,13 @@ import yaml
 
 app = FastAPI(title="ROSA Automation API", version="1.0.0")
 
+# Add production endpoints (health checks, metrics, monitoring)
+try:
+    from app_extensions import add_production_endpoints
+    add_production_endpoints(app)
+except ImportError:
+    print("⚠️  app_extensions not available - production endpoints not loaded")
+
 # CORS middleware for frontend development
 app.add_middleware(
     CORSMiddleware,
