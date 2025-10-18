@@ -5,7 +5,7 @@ import {
   ChartBarIcon,
   ClockIcon,
   CheckCircleIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 
 export function ClusterDetails() {
@@ -31,8 +31,8 @@ export function ClusterDetails() {
           min_replicas: 2,
           max_replicas: 5,
           cidr_block: '10.0.0.0/16',
-          availability_zones: ['us-west-2a', 'us-west-2b']
-        }
+          availability_zones: ['us-west-2a', 'us-west-2b'],
+        },
       });
 
       setJob({
@@ -48,8 +48,8 @@ export function ClusterDetails() {
           'Configuring security groups...',
           'Launching ROSA control plane...',
           'Configuring node pools...',
-          'Cluster ready!'
-        ]
+          'Cluster ready!',
+        ],
       });
 
       setLoading(false);
@@ -144,21 +144,25 @@ export function ClusterDetails() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-gray-700">ROSANetwork (ACM-21174)</span>
-              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                cluster.network_automation
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-gray-100 text-gray-800'
-              }`}>
+              <span
+                className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                  cluster.network_automation
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-gray-100 text-gray-800'
+                }`}
+              >
                 {cluster.network_automation ? 'Enabled' : 'Disabled'}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-gray-700">ROSARoleConfig (ACM-21162)</span>
-              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                cluster.role_automation
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-gray-100 text-gray-800'
-              }`}>
+              <span
+                className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                  cluster.role_automation
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-gray-100 text-gray-800'
+                }`}
+              >
                 {cluster.role_automation ? 'Enabled' : 'Disabled'}
               </span>
             </div>

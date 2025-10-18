@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+build/
+dist/
+.cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# CI/CD
+.github/
+
+# Documentation
+*.md
+!README.md
+
+# Config
+.env
+.env.local
+.env.*.local
+
+# Testing
+coverage/
+
+# Pre-commit
+.pre-commit-config.yaml

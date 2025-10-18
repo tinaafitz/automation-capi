@@ -1,11 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import {
-  HomeIcon,
-  ServerIcon,
-  PlusIcon,
-  Cog6ToothIcon
-} from '@heroicons/react/24/outline';
+import { HomeIcon, ServerIcon, PlusIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },

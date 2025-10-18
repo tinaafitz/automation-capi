@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  ServerIcon,
-  EyeIcon,
-  TrashIcon,
-  PlusIcon
-} from '@heroicons/react/24/outline';
+import { ServerIcon, EyeIcon, TrashIcon, PlusIcon } from '@heroicons/react/24/outline';
 
 export function ClusterList() {
   const [clusters, setClusters] = useState([]);
@@ -23,7 +18,7 @@ export function ClusterList() {
           region: 'us-west-2',
           created_at: '2024-01-15T10:30:00Z',
           network_automation: true,
-          role_automation: false
+          role_automation: false,
         },
         {
           id: '2',
@@ -33,8 +28,8 @@ export function ClusterList() {
           region: 'us-east-1',
           created_at: '2024-01-16T14:15:00Z',
           network_automation: true,
-          role_automation: true
-        }
+          role_automation: true,
+        },
       ]);
       setLoading(false);
     }, 1000);
@@ -42,10 +37,14 @@ export function ClusterList() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'ready': return 'bg-green-100 text-green-800';
-      case 'creating': return 'bg-yellow-100 text-yellow-800';
-      case 'error': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'ready':
+        return 'bg-green-100 text-green-800';
+      case 'creating':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'error':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -109,7 +108,9 @@ export function ClusterList() {
                   <div className="text-sm font-medium text-gray-900">{cluster.name}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(cluster.status)}`}>
+                  <span
+                    className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(cluster.status)}`}
+                  >
                     {cluster.status}
                   </span>
                 </td>

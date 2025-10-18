@@ -11,7 +11,7 @@ import {
   CloudIcon,
   KeyIcon,
   ServerIcon,
-  RocketLaunchIcon
+  RocketLaunchIcon,
 } from '@heroicons/react/24/outline';
 
 export function GuidedSetup() {
@@ -93,7 +93,9 @@ export function GuidedSetup() {
       if (!data.authenticated) {
         return (
           <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <h4 className="font-semibold text-red-800 mb-2">🔐 ROSA Staging Authentication Required</h4>
+            <h4 className="font-semibold text-red-800 mb-2">
+              🔐 ROSA Staging Authentication Required
+            </h4>
             <p className="text-red-700 mb-3">
               You must be logged into the ROSA staging environment to continue.
             </p>
@@ -103,7 +105,9 @@ export function GuidedSetup() {
               </code>
             </div>
             <button
-              onClick={() => navigator.clipboard.writeText('rosa login --env staging --use-auth-code')}
+              onClick={() =>
+                navigator.clipboard.writeText('rosa login --env staging --use-auth-code')
+              }
               className="text-red-600 hover:text-red-800 text-sm font-medium"
             >
               📋 Copy command
@@ -133,10 +137,13 @@ export function GuidedSetup() {
           <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <h4 className="font-semibold text-yellow-800 mb-2">👋 Welcome! New user detected</h4>
             <p className="text-yellow-700 mb-3">
-              It looks like you haven't configured your credentials yet. Let's set up your vars/user_vars.yml file.
+              It looks like you haven't configured your credentials yet. Let's set up your
+              vars/user_vars.yml file.
             </p>
             <div className="space-y-2 text-sm text-yellow-700">
-              <p><strong>You'll need to configure:</strong></p>
+              <p>
+                <strong>You'll need to configure:</strong>
+              </p>
               <ul className="list-disc list-inside space-y-1 ml-2">
                 <li>OpenShift Hub connection details (OCP_HUB_*)</li>
                 <li>AWS credentials (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)</li>
@@ -169,7 +176,8 @@ export function GuidedSetup() {
               Progress: {data.total_configured || 0}/{data.total_required || 8} fields configured
             </p>
             <div className="bg-orange-100 rounded p-2 text-xs text-orange-800">
-              Missing: {[...(data.empty_fields || []), ...(data.missing_fields || [])].length} required fields
+              Missing: {[...(data.empty_fields || []), ...(data.missing_fields || [])].length}{' '}
+              required fields
             </div>
           </div>
         );
@@ -191,14 +199,10 @@ export function GuidedSetup() {
         return (
           <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <h4 className="font-semibold text-yellow-800 mb-2">🔑 AWS Credentials needed</h4>
-            <p className="text-yellow-700 mb-3">
-              No AWS credentials found in your configuration.
-            </p>
+            <p className="text-yellow-700 mb-3">No AWS credentials found in your configuration.</p>
             <div className="bg-white rounded p-3 border border-yellow-200 text-sm">
               <p className="font-semibold text-yellow-800 mb-2">How to set up AWS credentials:</p>
-              <div className="text-yellow-700 whitespace-pre-line">
-                {data.setup_guide}
-              </div>
+              <div className="text-yellow-700 whitespace-pre-line">{data.setup_guide}</div>
             </div>
           </div>
         );
@@ -211,9 +215,7 @@ export function GuidedSetup() {
             {data.troubleshooting && (
               <div className="bg-white rounded p-3 border border-red-200 text-sm">
                 <p className="font-semibold text-red-800 mb-2">Troubleshooting:</p>
-                <div className="text-red-700 whitespace-pre-line">
-                  {data.troubleshooting}
-                </div>
+                <div className="text-red-700 whitespace-pre-line">{data.troubleshooting}</div>
               </div>
             )}
           </div>
@@ -225,9 +227,7 @@ export function GuidedSetup() {
             <p className="text-green-700 text-sm">
               Account: {data.account_info?.account_id || 'Unknown'}
             </p>
-            <p className="text-green-700 text-sm">
-              Region: {data.aws_region}
-            </p>
+            <p className="text-green-700 text-sm">Region: {data.aws_region}</p>
           </div>
         );
       }
@@ -236,12 +236,19 @@ export function GuidedSetup() {
     if (stepNum === 4) {
       // OCP Connection Step
       if (!data.connected) {
-        const shouldShowKindOption = ['connection_failed', 'invalid_credentials', 'timeout', 'tls_error'].includes(data.status);
+        const shouldShowKindOption = [
+          'connection_failed',
+          'invalid_credentials',
+          'timeout',
+          'tls_error',
+        ].includes(data.status);
 
         return (
           <div className="mt-4 space-y-4">
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h4 className="font-semibold text-blue-800 mb-2">🤔 Need Help with OpenShift Hub Connection?</h4>
+              <h4 className="font-semibold text-blue-800 mb-2">
+                🤔 Need Help with OpenShift Hub Connection?
+              </h4>
               <p className="text-blue-700 mb-2">Connection issue: {data.message}</p>
               <p className="text-blue-600 text-sm mb-3">{data.suggestion}</p>
 
@@ -266,7 +273,9 @@ Current values:
 
 Need help finding your credentials? Check your OpenShift cluster console for the login details.`;
                       navigator.clipboard.writeText(instructions);
-                      alert('📋 Instructions copied to clipboard! Open vars/user_vars.yml and update your OCP_HUB_* credentials.');
+                      alert(
+                        '📋 Instructions copied to clipboard! Open vars/user_vars.yml and update your OCP_HUB_* credentials.'
+                      );
                     }}
                     className="w-full bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium mb-2"
                   >
@@ -276,7 +285,11 @@ Need help finding your credentials? Check your OpenShift cluster console for the
                   {shouldShowKindOption && (
                     <button
                       onClick={() => {
-                        if (window.confirm('🐳 Great choice! Using a Kind cluster is perfect for testing automation. Would you like me to guide you through the setup?')) {
+                        if (
+                          window.confirm(
+                            '🐳 Great choice! Using a Kind cluster is perfect for testing automation. Would you like me to guide you through the setup?'
+                          )
+                        ) {
                           const kindInstructions = `Setting up Kind cluster for ROSA automation testing:
 
 1. Install Kind (if not already installed):
@@ -300,7 +313,9 @@ Need help finding your credentials? Check your OpenShift cluster console for the
 
 Kind Documentation: https://kind.sigs.k8s.io/docs/user/quick-start/`;
                           navigator.clipboard.writeText(kindInstructions);
-                          alert('📋 Kind setup instructions copied to clipboard! This is a great option for testing.');
+                          alert(
+                            '📋 Kind setup instructions copied to clipboard! This is a great option for testing.'
+                          );
                         }
                       }}
                       className="w-full bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 text-sm font-medium"
@@ -317,12 +332,8 @@ Kind Documentation: https://kind.sigs.k8s.io/docs/user/quick-start/`;
         return (
           <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
             <h4 className="font-semibold text-green-800 mb-2">✅ OpenShift Hub connected!</h4>
-            <p className="text-green-700 text-sm">
-              API: {data.api_url}
-            </p>
-            <p className="text-green-700 text-sm">
-              User: {data.username}
-            </p>
+            <p className="text-green-700 text-sm">API: {data.api_url}</p>
+            <p className="text-green-700 text-sm">User: {data.username}</p>
           </div>
         );
       }
@@ -336,9 +347,12 @@ Kind Documentation: https://kind.sigs.k8s.io/docs/user/quick-start/`;
       if (!clusterConnectionReady) {
         return (
           <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <h4 className="font-semibold text-yellow-800 mb-2">⏸️ Waiting for cluster connection...</h4>
+            <h4 className="font-semibold text-yellow-800 mb-2">
+              ⏸️ Waiting for cluster connection...
+            </h4>
             <p className="text-yellow-700 mb-3">
-              Step 5 will be available once you complete Step 4 (OpenShift Hub Connection). You need to either:
+              Step 5 will be available once you complete Step 4 (OpenShift Hub Connection). You need
+              to either:
             </p>
             <ul className="text-yellow-700 text-sm list-disc list-inside space-y-1 mb-3">
               <li>Successfully connect to your OpenShift Hub cluster, OR</li>
@@ -355,7 +369,8 @@ Kind Documentation: https://kind.sigs.k8s.io/docs/user/quick-start/`;
         <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
           <h4 className="font-semibold text-green-800 mb-2">🎉 Ready for automation!</h4>
           <p className="text-green-700 mb-3">
-            All prerequisites are met. You can now create and manage ROSA clusters with full automation.
+            All prerequisites are met. You can now create and manage ROSA clusters with full
+            automation.
           </p>
           <button
             onClick={() => navigate('/')}
@@ -391,12 +406,11 @@ Kind Documentation: https://kind.sigs.k8s.io/docs/user/quick-start/`;
               <div className="bg-red-600 text-white px-3 py-2 rounded font-bold text-lg">
                 Red Hat
               </div>
-              <span className="text-xl font-semibold text-gray-900">ROSA CAPI/CAPA Setup Guide</span>
+              <span className="text-xl font-semibold text-gray-900">
+                ROSA CAPI/CAPA Setup Guide
+              </span>
             </div>
-            <button
-              onClick={() => navigate('/')}
-              className="text-gray-600 hover:text-gray-800"
-            >
+            <button onClick={() => navigate('/')} className="text-gray-600 hover:text-gray-800">
               ← Back to dashboard
             </button>
           </div>
@@ -406,79 +420,86 @@ Kind Documentation: https://kind.sigs.k8s.io/docs/user/quick-start/`;
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Progress Overview */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Setup Progress
-          </h1>
-          <p className="text-lg text-gray-600 mb-4">
-            Step {setupStatus?.current_step || 1} of 5
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Setup Progress</h1>
+          <p className="text-lg text-gray-600 mb-4">Step {setupStatus?.current_step || 1} of 5</p>
 
           {setupStatus?.all_prerequisites_met ? (
             <div className="bg-green-100 border border-green-200 rounded-lg p-4">
               <h2 className="text-lg font-semibold text-green-800">🎉 Setup Complete!</h2>
-              <p className="text-green-700">All prerequisites are met. You're ready to use automation.</p>
+              <p className="text-green-700">
+                All prerequisites are met. You're ready to use automation.
+              </p>
             </div>
           ) : (
             <div className="bg-blue-100 border border-blue-200 rounded-lg p-4">
               <h2 className="text-lg font-semibold text-blue-800">Setup in Progress</h2>
-              <p className="text-blue-700">Complete the steps below to enable automation features.</p>
+              <p className="text-blue-700">
+                Complete the steps below to enable automation features.
+              </p>
             </div>
           )}
         </div>
 
         {/* Steps */}
         <div className="space-y-6">
-          {setupStatus?.steps && Object.entries(setupStatus.steps).map(([stepNum, step]) => {
-            const StepIcon = getStepIcon(step);
-            const stepNumber = parseInt(stepNum);
+          {setupStatus?.steps &&
+            Object.entries(setupStatus.steps).map(([stepNum, step]) => {
+              const StepIcon = getStepIcon(step);
+              const stepNumber = parseInt(stepNum);
 
-            return (
-              <div
-                key={stepNum}
-                className={`rounded-lg border-2 transition-all duration-300 ${getStatusColor(step.status)} ${
-                  step.status === 'current' ? 'shadow-lg scale-[1.02]' : ''
-                }`}
-              >
-                <div className="p-6">
-                  <div className="flex items-start space-x-4">
-                    <div className="flex-shrink-0">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                        step.status === 'completed' ? 'bg-green-100' :
-                        step.status === 'current' ? 'bg-blue-100' :
-                        'bg-gray-100'
-                      }`}>
-                        {step.status === 'completed' ? (
-                          <CheckCircleIcon className="h-6 w-6 text-green-500" />
-                        ) : (
-                          <StepIcon className={`h-6 w-6 ${
-                            step.status === 'current' ? 'text-blue-500' : 'text-gray-400'
-                          }`} />
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          Step {stepNumber}: {step.name}
-                        </h3>
-                        <div className="flex items-center space-x-2">
-                          {step.required && (
-                            <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">
-                              Required
-                            </span>
+              return (
+                <div
+                  key={stepNum}
+                  className={`rounded-lg border-2 transition-all duration-300 ${getStatusColor(step.status)} ${
+                    step.status === 'current' ? 'shadow-lg scale-[1.02]' : ''
+                  }`}
+                >
+                  <div className="p-6">
+                    <div className="flex items-start space-x-4">
+                      <div className="flex-shrink-0">
+                        <div
+                          className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                            step.status === 'completed'
+                              ? 'bg-green-100'
+                              : step.status === 'current'
+                                ? 'bg-blue-100'
+                                : 'bg-gray-100'
+                          }`}
+                        >
+                          {step.status === 'completed' ? (
+                            <CheckCircleIcon className="h-6 w-6 text-green-500" />
+                          ) : (
+                            <StepIcon
+                              className={`h-6 w-6 ${
+                                step.status === 'current' ? 'text-blue-500' : 'text-gray-400'
+                              }`}
+                            />
                           )}
-                          {getStatusIcon(step.status)}
                         </div>
                       </div>
 
-                      {renderStepContent(stepNumber, step)}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            Step {stepNumber}: {step.name}
+                          </h3>
+                          <div className="flex items-center space-x-2">
+                            {step.required && (
+                              <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">
+                                Required
+                              </span>
+                            )}
+                            {getStatusIcon(step.status)}
+                          </div>
+                        </div>
+
+                        {renderStepContent(stepNumber, step)}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
         </div>
 
         {/* Refresh button */}

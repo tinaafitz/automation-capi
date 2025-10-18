@@ -1,0 +1,44 @@
+# Node modules and dependencies
+ui/frontend/node_modules/
+ui/backend/node_modules/
+**/node_modules/
+
+# Cache directories
+ui/frontend/.cache/
+ui/backend/.cache/
+**/.cache/
+
+# Build outputs
+ui/frontend/build/
+ui/frontend/dist/
+ui/backend/dist/
+build/
+dist/
+
+# Large binary and pack files
+*.pack
+**/*.pack
+
+# Git directory
+.git/
+
+# Log files
+*.log
+**/*.log
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE files
+.idea/
+.vscode/
+
+# Backup directories
+ui (original)/
+ui (original 2)/

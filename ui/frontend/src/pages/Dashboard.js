@@ -6,7 +6,7 @@ import {
   ChartBarIcon,
   PlusIcon,
   GlobeAltIcon,
-  ShieldCheckIcon
+  ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
 
 export function Dashboard() {
@@ -16,22 +16,22 @@ export function Dashboard() {
       description: 'Automated VPC and subnet creation using CloudFormation templates',
       icon: GlobeAltIcon,
       badge: 'ACM-21174',
-      color: 'bg-blue-500'
+      color: 'bg-blue-500',
     },
     {
       title: 'ROSARoleConfig Automation',
       description: 'Automated AWS IAM role and OIDC provider management',
       icon: ShieldCheckIcon,
       badge: 'ACM-21162',
-      color: 'bg-green-500'
+      color: 'bg-green-500',
     },
     {
       title: 'OpenShift 4.20 Ready',
       description: 'Optimized for the latest OpenShift version with enhanced features',
       icon: CloudIcon,
       badge: 'Latest',
-      color: 'bg-purple-500'
-    }
+      color: 'bg-purple-500',
+    },
   ];
 
   const quickActions = [
@@ -40,15 +40,15 @@ export function Dashboard() {
       description: 'Launch a new ROSA HCP cluster with automation',
       href: '/clusters/create',
       icon: PlusIcon,
-      color: 'bg-red-600 hover:bg-red-700'
+      color: 'bg-red-600 hover:bg-red-700',
     },
     {
       title: 'View Clusters',
       description: 'Manage and monitor existing clusters',
       href: '/clusters',
       icon: ServerIcon,
-      color: 'bg-blue-600 hover:bg-blue-700'
-    }
+      color: 'bg-blue-600 hover:bg-blue-700',
+    },
   ];
 
   return (
@@ -90,7 +90,10 @@ export function Dashboard() {
           {features.map((feature) => {
             const Icon = feature.icon;
             return (
-              <div key={feature.title} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div
+                key={feature.title}
+                className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+              >
                 <div className="flex items-start">
                   <div className={`${feature.color} rounded-lg p-3 mr-4`}>
                     <Icon className="h-6 w-6 text-white" />
@@ -121,7 +124,9 @@ export function Dashboard() {
             </div>
             <div>
               <h4 className="font-semibold text-gray-900">Configure AWS Credentials</h4>
-              <p className="text-gray-600">Ensure your AWS credentials are configured for ROSA operations</p>
+              <p className="text-gray-600">
+                Ensure your AWS credentials are configured for ROSA operations
+              </p>
             </div>
           </div>
           <div className="flex items-start">
@@ -130,7 +135,9 @@ export function Dashboard() {
             </div>
             <div>
               <h4 className="font-semibold text-gray-900">Choose Automation Features</h4>
-              <p className="text-gray-600">Select ROSANetwork and/or ROSARoleConfig automation based on your needs</p>
+              <p className="text-gray-600">
+                Select ROSANetwork and/or ROSARoleConfig automation based on your needs
+              </p>
             </div>
           </div>
           <div className="flex items-start">
@@ -139,7 +146,9 @@ export function Dashboard() {
             </div>
             <div>
               <h4 className="font-semibold text-gray-900">Create Your Cluster</h4>
-              <p className="text-gray-600">Use the guided cluster creation wizard to deploy your ROSA HCP cluster</p>
+              <p className="text-gray-600">
+                Use the guided cluster creation wizard to deploy your ROSA HCP cluster
+              </p>
             </div>
           </div>
         </div>

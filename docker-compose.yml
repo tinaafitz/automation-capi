@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./ui/backend
+      dockerfile: Dockerfile
+    container_name: rosa-automation-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=development
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - LOG_JSON=false
+      - HOST=0.0.0.0
+      - PORT=8000
+      - CORS_ORIGINS=http://localhost:3000
+    volumes:
+      - ./ui/backend:/app
+      - ./vars:/vars
+      - backend-venv:/app/venv
+    command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - rosa-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./ui/frontend
+      dockerfile: Dockerfile.dev
+    container_name: rosa-automation-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_WS_URL=ws://localhost:8000
+      - CHOKIDAR_USEPOLLING=true
+    volumes:
+      - ./ui/frontend/src:/app/src
+      - ./ui/frontend/public:/app/public
+      - frontend-node-modules:/app/node_modules
+    networks:
+      - rosa-network
+    depends_on:
+      - backend
+    stdin_open: true
+    tty: true
+
+volumes:
+  backend-venv:
+  frontend-node-modules:
+
+networks:
+  rosa-network:
+    driver: bridge

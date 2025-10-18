@@ -1,12 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import {
-  CloudIcon,
-  CogIcon,
-  GlobeAltIcon,
-  ShieldCheckIcon
-} from '@heroicons/react/24/outline';
+import { CloudIcon, CogIcon, GlobeAltIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
 
 export function CreateCluster() {
   const navigate = useNavigate();
@@ -21,7 +16,7 @@ export function CreateCluster() {
     role_automation: false,
     availability_zones: ['us-west-2a', 'us-west-2b'],
     cidr_block: '10.0.0.0/16',
-    tags: {}
+    tags: {},
   });
 
   const [loading, setLoading] = useState(false);
@@ -59,9 +54,9 @@ export function CreateCluster() {
   };
 
   const handleInputChange = (field, value) => {
-    setConfig(prev => ({
+    setConfig((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
@@ -88,9 +83,7 @@ export function CreateCluster() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Cluster Name *
-                </label>
+                <label className="block text-sm font-medium text-gray-700">Cluster Name *</label>
                 <input
                   type="text"
                   required
@@ -102,9 +95,7 @@ export function CreateCluster() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  OpenShift Version
-                </label>
+                <label className="block text-sm font-medium text-gray-700">OpenShift Version</label>
                 <select
                   value={config.version}
                   onChange={(e) => handleInputChange('version', e.target.value)}
@@ -117,9 +108,7 @@ export function CreateCluster() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  AWS Region
-                </label>
+                <label className="block text-sm font-medium text-gray-700">AWS Region</label>
                 <select
                   value={config.region}
                   onChange={(e) => handleInputChange('region', e.target.value)}
@@ -132,9 +121,7 @@ export function CreateCluster() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Instance Type
-                </label>
+                <label className="block text-sm font-medium text-gray-700">Instance Type</label>
                 <select
                   value={config.instance_type}
                   onChange={(e) => handleInputChange('instance_type', e.target.value)}
@@ -154,9 +141,7 @@ export function CreateCluster() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Minimum Replicas
-                </label>
+                <label className="block text-sm font-medium text-gray-700">Minimum Replicas</label>
                 <input
                   type="number"
                   min="1"
@@ -167,9 +152,7 @@ export function CreateCluster() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Maximum Replicas
-                </label>
+                <label className="block text-sm font-medium text-gray-700">Maximum Replicas</label>
                 <input
                   type="number"
                   min="1"
@@ -234,9 +217,7 @@ export function CreateCluster() {
               <h3 className="text-lg font-medium text-gray-900">Network Configuration</h3>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  VPC CIDR Block
-                </label>
+                <label className="block text-sm font-medium text-gray-700">VPC CIDR Block</label>
                 <input
                   type="text"
                   value={config.cidr_block}
