@@ -226,7 +226,11 @@ describe('API Calls', () => {
       }, []);
 
       if (!cluster) return <div>Loading...</div>;
-      return <div>Cluster: {cluster.cluster} - {cluster.status}</div>;
+      return (
+        <div>
+          Cluster: {cluster.cluster} - {cluster.status}
+        </div>
+      );
     }
 
     render(<ClusterStatus />);

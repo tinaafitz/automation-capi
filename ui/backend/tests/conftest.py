@@ -17,7 +17,7 @@ def mock_cluster_config() -> dict:
         "region": "us-east-1",
         "version": "4.14.0",
         "replicas": 3,
-        "machine_type": "m5.xlarge"
+        "machine_type": "m5.xlarge",
     }
 
 
@@ -30,7 +30,7 @@ def mock_user_vars() -> dict:
         "ocp_hub_password": "test-password",
         "aws_access_key_id": "TEST_ACCESS_KEY",
         "aws_secret_access_key": "TEST_SECRET_KEY",
-        "ocm_token": "test-token"
+        "ocm_token": "test-token",
     }
 
 
@@ -44,6 +44,7 @@ def reset_environment(monkeypatch) -> Generator:
     """
     # Store original environment
     import os
+
     original_env = os.environ.copy()
 
     yield

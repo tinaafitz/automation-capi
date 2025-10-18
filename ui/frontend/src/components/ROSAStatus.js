@@ -5,7 +5,7 @@ import {
   XCircleIcon,
   ArrowPathIcon,
   CommandLineIcon,
-  LinkIcon
+  LinkIcon,
 } from '@heroicons/react/24/outline';
 
 export function ROSAStatus({ compact = false, showRefresh = true, statusData = null }) {
@@ -27,7 +27,7 @@ export function ROSAStatus({ compact = false, showRefresh = true, statusData = n
         status: 'error',
         message: 'Failed to check ROSA status',
         error: 'Network error or backend unavailable',
-        suggestion: 'Check that the backend is running'
+        suggestion: 'Check that the backend is running',
       });
     } finally {
       setLoading(false);
@@ -95,11 +95,15 @@ export function ROSAStatus({ compact = false, showRefresh = true, statusData = n
   if (compact) {
     // Compact display for header/status bar
     const color = getStatusColor();
-    const bgColor = color === 'green' ? 'bg-green-50' : color === 'red' ? 'bg-red-50' : 'bg-yellow-50';
-    const textColor = color === 'green' ? 'text-green-700' : color === 'red' ? 'text-red-700' : 'text-yellow-700';
+    const bgColor =
+      color === 'green' ? 'bg-green-50' : color === 'red' ? 'bg-red-50' : 'bg-yellow-50';
+    const textColor =
+      color === 'green' ? 'text-green-700' : color === 'red' ? 'text-red-700' : 'text-yellow-700';
 
     return (
-      <div className={`flex items-center space-x-2 ${bgColor} ${textColor} px-3 py-1 rounded-full text-sm`}>
+      <div
+        className={`flex items-center space-x-2 ${bgColor} ${textColor} px-3 py-1 rounded-full text-sm`}
+      >
         {getStatusIcon()}
         <span className="font-medium">
           {loading ? 'Checking...' : status?.authenticated ? 'ROSA Ready' : 'ROSA Required'}
@@ -149,7 +153,9 @@ export function ROSAStatus({ compact = false, showRefresh = true, statusData = n
             <div className="flex items-start space-x-3">
               <ExclamationTriangleIcon className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
               <div className="flex-1">
-                <h4 className="text-sm font-semibold text-red-800">ROSA Staging Authentication Required</h4>
+                <h4 className="text-sm font-semibold text-red-800">
+                  ROSA Staging Authentication Required
+                </h4>
                 <p className="text-sm text-red-700 mt-1">{status.suggestion}</p>
 
                 {status.fix_command && (
@@ -190,10 +196,13 @@ export function ROSAStatus({ compact = false, showRefresh = true, statusData = n
           <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
             <div className="flex items-center space-x-2 mb-3">
               <CheckCircleIcon className="h-5 w-5 text-green-600" />
-              <h4 className="text-sm font-semibold text-green-800">✅ Successfully Connected to ROSA Staging!</h4>
+              <h4 className="text-sm font-semibold text-green-800">
+                ✅ Successfully Connected to ROSA Staging!
+              </h4>
             </div>
             <p className="text-sm text-green-700 mb-3">
-              You are now authenticated with the ROSA staging environment and can use all automation features.
+              You are now authenticated with the ROSA staging environment and can use all automation
+              features.
             </p>
             <div className="bg-white rounded p-3 border border-green-200">
               <h5 className="text-xs font-semibold text-green-800 mb-2">Account Details</h5>

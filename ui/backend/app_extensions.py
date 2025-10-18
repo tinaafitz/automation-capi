@@ -60,9 +60,7 @@ def add_production_endpoints(app: FastAPI):
             status_code = 503
 
         return Response(
-            content=str(health_status),
-            status_code=status_code,
-            media_type="application/json"
+            content=str(health_status), status_code=status_code, media_type="application/json"
         )
 
     @app.get("/health/ready")
@@ -83,9 +81,7 @@ def add_production_endpoints(app: FastAPI):
             return readiness_status
         else:
             return Response(
-                content=str(readiness_status),
-                status_code=503,
-                media_type="application/json"
+                content=str(readiness_status), status_code=503, media_type="application/json"
             )
 
     @app.get("/health/live")
@@ -116,10 +112,11 @@ def add_production_endpoints(app: FastAPI):
         Get application version information.
         """
         import os
+
         return {
             "version": os.getenv("APP_VERSION", "1.0.0"),
             "environment": os.getenv("APP_ENV", "development"),
-            "build_date": os.getenv("BUILD_DATE", "unknown")
+            "build_date": os.getenv("BUILD_DATE", "unknown"),
         }
 
     return app

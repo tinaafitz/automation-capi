@@ -6,7 +6,7 @@ import {
   ArrowPathIcon,
   ServerIcon,
   KeyIcon,
-  GlobeAltIcon
+  GlobeAltIcon,
 } from '@heroicons/react/24/outline';
 
 export function OCPConnectionStatus({ compact = false, showRefresh = true, statusData = null }) {
@@ -27,7 +27,7 @@ export function OCPConnectionStatus({ compact = false, showRefresh = true, statu
         connected: false,
         status: 'error',
         message: 'Failed to check OpenShift Hub connection',
-        suggestion: 'Check that the backend is running'
+        suggestion: 'Check that the backend is running',
       });
     } finally {
       setLoading(false);
@@ -111,17 +111,24 @@ export function OCPConnectionStatus({ compact = false, showRefresh = true, statu
   if (compact) {
     // Compact display for header/status bar
     const color = getStatusColor();
-    const bgColor = color === 'green' ? 'bg-green-50' : color === 'red' ? 'bg-red-50' : 'bg-yellow-50';
-    const textColor = color === 'green' ? 'text-green-700' : color === 'red' ? 'text-red-700' : 'text-yellow-700';
+    const bgColor =
+      color === 'green' ? 'bg-green-50' : color === 'red' ? 'bg-red-50' : 'bg-yellow-50';
+    const textColor =
+      color === 'green' ? 'text-green-700' : color === 'red' ? 'text-red-700' : 'text-yellow-700';
 
     return (
-      <div className={`flex items-center space-x-2 ${bgColor} ${textColor} px-3 py-1 rounded-full text-sm`}>
+      <div
+        className={`flex items-center space-x-2 ${bgColor} ${textColor} px-3 py-1 rounded-full text-sm`}
+      >
         {getStatusIcon()}
         <span className="font-medium">
-          {loading ? 'Checking...' :
-           status?.connected ? 'OCP Connected' :
-           status?.status === 'missing_api_url' || status?.status === 'missing_credentials' ? 'OCP Config' :
-           'OCP Required'}
+          {loading
+            ? 'Checking...'
+            : status?.connected
+              ? 'OCP Connected'
+              : status?.status === 'missing_api_url' || status?.status === 'missing_credentials'
+                ? 'OCP Config'
+                : 'OCP Required'}
         </span>
         {showRefresh && (
           <button
@@ -167,10 +174,13 @@ export function OCPConnectionStatus({ compact = false, showRefresh = true, statu
           <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
             <div className="flex items-center space-x-2 mb-3">
               <CheckCircleIcon className="h-5 w-5 text-green-600" />
-              <h4 className="text-sm font-semibold text-green-800">✅ Connected to OpenShift Hub!</h4>
+              <h4 className="text-sm font-semibold text-green-800">
+                ✅ Connected to OpenShift Hub!
+              </h4>
             </div>
             <p className="text-sm text-green-700 mb-3">
-              Successfully authenticated with the OpenShift Hub cluster. You can now use cluster automation features.
+              Successfully authenticated with the OpenShift Hub cluster. You can now use cluster
+              automation features.
             </p>
 
             <div className="bg-white rounded p-3 border border-green-200">
@@ -181,7 +191,10 @@ export function OCPConnectionStatus({ compact = false, showRefresh = true, statu
                     <GlobeAltIcon className="h-3 w-3 mr-1" />
                     API URL:
                   </span>
-                  <span className="text-green-800 font-mono text-xs truncate max-w-xs" title={status.api_url}>
+                  <span
+                    className="text-green-800 font-mono text-xs truncate max-w-xs"
+                    title={status.api_url}
+                  >
                     {status.api_url}
                   </span>
                 </div>
@@ -215,7 +228,9 @@ export function OCPConnectionStatus({ compact = false, showRefresh = true, statu
             <div className="flex items-start space-x-3">
               <ExclamationTriangleIcon className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
               <div className="flex-1">
-                <h4 className="text-sm font-semibold text-red-800">OpenShift Hub Connection Failed</h4>
+                <h4 className="text-sm font-semibold text-red-800">
+                  OpenShift Hub Connection Failed
+                </h4>
                 <p className="text-sm text-red-700 mt-1">{status.suggestion}</p>
 
                 {status.api_url && (
@@ -224,7 +239,10 @@ export function OCPConnectionStatus({ compact = false, showRefresh = true, statu
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-red-700">API URL:</span>
-                        <span className="text-red-800 font-mono text-xs truncate max-w-xs" title={status.api_url}>
+                        <span
+                          className="text-red-800 font-mono text-xs truncate max-w-xs"
+                          title={status.api_url}
+                        >
                           {status.api_url}
                         </span>
                       </div>
@@ -251,31 +269,51 @@ export function OCPConnectionStatus({ compact = false, showRefresh = true, statu
                     <p className="text-sm text-red-700 mb-2">Install the OpenShift CLI:</p>
                     <div className="bg-gray-900 rounded p-3">
                       <code className="text-green-400 text-sm font-mono">
-                        # macOS: brew install openshift-cli<br/>
-                        # Or download from: https://console.redhat.com/openshift/downloads
+                        # macOS: brew install openshift-cli
+                        <br /># Or download from: https://console.redhat.com/openshift/downloads
                       </code>
                     </div>
                   </div>
                 )}
 
-                {(status.status === 'connection_failed' || status.status === 'invalid_credentials' || status.status === 'timeout' || status.status === 'tls_error') && (
+                {(status.status === 'connection_failed' ||
+                  status.status === 'invalid_credentials' ||
+                  status.status === 'timeout' ||
+                  status.status === 'tls_error') && (
                   <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
-                    <h5 className="text-sm font-semibold text-blue-800 mb-2">💡 Alternative: Use Kind Cluster</h5>
+                    <h5 className="text-sm font-semibold text-blue-800 mb-2">
+                      💡 Alternative: Use Kind Cluster
+                    </h5>
                     <p className="text-sm text-blue-700 mb-3">
-                      Having trouble with your OpenShift Hub connection? You can use a local Kind cluster for testing instead.
+                      Having trouble with your OpenShift Hub connection? You can use a local Kind
+                      cluster for testing instead.
                     </p>
                     <div className="flex flex-wrap items-center gap-3">
                       <button
                         onClick={() => {
-                          if (window.confirm('This will help you set up a local Kind cluster for testing. Would you like to proceed?')) {
+                          if (
+                            window.confirm(
+                              'This will help you set up a local Kind cluster for testing. Would you like to proceed?'
+                            )
+                          ) {
                             // Add logic here to guide user through Kind setup
                             alert('Kind cluster setup guide will be implemented here');
                           }
                         }}
                         className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm inline-flex items-center space-x-2"
                       >
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                          />
                         </svg>
                         <span>Use Kind Cluster Instead</span>
                       </button>
@@ -285,8 +323,18 @@ export function OCPConnectionStatus({ compact = false, showRefresh = true, statu
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:text-blue-700 text-sm font-medium inline-flex items-center space-x-1"
                       >
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                          />
                         </svg>
                         <span>Kind Documentation</span>
                       </a>

@@ -81,11 +81,7 @@ def set_user(user_id: str, email: str = None, username: str = None):
         email: User email (optional)
         username: Username (optional)
     """
-    sentry_sdk.set_user({
-        "id": user_id,
-        "email": email,
-        "username": username
-    })
+    sentry_sdk.set_user({"id": user_id, "email": email, "username": username})
 
 
 def add_breadcrumb(message: str, category: str = "default", level: str = "info", data: dict = None):
@@ -98,9 +94,4 @@ def add_breadcrumb(message: str, category: str = "default", level: str = "info",
         level: Log level
         data: Additional data
     """
-    sentry_sdk.add_breadcrumb(
-        message=message,
-        category=category,
-        level=level,
-        data=data or {}
-    )
+    sentry_sdk.add_breadcrumb(message=message, category=category, level=level, data=data or {})

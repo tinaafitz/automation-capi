@@ -15,11 +15,7 @@ async def check_system_health() -> Dict[str, Any]:
 
     Returns status of critical system components.
     """
-    health_status = {
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "checks": {}
-    }
+    health_status = {"status": "healthy", "timestamp": datetime.now().isoformat(), "checks": {}}
 
     all_healthy = True
 
@@ -31,93 +27,75 @@ async def check_system_health() -> Dict[str, Any]:
         if os.path.exists(config_path):
             health_status["checks"]["config_file"] = {
                 "status": "healthy",
-                "message": "Configuration file found"
+                "message": "Configuration file found",
             }
         else:
             health_status["checks"]["config_file"] = {
                 "status": "warning",
-                "message": "Configuration file not found"
+                "message": "Configuration file not found",
             }
             all_healthy = False
     except Exception as e:
         health_status["checks"]["config_file"] = {
             "status": "unhealthy",
-            "message": f"Error checking config: {str(e)}"
+            "message": f"Error checking config: {str(e)}",
         }
         all_healthy = False
 
     # Check 2: ROSA CLI availability
     try:
-        result = subprocess.run(
-            ["rosa", "--version"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
+        result = subprocess.run(["rosa", "--version"], capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
             health_status["checks"]["rosa_cli"] = {
                 "status": "healthy",
                 "message": "ROSA CLI available",
-                "version": result.stdout.strip()
+                "version": result.stdout.strip(),
             }
         else:
             health_status["checks"]["rosa_cli"] = {
                 "status": "warning",
-                "message": "ROSA CLI not responding"
+                "message": "ROSA CLI not responding",
             }
     except subprocess.TimeoutExpired:
-        health_status["checks"]["rosa_cli"] = {
-            "status": "warning",
-            "message": "ROSA CLI timeout"
-        }
+        health_status["checks"]["rosa_cli"] = {"status": "warning", "message": "ROSA CLI timeout"}
     except FileNotFoundError:
         health_status["checks"]["rosa_cli"] = {
             "status": "warning",
-            "message": "ROSA CLI not installed"
+            "message": "ROSA CLI not installed",
         }
     except Exception as e:
-        health_status["checks"]["rosa_cli"] = {
-            "status": "unhealthy",
-            "message": f"Error: {str(e)}"
-        }
+        health_status["checks"]["rosa_cli"] = {"status": "unhealthy", "message": f"Error: {str(e)}"}
 
     # Check 3: Ansible availability
     try:
-        result = subprocess.run(
-            ["ansible", "--version"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
+        result = subprocess.run(["ansible", "--version"], capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
-            version_line = result.stdout.split('\n')[0]
+            version_line = result.stdout.split("\n")[0]
             health_status["checks"]["ansible"] = {
                 "status": "healthy",
                 "message": "Ansible available",
-                "version": version_line
+                "version": version_line,
             }
         else:
             health_status["checks"]["ansible"] = {
                 "status": "unhealthy",
-                "message": "Ansible not responding"
+                "message": "Ansible not responding",
             }
             all_healthy = False
     except FileNotFoundError:
         health_status["checks"]["ansible"] = {
             "status": "unhealthy",
-            "message": "Ansible not installed"
+            "message": "Ansible not installed",
         }
         all_healthy = False
     except Exception as e:
-        health_status["checks"]["ansible"] = {
-            "status": "unhealthy",
-            "message": f"Error: {str(e)}"
-        }
+        health_status["checks"]["ansible"] = {"status": "unhealthy", "message": f"Error: {str(e)}"}
         all_healthy = False
 
     # Check 4: Disk space
     try:
         import shutil
+
         total, used, free = shutil.disk_usage("/")
         free_gb = free // (2**30)
 
@@ -125,25 +103,25 @@ async def check_system_health() -> Dict[str, Any]:
             health_status["checks"]["disk_space"] = {
                 "status": "healthy",
                 "message": f"{free_gb}GB free",
-                "free_gb": free_gb
+                "free_gb": free_gb,
             }
         elif free_gb > 5:
             health_status["checks"]["disk_space"] = {
                 "status": "warning",
                 "message": f"Low disk space: {free_gb}GB free",
-                "free_gb": free_gb
+                "free_gb": free_gb,
             }
         else:
             health_status["checks"]["disk_space"] = {
                 "status": "unhealthy",
                 "message": f"Critical: {free_gb}GB free",
-                "free_gb": free_gb
+                "free_gb": free_gb,
             }
             all_healthy = False
     except Exception as e:
         health_status["checks"]["disk_space"] = {
             "status": "warning",
-            "message": f"Could not check disk space: {str(e)}"
+            "message": f"Could not check disk space: {str(e)}",
         }
 
     # Set overall status
@@ -165,21 +143,12 @@ async def check_readiness() -> Dict[str, Any]:
 
     Returns whether the service is ready to accept traffic.
     """
-    readiness_status = {
-        "ready": True,
-        "timestamp": datetime.now().isoformat(),
-        "checks": {}
-    }
+    readiness_status = {"ready": True, "timestamp": datetime.now().isoformat(), "checks": {}}
 
     # Check 1: Critical dependencies
     try:
         # Check Ansible
-        result = subprocess.run(
-            ["ansible", "--version"],
-            capture_output=True,
-            text=True,
-            timeout=3
-        )
+        result = subprocess.run(["ansible", "--version"], capture_output=True, text=True, timeout=3)
         if result.returncode == 0:
             readiness_status["checks"]["ansible"] = {"ready": True}
         else:
@@ -212,10 +181,7 @@ async def check_liveness() -> Dict[str, Any]:
 
     Returns whether the service is alive (basic ping).
     """
-    return {
-        "alive": True,
-        "timestamp": datetime.now().isoformat()
-    }
+    return {"alive": True, "timestamp": datetime.now().isoformat()}
 
 
 async def get_metrics() -> Dict[str, Any]:
@@ -238,11 +204,11 @@ async def get_metrics() -> Dict[str, Any]:
             "system": {
                 "cpu_percent": psutil.cpu_percent(interval=0.1),
                 "memory_percent": psutil.virtual_memory().percent,
-                "disk_percent": psutil.disk_usage('/').percent,
-            }
+                "disk_percent": psutil.disk_usage("/").percent,
+            },
         }
     except Exception as e:
         return {
             "error": f"Could not gather metrics: {str(e)}",
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }

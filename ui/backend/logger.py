@@ -18,21 +18,19 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
         super(CustomJsonFormatter, self).add_fields(log_record, record, message_dict)
 
         # Add standard fields
-        log_record['level'] = record.levelname
-        log_record['logger'] = record.name
-        log_record['module'] = record.module
-        log_record['function'] = record.funcName
-        log_record['line'] = record.lineno
+        log_record["level"] = record.levelname
+        log_record["logger"] = record.name
+        log_record["module"] = record.module
+        log_record["function"] = record.funcName
+        log_record["line"] = record.lineno
 
         # Add timestamp if not present
-        if 'timestamp' not in log_record:
-            log_record['timestamp'] = self.formatTime(record, self.datefmt)
+        if "timestamp" not in log_record:
+            log_record["timestamp"] = self.formatTime(record, self.datefmt)
 
 
 def setup_logger(
-    name: str = "rosa_automation",
-    level: str = "INFO",
-    use_json: bool = True
+    name: str = "rosa_automation", level: str = "INFO", use_json: bool = True
 ) -> logging.Logger:
     """
     Configure and return a logger with JSON formatting.
@@ -62,13 +60,11 @@ def setup_logger(
     # Set formatter based on configuration
     if use_json:
         formatter = CustomJsonFormatter(
-            '%(timestamp)s %(level)s %(name)s %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
+            "%(timestamp)s %(level)s %(name)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
         )
     else:
         formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
         )
 
     handler.setFormatter(formatter)

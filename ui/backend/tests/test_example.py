@@ -28,7 +28,7 @@ def sample_cluster_config():
         "cluster_name": "test-cluster",
         "region": "us-east-1",
         "version": "4.14.0",
-        "replicas": 3
+        "replicas": 3,
     }
 
 
@@ -42,6 +42,7 @@ def test_cluster_config_fixture(sample_cluster_config):
 @pytest.mark.asyncio
 async def test_async_function():
     """Example of testing an async function."""
+
     async def fetch_data():
         return {"status": "success"}
 
@@ -50,19 +51,22 @@ async def test_async_function():
 
 
 # Example: Testing input validation
-@pytest.mark.parametrize("cluster_name,expected_valid", [
-    ("valid-cluster-123", True),
-    ("ValidCluster", True),
-    ("invalid cluster", False),  # spaces not allowed
-    ("cluster-with-special-@", False),  # special chars not allowed
-    ("a" * 100, False),  # too long
-])
+@pytest.mark.parametrize(
+    "cluster_name,expected_valid",
+    [
+        ("valid-cluster-123", True),
+        ("ValidCluster", True),
+        ("invalid cluster", False),  # spaces not allowed
+        ("cluster-with-special-@", False),  # special chars not allowed
+        ("a" * 100, False),  # too long
+    ],
+)
 def test_cluster_name_validation(cluster_name, expected_valid):
     """Test cluster name validation logic."""
     import re
 
     # Example validation pattern (adjust to match your actual validation)
-    pattern = r'^[a-zA-Z0-9-]{1,63}$'
+    pattern = r"^[a-zA-Z0-9-]{1,63}$"
     is_valid = bool(re.match(pattern, cluster_name))
 
     assert is_valid == expected_valid
@@ -73,13 +77,14 @@ def test_cluster_name_validation(cluster_name, expected_valid):
 async def test_with_mock(mocker):
     """Example of testing with mocked dependencies."""
     # Mock a subprocess call
-    mock_subprocess = mocker.patch('subprocess.run')
+    mock_subprocess = mocker.patch("subprocess.run")
     mock_subprocess.return_value.returncode = 0
     mock_subprocess.return_value.stdout = "mock output"
 
     # Your test logic here
     import subprocess
-    result = subprocess.run(['echo', 'test'], capture_output=True, text=True)
+
+    result = subprocess.run(["echo", "test"], capture_output=True, text=True)
 
     assert result.returncode == 0
     assert result.stdout == "mock output"
@@ -119,10 +124,7 @@ def test_validate_endpoint_success():
     app = create_test_app()
     client = TestClient(app)
 
-    response = client.post(
-        "/validate",
-        json={"cluster_name": "test-cluster"}
-    )
+    response = client.post("/validate", json={"cluster_name": "test-cluster"})
 
     assert response.status_code == 200
     assert response.json()["valid"] is True
@@ -144,6 +146,7 @@ def test_validate_endpoint_missing_field():
 @pytest.mark.asyncio
 async def test_error_handling():
     """Test that errors are handled properly."""
+
     async def function_that_raises():
         raise ValueError("Test error")
 
