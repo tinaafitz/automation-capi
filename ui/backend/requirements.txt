@@ -20,10 +20,10 @@ pydantic-settings==2.1.0
 python-dotenv==1.0.0
 
 # Code Quality
-black==23.12.1
+black==24.3.0
 pylint==3.0.3
 mypy==1.7.1
 
 # Monitoring
 psutil==5.9.6
-sentry-sdk[fastapi]==1.39.2
+sentry-sdk[fastapi]==1.45.1
