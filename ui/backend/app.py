@@ -109,7 +109,7 @@ def run_ansible_playbook(playbook: str, config: dict, job_id: str):
         jobs[job_id]["message"] = "Executing ansible playbook"
 
         # Run the command (use parent directory of ui/ as working directory)
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         result = subprocess.run(
             cmd,
             cwd=project_root,
@@ -634,7 +634,8 @@ async def get_config_status():
     """Check if vars/user_vars.yml has been properly configured"""
     try:
         # Path to user_vars.yml relative to the project root
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        # Go up from ui/backend/app.py -> ui/backend -> ui -> automation-capi (project root)
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         config_path = os.path.join(project_root, "vars", "user_vars.yml")
 
         if not os.path.exists(config_path):
@@ -925,7 +926,7 @@ async def get_ocp_connection_status():
 
     try:
         # Path to user_vars.yml
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         config_path = os.path.join(project_root, "vars", "user_vars.yml")
 
         if not os.path.exists(config_path):
@@ -1117,7 +1118,7 @@ async def get_aws_credentials_status():
     """Check AWS credentials validity and provide detailed guidance"""
     try:
         # Path to user_vars.yml
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         config_path = os.path.join(project_root, "vars", "user_vars.yml")
 
         if not os.path.exists(config_path):
@@ -1488,7 +1489,7 @@ async def run_ansible_task(request: dict):
             raise HTTPException(status_code=400, detail="task_file is required")
 
         # Ensure the task file exists
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         task_path = os.path.join(project_root, task_file)
         if not os.path.exists(task_path):
             raise HTTPException(status_code=404, detail=f"Task file not found: {task_file}")
@@ -1505,7 +1506,7 @@ async def run_ansible_task(request: dict):
         ]
 
         # Write temporary playbook
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".yml", delete=False, dir=project_root
         ) as f:
@@ -1591,7 +1592,7 @@ async def run_ansible_role(request: dict):
             raise HTTPException(status_code=400, detail="role_name is required")
 
         # Check if role exists
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         role_path = os.path.join(project_root, "roles", role_name)
         if not os.path.exists(role_path):
             raise HTTPException(status_code=404, detail=f"Role not found: {role_name}")
@@ -1618,7 +1619,7 @@ async def run_ansible_role(request: dict):
         }
 
         # Write temporary playbook
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".yml", delete=False, dir=project_root
         ) as f:
