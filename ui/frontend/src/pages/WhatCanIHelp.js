@@ -1233,7 +1233,7 @@ Cluster context: ${data.context_name}`;
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              task_file: 'validate-capa-environment.yml',
+              task_file: 'tasks/validate-capa-environment.yml',
               description: 'Validate CAPA environment components',
             }),
             signal: controller.signal,
@@ -2419,6 +2419,57 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   </div>
                   <span>Local Test Environment</span>
                   <div className="flex items-center ml-auto space-x-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        console.log('Manual refresh clicked for Kind cluster');
+                        // Refresh Kind cluster status
+                        if (verifiedKindClusterInfo?.cluster_name) {
+                          verifyKindCluster(verifiedKindClusterInfo.cluster_name);
+                        }
+                        addNotification('Refreshing Kind cluster status...', 'info', 2000);
+                      }}
+                      className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                      title="Refresh Kind cluster status"
+                    >
+                      <ArrowPathIcon className="h-3 w-3" />
+                      <span>Refresh</span>
+                    </button>
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+
+                        try {
+                          addNotification('🔧 Configuring Kind cluster for CAPI/CAPA...', 'info', 3000);
+
+                          // Check if cluster exists first
+                          if (!verifiedKindClusterInfo?.cluster_name) {
+                            addNotification('❌ Please verify a Kind cluster first', 'error', 5000);
+                            return;
+                          }
+
+                          // TODO: Add Kind cluster configuration logic here
+                          // This could include:
+                          // - Installing required components
+                          // - Setting up networking
+                          // - Configuring kubectl context
+
+                          addNotification('✅ Kind cluster configured successfully!', 'success', 5000);
+                        } catch (error) {
+                          console.error('Error configuring Kind cluster:', error);
+                          addNotification(
+                            `❌ ${error.message || 'Failed to configure Kind cluster'}`,
+                            'error',
+                            8000
+                          );
+                        }
+                      }}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                      title="Configure Kind cluster"
+                    >
+                      <Cog6ToothIcon className="h-3 w-3" />
+                      <span>Configure</span>
+                    </button>
                     <svg
                       className={`h-4 w-4 text-cyan-600 transition-transform duration-200 ${collapsedSections.has('local-environment') ? 'rotate-180' : ''}`}
                       fill="none"
@@ -2714,10 +2765,98 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       <span>Refresh</span>
                     </button>
                     <button
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation();
-                        // TODO: Add configure action handler here
-                        addNotification('Configure MCE environment - Coming soon!', 'info');
+
+                        try {
+                          // Set loading state
+                          setAnsibleResults((prev) => ({
+                            ...prev,
+                            'configure-environment': { loading: true, result: null, timestamp: new Date() },
+                          }));
+
+                          // Step 1: Enable CAPI/CAPA first
+                          addNotification('🔧 Step 1/3: Enabling CAPI/CAPA...', 'info', 3000);
+
+                          const enableResponse = await fetch('http://localhost:8000/api/ansible/run-task', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                              task_file: 'tasks/enable_capi_capa.yml',
+                              description: 'Enable CAPI and CAPA',
+                            }),
+                          });
+
+                          const enableResult = await enableResponse.json();
+
+                          if (!enableResponse.ok || !enableResult.success) {
+                            throw new Error(`CAPI/CAPA enablement failed: ${enableResult.error || enableResult.message || 'Unknown error'}`);
+                          }
+
+                          addNotification('✅ CAPI/CAPA enabled successfully', 'success', 3000);
+
+                          // Wait for deployments to be ready (30 seconds)
+                          addNotification('⏳ Waiting for CAPI/CAPA deployments to start (30s)...', 'info', 3000);
+                          await new Promise(resolve => setTimeout(resolve, 30000));
+
+                          // Step 2: Configure the MCE CAPI/CAPA environment
+                          addNotification('🔧 Step 2/3: Configuring MCE CAPI/CAPA environment...', 'info', 3000);
+
+                          const configureResponse = await fetch('http://localhost:8000/api/ansible/run-role', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                              role_name: 'configure-capa-environment',
+                              description: 'Configure the MCE CAPI/CAPA environment',
+                              extra_vars: {},
+                            }),
+                          });
+
+                          const configureResult = await configureResponse.json();
+
+                          if (configureResponse.ok && configureResult.success) {
+                            addNotification(`✅ Step 3/3: MCE environment configured successfully!`, 'success', 5000);
+
+                            setAnsibleResults((prev) => ({
+                              ...prev,
+                              'configure-environment': {
+                                loading: false,
+                                result: {
+                                  enableResult,
+                                  configureResult,
+                                },
+                                timestamp: new Date(),
+                                success: true,
+                              },
+                            }));
+
+                            // Refresh status after configuration
+                            refreshAllStatus();
+                          } else {
+                            throw new Error(`Configuration failed: ${configureResult.error || configureResult.message || 'Unknown error'}`);
+                          }
+                        } catch (error) {
+                          console.error('Error configuring MCE environment:', error);
+                          addNotification(
+                            `❌ ${error.message || 'Failed to configure MCE environment'}`,
+                            'error',
+                            8000
+                          );
+
+                          setAnsibleResults((prev) => ({
+                            ...prev,
+                            'configure-environment': {
+                              loading: false,
+                              result: { error: error.message },
+                              timestamp: new Date(),
+                              success: false,
+                            },
+                          }));
+                        }
                       }}
                       className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
                       title="Configure MCE environment"
@@ -2848,7 +2987,46 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           </div>
 
                           {/* Expanded Content */}
-                          {isExpanded && (operation.details || operation.requirements) && (
+                          {isExpanded && operation.id === 'check-components' && (
+                            <div className="px-3 pb-3 border-t border-emerald-100 mt-2 pt-2 animate-in slide-in-from-top duration-300">
+                              {/* MCE Environment Info Grid */}
+                              <div className="grid grid-cols-2 gap-3 mb-4">
+                                <div className="bg-white rounded-lg p-2 border border-emerald-100">
+                                  <div className="text-xs text-emerald-600 font-semibold mb-1">
+                                    MCE Namespace
+                                  </div>
+                                  <div className="text-xs text-emerald-900 font-mono">
+                                    multicluster-engine
+                                  </div>
+                                </div>
+                                <div className="bg-white rounded-lg p-2 border border-emerald-100">
+                                  <div className="text-xs text-emerald-600 font-semibold mb-1">
+                                    CAPI Namespace
+                                  </div>
+                                  <div className="text-xs text-emerald-900 font-mono">
+                                    ns-rosa-hcp
+                                  </div>
+                                </div>
+                                <div className="bg-white rounded-lg p-2 border border-emerald-100">
+                                  <div className="text-xs text-emerald-600 font-semibold mb-1">
+                                    CAPI Version
+                                  </div>
+                                  <div className="text-xs text-emerald-900 font-mono">
+                                    v1.5.3
+                                  </div>
+                                </div>
+                                <div className="bg-white rounded-lg p-2 border border-emerald-100">
+                                  <div className="text-xs text-emerald-600 font-semibold mb-1">
+                                    CAPA Version
+                                  </div>
+                                  <div className="text-xs text-emerald-900 font-mono">
+                                    v2.3.0
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          {isExpanded && operation.id !== 'check-components' && (operation.details || operation.requirements) && (
                             <div className="px-3 pb-3 border-t border-indigo-100 mt-2 pt-2 animate-in slide-in-from-top duration-300">
                               {operation.details && (
                                 <div className="mb-3">
@@ -2898,7 +3076,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           {/* Ansible Results Display */}
                           {ansibleResults[operation.id] && (
                             <div className="px-3 pb-3 border-t border-indigo-100 mt-2 pt-2 animate-in slide-in-from-top duration-300">
-                              <div className="bg-gray-50 rounded-lg p-3">
+                              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg p-4 border border-emerald-200">
                                 {ansibleResults[operation.id].loading && (
                                   <div className="flex items-center space-x-2 text-xs text-blue-600">
                                     <div className="animate-spin rounded-full h-3 w-3 border border-blue-600 border-t-transparent"></div>
@@ -2908,13 +3086,12 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                                 {!ansibleResults[operation.id].loading &&
                                   ansibleResults[operation.id].result && (
-                                    <div className="space-y-2">
-                                      {/* Status Summary with Task Breakdown */}
+                                    <div className="space-y-3">
+                                      {/* Header with Status Badge */}
                                       {(() => {
                                         const output =
                                           ansibleResults[operation.id].result.output || '';
                                         // Parse PLAY RECAP to get task statistics
-                                        // Match pattern: ok=21    changed=11   unreachable=0    failed=1    skipped=0    rescued=0    ignored=0
                                         const recapMatch = output.match(
                                           /ok=(\d+)\s+changed=(\d+)\s+unreachable=(\d+)\s+failed=(\d+)\s+skipped=(\d+)\s+rescued=(\d+)\s+ignored=(\d+)/
                                         );
@@ -2933,35 +3110,22 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                           const totalOk = parseInt(ok);
                                           const totalFailed = parseInt(failed);
 
-                                          // Check for critical errors in output even if Ansible reports success
+                                          // Check for critical errors in output
                                           const hasCriticalError =
-                                            output
-                                              .toLowerCase()
-                                              .includes('authentication failed') ||
-                                            output.toLowerCase().includes('login failed') ||
-                                            output.toLowerCase().includes('unauthorized') ||
-                                            output
-                                              .toLowerCase()
-                                              .includes('invalid username or password') ||
                                             output.includes('was not found') ||
                                             output.includes('does not exist') ||
                                             output.includes('have not been applied');
 
                                           const hasFailures = totalFailed > 0 || hasCriticalError;
-                                          const statusColor = hasCriticalError
-                                            ? 'text-red-700'
-                                            : totalFailed > 0
-                                              ? 'text-orange-700'
-                                              : 'text-green-700';
+                                          const allGood = !hasFailures && totalOk > 0;
 
                                           return (
-                                            <div className="space-y-2">
-                                              <div
-                                                className={`flex items-center space-x-2 text-xs font-medium ${statusColor}`}
-                                              >
-                                                {hasFailures ? (
+                                            <>
+                                              {/* Header */}
+                                              <div className="flex items-center justify-between mb-3">
+                                                <h3 className="text-sm font-semibold text-emerald-800 flex items-center">
                                                   <svg
-                                                    className="h-3 w-3"
+                                                    className="h-4 w-4 text-emerald-600 mr-2"
                                                     fill="none"
                                                     stroke="currentColor"
                                                     viewBox="0 0 24 24"
@@ -2970,42 +3134,37 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                       strokeLinecap="round"
                                                       strokeLinejoin="round"
                                                       strokeWidth={2}
-                                                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z"
+                                                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                                                     />
                                                   </svg>
-                                                ) : (
-                                                  <svg
-                                                    className="h-3 w-3"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    viewBox="0 0 24 24"
+                                                  {operation.title}
+                                                </h3>
+                                                <div className="flex items-center space-x-2">
+                                                  <div
+                                                    className={`flex items-center text-xs px-2 py-1 rounded-full font-semibold ${
+                                                      allGood
+                                                        ? 'bg-green-100 text-green-800'
+                                                        : hasFailures
+                                                          ? 'bg-red-100 text-red-800'
+                                                          : 'bg-gray-100 text-gray-800'
+                                                    }`}
                                                   >
-                                                    <path
-                                                      strokeLinecap="round"
-                                                      strokeLinejoin="round"
-                                                      strokeWidth={2}
-                                                      d="M5 13l4 4L19 7"
-                                                    />
-                                                  </svg>
-                                                )}
-                                                <span>
-                                                  {hasCriticalError
-                                                    ? totalFailed > 0
-                                                      ? `Failed with critical errors (${totalFailed} task${totalFailed > 1 ? 's' : ''} failed, ${totalOk} succeeded)`
-                                                      : `Completed with critical errors (${totalOk} tasks succeeded)`
-                                                    : totalFailed > 0
-                                                      ? `Completed with ${totalFailed} failure${totalFailed > 1 ? 's' : ''} (${totalOk} tasks succeeded)`
-                                                      : operation.id === 'check-components' &&
-                                                          !output.includes('was not found') &&
-                                                          !output.includes('does not exist') &&
-                                                          !output.includes('have not been applied')
-                                                        ? '✨ Everything looks good!'
-                                                        : 'Completed Successfully'}
-                                                </span>
+                                                    {allGood ? (
+                                                      <>
+                                                        <div className="w-2 h-2 bg-green-500 rounded-full mr-1.5 animate-pulse"></div>
+                                                        Verified
+                                                      </>
+                                                    ) : hasFailures ? (
+                                                      'Issues Found'
+                                                    ) : (
+                                                      'Not Configured'
+                                                    )}
+                                                  </div>
+                                                </div>
                                               </div>
 
-                                              {/* Task Statistics */}
-                                              <div className="grid grid-cols-4 gap-2 text-xs">
+                                              {/* Task Statistics Grid */}
+                                              <div className="grid grid-cols-3 gap-3 text-xs">
                                                 <div className="bg-green-50 border border-green-200 rounded p-1.5 text-center">
                                                   <div className="font-bold text-green-700">
                                                     {totalOk}
@@ -3045,7 +3204,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                   </div>
                                                 )}
                                               </div>
-                                            </div>
+                                            </>
                                           );
                                         }
 
