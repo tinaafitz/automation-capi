@@ -20,6 +20,11 @@ node_modules/
 .env
 .env.local
 
+# User credentials (should use example file instead)
+vars/user_vars.yml
+vars/user_vars_*.yml
+!vars/user_vars_*example*.yml
+
 # Build artifacts
 build/
 dist/
@@ -32,6 +37,12 @@ dist/
 
 # Log files
 *.log
+
+# Coverage reports
+.coverage
+htmlcov/
+coverage.xml
+*.cover
 
 # Backup directories (temporary)
 ui (original)/
