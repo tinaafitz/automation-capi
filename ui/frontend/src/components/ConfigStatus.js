@@ -6,7 +6,7 @@ import {
   ArrowPathIcon,
   DocumentTextIcon,
   CogIcon,
-  ClipboardDocumentIcon
+  ClipboardDocumentIcon,
 } from '@heroicons/react/24/outline';
 
 export function ConfigStatus({ compact = false, showRefresh = true, statusData = null }) {
@@ -28,7 +28,7 @@ export function ConfigStatus({ compact = false, showRefresh = true, statusData =
         status: 'error',
         message: 'Failed to check configuration status',
         total_required: 8,
-        total_configured: 0
+        total_configured: 0,
       });
     } finally {
       setLoading(false);
@@ -100,17 +100,24 @@ export function ConfigStatus({ compact = false, showRefresh = true, statusData =
   if (compact) {
     // Compact display for header/status bar
     const color = getStatusColor();
-    const bgColor = color === 'green' ? 'bg-green-50' : color === 'red' ? 'bg-red-50' : 'bg-yellow-50';
-    const textColor = color === 'green' ? 'text-green-700' : color === 'red' ? 'text-red-700' : 'text-yellow-700';
+    const bgColor =
+      color === 'green' ? 'bg-green-50' : color === 'red' ? 'bg-red-50' : 'bg-yellow-50';
+    const textColor =
+      color === 'green' ? 'text-green-700' : color === 'red' ? 'text-red-700' : 'text-yellow-700';
 
     return (
-      <div className={`flex items-center space-x-2 ${bgColor} ${textColor} px-3 py-1 rounded-full text-sm`}>
+      <div
+        className={`flex items-center space-x-2 ${bgColor} ${textColor} px-3 py-1 rounded-full text-sm`}
+      >
         {getStatusIcon()}
         <span className="font-medium">
-          {loading ? 'Checking...' :
-           config?.configured ? 'Config Ready' :
-           config?.status === 'partially_configured' ? `Config ${config.total_configured}/${config.total_required}` :
-           'Config Required'}
+          {loading
+            ? 'Checking...'
+            : config?.configured
+              ? 'Config Ready'
+              : config?.status === 'partially_configured'
+                ? `Config ${config.total_configured}/${config.total_required}`
+                : 'Config Required'}
         </span>
         {showRefresh && (
           <button
@@ -159,7 +166,8 @@ export function ConfigStatus({ compact = false, showRefresh = true, statusData =
               <h4 className="text-sm font-semibold text-green-800">✅ Configuration Complete!</h4>
             </div>
             <p className="text-sm text-green-700 mb-3">
-              All required credentials are configured in vars/user_vars.yml. You can now run automation tasks.
+              All required credentials are configured in vars/user_vars.yml. You can now run
+              automation tasks.
             </p>
             <div className="text-xs text-green-600">
               Configured: {config.total_configured}/{config.total_required} required fields
@@ -174,7 +182,8 @@ export function ConfigStatus({ compact = false, showRefresh = true, statusData =
               <div className="flex-1">
                 <h4 className="text-sm font-semibold text-red-800">Configuration Required</h4>
                 <p className="text-sm text-red-700 mt-1">
-                  You need to configure credentials in vars/user_vars.yml before using the automation platform.
+                  You need to configure credentials in vars/user_vars.yml before using the
+                  automation platform.
                 </p>
 
                 {config.total_configured > 0 && (
@@ -184,18 +193,22 @@ export function ConfigStatus({ compact = false, showRefresh = true, statusData =
                 )}
 
                 <div className="mt-3">
-                  <h5 className="text-sm font-semibold text-red-800 mb-2">Missing Configuration:</h5>
+                  <h5 className="text-sm font-semibold text-red-800 mb-2">
+                    Missing Configuration:
+                  </h5>
                   <div className="bg-white rounded p-3 border border-red-200">
                     <code className="text-red-700 text-sm font-mono block whitespace-pre-wrap">
                       File: {config.config_file_path}
                     </code>
                     <div className="mt-2 space-y-1">
-                      {[...(config.empty_fields || []), ...(config.missing_fields || [])].map((field, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-xs">
-                          <span className="text-red-700">{field.field}:</span>
-                          <span className="text-red-600">{field.description}</span>
-                        </div>
-                      ))}
+                      {[...(config.empty_fields || []), ...(config.missing_fields || [])].map(
+                        (field, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-xs">
+                            <span className="text-red-700">{field.field}:</span>
+                            <span className="text-red-600">{field.description}</span>
+                          </div>
+                        )
+                      )}
                     </div>
                   </div>
                 </div>
@@ -217,7 +230,12 @@ export function ConfigStatus({ compact = false, showRefresh = true, statusData =
                     title="Create OCM Service Account for ClientID and Client Secret"
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                      />
                     </svg>
                     <span>Create OCM Service Account</span>
                   </a>
