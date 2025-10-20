@@ -1160,6 +1160,124 @@ async def create_ocm_secret(request: Request):
         }
 
 
+@app.post("/api/kind/execute-command")
+async def execute_kind_command(request: Request):
+    """Execute a kubectl command in the context of a Kind cluster"""
+    try:
+        # Parse request body
+        body = await request.json()
+        cluster_name = body.get("cluster_name", "").strip()
+        command = body.get("command", "").strip()
+
+        if not cluster_name:
+            return {
+                "success": False,
+                "error": "Cluster name is required",
+                "output": "",
+            }
+
+        if not command:
+            return {
+                "success": False,
+                "error": "Command is required",
+                "output": "",
+            }
+
+        # Security check: Only block truly dangerous file system and system commands
+        # Allow kubectl/oc/rosa commands and aliases (which will be resolved by shell)
+
+        # Only block destructive file system operations and system commands
+        # Note: We allow 'oc delete' and 'kubectl delete' for Kubernetes resources
+        dangerous_patterns = [
+            r'\brm\s+-rf\s+/',  # rm -rf / or similar
+            r'\bmkfs\b',         # format filesystem
+            r'\bdd\b.*of=/dev', # dd to device
+            r'\bshutdown\b',
+            r'\breboot\b',
+            r'\bkillall\b',
+            r':\(\)',            # fork bomb
+        ]
+
+        import re
+        for pattern in dangerous_patterns:
+            if re.search(pattern, command, re.IGNORECASE):
+                return {
+                    "success": False,
+                    "error": "This command is not allowed for security reasons",
+                    "output": "",
+                }
+
+        # Get kubeconfig for the Kind cluster
+        kubeconfig_result = subprocess.run(
+            ["kind", "get", "kubeconfig", "--name", cluster_name],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        if kubeconfig_result.returncode != 0:
+            return {
+                "success": False,
+                "error": f"Failed to get kubeconfig: {kubeconfig_result.stderr}",
+                "output": "",
+            }
+
+        # Write kubeconfig to a temporary file
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.kubeconfig') as f:
+            f.write(kubeconfig_result.stdout)
+            temp_kubeconfig = f.name
+
+        try:
+            # Use bash login shell with alias expansion
+            user_shell = os.environ.get("SHELL", "/bin/bash")
+
+            # Build a command that sources profile and runs the user command
+            # Redirect stderr from sourcing to suppress "Restored session" messages
+            wrapper_command = f'''
+                # Source profile files silently
+                [ -f ~/.profile ] && source ~/.profile 2>/dev/null
+                [ -f ~/.bashrc ] && source ~/.bashrc 2>/dev/null
+                [ -f ~/.bash_profile ] && source ~/.bash_profile 2>/dev/null
+                # Enable alias expansion
+                shopt -s expand_aliases 2>/dev/null || true
+                # Run the actual command
+                {command}
+            '''
+
+            result = subprocess.run(
+                [user_shell, "-c", wrapper_command],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env={**os.environ, "KUBECONFIG": temp_kubeconfig}
+            )
+
+            return {
+                "success": result.returncode == 0,
+                "output": result.stdout if result.stdout else result.stderr,
+                "exit_code": result.returncode,
+            }
+
+        finally:
+            # Clean up temporary kubeconfig
+            if os.path.exists(temp_kubeconfig):
+                os.unlink(temp_kubeconfig)
+
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "error": "Command execution timed out (60s limit)",
+            "output": "",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Error executing command: {str(e)}",
+            "output": "",
+        }
+
+
 @app.get("/api/ocp/connection-status")
 async def get_ocp_connection_status():
     """Test OpenShift Hub connection using OCP_HUB variables from user_vars.yml"""

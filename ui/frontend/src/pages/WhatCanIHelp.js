@@ -27,6 +27,7 @@ import { ROSAStatus } from '../components/ROSAStatus';
 import { ConfigStatus } from '../components/ConfigStatus';
 import { OCPConnectionStatus } from '../components/OCPConnectionStatus';
 import { KindClusterModal } from '../components/KindClusterModal';
+import { KindTerminalModal } from '../components/KindTerminalModal';
 
 export function WhatCanIHelp() {
   const navigate = useNavigate();
@@ -93,6 +94,7 @@ export function WhatCanIHelp() {
   const [savedPrefix, setSavedPrefix] = useState('');
   const [verifiedKindClusterInfo, setVerifiedKindClusterInfo] = useState(null);
   const [showKindConfigModal, setShowKindConfigModal] = useState(false);
+  const [showKindTerminalModal, setShowKindTerminalModal] = useState(false);
 
   // Track if we've already shown initial notifications to prevent loops
   const hasShownInitialNotifications = useRef(false);
@@ -2527,6 +2529,19 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       <ArrowPathIcon className="h-3 w-3" />
                       <span>Refresh</span>
                     </button>
+                    {verifiedKindClusterInfo && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowKindTerminalModal(true);
+                        }}
+                        className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                        title="Open terminal for verified cluster"
+                      >
+                        <CommandLineIcon className="h-3 w-3" />
+                        <span>Terminal</span>
+                      </button>
+                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -5455,6 +5470,14 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
         onClose={() => setShowKindConfigModal(false)}
         onClusterSelected={handleKindClusterSelected}
         currentCluster={verifiedKindClusterInfo?.name}
+      />
+
+      {/* Kind Terminal Modal */}
+      <KindTerminalModal
+        isOpen={showKindTerminalModal}
+        onClose={() => setShowKindTerminalModal(false)}
+        clusterName={verifiedKindClusterInfo?.cluster_name || verifiedKindClusterInfo?.name}
+        namespace={verifiedKindClusterInfo?.namespace}
       />
 
       {/* OIDC Provider Creation Modal */}
