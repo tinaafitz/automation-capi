@@ -26,6 +26,7 @@ import {
 import { ROSAStatus } from '../components/ROSAStatus';
 import { ConfigStatus } from '../components/ConfigStatus';
 import { OCPConnectionStatus } from '../components/OCPConnectionStatus';
+import { KindClusterModal } from '../components/KindClusterModal';
 
 export function WhatCanIHelp() {
   const navigate = useNavigate();
@@ -91,6 +92,7 @@ export function WhatCanIHelp() {
   const [prefixLoading, setPrefixLoading] = useState(false);
   const [savedPrefix, setSavedPrefix] = useState('');
   const [verifiedKindClusterInfo, setVerifiedKindClusterInfo] = useState(null);
+  const [showKindConfigModal, setShowKindConfigModal] = useState(false);
 
   // Track if we've already shown initial notifications to prevent loops
   const hasShownInitialNotifications = useRef(false);
@@ -128,6 +130,94 @@ export function WhatCanIHelp() {
     }
   };
 
+  const createOCMSecret = async () => {
+    if (!verifiedKindClusterInfo?.name) {
+      addNotification('❌ No Kind cluster verified', 'error');
+      return;
+    }
+
+    try {
+      addNotification('🔧 Creating OCM client secret...', 'info');
+
+      const response = await fetch('http://localhost:8000/api/kind/create-ocm-secret', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          cluster_name: verifiedKindClusterInfo.name,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        addNotification('✅ OCM client secret created successfully!', 'success');
+        // Re-verify the cluster to update component status
+        if (verifiedKindClusterInfo.name) {
+          verifyKindCluster(verifiedKindClusterInfo.name);
+        }
+      } else {
+        addNotification(`❌ Failed to create secret: ${data.message}`, 'error');
+      }
+    } catch (error) {
+      console.error('Failed to create OCM secret:', error);
+      addNotification('❌ Failed to create OCM secret', 'error');
+    }
+  };
+
+  const handleKindClusterSelected = async ({ cluster_name, verificationData }) => {
+    try {
+      addNotification(`✅ Kind cluster '${cluster_name}' verified successfully!`, 'success');
+
+      // Store the verified cluster information with time
+      const clusterInfo = {
+        name: cluster_name,
+        apiUrl: verificationData.cluster_info?.api_url || 'https://127.0.0.1:6443',
+        contextName: verificationData.context_name,
+        verifiedDate: new Date().toLocaleString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        }),
+        namespace: 'ns-rosa-hcp', // Default namespace
+        status: verificationData.cluster_info?.status || 'ready',
+        components: verificationData.cluster_info?.components || {},
+      };
+      setVerifiedKindClusterInfo(clusterInfo);
+
+      // Store in localStorage for persistence
+      localStorage.setItem('verified-kind-cluster', JSON.stringify(clusterInfo));
+
+      // Optionally auto-update the user's configuration
+      const configInstructions = `Your Kind cluster is ready! To use it for automation:
+
+1. Update vars/user_vars.yml with these settings:
+   OCP_HUB_API_URL: ${verificationData.cluster_info?.api_url || 'https://127.0.0.1:6443'}
+   OCP_HUB_CLUSTER_USER: kind-user
+   OCP_HUB_CLUSTER_PASSWORD: kind-password
+
+2. Refresh this page to test the connection
+
+Cluster context: ${verificationData.context_name}`;
+
+      if (
+        window.confirm(
+          '🎉 Kind cluster verified! Would you like me to copy the configuration instructions?'
+        )
+      ) {
+        navigator.clipboard.writeText(configInstructions);
+        addNotification('Configuration instructions copied to clipboard!', 'success');
+      }
+    } catch (error) {
+      console.error('Error handling cluster selection:', error);
+      addNotification('Failed to configure cluster', 'error');
+    }
+  };
+
   const verifyKindCluster = async (clusterName) => {
     if (!clusterName.trim()) {
       addNotification('Please enter a cluster name', 'error');
@@ -152,16 +242,18 @@ export function WhatCanIHelp() {
       if (data.exists && data.accessible) {
         addNotification(`✅ Kind cluster '${clusterName}' verified successfully!`, 'success');
 
-        // Store the verified cluster information
+        // Store the verified cluster information with time
         const clusterInfo = {
           name: clusterName,
           apiUrl: data.cluster_info?.api_url || 'https://127.0.0.1:6443',
           contextName: data.context_name,
-          verifiedDate: new Date().toLocaleDateString('en-US', {
+          verifiedDate: new Date().toLocaleString('en-US', {
             weekday: 'short',
             month: 'short',
             day: 'numeric',
             year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
           }),
           namespace: 'ns-rosa-hcp', // Default namespace
           status: data.cluster_info?.status || 'ready',
@@ -2436,33 +2528,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       <span>Refresh</span>
                     </button>
                     <button
-                      onClick={async (e) => {
+                      onClick={(e) => {
                         e.stopPropagation();
-
-                        try {
-                          addNotification('🔧 Configuring Kind cluster for CAPI/CAPA...', 'info', 3000);
-
-                          // Check if cluster exists first
-                          if (!verifiedKindClusterInfo?.cluster_name) {
-                            addNotification('❌ Please verify a Kind cluster first', 'error', 5000);
-                            return;
-                          }
-
-                          // TODO: Add Kind cluster configuration logic here
-                          // This could include:
-                          // - Installing required components
-                          // - Setting up networking
-                          // - Configuring kubectl context
-
-                          addNotification('✅ Kind cluster configured successfully!', 'success', 5000);
-                        } catch (error) {
-                          console.error('Error configuring Kind cluster:', error);
-                          addNotification(
-                            `❌ ${error.message || 'Failed to configure Kind cluster'}`,
-                            'error',
-                            8000
-                          );
-                        }
+                        setShowKindConfigModal(true);
                       }}
                       className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
                       title="Configure Kind cluster"
@@ -2655,19 +2723,90 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               All installed
                             </span>
                           </div>
-                          <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
-                            <span className="text-cyan-800 font-medium">⚠️ AWS Credentials</span>
-                            <span className="text-cyan-600 font-mono">-</span>
-                            <span className="text-orange-600 font-medium text-right">
-                              Not configured
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
-                            <span className="text-cyan-800 font-medium">❌ OCM Client Secret</span>
-                            <span className="text-cyan-600 font-mono">-</span>
-                            <span className="text-red-600 font-medium text-right">Missing</span>
-                          </div>
+                          {verifiedKindClusterInfo?.components?.details?.map((component, idx) => {
+                            const statusConfig = {
+                              configured: {
+                                icon: '✅',
+                                color: 'text-green-600',
+                                text: 'Configured',
+                              },
+                              not_configured: {
+                                icon: '⚠️',
+                                color: 'text-orange-600',
+                                text: 'Not configured',
+                              },
+                              missing: {
+                                icon: '❌',
+                                color: 'text-red-600',
+                                text: 'Missing',
+                              },
+                            };
+                            const config = statusConfig[component.status] || statusConfig.missing;
+
+                            return (
+                              <div
+                                key={idx}
+                                className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded"
+                              >
+                                <span className="text-cyan-800 font-medium">
+                                  {config.icon} {component.name}
+                                </span>
+                                <span className="text-cyan-600 font-mono">-</span>
+                                <span className={`${config.color} font-medium text-right`}>
+                                  {config.text}
+                                </span>
+                              </div>
+                            );
+                          }) || (
+                            <>
+                              <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                                <span className="text-cyan-800 font-medium">
+                                  ℹ️ AWS Credentials
+                                </span>
+                                <span className="text-cyan-600 font-mono">-</span>
+                                <span className="text-gray-500 font-medium text-right">
+                                  Not checked
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                                <span className="text-cyan-800 font-medium">
+                                  ℹ️ OCM Client Secret
+                                </span>
+                                <span className="text-cyan-600 font-mono">-</span>
+                                <span className="text-gray-500 font-medium text-right">
+                                  Not checked
+                                </span>
+                              </div>
+                            </>
+                          )}
                         </div>
+
+                        {/* Create Secrets Button - Show if any secrets are missing */}
+                        {verifiedKindClusterInfo?.components?.details?.some(
+                          (c) => c.status === 'missing' || c.status === 'not_configured'
+                        ) && (
+                          <div className="mt-3">
+                            <button
+                              onClick={createOCMSecret}
+                              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-2 rounded-lg transition-colors duration-200 font-medium flex items-center justify-center gap-1.5"
+                            >
+                              <svg
+                                className="h-3 w-3"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                                />
+                              </svg>
+                              <span>Create Missing Secrets</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       {/* Active Resources */}
@@ -5309,6 +5448,14 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
           </div>
         </div>
       )}
+
+      {/* Kind Cluster Configuration Modal */}
+      <KindClusterModal
+        isOpen={showKindConfigModal}
+        onClose={() => setShowKindConfigModal(false)}
+        onClusterSelected={handleKindClusterSelected}
+        currentCluster={verifiedKindClusterInfo?.name}
+      />
 
       {/* OIDC Provider Creation Modal */}
       {showOidcModal && (
