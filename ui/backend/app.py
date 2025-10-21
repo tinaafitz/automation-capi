@@ -1278,6 +1278,262 @@ async def execute_kind_command(request: Request):
         }
 
 
+@app.post("/api/kind/get-active-resources")
+async def get_active_resources(request: Request):
+    """Get active CAPI/ROSA resources from the Kind cluster"""
+    try:
+        body = await request.json()
+        cluster_name = body.get("cluster_name", "").strip()
+        namespace = body.get("namespace", "ns-rosa-hcp").strip()
+
+        if not cluster_name:
+            return {
+                "success": False,
+                "message": "Cluster name is required",
+                "resources": []
+            }
+
+        context_name = f"kind-{cluster_name}"
+        resources = []
+
+        # Fetch CAPI Clusters
+        try:
+            result = subprocess.run(
+                ["kubectl", "get", "clusters.cluster.x-k8s.io", "-n", namespace,
+                 "--context", context_name, "-o", "json"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode == 0:
+                import json as json_module
+                data = json_module.loads(result.stdout)
+                for item in data.get("items", []):
+                    metadata = item.get("metadata", {})
+                    spec = item.get("spec", {})
+                    status = item.get("status", {})
+                    resources.append({
+                        "type": "CAPI Clusters",
+                        "name": metadata.get("name", "unknown"),
+                        "version": spec.get("topology", {}).get("version", "v1.5.3"),
+                        "status": "Ready" if status.get("phase") == "Provisioned" else status.get("phase", "Active")
+                    })
+        except Exception:
+            pass
+
+        # Fetch RosaControlPlane
+        try:
+            result = subprocess.run(
+                ["kubectl", "get", "rosacontrolplane", "-n", namespace,
+                 "--context", context_name, "-o", "json"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode == 0:
+                import json as json_module
+                data = json_module.loads(result.stdout)
+                for item in data.get("items", []):
+                    metadata = item.get("metadata", {})
+                    spec = item.get("spec", {})
+                    status = item.get("status", {})
+
+                    # Check for ready status - could be in status.ready field or in conditions
+                    is_ready = False
+
+                    # First check if there's a direct ready field
+                    if status.get("ready") == True or status.get("ready") == "true":
+                        is_ready = True
+                    else:
+                        # Check conditions for various ready condition types
+                        conditions = status.get("conditions", [])
+                        for condition in conditions:
+                            condition_type = condition.get("type", "")
+                            # Check for various possible ready condition types
+                            if condition.get("status") == "True" and (
+                                condition_type == "Ready" or
+                                condition_type == "ROSAControlPlaneReady" or
+                                condition_type == "RosaControlPlaneReady"
+                            ):
+                                is_ready = True
+                                break
+
+                    resources.append({
+                        "type": "RosaControlPlane",
+                        "name": metadata.get("name", "unknown"),
+                        "version": spec.get("version", "v4.20"),
+                        "status": "Ready" if is_ready else "Provisioning"
+                    })
+        except Exception:
+            pass
+
+        # Fetch RosaNetwork
+        try:
+            result = subprocess.run(
+                ["kubectl", "get", "rosanetwork", "-n", namespace,
+                 "--context", context_name, "-o", "json"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode == 0:
+                import json as json_module
+                data = json_module.loads(result.stdout)
+                for item in data.get("items", []):
+                    metadata = item.get("metadata", {})
+                    spec = item.get("spec", {})
+                    status = item.get("status", {})
+
+                    # Check conditions for RosaNetwork ready state
+                    # Could be ROSANetworkReady, RosaNetworkReady, or just Ready
+                    is_ready = False
+                    conditions = status.get("conditions", [])
+                    for condition in conditions:
+                        condition_type = condition.get("type", "")
+                        # Check for various possible ready condition types
+                        if condition.get("status") == "True" and (
+                            condition_type == "ROSANetworkReady" or
+                            condition_type == "RosaNetworkReady" or
+                            condition_type == "Ready"
+                        ):
+                            is_ready = True
+                            break
+
+                    resources.append({
+                        "type": "RosaNetwork",
+                        "name": metadata.get("name", "unknown"),
+                        "version": spec.get("version", "v4.20"),
+                        "status": "Ready" if is_ready else "Configuring"
+                    })
+        except Exception:
+            pass
+
+        # Fetch RosaRoleConfig
+        try:
+            result = subprocess.run(
+                ["kubectl", "get", "rosaroleconfig", "-n", namespace,
+                 "--context", context_name, "-o", "json"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode == 0:
+                import json as json_module
+                data = json_module.loads(result.stdout)
+                for item in data.get("items", []):
+                    metadata = item.get("metadata", {})
+                    spec = item.get("spec", {})
+                    status = item.get("status", {})
+
+                    # Check conditions for RosaRoleConfig ready state
+                    # Could be ROSARoleConfigReady, RosaRoleConfigReady, or just Ready
+                    is_ready = False
+                    conditions = status.get("conditions", [])
+                    for condition in conditions:
+                        condition_type = condition.get("type", "")
+                        # Check for various possible ready condition types
+                        if condition.get("status") == "True" and (
+                            condition_type == "ROSARoleConfigReady" or
+                            condition_type == "RosaRoleConfigReady" or
+                            condition_type == "Ready"
+                        ):
+                            is_ready = True
+                            break
+
+                    resources.append({
+                        "type": "RosaRoleConfig",
+                        "name": metadata.get("name", "unknown"),
+                        "version": spec.get("version", "v4.20"),
+                        "status": "Ready" if is_ready else "Configuring"
+                    })
+        except Exception:
+            pass
+
+        return {
+            "success": True,
+            "resources": resources,
+            "message": f"Found {len(resources)} active resource(s)"
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error fetching active resources: {str(e)}",
+            "resources": []
+        }
+
+
+@app.post("/api/kind/get-resource-detail")
+async def get_resource_detail(request: Request):
+    """Get full YAML details of a specific resource from the Kind cluster"""
+    try:
+        body = await request.json()
+        cluster_name = body.get("cluster_name", "").strip()
+        resource_type = body.get("resource_type", "").strip()
+        resource_name = body.get("resource_name", "").strip()
+        namespace = body.get("namespace", "ns-rosa-hcp").strip()
+
+        if not cluster_name or not resource_type or not resource_name:
+            return {
+                "success": False,
+                "message": "cluster_name, resource_type, and resource_name are required",
+                "data": None
+            }
+
+        context_name = f"kind-{cluster_name}"
+
+        # Map friendly resource types to kubectl resource types
+        resource_type_map = {
+            "CAPI Clusters": "clusters.cluster.x-k8s.io",
+            "RosaControlPlane": "rosacontrolplane",
+            "RosaNetwork": "rosanetwork",
+            "RosaRoleConfig": "rosaroleconfig",
+        }
+
+        kubectl_resource_type = resource_type_map.get(resource_type, resource_type.lower())
+
+        # Fetch the resource details in YAML format
+        try:
+            result = subprocess.run(
+                ["kubectl", "get", kubectl_resource_type, resource_name, "-n", namespace,
+                 "--context", context_name, "-o", "yaml"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            if result.returncode == 0:
+                return {
+                    "success": True,
+                    "data": result.stdout,
+                    "resource_type": resource_type,
+                    "resource_name": resource_name,
+                    "namespace": namespace,
+                    "message": f"Successfully fetched {resource_type} '{resource_name}'"
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": f"Failed to fetch resource: {result.stderr}",
+                    "data": None
+                }
+
+        except subprocess.TimeoutExpired:
+            return {
+                "success": False,
+                "message": "Request timed out",
+                "data": None
+            }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error fetching resource detail: {str(e)}",
+            "data": None
+        }
+
+
+
 @app.get("/api/ocp/connection-status")
 async def get_ocp_connection_status():
     """Test OpenShift Hub connection using OCP_HUB variables from user_vars.yml"""
