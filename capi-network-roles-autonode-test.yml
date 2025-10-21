@@ -1,0 +1,87 @@
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: "tfitzger-rosa-hcp-combo-test"
+  namespace: "ns-rosa-hcp"
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks: ["192.168.0.0/16"]
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+    kind: ROSACluster
+    name: "tfitzger-rosa-hcp-combo-test"
+    namespace: "ns-rosa-hcp"
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta2
+    kind: ROSAControlPlane
+    name: "tfitzger-rosa-hcp-combo-test"
+    namespace: "ns-rosa-hcp"
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSACluster
+metadata:
+  name: "tfitzger-rosa-hcp-combo-test"
+  namespace: "ns-rosa-hcp"
+spec: {}
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta2
+kind: ROSAControlPlane
+metadata:
+  name: "tfitzger-rosa-hcp-combo-test"
+  namespace: "ns-rosa-hcp"
+spec:
+  rosaRoleConfigRef:
+    name: tfitzger-rosa-role-config
+  rosaNetworkRef:
+    name: "tfitzger-rosa-network"
+  rosaClusterName: tfitzger-rosa-hcp-combo-test
+  domainPrefix: tf-combom
+  version: "4.19.10"
+  ## The region should match the aws region used to create the VPC and subnets
+  region: "us-west-2"
+  channelGroup: stable
+  defaultMachinePoolSpec:
+    instanceType: "m5.xlarge"
+    autoscaling:
+      maxReplicas: 3
+      minReplicas: 2
+  additionalTags:
+    env: "mon"
+    profile: "mon"
+  network:
+    machineCIDR: "10.0.0.0/16"
+    podCIDR: "10.128.0.0/14"
+    serviceCIDR: "172.30.0.0/16"
+
+  # Provision shard ID for hosted control plane placement
+  provisionShardID: "18d315bc-88bf-11f0-a4d5-0a580a80065d"
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: tfitzger-rosa-hcp-combo-test
+  namespace: "ns-rosa-hcp"
+spec:
+  clusterName: "tfitzger-rosa-hcp-combo-test"
+  replicas: 3
+  template:
+    spec:
+      clusterName: "tfitzger-rosa-hcp-combo-test"
+      bootstrap:
+        dataSecretName: ""
+      infrastructureRef:
+        name: tfitzger-rosa-hcp-nod-test
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+        kind: ROSAMachinePool
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSAMachinePool
+metadata:
+  name: tfitzger-rosa-hcp-combo-test
+  namespace: "ns-rosa-hcp"
+spec:
+  nodePoolName: "xyz-nodepool-p1"
+  instanceType: "m5.xlarge"
+  subnet: "subnet-0fbe91fcfbf9f9888" # public subnet
+  version: "4.19.10"

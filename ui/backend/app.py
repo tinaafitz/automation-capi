@@ -4,7 +4,7 @@ ROSA Automation UI Backend
 FastAPI-based backend for the ROSA cluster automation interface
 """
 
-from fastapi import FastAPI, HTTPException, WebSocket, BackgroundTasks
+from fastapi import FastAPI, HTTPException, WebSocket, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, List, Optional
@@ -811,6 +811,62 @@ async def verify_kind_cluster(request: dict):
                             if url_match:
                                 cluster_info["api_url"] = url_match.group()
 
+                # Check for components in the cluster
+                components = {
+                    "checks_passed": 0,
+                    "warnings": 0,
+                    "failed": 0,
+                    "details": []
+                }
+
+                # Check AWS credentials secret
+                aws_creds_check = subprocess.run(
+                    ["kubectl", "get", "secret", "capa-manager-bootstrap-credentials",
+                     "-n", "capa-system", "--context", context_name],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if aws_creds_check.returncode == 0:
+                    components["checks_passed"] += 1
+                    components["details"].append({
+                        "name": "AWS Credentials",
+                        "status": "configured",
+                        "message": "AWS credentials secret found"
+                    })
+                else:
+                    components["warnings"] += 1
+                    components["details"].append({
+                        "name": "AWS Credentials",
+                        "status": "not_configured",
+                        "message": "AWS credentials secret not found in capa-system namespace"
+                    })
+
+                # Check OCM Client Secret (rosa-creds-secret)
+                ocm_secret_check = subprocess.run(
+                    ["kubectl", "get", "secret", "rosa-creds-secret",
+                     "-n", "ns-rosa-hcp", "--context", context_name],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if ocm_secret_check.returncode == 0:
+                    components["checks_passed"] += 1
+                    components["details"].append({
+                        "name": "OCM Client Secret",
+                        "status": "configured",
+                        "message": "ROSA credentials secret found"
+                    })
+                else:
+                    components["failed"] += 1
+                    components["details"].append({
+                        "name": "OCM Client Secret",
+                        "status": "missing",
+                        "message": "ROSA credentials secret not found in ns-rosa-hcp namespace"
+                    })
+
+                cluster_info["components"] = components
+
                 return {
                     "exists": True,
                     "accessible": True,
@@ -908,6 +964,317 @@ async def list_kind_clusters():
             "kind_installed": False,
             "message": f"Error listing Kind clusters: {str(e)}",
             "suggestion": "Check Kind installation and permissions",
+        }
+
+
+@app.post("/api/kind/create-cluster")
+async def create_kind_cluster(request: Request):
+    """Create a new Kind cluster"""
+    try:
+        # Parse request body
+        body = await request.json()
+        cluster_name = body.get("cluster_name", "").strip()
+
+        if not cluster_name:
+            return {
+                "success": False,
+                "message": "Cluster name is required",
+                "suggestion": "Provide a valid cluster name",
+            }
+
+        # Validate cluster name (Kubernetes naming conventions)
+        import re
+
+        name_pattern = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
+        if not name_pattern.match(cluster_name):
+            return {
+                "success": False,
+                "message": "Invalid cluster name format",
+                "suggestion": "Use lowercase letters, numbers, and hyphens only. Must start and end with alphanumeric character.",
+            }
+
+        # Check if Kind is installed
+        kind_check = subprocess.run(
+            ["kind", "--version"], capture_output=True, text=True, timeout=10
+        )
+
+        if kind_check.returncode != 0:
+            return {
+                "success": False,
+                "message": "Kind is not installed",
+                "suggestion": "Install Kind first: brew install kind (macOS) or download from https://kind.sigs.k8s.io/",
+            }
+
+        # Check if cluster already exists
+        list_result = subprocess.run(
+            ["kind", "get", "clusters"], capture_output=True, text=True, timeout=10
+        )
+
+        if list_result.returncode == 0:
+            existing_clusters = [
+                line.strip() for line in list_result.stdout.strip().split("\n") if line.strip()
+            ]
+            if cluster_name in existing_clusters:
+                return {
+                    "success": False,
+                    "message": f"Cluster '{cluster_name}' already exists",
+                    "suggestion": "Choose a different name or delete the existing cluster",
+                }
+
+        # Create the cluster
+        create_result = subprocess.run(
+            ["kind", "create", "cluster", "--name", cluster_name],
+            capture_output=True,
+            text=True,
+            timeout=300,  # 5 minutes timeout for cluster creation
+        )
+
+        if create_result.returncode != 0:
+            return {
+                "success": False,
+                "message": f"Failed to create cluster: {create_result.stderr}",
+                "suggestion": "Check Docker is running and you have sufficient resources",
+            }
+
+        # Verify the cluster was created and is accessible
+        kubectl_test = subprocess.run(
+            [
+                "kubectl",
+                "cluster-info",
+                "--context",
+                f"kind-{cluster_name}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        if kubectl_test.returncode == 0:
+            return {
+                "success": True,
+                "message": f"Cluster '{cluster_name}' created successfully",
+                "cluster_name": cluster_name,
+                "context_name": f"kind-{cluster_name}",
+                "output": create_result.stdout,
+            }
+        else:
+            return {
+                "success": True,
+                "message": f"Cluster '{cluster_name}' created but verification failed",
+                "cluster_name": cluster_name,
+                "warning": "Cluster may need a moment to initialize",
+            }
+
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "message": "Cluster creation timed out",
+            "suggestion": "This may take a while. Check 'kind get clusters' to see if it completed.",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error creating Kind cluster: {str(e)}",
+            "suggestion": "Check Kind installation and Docker daemon status",
+        }
+
+
+@app.post("/api/kind/create-ocm-secret")
+async def create_ocm_secret(request: Request):
+    """Create OCM client secret by running the create-ocmclient-secret.sh script"""
+    try:
+        # Parse request body
+        body = await request.json()
+        cluster_name = body.get("cluster_name", "").strip()
+
+        if not cluster_name:
+            return {
+                "success": False,
+                "message": "Cluster name is required",
+            }
+
+        # Script path - look in project root or home directory
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        script_paths = [
+            os.path.join(project_root, "scripts", "create-ocmclient-secret.sh"),
+            os.path.expanduser("~/create-ocmclient-secret.sh"),
+        ]
+
+        script_path = None
+        for path in script_paths:
+            if os.path.exists(path):
+                script_path = path
+                break
+
+        if not script_path:
+            return {
+                "success": False,
+                "message": f"Script not found. Looked in: {', '.join(script_paths)}",
+                "suggestion": "Please create the script at one of the expected locations",
+            }
+
+        # Set the kubectl context for the script
+        context_name = f"kind-{cluster_name}"
+
+        # Run the script with the appropriate context
+        # First, ensure the namespace exists
+        ns_create = subprocess.run(
+            ["kubectl", "create", "namespace", "ns-rosa-hcp", "--context", context_name],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        # Ignore error if namespace already exists
+
+        # Run the script
+        result = subprocess.run(
+            ["bash", script_path],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env={**os.environ, "KUBECONFIG": os.environ.get("KUBECONFIG", os.path.expanduser("~/.kube/config"))}
+        )
+
+        if result.returncode == 0:
+            return {
+                "success": True,
+                "message": "OCM client secret created successfully",
+                "output": result.stdout,
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"Failed to create secret: {result.stderr}",
+                "output": result.stdout,
+            }
+
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "message": "Script execution timed out",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error creating OCM secret: {str(e)}",
+        }
+
+
+@app.post("/api/kind/execute-command")
+async def execute_kind_command(request: Request):
+    """Execute a kubectl command in the context of a Kind cluster"""
+    try:
+        # Parse request body
+        body = await request.json()
+        cluster_name = body.get("cluster_name", "").strip()
+        command = body.get("command", "").strip()
+
+        if not cluster_name:
+            return {
+                "success": False,
+                "error": "Cluster name is required",
+                "output": "",
+            }
+
+        if not command:
+            return {
+                "success": False,
+                "error": "Command is required",
+                "output": "",
+            }
+
+        # Security check: Only block truly dangerous file system and system commands
+        # Allow kubectl/oc/rosa commands and aliases (which will be resolved by shell)
+
+        # Only block destructive file system operations and system commands
+        # Note: We allow 'oc delete' and 'kubectl delete' for Kubernetes resources
+        dangerous_patterns = [
+            r'\brm\s+-rf\s+/',  # rm -rf / or similar
+            r'\bmkfs\b',         # format filesystem
+            r'\bdd\b.*of=/dev', # dd to device
+            r'\bshutdown\b',
+            r'\breboot\b',
+            r'\bkillall\b',
+            r':\(\)',            # fork bomb
+        ]
+
+        import re
+        for pattern in dangerous_patterns:
+            if re.search(pattern, command, re.IGNORECASE):
+                return {
+                    "success": False,
+                    "error": "This command is not allowed for security reasons",
+                    "output": "",
+                }
+
+        # Get kubeconfig for the Kind cluster
+        kubeconfig_result = subprocess.run(
+            ["kind", "get", "kubeconfig", "--name", cluster_name],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        if kubeconfig_result.returncode != 0:
+            return {
+                "success": False,
+                "error": f"Failed to get kubeconfig: {kubeconfig_result.stderr}",
+                "output": "",
+            }
+
+        # Write kubeconfig to a temporary file
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.kubeconfig') as f:
+            f.write(kubeconfig_result.stdout)
+            temp_kubeconfig = f.name
+
+        try:
+            # Use bash login shell with alias expansion
+            user_shell = os.environ.get("SHELL", "/bin/bash")
+
+            # Build a command that sources profile and runs the user command
+            # Redirect stderr from sourcing to suppress "Restored session" messages
+            wrapper_command = f'''
+                # Source profile files silently
+                [ -f ~/.profile ] && source ~/.profile 2>/dev/null
+                [ -f ~/.bashrc ] && source ~/.bashrc 2>/dev/null
+                [ -f ~/.bash_profile ] && source ~/.bash_profile 2>/dev/null
+                # Enable alias expansion
+                shopt -s expand_aliases 2>/dev/null || true
+                # Run the actual command
+                {command}
+            '''
+
+            result = subprocess.run(
+                [user_shell, "-c", wrapper_command],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env={**os.environ, "KUBECONFIG": temp_kubeconfig}
+            )
+
+            return {
+                "success": result.returncode == 0,
+                "output": result.stdout if result.stdout else result.stderr,
+                "exit_code": result.returncode,
+            }
+
+        finally:
+            # Clean up temporary kubeconfig
+            if os.path.exists(temp_kubeconfig):
+                os.unlink(temp_kubeconfig)
+
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "error": "Command execution timed out (60s limit)",
+            "output": "",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Error executing command: {str(e)}",
+            "output": "",
         }
 
 
