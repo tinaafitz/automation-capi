@@ -269,6 +269,7 @@ export function WhatCanIHelp() {
     }
   };
 
+
   const verifyKindCluster = async (clusterName) => {
     if (!clusterName.trim()) {
       addNotification('Please enter a cluster name', 'error');
@@ -2580,6 +2581,19 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       <ArrowPathIcon className="h-3 w-3" />
                       <span>Refresh</span>
                     </button>
+                    {verifiedKindClusterInfo && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowKindTerminalModal(true);
+                        }}
+                        className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                        title="Open terminal for verified cluster"
+                      >
+                        <CommandLineIcon className="h-3 w-3" />
+                        <span>Terminal</span>
+                      </button>
+                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -5581,6 +5595,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
           </div>
         </div>
       )}
+
 
       {/* OIDC Provider Creation Modal */}
       {showOidcModal && (

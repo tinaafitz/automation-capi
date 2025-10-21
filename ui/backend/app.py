@@ -1533,6 +1533,7 @@ async def get_resource_detail(request: Request):
         }
 
 
+
 @app.get("/api/ocp/connection-status")
 async def get_ocp_connection_status():
     """Test OpenShift Hub connection using OCP_HUB variables from user_vars.yml"""

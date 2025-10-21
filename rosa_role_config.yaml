@@ -1,0 +1,16 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSARoleConfig
+metadata:
+  name: tfitzger-rosa-role-config
+  namespace: ns-rosa-hcp
+spec:
+  identityRef:
+    kind: AWSClusterControllerIdentity
+    name: default
+  credentialsSecretRef:
+    name: rosa-creds-secret
+  accountRoleConfig:
+    prefix: "tfm"
+    version: "4.19.10"
+  operatorRoleConfig:
+    prefix: "tfm"
