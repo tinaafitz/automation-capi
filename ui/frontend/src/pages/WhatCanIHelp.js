@@ -55,6 +55,7 @@ export function WhatCanIHelp() {
   const [kindClusterInput, setKindClusterInput] = useState('');
   const [kindVerificationResult, setKindVerificationResult] = useState(null);
   const [kindLoading, setKindLoading] = useState(false);
+  const [mceLoading, setMceLoading] = useState(false);
   const [ansibleResults, setAnsibleResults] = useState({});
   const [collapsedSections, setCollapsedSections] = useState(new Set());
   const [systemStats, setSystemStats] = useState({
@@ -160,7 +161,9 @@ export function WhatCanIHelp() {
         addNotification('✅ OCM client secret created successfully!', 'success');
         // Re-verify the cluster to update component status
         if (verifiedKindClusterInfo.name) {
-          verifyKindCluster(verifiedKindClusterInfo.name);
+          verifyKindCluster(verifiedKindClusterInfo.name).catch(() => {
+            // Silently handle verification errors after secret creation
+          });
         }
       } else {
         addNotification(`❌ Failed to create secret: ${data.message}`, 'error');
@@ -292,8 +295,6 @@ export function WhatCanIHelp() {
       setKindVerificationResult(data);
 
       if (data.exists && data.accessible) {
-        addNotification(`✅ Kind cluster '${clusterName}' verified successfully!`, 'success');
-
         // Store the verified cluster information with time
         const clusterInfo = {
           name: clusterName,
@@ -318,15 +319,12 @@ export function WhatCanIHelp() {
 
         // Fetch active resources
         await fetchActiveResources(clusterName, clusterInfo.namespace);
-
-        // Add success notification
-        addNotification('🎉 Kind cluster verified!', 'success', 3000);
       } else {
-        addNotification(`❌ ${data.message}`, 'error');
+        throw new Error(data.message);
       }
     } catch (error) {
       console.error('Failed to verify Kind cluster:', error);
-      addNotification('Failed to verify Kind cluster', 'error');
+      throw error; // Re-throw to be caught by the button handler
     } finally {
       setKindLoading(false);
     }
@@ -427,6 +425,7 @@ export function WhatCanIHelp() {
   const refreshAllStatus = async () => {
     const timestamp = Date.now();
     console.log('Refreshing all status at:', new Date().toISOString());
+    let hasErrors = false;
 
     // Check ROSA status with cache busting
     try {
@@ -436,6 +435,7 @@ export function WhatCanIHelp() {
       setRosaStatus(data);
     } catch (error) {
       console.error('Failed to check ROSA status:', error);
+      hasErrors = true;
       setRosaStatus({
         authenticated: false,
         status: 'error',
@@ -451,6 +451,7 @@ export function WhatCanIHelp() {
       setConfigStatus(data);
     } catch (error) {
       console.error('Failed to check config status:', error);
+      hasErrors = true;
       setConfigStatus({
         configured: false,
         status: 'error',
@@ -468,6 +469,7 @@ export function WhatCanIHelp() {
       setOcpStatus(data);
     } catch (error) {
       console.error('Failed to check OCP connection:', error);
+      hasErrors = true;
       setOcpStatus({
         connected: false,
         status: 'error',
@@ -483,6 +485,12 @@ export function WhatCanIHelp() {
       setGuidedSetupStatus(data);
     } catch (error) {
       console.error('Failed to check guided setup status:', error);
+      hasErrors = true;
+    }
+
+    // Return success status
+    if (hasErrors) {
+      throw new Error('Some status checks failed');
     }
   };
 
@@ -1378,7 +1386,7 @@ export function WhatCanIHelp() {
 
           if (response.ok) {
             if (result.success) {
-              addNotification(`✅ Component validation completed successfully`, 'success', 5000);
+              addNotification(`✅ Local Test Environment Verification completed successfully`, 'success', 5000);
 
               // Store the result for display in the UI
               setAnsibleResults((prev) => ({
@@ -1393,13 +1401,13 @@ export function WhatCanIHelp() {
 
               // Parse output to determine component status
               const output = result.output || '';
-              console.log('Component Validation Result:', {
+              console.log('Local Test Environment Verification Result:', {
                 success: true,
                 fullOutput: output,
               });
             } else {
               addNotification(
-                `⚠️ Component validation completed with issues: ${result.message || 'Check logs for details'}`,
+                `⚠️ Local Test Environment Verification completed with issues: ${result.message || 'Check logs for details'}`,
                 'error',
                 8000
               );
@@ -1437,7 +1445,7 @@ export function WhatCanIHelp() {
           // Handle timeout specifically
           if (error.name === 'AbortError') {
             addNotification(
-              '⏱️ Component validation timed out after 60 seconds. This may indicate connection issues.',
+              '⏱️ Local Test Environment Verification timed out after 60 seconds. This may indicate connection issues.',
               'error',
               8000
             );
@@ -1575,7 +1583,19 @@ export function WhatCanIHelp() {
   const addToRecent = (operation) => {
     setRecentOperations((prev) => {
       const filtered = prev.filter((op) => op.id !== operation.id);
-      return [{ ...operation, timestamp: Date.now() }, ...filtered].slice(0, 5);
+      const newOp = { ...operation, timestamp: Date.now() };
+      console.log('Adding to recent operations:', newOp);
+      return [newOp, ...filtered].slice(0, 5);
+    });
+  };
+
+  const updateRecentOperationStatus = (operationId, status) => {
+    setRecentOperations((prev) => {
+      const updated = prev.map((op) =>
+        op.id === operationId ? { ...op, status } : op
+      );
+      console.log('Updated operation status:', operationId, status);
+      return updated;
     });
   };
 
@@ -2566,34 +2586,67 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       </button>
                     )}
                     <button
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation();
-                        console.log('Manual refresh clicked for Kind cluster');
-                        // Refresh Kind cluster status
-                        if (verifiedKindClusterInfo?.name) {
-                          verifyKindCluster(verifiedKindClusterInfo.name);
+
+                        // Prevent starting a new verification while one is already running
+                        if (kindLoading) {
+                          console.log('Verification already in progress, please wait...');
+                          addNotification('Verification already in progress, please wait...', 'info', 2000);
+                          return;
                         }
-                        addNotification('Refreshing Kind cluster status...', 'info', 2000);
+
+                        console.log('Manual verify clicked for Kind cluster');
+
+                        // Verify Kind cluster status
+                        if (verifiedKindClusterInfo?.name) {
+                          // Create unique ID for this verification using timestamp
+                          const verifyId = `verify-kind-cluster-${Date.now()}`;
+
+                          // Add to recent operations with "Verifying..." status
+                          addToRecent({
+                            id: verifyId,
+                            title: 'Verify Kind Cluster',
+                            color: 'bg-cyan-600',
+                            status: '⏳ Verifying...',
+                            action: async () => {
+                              if (verifiedKindClusterInfo?.name) {
+                                await verifyKindCluster(verifiedKindClusterInfo.name);
+                              }
+                            }
+                          });
+
+                          console.log('Starting verification...');
+                          try {
+                            await verifyKindCluster(verifiedKindClusterInfo.name);
+                            // Update operation status with success and timestamp (including seconds)
+                            const completionTime = new Date().toLocaleTimeString('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              hour12: true
+                            });
+                            console.log('Verification completed at:', completionTime);
+                            updateRecentOperationStatus(verifyId, `✅ Verified successfully at ${completionTime}`);
+                          } catch (error) {
+                            // Update operation status with error and timestamp (including seconds)
+                            const completionTime = new Date().toLocaleTimeString('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              hour12: true
+                            });
+                            console.log('Verification failed at:', completionTime);
+                            updateRecentOperationStatus(verifyId, `❌ Verification failed at ${completionTime}`);
+                          }
+                        }
                       }}
                       className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
-                      title="Refresh Kind cluster status"
+                      title="Verify Kind cluster status"
                     >
                       <ArrowPathIcon className="h-3 w-3" />
-                      <span>Refresh</span>
+                      <span>Verify</span>
                     </button>
-                    {verifiedKindClusterInfo && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowKindTerminalModal(true);
-                        }}
-                        className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
-                        title="Open terminal for verified cluster"
-                      >
-                        <CommandLineIcon className="h-3 w-3" />
-                        <span>Terminal</span>
-                      </button>
-                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -2956,17 +3009,94 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   <span>MCE Test Environment</span>
                   <div className="flex items-center ml-auto space-x-2">
                     <button
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation();
-                        console.log('Manual refresh clicked');
-                        refreshAllStatus();
-                        addNotification('Refreshing status...', 'info', 2000);
+
+                        // Prevent starting a new verification while one is already running
+                        if (mceLoading || ansibleResults['check-components']?.loading) {
+                          console.log('MCE verification already in progress, please wait...');
+                          addNotification('MCE verification already in progress, please wait...', 'info', 2000);
+                          return;
+                        }
+
+                        console.log('Manual verify clicked for MCE environment');
+
+                        // Create unique ID for this verification using timestamp
+                        const verifyId = `verify-mce-${Date.now()}`;
+
+                        // Add to recent operations with "Verifying..." status
+                        addToRecent({
+                          id: verifyId,
+                          title: 'Verify MCE Environment',
+                          color: 'bg-emerald-600',
+                          status: '⏳ Verifying...',
+                          action: async () => {
+                            const checkOperation = configureEnvironment.find((op) => op.id === 'check-components');
+                            if (checkOperation) {
+                              await checkOperation.action();
+                            }
+                          }
+                        });
+
+                        console.log('Starting MCE verification...');
+                        setMceLoading(true);
+                        try {
+                          // Run the check-components validation
+                          const checkOperation = configureEnvironment.find((op) => op.id === 'check-components');
+                          if (checkOperation) {
+                            await checkOperation.action();
+                          }
+
+                          // Wait a bit for state to update, then check the results
+                          await new Promise(resolve => setTimeout(resolve, 100));
+
+                          // Use a callback to get the latest state
+                          setAnsibleResults((currentResults) => {
+                            const validationResult = currentResults['check-components'];
+                            const completionTime = new Date().toLocaleTimeString('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              hour12: true
+                            });
+
+                            // Check output for error indicators
+                            const output = validationResult?.result?.output || '';
+                            const hasAuthError = output.includes('Unauthorized') || output.includes('You must be logged in');
+                            const hasError = output.includes('error') || output.includes('failed') || hasAuthError;
+
+                            if (validationResult?.result?.error || hasError) {
+                              console.log('MCE verification failed at:', completionTime);
+                              updateRecentOperationStatus(verifyId, `❌ Verification failed at ${completionTime}`);
+                            } else if (validationResult?.success) {
+                              console.log('MCE verification completed at:', completionTime);
+                              updateRecentOperationStatus(verifyId, `✅ Verified successfully at ${completionTime}`);
+                            } else {
+                              console.log('MCE verification completed with issues at:', completionTime);
+                              updateRecentOperationStatus(verifyId, `⚠️ Verification completed with issues at ${completionTime}`);
+                            }
+
+                            return currentResults;
+                          });
+                        } catch (error) {
+                          // Update operation status with error and timestamp (including seconds)
+                          const completionTime = new Date().toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true
+                          });
+                          console.log('MCE verification failed at:', completionTime);
+                          updateRecentOperationStatus(verifyId, `❌ Verification failed at ${completionTime}`);
+                        } finally {
+                          setMceLoading(false);
+                        }
                       }}
                       className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
-                      title="Refresh MCE environment status"
+                      title="Verify MCE environment status"
                     >
                       <ArrowPathIcon className="h-3 w-3" />
-                      <span>Refresh</span>
+                      <span>Verify</span>
                     </button>
                     <button
                       onClick={async (e) => {
@@ -3193,40 +3323,91 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           {/* Expanded Content */}
                           {isExpanded && operation.id === 'check-components' && (
                             <div className="px-3 pb-3 border-t border-emerald-100 mt-2 pt-2 animate-in slide-in-from-top duration-300">
-                              {/* MCE Environment Info Grid */}
-                              <div className="grid grid-cols-2 gap-3 mb-4">
-                                <div className="bg-white rounded-lg p-2 border border-emerald-100">
-                                  <div className="text-xs text-emerald-600 font-semibold mb-1">
-                                    MCE Namespace
-                                  </div>
-                                  <div className="text-xs text-emerald-900 font-mono">
-                                    multicluster-engine
+                              {/* Kind Cluster Status */}
+                              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg p-4 border border-emerald-200">
+                                <div className="flex items-center justify-between mb-3">
+                                  <h3 className="text-sm font-semibold text-emerald-800 flex items-center">
+                                    <svg
+                                      className="h-4 w-4 text-emerald-600 mr-2"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                      />
+                                    </svg>
+                                    Kind Cluster Status
+                                  </h3>
+                                  <div className="flex items-center space-x-2">
+                                    <div
+                                      className={`flex items-center text-xs px-2 py-1 rounded-full font-semibold ${
+                                        verifiedKindClusterInfo
+                                          ? 'bg-green-100 text-green-800'
+                                          : 'bg-gray-100 text-gray-800'
+                                      }`}
+                                    >
+                                      {verifiedKindClusterInfo ? (
+                                        <>
+                                          <div className="w-2 h-2 bg-green-500 rounded-full mr-1.5 animate-pulse"></div>
+                                          Verified
+                                        </>
+                                      ) : (
+                                        'Not Configured'
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
-                                <div className="bg-white rounded-lg p-2 border border-emerald-100">
-                                  <div className="text-xs text-emerald-600 font-semibold mb-1">
-                                    CAPI Namespace
+
+                                {verifiedKindClusterInfo ? (
+                                  <>
+                                    {/* Cluster Info */}
+                                    <div className="grid grid-cols-2 gap-3">
+                                      <div className="bg-white rounded-lg p-2 border border-emerald-100">
+                                        <div className="text-xs text-emerald-600 font-semibold mb-1">
+                                          Cluster Name
+                                        </div>
+                                        <div className="text-xs text-emerald-900 font-mono">
+                                          {verifiedKindClusterInfo.name}
+                                        </div>
+                                      </div>
+                                      <div className="bg-white rounded-lg p-2 border border-emerald-100">
+                                        <div className="text-xs text-emerald-600 font-semibold mb-1">
+                                          Namespace
+                                        </div>
+                                        <div className="text-xs text-emerald-900 font-mono">
+                                          {verifiedKindClusterInfo.namespace}
+                                        </div>
+                                      </div>
+                                      <div className="bg-white rounded-lg p-2 border border-emerald-100">
+                                        <div className="text-xs text-emerald-600 font-semibold mb-1">
+                                          API Server
+                                        </div>
+                                        <div className="text-xs text-emerald-900 font-mono">
+                                          {verifiedKindClusterInfo.apiUrl}
+                                        </div>
+                                      </div>
+                                      <div className="bg-white rounded-lg p-2 border border-emerald-100">
+                                        <div className="text-xs text-emerald-600 font-semibold mb-1">
+                                          Verified
+                                        </div>
+                                        <div className="text-xs text-emerald-900">
+                                          {verifiedKindClusterInfo.verifiedDate}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="text-center py-4 text-emerald-600 text-xs">
+                                    <div className="mb-2">No Kind cluster verified</div>
+                                    <div className="text-emerald-500">
+                                      Configure a Kind cluster in the Local Test Environment section
+                                    </div>
                                   </div>
-                                  <div className="text-xs text-emerald-900 font-mono">
-                                    ns-rosa-hcp
-                                  </div>
-                                </div>
-                                <div className="bg-white rounded-lg p-2 border border-emerald-100">
-                                  <div className="text-xs text-emerald-600 font-semibold mb-1">
-                                    CAPI Version
-                                  </div>
-                                  <div className="text-xs text-emerald-900 font-mono">
-                                    v1.5.3
-                                  </div>
-                                </div>
-                                <div className="bg-white rounded-lg p-2 border border-emerald-100">
-                                  <div className="text-xs text-emerald-600 font-semibold mb-1">
-                                    CAPA Version
-                                  </div>
-                                  <div className="text-xs text-emerald-900 font-mono">
-                                    v2.3.0
-                                  </div>
-                                </div>
+                                )}
                               </div>
                             </div>
                           )}
@@ -3367,46 +3548,40 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                 </div>
                                               </div>
 
-                                              {/* Task Statistics Grid */}
-                                              <div className="grid grid-cols-3 gap-3 text-xs">
-                                                <div className="bg-green-50 border border-green-200 rounded p-1.5 text-center">
-                                                  <div className="font-bold text-green-700">
-                                                    {totalOk}
+                                              {/* MCE Environment Information Grid */}
+                                              <div className="grid grid-cols-2 gap-3">
+                                                <div className="bg-white rounded-lg p-2 border border-emerald-100">
+                                                  <div className="text-xs text-emerald-600 font-semibold mb-1">
+                                                    MCE Namespace
                                                   </div>
-                                                  <div className="text-green-600 text-xs">
-                                                    Successful
+                                                  <div className="text-xs text-emerald-900 font-mono">
+                                                    multicluster-engine
                                                   </div>
                                                 </div>
-                                                {totalFailed > 0 && (
-                                                  <div className="bg-red-50 border border-red-200 rounded p-1.5 text-center">
-                                                    <div className="font-bold text-red-700">
-                                                      {totalFailed}
-                                                    </div>
-                                                    <div className="text-red-600 text-xs">
-                                                      Failed
-                                                    </div>
+                                                <div className="bg-white rounded-lg p-2 border border-emerald-100">
+                                                  <div className="text-xs text-emerald-600 font-semibold mb-1">
+                                                    CAPI Namespace
                                                   </div>
-                                                )}
-                                                {parseInt(changed) > 0 && (
-                                                  <div className="bg-blue-50 border border-blue-200 rounded p-1.5 text-center">
-                                                    <div className="font-bold text-blue-700">
-                                                      {changed}
-                                                    </div>
-                                                    <div className="text-blue-600 text-xs">
-                                                      Changed
-                                                    </div>
+                                                  <div className="text-xs text-emerald-900 font-mono">
+                                                    ns-rosa-hcp
                                                   </div>
-                                                )}
-                                                {parseInt(skipped) > 0 && (
-                                                  <div className="bg-gray-50 border border-gray-200 rounded p-1.5 text-center">
-                                                    <div className="font-bold text-gray-700">
-                                                      {skipped}
-                                                    </div>
-                                                    <div className="text-gray-600 text-xs">
-                                                      Skipped
-                                                    </div>
+                                                </div>
+                                                <div className="bg-white rounded-lg p-2 border border-emerald-100">
+                                                  <div className="text-xs text-emerald-600 font-semibold mb-1">
+                                                    CAPI Version
                                                   </div>
-                                                )}
+                                                  <div className="text-xs text-emerald-900 font-mono">
+                                                    v1.5.3
+                                                  </div>
+                                                </div>
+                                                <div className="bg-white rounded-lg p-2 border border-emerald-100">
+                                                  <div className="text-xs text-emerald-600 font-semibold mb-1">
+                                                    CAPA Version
+                                                  </div>
+                                                  <div className="text-xs text-emerald-900 font-mono">
+                                                    v2.3.0
+                                                  </div>
+                                                </div>
                                               </div>
                                             </>
                                           );
@@ -3477,7 +3652,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                           ansibleResults[operation.id].result.output && (
                                             <div className="bg-white rounded border p-2">
                                               <h5 className="text-xs font-semibold text-gray-700 mb-2">
-                                                Component Status:
+                                                Key Components:
                                               </h5>
                                               <div className="space-y-1">
                                                 <div className="flex items-center justify-between text-xs">
@@ -3622,7 +3797,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                     d="M5 13l4 4L19 7"
                                                   />
                                                 </svg>
-                                                Component Status
+                                                Key Components
                                               </h5>
                                               {(() => {
                                                 const output =
@@ -4941,18 +5116,33 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           onClick={() => executeOperation(operation)}
                           className="bg-white rounded p-2 border border-gray-200/50 hover:shadow-sm transition-all duration-200 group cursor-pointer hover:scale-[1.01]"
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2 flex-1 min-w-0">
-                              <div
-                                className={`w-1.5 h-1.5 ${operation.color.replace('bg-', 'bg-')} rounded-full`}
-                              ></div>
-                              <span className="text-xs font-medium text-gray-900 truncate group-hover:text-indigo-700">
-                                {operation.title}
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2 flex-1 min-w-0">
+                                <div
+                                  className={`w-1.5 h-1.5 ${operation.color.replace('bg-', 'bg-')} rounded-full`}
+                                ></div>
+                                <span className="text-xs font-medium text-gray-900 truncate group-hover:text-indigo-700">
+                                  {operation.title}
+                                </span>
+                              </div>
+                              <span className="text-xs font-mono text-gray-500 ml-2 flex-shrink-0">
+                                {timeAgo < 1 ? 'now' : `${timeAgo}m`}
                               </span>
                             </div>
-                            <span className="text-xs font-mono text-gray-500 ml-2 flex-shrink-0">
-                              {timeAgo < 1 ? 'now' : `${timeAgo}m`}
-                            </span>
+                            {operation.status && (
+                              <div className="flex items-center gap-1 ml-3.5 mt-0.5">
+                                <span className={`text-xs font-medium ${
+                                  operation.status.includes('✅') || operation.status.includes('success')
+                                    ? 'text-green-600'
+                                    : operation.status.includes('❌') || operation.status.includes('error')
+                                    ? 'text-red-600'
+                                    : 'text-gray-600'
+                                }`}>
+                                  {operation.status}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -5498,9 +5688,14 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                     Cancel
                   </button>
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       const clusterName = selectedKindCluster || kindClusterInput;
-                      verifyKindCluster(clusterName);
+                      try {
+                        await verifyKindCluster(clusterName);
+                        addNotification('✅ Kind cluster verified successfully!', 'success');
+                      } catch (error) {
+                        addNotification('❌ Failed to verify Kind cluster', 'error');
+                      }
                     }}
                     disabled={kindLoading || (!selectedKindCluster && !kindClusterInput.trim())}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
