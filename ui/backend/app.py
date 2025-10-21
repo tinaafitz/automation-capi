@@ -2320,6 +2320,93 @@ async def run_ansible_role(request: dict):
         raise HTTPException(status_code=500, detail=error_msg)
 
 
+@app.post("/api/ansible/run-playbook")
+async def run_ansible_playbook_endpoint(request: dict):
+    """Run an existing ansible playbook"""
+    try:
+        playbook = request.get("playbook")
+        description = request.get("description", "Running ansible playbook")
+        extra_vars = request.get("extra_vars", {})
+
+        if not playbook:
+            raise HTTPException(status_code=400, detail="playbook is required")
+
+        # Ensure the playbook file exists
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        playbook_path = os.path.join(project_root, playbook)
+        if not os.path.exists(playbook_path):
+            raise HTTPException(status_code=404, detail=f"Playbook not found: {playbook}")
+
+        # Prepare ansible command
+        cmd = [
+            "ansible-playbook",
+            playbook_path,
+            "-v",  # Verbose output
+        ]
+
+        # Add extra vars if provided
+        for key, value in extra_vars.items():
+            cmd.extend(["-e", f"{key}={value}"])
+
+        print(f"Running ansible playbook: {' '.join(cmd)}")
+
+        # Prepare environment with KUBECONFIG
+        env = os.environ.copy()
+        # Ensure KUBECONFIG is set (use default if not already set)
+        if "KUBECONFIG" not in env:
+            env["KUBECONFIG"] = os.path.expanduser("~/.kube/config")
+
+        print(f"Using KUBECONFIG: {env.get('KUBECONFIG')}")
+
+        # Run the command
+        result = subprocess.run(
+            cmd,
+            cwd=project_root,
+            capture_output=True,
+            text=True,
+            timeout=1800,  # 30 minutes timeout for playbooks (AutoNode can take a while)
+            env=env,
+        )
+
+        # Parse the output
+        stdout_lines = result.stdout.split("\n") if result.stdout else []
+        stderr_lines = result.stderr.split("\n") if result.stderr else []
+
+        print(f"Ansible playbook completed with return code: {result.returncode}")
+        print(f"STDOUT: {result.stdout}")
+        if result.stderr:
+            print(f"STDERR: {result.stderr}")
+
+        return {
+            "success": result.returncode == 0,
+            "return_code": result.returncode,
+            "output": result.stdout,
+            "error": result.stderr,
+            "message": (
+                "Playbook completed successfully" if result.returncode == 0 else "Playbook failed"
+            ),
+            "playbook": playbook,
+            "description": description,
+            "stdout_lines": stdout_lines,
+            "stderr_lines": stderr_lines,
+        }
+
+    except subprocess.TimeoutExpired:
+        error_msg = f"Playbook {playbook} timed out after 30 minutes"
+        print(error_msg)
+        return {
+            "success": False,
+            "error": error_msg,
+            "message": "Playbook timed out",
+            "playbook": playbook,
+            "description": description,
+        }
+    except Exception as e:
+        error_msg = f"Error running playbook {playbook}: {str(e)}"
+        print(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+
+
 if __name__ == "__main__":
     import uvicorn
 

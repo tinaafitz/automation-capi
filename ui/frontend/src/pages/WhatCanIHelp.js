@@ -99,6 +99,8 @@ export function WhatCanIHelp() {
   const [showKindTerminalModal, setShowKindTerminalModal] = useState(false);
   const [showResourceDetailModal, setShowResourceDetailModal] = useState(false);
   const [selectedResourceDetail, setSelectedResourceDetail] = useState(null);
+  const [showAnsibleModal, setShowAnsibleModal] = useState(false);
+  const [ansibleOutput, setAnsibleOutput] = useState(null);
 
   // Track if we've already shown initial notifications to prevent loops
   const hasShownInitialNotifications = useRef(false);
@@ -176,7 +178,7 @@ export function WhatCanIHelp() {
 
   const handleKindClusterSelected = async ({ cluster_name, verificationData }) => {
     try {
-      addNotification(`✅ Kind cluster '${cluster_name}' verified successfully!`, 'success');
+      // Notification removed - cluster verified
 
       // Store the verified cluster information with time
       const clusterInfo = {
@@ -1386,8 +1388,6 @@ export function WhatCanIHelp() {
 
           if (response.ok) {
             if (result.success) {
-              addNotification(`✅ Local Test Environment Verification completed successfully`, 'success', 5000);
-
               // Store the result for display in the UI
               setAnsibleResults((prev) => ({
                 ...prev,
@@ -1673,15 +1673,11 @@ export function WhatCanIHelp() {
       role="main"
       aria-label="ROSA CAPI/CAPA Test Automation Dashboard"
     >
-      {/* Red Hat Header */}
+      {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-lg backdrop-blur-sm bg-white/95">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
-              <div className="bg-red-600 text-white px-2 py-1 rounded mr-3 font-bold text-sm">
-                RH
-              </div>
-              <span className="text-xl font-bold text-red-600 mr-2">Red Hat</span>
               <span className="text-xl font-semibold text-gray-900">CAPI/CAPA Test Automation</span>
             </div>
             <div className="flex items-center space-x-6">
@@ -2627,7 +2623,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               hour12: true
                             });
                             console.log('Verification completed at:', completionTime);
-                            updateRecentOperationStatus(verifyId, `✅ Verified successfully at ${completionTime}`);
+                            // Update recent operation with success status
+                            updateRecentOperationStatus(verifyId, `✅ Verification completed at ${completionTime}`);
                           } catch (error) {
                             // Update operation status with error and timestamp (including seconds)
                             const completionTime = new Date().toLocaleTimeString('en-US', {
@@ -2913,21 +2910,141 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                       {/* Active Resources */}
                       <div className="bg-white rounded-lg p-4 border border-cyan-100">
-                        <h4 className="text-sm font-semibold text-cyan-800 mb-3 flex items-center">
-                          <svg
-                            className="h-4 w-4 text-cyan-600 mr-2"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                            />
-                          </svg>
-                          Active Resources
+                        <h4 className="text-sm font-semibold text-cyan-800 mb-3 flex items-center justify-between">
+                          <div className="flex items-center">
+                            <svg
+                              className="h-4 w-4 text-cyan-600 mr-2"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                              />
+                            </svg>
+                            Active Resources
+                          </div>
+                          {activeResources.length > 0 && (
+                            <button
+                              onClick={async () => {
+                                let operationId; // Declare outside try block for catch access
+                                try {
+                                  // Find the ROSA cluster name from activeResources
+                                  const rosaCluster = activeResources.find(r => r.type === 'RosaControlPlane');
+                                  if (!rosaCluster) {
+                                    alert('No ROSA cluster found in active resources');
+                                    return;
+                                  }
+
+                                  const clusterName = rosaCluster.name;
+
+                                  if (!confirm(`Configure AutoNode for cluster "${clusterName}"?\n\nThis will:\n- Validate prerequisites\n- Create IAM policies and roles\n- Configure Karpenter\n- Run scaling tests`)) {
+                                    return;
+                                  }
+
+                                  // Create unique ID for this operation
+                                  operationId = `configure-autonode-${Date.now()}`;
+
+                                  // Add to recent operations with "Configuring..." status
+                                  addToRecent({
+                                    id: operationId,
+                                    title: `Configure AutoNode: ${clusterName}`,
+                                    color: 'bg-purple-600',
+                                    status: '⏳ Configuring...',
+                                  });
+
+                                  console.log(`Starting AutoNode configuration for ${clusterName}...`);
+
+                                  const response = await fetch('http://localhost:8000/api/ansible/run-playbook', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      playbook: 'test-autonode.yml',
+                                      description: `Configure AutoNode for ${clusterName}`,
+                                      extra_vars: {
+                                        cluster_name: clusterName
+                                      }
+                                    })
+                                  });
+
+                                  const result = await response.json();
+
+                                  // Get completion time with seconds
+                                  const completionTime = new Date().toLocaleTimeString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    hour12: true
+                                  });
+
+                                  if (response.ok && result.success) {
+                                    console.log(`AutoNode configuration completed successfully at ${completionTime}`);
+                                    updateRecentOperationStatus(operationId, `✅ Configured successfully at ${completionTime}`);
+
+                                    // Show Ansible execution summary
+                                    setAnsibleOutput({
+                                      title: `AutoNode Configuration: ${clusterName}`,
+                                      success: true,
+                                      output: result.output,
+                                      timestamp: completionTime
+                                    });
+                                    setShowAnsibleModal(true);
+                                  } else {
+                                    console.log(`AutoNode configuration failed at ${completionTime}`);
+                                    updateRecentOperationStatus(operationId, `❌ Configuration failed at ${completionTime}`);
+
+                                    // Show Ansible execution summary with error
+                                    setAnsibleOutput({
+                                      title: `AutoNode Configuration: ${clusterName}`,
+                                      success: false,
+                                      output: result.output,
+                                      error: result.error,
+                                      timestamp: completionTime
+                                    });
+                                    setShowAnsibleModal(true);
+                                  }
+                                } catch (error) {
+                                  console.error('AutoNode configuration error:', error);
+                                  const completionTime = new Date().toLocaleTimeString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    hour12: true
+                                  });
+                                  // Update status if we have the operationId
+                                  if (operationId) {
+                                    updateRecentOperationStatus(operationId, `❌ Error at ${completionTime}`);
+                                  }
+                                  alert(`Error configuring AutoNode: ${error.message}`);
+                                }
+                              }}
+                              className="px-3 py-1 text-xs font-medium text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-md shadow-sm hover:shadow transition-all duration-200 flex items-center space-x-1"
+                            >
+                              <svg
+                                className="h-3 w-3"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                                />
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                />
+                              </svg>
+                              <span>Configure AutoNode</span>
+                            </button>
+                          )}
                         </h4>
                         {activeResources.length > 0 ? (
                           <>
@@ -3070,7 +3187,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               updateRecentOperationStatus(verifyId, `❌ Verification failed at ${completionTime}`);
                             } else if (validationResult?.success) {
                               console.log('MCE verification completed at:', completionTime);
-                              updateRecentOperationStatus(verifyId, `✅ Verified successfully at ${completionTime}`);
+                              // Update recent operation with success status
+                              updateRecentOperationStatus(verifyId, `✅ Verification completed at ${completionTime}`);
                             } else {
                               console.log('MCE verification completed with issues at:', completionTime);
                               updateRecentOperationStatus(verifyId, `⚠️ Verification completed with issues at ${completionTime}`);
@@ -3101,6 +3219,20 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                     <button
                       onClick={async (e) => {
                         e.stopPropagation();
+
+                        // Create unique ID for this configuration using timestamp
+                        const configureId = `configure-mce-${Date.now()}`;
+
+                        // Add to recent operations with "Configuring..." status
+                        addToRecent({
+                          id: configureId,
+                          title: 'Configure MCE Environment',
+                          color: 'bg-indigo-600',
+                          status: '⏳ Configuring...',
+                          action: async () => {
+                            // This would re-run the configuration if clicked
+                          }
+                        });
 
                         try {
                           // Set loading state
@@ -3168,6 +3300,15 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               },
                             }));
 
+                            // Update recent operation with success and timestamp
+                            const completionTime = new Date().toLocaleTimeString('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              hour12: true
+                            });
+                            updateRecentOperationStatus(configureId, `✅ Configuration completed at ${completionTime}`);
+
                             // Refresh status after configuration
                             refreshAllStatus();
                           } else {
@@ -3190,6 +3331,15 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               success: false,
                             },
                           }));
+
+                          // Update recent operation with error and timestamp
+                          const completionTime = new Date().toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true
+                          });
+                          updateRecentOperationStatus(configureId, `❌ Configuration failed at ${completionTime}`);
                         }
                       }}
                       className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
@@ -5692,7 +5842,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       const clusterName = selectedKindCluster || kindClusterInput;
                       try {
                         await verifyKindCluster(clusterName);
-                        addNotification('✅ Kind cluster verified successfully!', 'success');
+                        // Notification removed - cluster verified
                       } catch (error) {
                         addNotification('❌ Failed to verify Kind cluster', 'error');
                       }
@@ -5791,6 +5941,152 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
         </div>
       )}
 
+      {/* Ansible Execution Summary Modal */}
+      {showAnsibleModal && ansibleOutput && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowAnsibleModal(false)}
+          />
+          <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-6xl max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center">
+                {ansibleOutput.success ? (
+                  <CheckCircleIcon className="h-6 w-6 mr-2 text-green-600" />
+                ) : (
+                  <svg className="h-6 w-6 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                )}
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    {ansibleOutput.title}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    {ansibleOutput.success ? '✅ Completed successfully' : '❌ Failed'} at {ansibleOutput.timestamp}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAnsibleModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {/* Execution Summary Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className={`p-4 rounded-lg ${ansibleOutput.success ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Status</div>
+                  <div className={`text-lg font-semibold ${ansibleOutput.success ? 'text-green-600' : 'text-red-600'}`}>
+                    {ansibleOutput.success ? 'Success' : 'Failed'}
+                  </div>
+                </div>
+                <div className="p-4 bg-gray-50 dark:bg-gray-900/20 rounded-lg">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Playbook</div>
+                  <div className="text-lg font-semibold text-gray-900 dark:text-white font-mono text-xs">
+                    test-autonode.yml
+                  </div>
+                </div>
+                <div className="p-4 bg-gray-50 dark:bg-gray-900/20 rounded-lg">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Completed</div>
+                  <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {ansibleOutput.timestamp}
+                  </div>
+                </div>
+                <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Type</div>
+                  <div className="text-lg font-semibold text-purple-600">
+                    AutoNode Config
+                  </div>
+                </div>
+              </div>
+
+              {/* Output */}
+              {ansibleOutput.output && (
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 flex items-center">
+                    <CommandLineIcon className="h-4 w-4 mr-2 text-gray-600" />
+                    Ansible Output
+                  </h4>
+                  <pre className="bg-gray-900 text-green-400 p-4 rounded-lg overflow-x-auto text-xs font-mono max-h-96 overflow-y-auto whitespace-pre-wrap">
+{ansibleOutput.output}
+                  </pre>
+                </div>
+              )}
+
+              {/* Error Output */}
+              {ansibleOutput.error && (
+                <div>
+                  <h4 className="text-sm font-semibold text-red-600 mb-2 flex items-center">
+                    <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Error Details
+                  </h4>
+                  <pre className="bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400 p-4 rounded-lg overflow-x-auto text-xs font-mono max-h-64 overflow-y-auto whitespace-pre-wrap border border-red-200 dark:border-red-800">
+{ansibleOutput.error}
+                  </pre>
+                </div>
+              )}
+
+              {/* Next Steps for Success */}
+              {ansibleOutput.success && (
+                <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+                  <h4 className="text-sm font-semibold text-green-800 dark:text-green-400 mb-2 flex items-center">
+                    <CheckCircleIcon className="h-4 w-4 mr-2" />
+                    Next Steps
+                  </h4>
+                  <ul className="text-sm text-green-700 dark:text-green-300 space-y-1 list-disc list-inside">
+                    <li>AutoNode configuration has been applied to your ROSA cluster</li>
+                    <li>Karpenter is now managing automatic node provisioning</li>
+                    <li>Check the test results in /tmp/autonode-results/</li>
+                    <li>Monitor your cluster for automatic scaling events</li>
+                  </ul>
+                </div>
+              )}
+
+              {/* Troubleshooting for Failures */}
+              {!ansibleOutput.success && (
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                  <h4 className="text-sm font-semibold text-yellow-800 dark:text-yellow-400 mb-2 flex items-center">
+                    <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Troubleshooting Tips
+                  </h4>
+                  <ul className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1 list-disc list-inside">
+                    <li>Check that your ROSA cluster is in 'ready' state</li>
+                    <li>Verify AWS credentials have the required IAM permissions</li>
+                    <li>Ensure all required CLI tools (kubectl, oc, aws, rosa, jq) are installed</li>
+                    <li>Review the error output above for specific failure reasons</li>
+                    <li>Check the Ansible playbook logs for detailed task information</li>
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                💡 Tip: You can review the full output above for detailed execution information
+              </div>
+              <button
+                onClick={() => setShowAnsibleModal(false)}
+                className="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* OIDC Provider Creation Modal */}
       {showOidcModal && (
@@ -6283,7 +6579,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
       <div className="bg-white border-t border-gray-200 mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex justify-between items-center text-sm text-gray-500">
-            <div>© 2024 Red Hat, Inc. CAPI/CAPA Test Automation Platform</div>
+            <div>© 2024 CAPI/CAPA Test Automation Platform</div>
             <div className="flex space-x-6">
               <span>Documentation</span>
               <span>Support</span>
