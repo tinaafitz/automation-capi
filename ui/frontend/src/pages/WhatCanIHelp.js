@@ -93,8 +93,11 @@ export function WhatCanIHelp() {
   const [prefixLoading, setPrefixLoading] = useState(false);
   const [savedPrefix, setSavedPrefix] = useState('');
   const [verifiedKindClusterInfo, setVerifiedKindClusterInfo] = useState(null);
+  const [activeResources, setActiveResources] = useState([]);
   const [showKindConfigModal, setShowKindConfigModal] = useState(false);
   const [showKindTerminalModal, setShowKindTerminalModal] = useState(false);
+  const [showResourceDetailModal, setShowResourceDetailModal] = useState(false);
+  const [selectedResourceDetail, setSelectedResourceDetail] = useState(null);
 
   // Track if we've already shown initial notifications to prevent loops
   const hasShownInitialNotifications = useRef(false);
@@ -194,29 +197,75 @@ export function WhatCanIHelp() {
       // Store in localStorage for persistence
       localStorage.setItem('verified-kind-cluster', JSON.stringify(clusterInfo));
 
-      // Optionally auto-update the user's configuration
-      const configInstructions = `Your Kind cluster is ready! To use it for automation:
+      // Fetch active resources
+      await fetchActiveResources(cluster_name, clusterInfo.namespace);
 
-1. Update vars/user_vars.yml with these settings:
-   OCP_HUB_API_URL: ${verificationData.cluster_info?.api_url || 'https://127.0.0.1:6443'}
-   OCP_HUB_CLUSTER_USER: kind-user
-   OCP_HUB_CLUSTER_PASSWORD: kind-password
-
-2. Refresh this page to test the connection
-
-Cluster context: ${verificationData.context_name}`;
-
-      if (
-        window.confirm(
-          '🎉 Kind cluster verified! Would you like me to copy the configuration instructions?'
-        )
-      ) {
-        navigator.clipboard.writeText(configInstructions);
-        addNotification('Configuration instructions copied to clipboard!', 'success');
-      }
+      // Add success notification
+      addNotification('🎉 Kind cluster verified!', 'success', 3000);
     } catch (error) {
       console.error('Error handling cluster selection:', error);
       addNotification('Failed to configure cluster', 'error');
+    }
+  };
+
+  // Fetch active resources from the Kind cluster
+  const fetchActiveResources = async (clusterName, namespace = 'ns-rosa-hcp') => {
+    try {
+      const response = await fetch('http://localhost:8000/api/kind/get-active-resources', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          cluster_name: clusterName,
+          namespace: namespace
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setActiveResources(data.resources);
+      } else {
+        setActiveResources([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch active resources:', error);
+      setActiveResources([]);
+    }
+  };
+
+  const fetchResourceDetail = async (clusterName, resourceType, resourceName, namespace = 'ns-rosa-hcp') => {
+    try {
+      const response = await fetch('http://localhost:8000/api/kind/get-resource-detail', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          cluster_name: clusterName,
+          resource_type: resourceType,
+          resource_name: resourceName,
+          namespace: namespace,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSelectedResourceDetail({
+          type: resourceType,
+          name: resourceName,
+          namespace: namespace,
+          yaml: data.data,
+        });
+        setShowResourceDetailModal(true);
+      } else {
+        addNotification(`Failed to fetch resource: ${data.message}`, 'error', 3000);
+      }
+    } catch (error) {
+      console.error('Failed to fetch resource detail:', error);
+      addNotification('Failed to fetch resource details', 'error', 3000);
     }
   };
 
@@ -266,26 +315,11 @@ Cluster context: ${verificationData.context_name}`;
         // Store in localStorage for persistence
         localStorage.setItem('verified-kind-cluster', JSON.stringify(clusterInfo));
 
-        // Optionally auto-update the user's configuration
-        const configInstructions = `Your Kind cluster is ready! To use it for automation:
+        // Fetch active resources
+        await fetchActiveResources(clusterName, clusterInfo.namespace);
 
-1. Update vars/user_vars.yml with these settings:
-   OCP_HUB_API_URL: ${data.cluster_info?.api_url || 'https://127.0.0.1:6443'}
-   OCP_HUB_CLUSTER_USER: kind-user
-   OCP_HUB_CLUSTER_PASSWORD: kind-password
-
-2. Refresh this page to test the connection
-
-Cluster context: ${data.context_name}`;
-
-        if (
-          window.confirm(
-            '🎉 Kind cluster verified! Would you like me to copy the configuration instructions?'
-          )
-        ) {
-          navigator.clipboard.writeText(configInstructions);
-          addNotification('Configuration instructions copied to clipboard!', 'success');
-        }
+        // Add success notification
+        addNotification('🎉 Kind cluster verified!', 'success', 3000);
       } else {
         addNotification(`❌ ${data.message}`, 'error');
       }
@@ -1226,6 +1260,10 @@ Cluster context: ${data.context_name}`;
       try {
         const clusterInfo = JSON.parse(storedKindCluster);
         setVerifiedKindClusterInfo(clusterInfo);
+        // Fetch active resources for the stored cluster
+        if (clusterInfo.name) {
+          fetchActiveResources(clusterInfo.name, clusterInfo.namespace || 'ns-rosa-hcp');
+        }
       } catch (error) {
         console.error('Failed to parse stored Kind cluster info:', error);
       }
@@ -2513,22 +2551,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   </div>
                   <span>Local Test Environment</span>
                   <div className="flex items-center ml-auto space-x-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        console.log('Manual refresh clicked for Kind cluster');
-                        // Refresh Kind cluster status
-                        if (verifiedKindClusterInfo?.cluster_name) {
-                          verifyKindCluster(verifiedKindClusterInfo.cluster_name);
-                        }
-                        addNotification('Refreshing Kind cluster status...', 'info', 2000);
-                      }}
-                      className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
-                      title="Refresh Kind cluster status"
-                    >
-                      <ArrowPathIcon className="h-3 w-3" />
-                      <span>Refresh</span>
-                    </button>
                     {verifiedKindClusterInfo && (
                       <button
                         onClick={(e) => {
@@ -2542,6 +2564,22 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         <span>Terminal</span>
                       </button>
                     )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        console.log('Manual refresh clicked for Kind cluster');
+                        // Refresh Kind cluster status
+                        if (verifiedKindClusterInfo?.name) {
+                          verifyKindCluster(verifiedKindClusterInfo.name);
+                        }
+                        addNotification('Refreshing Kind cluster status...', 'info', 2000);
+                      }}
+                      className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                      title="Refresh Kind cluster status"
+                    >
+                      <ArrowPathIcon className="h-3 w-3" />
+                      <span>Refresh</span>
+                    </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -2652,27 +2690,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             </div>
                           </div>
 
-                          {/* Quick Status Summary */}
-                          <div className="grid grid-cols-3 gap-2 mb-4">
-                            <div className="bg-green-50 rounded p-2 border border-green-200">
-                              <div className="text-lg font-bold text-green-700 mb-0.5">
-                                {verifiedKindClusterInfo.components?.checks_passed || 0}
-                              </div>
-                              <div className="text-xs text-green-600">Checks Passed</div>
-                            </div>
-                            <div className="bg-orange-50 rounded p-2 border border-orange-200">
-                              <div className="text-lg font-bold text-orange-700 mb-0.5">
-                                {verifiedKindClusterInfo.components?.warnings || 0}
-                              </div>
-                              <div className="text-xs text-orange-600">Warning</div>
-                            </div>
-                            <div className="bg-red-50 rounded p-2 border border-red-200">
-                              <div className="text-lg font-bold text-red-700 mb-0.5">
-                                {verifiedKindClusterInfo.components?.failed || 0}
-                              </div>
-                              <div className="text-xs text-red-600">Failed</div>
-                            </div>
-                          </div>
                         </>
                       ) : (
                         <div className="text-center py-4 text-cyan-600 text-xs">
@@ -2684,10 +2701,10 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       )}
 
                       {/* Key Components */}
-                      <div className="bg-white rounded-lg p-3 border border-cyan-100 mb-3">
-                        <h4 className="text-xs font-semibold text-cyan-800 mb-2 flex items-center">
+                      <div className="bg-white rounded-lg p-4 border border-cyan-100 mb-4">
+                        <h4 className="text-sm font-semibold text-cyan-800 mb-3 flex items-center">
                           <svg
-                            className="h-3 w-3 text-cyan-600 mr-1"
+                            className="h-4 w-4 text-cyan-600 mr-2"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -2702,36 +2719,36 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           Key Components
                         </h4>
                         {/* Table Header */}
-                        <div className="grid grid-cols-3 gap-2 text-xs font-semibold text-cyan-700 bg-cyan-50 p-2 rounded mb-1">
+                        <div className="grid grid-cols-[2fr_1fr_1.5fr] gap-4 text-xs font-semibold text-cyan-700 bg-cyan-50 px-3 py-2 rounded mb-2">
                           <div>Component</div>
                           <div>Version</div>
                           <div className="text-right">Status</div>
                         </div>
                         {/* Table Rows */}
-                        <div className="space-y-1">
-                          <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-[2fr_1fr_1.5fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/50 rounded">
                             <span className="text-cyan-800 font-medium">✅ Kind Cluster</span>
                             <span className="text-cyan-600 font-mono">v0.20.0</span>
                             <span className="text-green-600 font-medium text-right">Running</span>
                           </div>
-                          <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                          <div className="grid grid-cols-[2fr_1fr_1.5fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/50 rounded">
                             <span className="text-cyan-800 font-medium">✅ Cert Manager</span>
                             <span className="text-cyan-600 font-mono">v1.13.0</span>
                             <span className="text-green-600 font-medium text-right">
                               3 pods running
                             </span>
                           </div>
-                          <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                          <div className="grid grid-cols-[2fr_1fr_1.5fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/50 rounded">
                             <span className="text-cyan-800 font-medium">✅ CAPI Controller</span>
                             <span className="text-cyan-600 font-mono">v1.5.3</span>
                             <span className="text-green-600 font-medium text-right">1/1 ready</span>
                           </div>
-                          <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                          <div className="grid grid-cols-[2fr_1fr_1.5fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/50 rounded">
                             <span className="text-cyan-800 font-medium">✅ CAPA Controller</span>
                             <span className="text-cyan-600 font-mono">v2.3.0</span>
                             <span className="text-green-600 font-medium text-right">1/1 ready</span>
                           </div>
-                          <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                          <div className="grid grid-cols-[2fr_1fr_1.5fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/50 rounded">
                             <span className="text-cyan-800 font-medium">✅ ROSA CRDs</span>
                             <span className="text-cyan-600 font-mono">v4.20</span>
                             <span className="text-green-600 font-medium text-right">
@@ -2744,16 +2761,19 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 icon: '✅',
                                 color: 'text-green-600',
                                 text: 'Configured',
+                                bgClass: 'bg-cyan-50/50',
                               },
                               not_configured: {
                                 icon: '⚠️',
                                 color: 'text-orange-600',
                                 text: 'Not configured',
+                                bgClass: 'bg-orange-50/50 border border-orange-200',
                               },
                               missing: {
                                 icon: '❌',
                                 color: 'text-red-600',
                                 text: 'Missing',
+                                bgClass: 'bg-red-50/50 border border-red-200',
                               },
                             };
                             const config = statusConfig[component.status] || statusConfig.missing;
@@ -2761,7 +2781,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             return (
                               <div
                                 key={idx}
-                                className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded"
+                                className={`grid grid-cols-[2fr_1fr_1.5fr] gap-4 text-xs px-3 py-2.5 rounded ${config.bgClass}`}
                               >
                                 <span className="text-cyan-800 font-medium">
                                   {config.icon} {component.name}
@@ -2774,7 +2794,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             );
                           }) || (
                             <>
-                              <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                              <div className="grid grid-cols-[2fr_1fr_1.5fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/50 rounded">
                                 <span className="text-cyan-800 font-medium">
                                   ℹ️ AWS Credentials
                                 </span>
@@ -2783,7 +2803,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   Not checked
                                 </span>
                               </div>
-                              <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                              <div className="grid grid-cols-[2fr_1fr_1.5fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/50 rounded">
                                 <span className="text-cyan-800 font-medium">
                                   ℹ️ OCM Client Secret
                                 </span>
@@ -2825,10 +2845,10 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       </div>
 
                       {/* Active Resources */}
-                      <div className="bg-white rounded-lg p-3 border border-cyan-100">
-                        <h4 className="text-xs font-semibold text-cyan-800 mb-2 flex items-center">
+                      <div className="bg-white rounded-lg p-4 border border-cyan-100">
+                        <h4 className="text-sm font-semibold text-cyan-800 mb-3 flex items-center">
                           <svg
-                            className="h-3 w-3 text-cyan-600 mr-1"
+                            className="h-4 w-4 text-cyan-600 mr-2"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -2842,34 +2862,50 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           </svg>
                           Active Resources
                         </h4>
-                        <div className="space-y-1.5">
-                          <div className="grid grid-cols-3 gap-2 text-xs">
-                            <span className="text-cyan-700">CAPI Clusters</span>
-                            <span className="text-cyan-600 font-mono">v1.5.3</span>
-                            <span className="text-cyan-900 font-medium text-right">
-                              1 (example-rosa-hcp-test)
-                            </span>
+                        {activeResources.length > 0 ? (
+                          <>
+                            {/* Table Header */}
+                            <div className="grid grid-cols-[2fr_2fr_1fr_1.5fr] gap-4 text-xs font-semibold text-cyan-700 bg-cyan-50 px-3 py-2 rounded mb-2">
+                              <div>Resource Type</div>
+                              <div>Name</div>
+                              <div>Version</div>
+                              <div className="text-right">Status</div>
+                            </div>
+                            <div className="space-y-2">
+                              {activeResources.map((resource, idx) => (
+                                <div key={idx} className="grid grid-cols-[2fr_2fr_1fr_1.5fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/30 rounded hover:bg-cyan-50/60 transition-colors">
+                                  <span className="text-cyan-700">{resource.type}</span>
+                                  <button
+                                    onClick={() => fetchResourceDetail(
+                                      verifiedKindClusterInfo.name,
+                                      resource.type,
+                                      resource.name,
+                                      verifiedKindClusterInfo.namespace
+                                    )}
+                                    className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                  >
+                                    {resource.name}
+                                  </button>
+                                  <span className="text-cyan-600 font-mono">{resource.version}</span>
+                                  <span className={`font-medium text-right ${
+                                    resource.status.toLowerCase().includes('ready') ? 'text-green-600' :
+                                    resource.status.toLowerCase().includes('configured') ? 'text-cyan-900' :
+                                    'text-orange-600'
+                                  }`}>
+                                    {resource.status}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-center py-4 text-cyan-600 text-xs">
+                            <div className="mb-2">No active resources found</div>
+                            <div className="text-cyan-500">
+                              Resources will appear here after they are created in the cluster
+                            </div>
                           </div>
-                          <div className="grid grid-cols-3 gap-2 text-xs">
-                            <span className="text-cyan-700">RosaControlPlane</span>
-                            <span className="text-cyan-600 font-mono">v4.20</span>
-                            <span className="text-green-600 font-medium text-right">1 ready</span>
-                          </div>
-                          <div className="grid grid-cols-3 gap-2 text-xs">
-                            <span className="text-cyan-700">RosaNetwork</span>
-                            <span className="text-cyan-600 font-mono">v4.20</span>
-                            <span className="text-cyan-900 font-medium text-right">
-                              1 configured
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-3 gap-2 text-xs">
-                            <span className="text-cyan-700">RosaRoleConfig</span>
-                            <span className="text-cyan-600 font-mono">v4.20</span>
-                            <span className="text-cyan-900 font-medium text-right">
-                              1 configured
-                            </span>
-                          </div>
-                        </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -5479,6 +5515,72 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
         clusterName={verifiedKindClusterInfo?.cluster_name || verifiedKindClusterInfo?.name}
         namespace={verifiedKindClusterInfo?.namespace}
       />
+
+      {/* Resource Detail Modal */}
+      {showResourceDetailModal && selectedResourceDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowResourceDetailModal(false)}
+          />
+          <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-5xl max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center">
+                  <DocumentTextIcon className="h-6 w-6 mr-2 text-cyan-600" />
+                  Resource Details
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  <span className="font-medium">{selectedResourceDetail.type}</span>
+                  {' / '}
+                  <span className="font-mono text-cyan-600">{selectedResourceDetail.name}</span>
+                  {' in namespace '}
+                  <span className="font-mono">{selectedResourceDetail.namespace}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setShowResourceDetailModal(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              >
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">YAML Definition</h4>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(selectedResourceDetail.yaml);
+                    addNotification('YAML copied to clipboard', 'success', 2000);
+                  }}
+                  className="text-sm bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <DocumentTextIcon className="h-4 w-4" />
+                  Copy YAML
+                </button>
+              </div>
+              <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-xs font-mono whitespace-pre-wrap break-words">
+                {selectedResourceDetail.yaml}
+              </pre>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setShowResourceDetailModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* OIDC Provider Creation Modal */}
       {showOidcModal && (
