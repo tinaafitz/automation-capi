@@ -178,7 +178,18 @@ export function WhatCanIHelp() {
 
   const handleKindClusterSelected = async ({ cluster_name, verificationData }) => {
     try {
-      // Notification removed - cluster verified
+      const operationId = `configure-kind-${Date.now()}`;
+
+      // Add to recent operations immediately
+      addToRecent({
+        id: operationId,
+        title: 'Configure Kind Cluster',
+        color: 'bg-cyan-600',
+        status: `⏳ Configuring ${cluster_name}...`,
+      });
+
+      // Small delay to show the "Configuring..." status
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Store the verified cluster information with time
       const clusterInfo = {
@@ -193,7 +204,7 @@ export function WhatCanIHelp() {
           hour: 'numeric',
           minute: '2-digit',
         }),
-        namespace: 'ns-rosa-hcp', // Default namespace
+        namespace: 'ns-rosa-hcp',
         status: verificationData.cluster_info?.status || 'ready',
         components: verificationData.cluster_info?.components || {},
       };
@@ -205,8 +216,17 @@ export function WhatCanIHelp() {
       // Fetch active resources
       await fetchActiveResources(cluster_name, clusterInfo.namespace);
 
+      // Update operation status with success and timestamp
+      const completionTime = new Date().toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      });
+      updateRecentOperationStatus(operationId, `✅ Configured at ${completionTime}`);
+
       // Add success notification
-      addNotification('🎉 Kind cluster verified!', 'success', 3000);
+      addNotification('🎉 Kind cluster configured successfully!', 'success', 3000);
     } catch (error) {
       console.error('Error handling cluster selection:', error);
       addNotification('Failed to configure cluster', 'error');
@@ -2927,45 +2947,58 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             </svg>
                             Active Resources
                           </div>
-                          {activeResources.length > 0 && (
+                          <div className="flex items-center space-x-2">
+                            {/* Provision ROSA HCP Cluster Button */}
                             <button
                               onClick={async () => {
                                 let operationId; // Declare outside try block for catch access
                                 try {
-                                  // Find the ROSA cluster name from activeResources
-                                  const rosaCluster = activeResources.find(r => r.type === 'RosaControlPlane');
-                                  if (!rosaCluster) {
-                                    alert('No ROSA cluster found in active resources');
+                                  // Prompt user for cluster definition file name
+                                  const clusterFile = prompt(
+                                    'Enter the ROSA HCP cluster definition file name:\n\n' +
+                                    'Examples:\n' +
+                                    '- capi-rosahcp-test.yml (default)\n' +
+                                    '- my-rosa-cluster.yaml\n' +
+                                    '- rosa-production.yml\n\n' +
+                                    'File should be in /Users/tinafitzgerald/acm_dev/automation-capi/',
+                                    'capi-rosahcp-test.yml'
+                                  );
+
+                                  // If user cancels or provides empty string, exit
+                                  if (!clusterFile || clusterFile.trim() === '') {
                                     return;
                                   }
 
-                                  const clusterName = rosaCluster.name;
+                                  const trimmedFile = clusterFile.trim();
 
-                                  if (!confirm(`Configure AutoNode for cluster "${clusterName}"?\n\nThis will:\n- Validate prerequisites\n- Create IAM policies and roles\n- Configure Karpenter\n- Run scaling tests`)) {
+                                  if (!confirm(`Provision ROSA HCP Cluster using "${trimmedFile}"?\n\nThis will:\n- Create namespace ns-rosa-hcp\n- Apply AWS Identity configuration\n- Create OCM client secret\n- Apply ROSA HCP cluster definition from ${trimmedFile}`)) {
                                     return;
                                   }
 
                                   // Create unique ID for this operation
-                                  operationId = `configure-autonode-${Date.now()}`;
+                                  operationId = `provision-rosa-hcp-${Date.now()}`;
 
-                                  // Add to recent operations with "Configuring..." status
+                                  // Add to recent operations with "Provisioning..." status
                                   addToRecent({
                                     id: operationId,
-                                    title: `Configure AutoNode: ${clusterName}`,
-                                    color: 'bg-purple-600',
-                                    status: '⏳ Configuring...',
+                                    title: `Provision ROSA HCP: ${trimmedFile}`,
+                                    color: 'bg-rose-600',
+                                    status: '⏳ Provisioning...',
                                   });
 
-                                  console.log(`Starting AutoNode configuration for ${clusterName}...`);
+                                  // Small delay to show the "Provisioning..." status
+                                  await new Promise(resolve => setTimeout(resolve, 1000));
 
-                                  const response = await fetch('http://localhost:8000/api/ansible/run-playbook', {
+                                  console.log(`Starting ROSA HCP cluster provisioning with file: ${trimmedFile}`);
+
+                                  const response = await fetch('http://localhost:8000/api/ansible/run-task', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                      playbook: 'test-autonode.yml',
-                                      description: `Configure AutoNode for ${clusterName}`,
+                                      task_file: 'tasks/provision-rosa-hcp-cluster.yml',
+                                      description: `Provision ROSA HCP Cluster: ${trimmedFile}`,
                                       extra_vars: {
-                                        cluster_name: clusterName
+                                        ROSA_HCP_CLUSTER_FILE: `/app/automation-capi/${trimmedFile}`
                                       }
                                     })
                                   });
@@ -2981,33 +3014,39 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   });
 
                                   if (response.ok && result.success) {
-                                    console.log(`AutoNode configuration completed successfully at ${completionTime}`);
-                                    updateRecentOperationStatus(operationId, `✅ Configured successfully at ${completionTime}`);
+                                    console.log(`ROSA HCP provisioning completed successfully at ${completionTime}`);
+                                    updateRecentOperationStatus(operationId, `✅ Provisioned at ${completionTime}`);
 
                                     // Show Ansible execution summary
                                     setAnsibleOutput({
-                                      title: `AutoNode Configuration: ${clusterName}`,
+                                      title: 'ROSA HCP Cluster Provisioning',
                                       success: true,
                                       output: result.output,
-                                      timestamp: completionTime
+                                      timestamp: completionTime,
+                                      playbook: 'provision-rosa-hcp-cluster.yml',
+                                      type: 'ROSA HCP Provisioning',
+                                      clusterFile: trimmedFile
                                     });
                                     setShowAnsibleModal(true);
                                   } else {
-                                    console.log(`AutoNode configuration failed at ${completionTime}`);
-                                    updateRecentOperationStatus(operationId, `❌ Configuration failed at ${completionTime}`);
+                                    console.log(`ROSA HCP provisioning failed at ${completionTime}`);
+                                    updateRecentOperationStatus(operationId, `❌ Provisioning failed at ${completionTime}`);
 
                                     // Show Ansible execution summary with error
                                     setAnsibleOutput({
-                                      title: `AutoNode Configuration: ${clusterName}`,
+                                      title: 'ROSA HCP Cluster Provisioning',
                                       success: false,
                                       output: result.output,
                                       error: result.error,
-                                      timestamp: completionTime
+                                      timestamp: completionTime,
+                                      playbook: 'provision-rosa-hcp-cluster.yml',
+                                      type: 'ROSA HCP Provisioning',
+                                      clusterFile: trimmedFile
                                     });
                                     setShowAnsibleModal(true);
                                   }
                                 } catch (error) {
-                                  console.error('AutoNode configuration error:', error);
+                                  console.error('ROSA HCP provisioning error:', error);
                                   const completionTime = new Date().toLocaleTimeString('en-US', {
                                     hour: 'numeric',
                                     minute: '2-digit',
@@ -3018,10 +3057,10 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   if (operationId) {
                                     updateRecentOperationStatus(operationId, `❌ Error at ${completionTime}`);
                                   }
-                                  alert(`Error configuring AutoNode: ${error.message}`);
+                                  alert(`Error provisioning ROSA HCP cluster: ${error.message}`);
                                 }
                               }}
-                              className="px-3 py-1 text-xs font-medium text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-md shadow-sm hover:shadow transition-all duration-200 flex items-center space-x-1"
+                              className="px-3 py-1 text-xs font-medium text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 rounded-md shadow-sm hover:shadow transition-all duration-200 flex items-center space-x-1"
                             >
                               <svg
                                 className="h-3 w-3"
@@ -3033,18 +3072,132 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
                                   strokeWidth={2}
-                                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                                />
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
                                 />
                               </svg>
-                              <span>Configure AutoNode</span>
+                              <span>Provision ROSA HCP</span>
                             </button>
-                          )}
+
+                            {/* Configure AutoNode Button */}
+                            {activeResources.length > 0 && (
+                              <button
+                                onClick={async () => {
+                                  let operationId; // Declare outside try block for catch access
+                                  try {
+                                    // Find the ROSA cluster name from activeResources
+                                    const rosaCluster = activeResources.find(r => r.type === 'RosaControlPlane');
+                                    if (!rosaCluster) {
+                                      alert('No ROSA cluster found in active resources');
+                                      return;
+                                    }
+
+                                    const clusterName = rosaCluster.name;
+
+                                    if (!confirm(`Configure AutoNode for cluster "${clusterName}"?\n\nThis will:\n- Validate prerequisites\n- Create IAM policies and roles\n- Configure Karpenter\n- Run scaling tests`)) {
+                                      return;
+                                    }
+
+                                    // Create unique ID for this operation
+                                    operationId = `configure-autonode-${Date.now()}`;
+
+                                    // Add to recent operations with "Configuring..." status
+                                    addToRecent({
+                                      id: operationId,
+                                      title: `Configure AutoNode: ${clusterName}`,
+                                      color: 'bg-purple-600',
+                                      status: '⏳ Configuring...',
+                                    });
+
+                                    console.log(`Starting AutoNode configuration for ${clusterName}...`);
+
+                                    const response = await fetch('http://localhost:8000/api/ansible/run-playbook', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({
+                                        playbook: 'test-autonode.yml',
+                                        description: `Configure AutoNode for ${clusterName}`,
+                                        extra_vars: {
+                                          cluster_name: clusterName
+                                        }
+                                      })
+                                    });
+
+                                    const result = await response.json();
+
+                                    // Get completion time with seconds
+                                    const completionTime = new Date().toLocaleTimeString('en-US', {
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      second: '2-digit',
+                                      hour12: true
+                                    });
+
+                                    if (response.ok && result.success) {
+                                      console.log(`AutoNode configuration completed successfully at ${completionTime}`);
+                                      updateRecentOperationStatus(operationId, `✅ Configured successfully at ${completionTime}`);
+
+                                      // Show Ansible execution summary
+                                      setAnsibleOutput({
+                                        title: `AutoNode Configuration: ${clusterName}`,
+                                        success: true,
+                                        output: result.output,
+                                        timestamp: completionTime
+                                      });
+                                      setShowAnsibleModal(true);
+                                    } else {
+                                      console.log(`AutoNode configuration failed at ${completionTime}`);
+                                      updateRecentOperationStatus(operationId, `❌ Configuration failed at ${completionTime}`);
+
+                                      // Show Ansible execution summary with error
+                                      setAnsibleOutput({
+                                        title: `AutoNode Configuration: ${clusterName}`,
+                                        success: false,
+                                        output: result.output,
+                                        error: result.error,
+                                        timestamp: completionTime
+                                      });
+                                      setShowAnsibleModal(true);
+                                    }
+                                  } catch (error) {
+                                    console.error('AutoNode configuration error:', error);
+                                    const completionTime = new Date().toLocaleTimeString('en-US', {
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      second: '2-digit',
+                                      hour12: true
+                                    });
+                                    // Update status if we have the operationId
+                                    if (operationId) {
+                                      updateRecentOperationStatus(operationId, `❌ Error at ${completionTime}`);
+                                    }
+                                    alert(`Error configuring AutoNode: ${error.message}`);
+                                  }
+                                }}
+                                className="px-3 py-1 text-xs font-medium text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-md shadow-sm hover:shadow transition-all duration-200 flex items-center space-x-1"
+                              >
+                                <svg
+                                  className="h-3 w-3"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                                  />
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                  />
+                                </svg>
+                                <span>Configure AutoNode</span>
+                              </button>
+                            )}
+                          </div>
                         </h4>
                         {activeResources.length > 0 ? (
                           <>
@@ -5270,7 +5423,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             <div className="flex items-center justify-between">
                               <div className="flex items-center space-x-2 flex-1 min-w-0">
                                 <div
-                                  className={`w-1.5 h-1.5 ${operation.color.replace('bg-', 'bg-')} rounded-full`}
+                                  className={`w-1.5 h-1.5 ${(operation.color || 'bg-gray-600').replace('bg-', 'bg-')} rounded-full`}
                                 ></div>
                                 <span className="text-xs font-medium text-gray-900 truncate group-hover:text-indigo-700">
                                   {operation.title}
@@ -5989,9 +6142,11 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   </div>
                 </div>
                 <div className="p-4 bg-gray-50 dark:bg-gray-900/20 rounded-lg">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Playbook</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    {ansibleOutput.clusterFile ? 'Cluster Definition' : 'Playbook'}
+                  </div>
                   <div className="text-lg font-semibold text-gray-900 dark:text-white font-mono text-xs">
-                    test-autonode.yml
+                    {ansibleOutput.clusterFile || ansibleOutput.playbook || 'N/A'}
                   </div>
                 </div>
                 <div className="p-4 bg-gray-50 dark:bg-gray-900/20 rounded-lg">
@@ -6003,7 +6158,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                   <div className="text-sm text-gray-600 dark:text-gray-400">Type</div>
                   <div className="text-lg font-semibold text-purple-600">
-                    AutoNode Config
+                    {ansibleOutput.type || 'N/A'}
                   </div>
                 </div>
               </div>
