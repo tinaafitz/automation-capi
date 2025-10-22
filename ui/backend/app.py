@@ -2122,6 +2122,7 @@ async def run_ansible_task(request: dict):
             {
                 "name": f"Run task: {description}",
                 "hosts": "localhost",
+                "connection": "local",
                 "gather_facts": False,
                 "vars_files": ["vars/vars.yml", "vars/user_vars.yml"],
                 "tasks": [{"name": "Include task file", "include_tasks": task_file}],
@@ -2141,8 +2142,12 @@ async def run_ansible_task(request: dict):
             cmd = [
                 "ansible-playbook",
                 temp_playbook,
+                "-i",
+                "localhost,",  # Inline inventory with localhost
                 "-e",
                 "skip_ansible_runner=true",
+                "-e",
+                f"AUTOMATION_PATH={project_root}",
                 "-v",  # Verbose output
             ]
 

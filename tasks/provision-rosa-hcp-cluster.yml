@@ -1,120 +1,123 @@
 ---
-- name: Provision ROSA HCP Cluster
-  hosts: localhost
-  gather_facts: false
-  vars:
+# Task file for provisioning ROSA HCP Cluster
+# This file is meant to be included via include_tasks, not run as a playbook
+- name: Set automation variables
+  set_fact:
     automation_path: "{{ AUTOMATION_PATH | default(playbook_dir | dirname) }}"
+    ocm_client_id: "{{ OCM_CLIENT_ID }}"
+    ocm_client_secret: "{{ OCM_CLIENT_SECRET }}"
+    ocm_api_url: "{{ OCM_API_URL | default('https://api.stage.openshift.com') }}"
+
+- name: Set cluster file path
+  set_fact:
     rosa_hcp_cluster_file: "{{ ROSA_HCP_CLUSTER_FILE | default(automation_path + '/capi-rosahcp-test.yml') }}"
-    OCM_CLIENT_ID: "{{ OCM_CLIENT_ID }}"
-    OCM_CLIENT_SECRET: "{{ OCM_CLIENT_SECRET }}"
-    OCM_API_URL: "{{ OCM_API_URL | default('https://api.stage.openshift.com') }}"
-  tasks:
-    - name: Get active Kind cluster name
-      shell: |
-        kind get clusters | head -1
-      register: kind_cluster_result
-      changed_when: false
-      ignore_errors: true
 
-    - name: Set kubectl context to Kind cluster
-      shell: |
-        kubectl config use-context kind-{{ kind_cluster_result.stdout }}
-      when: kind_cluster_result.stdout is defined and kind_cluster_result.stdout != ""
-      register: context_result
-      changed_when: false
+- name: Get active Kind cluster name
+  shell: |
+    kind get clusters | head -1
+  register: kind_cluster_result
+  changed_when: false
+  ignore_errors: true
 
-    - name: Display context switch result
+- name: Set kubectl context to Kind cluster
+  shell: |
+    kubectl config use-context kind-{{ kind_cluster_result.stdout }}
+  when: kind_cluster_result.stdout is defined and kind_cluster_result.stdout != ""
+  register: context_result
+  changed_when: false
+
+- name: Display context switch result
+  debug:
+    msg: "Switched to Kind cluster context: kind-{{ kind_cluster_result.stdout }}"
+  when: kind_cluster_result.stdout is defined and kind_cluster_result.stdout != ""
+
+- name: Provision ROSA HCP resources
+  block:
+    - name: Create namespace ns-rosa-hcp
+      shell: |
+        oc create ns ns-rosa-hcp --dry-run=client -o yaml | oc apply -f -
+      register: ns_result
+      changed_when: "'created' in ns_result.stdout or 'configured' in ns_result.stdout"
+
+    - name: Display namespace creation result
       debug:
-        msg: "Switched to Kind cluster context: kind-{{ kind_cluster_result.stdout }}"
-      when: kind_cluster_result.stdout is defined and kind_cluster_result.stdout != ""
+        msg: "Namespace ns-rosa-hcp: {{ ns_result.stdout }}"
 
-    - name: Provision ROSA HCP resources
-      block:
-        - name: Create namespace ns-rosa-hcp
-          shell: |
-            oc create ns ns-rosa-hcp --dry-run=client -o yaml | oc apply -f -
-          register: ns_result
-          changed_when: "'created' in ns_result.stdout or 'configured' in ns_result.stdout"
+    - name: Apply AWS Identity configuration
+      shell: |
+        oc apply -f {{ automation_path }}/awsIdentity.yaml
+      register: aws_identity_result
+      changed_when: "'created' in aws_identity_result.stdout or 'configured' in aws_identity_result.stdout"
 
-        - name: Display namespace creation result
-          debug:
-            msg: "Namespace ns-rosa-hcp: {{ ns_result.stdout }}"
+    - name: Display AWS Identity result
+      debug:
+        msg: "AWS Identity: {{ aws_identity_result.stdout }}"
 
-        - name: Apply AWS Identity configuration
-          shell: |
-            oc apply -f {{ automation_path }}/awsIdentity.yaml
-          register: aws_identity_result
-          changed_when: "'created' in aws_identity_result.stdout or 'configured' in aws_identity_result.stdout"
+    - name: Create OCM client secret in ns-rosa-hcp namespace
+      shell: |
+        oc -n ns-rosa-hcp create secret generic rosa-creds-secret \
+          --from-literal=ocmClientID='{{ ocm_client_id }}' \
+          --from-literal=ocmClientSecret='{{ ocm_client_secret }}' \
+          --from-literal=ocmApiUrl='{{ ocm_api_url }}' \
+          --dry-run=client -o yaml | oc apply -f -
+      register: secret_result
+      changed_when: "'created' in secret_result.stdout or 'configured' in secret_result.stdout"
+      no_log: true
 
-        - name: Display AWS Identity result
-          debug:
-            msg: "AWS Identity: {{ aws_identity_result.stdout }}"
+    - name: Display secret creation result (without sensitive data)
+      debug:
+        msg: "OCM secret created in ns-rosa-hcp namespace"
 
-        - name: Create OCM client secret in ns-rosa-hcp namespace
-          shell: |
-            oc -n ns-rosa-hcp create secret generic rosa-creds-secret \
-              --from-literal=ocmClientID='{{ OCM_CLIENT_ID }}' \
-              --from-literal=ocmClientSecret='{{ OCM_CLIENT_SECRET }}' \
-              --from-literal=ocmApiUrl='{{ OCM_API_URL | default("https://api.stage.openshift.com") }}' \
-              --dry-run=client -o yaml | oc apply -f -
-          register: secret_result
-          changed_when: "'created' in secret_result.stdout or 'configured' in secret_result.stdout"
-          no_log: true
+    - name: Check if ROSA HCP cluster definition file exists
+      stat:
+        path: "{{ rosa_hcp_cluster_file }}"
+      register: cluster_file_stat
 
-        - name: Display secret creation result (without sensitive data)
-          debug:
-            msg: "OCM secret created in ns-rosa-hcp namespace"
+    - name: Display cluster file path
+      debug:
+        msg: "Using ROSA HCP cluster definition: {{ cluster_file_stat.stat.path if cluster_file_stat.stat.exists else 'File not found!' }}"
 
-        - name: Check if ROSA HCP cluster definition file exists
-          stat:
-            path: "{{ rosa_hcp_cluster_file | default(automation_path + '/capi-rosahcp-test.yml') }}"
-          register: cluster_file_stat
+    - name: Apply ROSA HCP cluster configuration
+      shell: |
+        oc apply -f {{ rosa_hcp_cluster_file }}
+      register: cluster_result
+      changed_when: "'created' in cluster_result.stdout or 'configured' in cluster_result.stdout"
+      when: cluster_file_stat.stat.exists
 
-        - name: Display cluster file path
-          debug:
-            msg: "Using ROSA HCP cluster definition: {{ cluster_file_stat.stat.path if cluster_file_stat.stat.exists else 'File not found!' }}"
+    - name: Display cluster creation result
+      debug:
+        msg: "{{ cluster_result.stdout }}"
+      when: cluster_file_stat.stat.exists
 
-        - name: Apply ROSA HCP cluster configuration
-          shell: |
-            oc apply -f {{ rosa_hcp_cluster_file | default(automation_path + '/capi-rosahcp-test.yml') }}
-          register: cluster_result
-          changed_when: "'created' in cluster_result.stdout or 'configured' in cluster_result.stdout"
-          when: cluster_file_stat.stat.exists
+    - name: Wait for ROSAControlPlane to be created
+      shell: |
+        oc get rosacontrolplane -n ns-rosa-hcp -o json | jq -r '.items[].metadata.name'
+      register: control_plane_check
+      until: control_plane_check.stdout != ""
+      retries: 30
+      delay: 2
+      when: cluster_file_stat.stat.exists
 
-        - name: Display cluster creation result
-          debug:
-            msg: "{{ cluster_result.stdout }}"
-          when: cluster_file_stat.stat.exists
+    - name: Display provisioning status
+      debug:
+        msg: |
+          ROSA HCP Cluster provisioning initiated successfully!
 
-        - name: Wait for ROSAControlPlane to be created
-          shell: |
-            oc get rosacontrolplane -n ns-rosa-hcp -o json | jq -r '.items[].metadata.name'
-          register: control_plane_check
-          until: control_plane_check.stdout != ""
-          retries: 30
-          delay: 2
-          when: cluster_file_stat.stat.exists
+          Namespace: ns-rosa-hcp
+          AWS Identity: Applied
+          OCM Secret: Created
+          Cluster Definition: {{ 'Applied' if cluster_file_stat.stat.exists else 'Skipped - file not found' }}
 
-        - name: Display provisioning status
-          debug:
-            msg: |
-              ROSA HCP Cluster provisioning initiated successfully!
+          Monitor cluster status with:
+            oc get rosacontrolplane -n ns-rosa-hcp
+            oc get cluster -n ns-rosa-hcp
+            oc describe rosacontrolplane -n ns-rosa-hcp
 
-              Namespace: ns-rosa-hcp
-              AWS Identity: Applied
-              OCM Secret: Created
-              Cluster Definition: {{ 'Applied' if cluster_file_stat.stat.exists else 'Skipped - file not found' }}
+  rescue:
+    - name: Display error information
+      debug:
+        msg: "Error during ROSA HCP cluster provisioning. Check the logs above for details."
 
-              Monitor cluster status with:
-                oc get rosacontrolplane -n ns-rosa-hcp
-                oc get cluster -n ns-rosa-hcp
-                oc describe rosacontrolplane -n ns-rosa-hcp
-
-      rescue:
-        - name: Display error information
-          debug:
-            msg: "Error during ROSA HCP cluster provisioning. Check the logs above for details."
-
-        - name: Fail with error message
-          fail:
-            msg: "ROSA HCP cluster provisioning failed. Review the error messages above."
+    - name: Fail with error message
+      fail:
+        msg: "ROSA HCP cluster provisioning failed. Review the error messages above."

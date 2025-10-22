@@ -31,7 +31,7 @@ export function KindClusterModal({ isOpen, onClose, onClusterSelected, currentCl
 
       // Add timeout to prevent hanging
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
 
       const response = await fetch('http://localhost:8000/api/kind/list-clusters', {
         signal: controller.signal,
@@ -83,6 +83,10 @@ export function KindClusterModal({ isOpen, onClose, onClusterSelected, currentCl
     setError(null);
 
     try {
+      // Add timeout for cluster creation (5 minutes to match backend)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
+
       const response = await fetch('http://localhost:8000/api/kind/create-cluster', {
         method: 'POST',
         headers: {
@@ -91,8 +95,10 @@ export function KindClusterModal({ isOpen, onClose, onClusterSelected, currentCl
         body: JSON.stringify({
           cluster_name: newClusterName,
         }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       const data = await response.json();
 
       if (data.success) {
@@ -380,7 +386,7 @@ export function KindClusterModal({ isOpen, onClose, onClusterSelected, currentCl
                 {loading ? (
                   <>
                     <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                    Configuring...
+                    Configuring {selectedCluster}...
                   </>
                 ) : (
                   <>
