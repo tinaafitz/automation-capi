@@ -1378,8 +1378,6 @@ export function WhatCanIHelp() {
       tooltip: 'Verify all CAPI/CAPA components are properly installed and configured',
       action: async () => {
         try {
-          addNotification('🔍 Checking required components...', 'info', 3000);
-
           // Set loading state for this specific operation
           setAnsibleResults((prev) => ({
             ...prev,
@@ -3017,33 +3015,41 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                     console.log(`ROSA HCP provisioning completed successfully at ${completionTime}`);
                                     updateRecentOperationStatus(operationId, `✅ Provisioned at ${completionTime}`);
 
-                                    // Show Ansible execution summary
-                                    setAnsibleOutput({
-                                      title: 'ROSA HCP Cluster Provisioning',
-                                      success: true,
-                                      output: result.output,
-                                      timestamp: completionTime,
-                                      playbook: 'provision-rosa-hcp-cluster.yml',
-                                      type: 'ROSA HCP Provisioning',
-                                      clusterFile: trimmedFile
-                                    });
-                                    setShowAnsibleModal(true);
+                                    // Store result in ansibleResults for display in Local Test Environment
+                                    setAnsibleResults((prev) => ({
+                                      ...prev,
+                                      [operationId]: {
+                                        loading: false,
+                                        success: true,
+                                        result: {
+                                          output: result.output,
+                                          timestamp: completionTime,
+                                          playbook: 'provision-rosa-hcp-cluster.yml',
+                                          type: 'ROSA HCP Provisioning',
+                                          clusterFile: trimmedFile
+                                        }
+                                      }
+                                    }));
                                   } else {
                                     console.log(`ROSA HCP provisioning failed at ${completionTime}`);
                                     updateRecentOperationStatus(operationId, `❌ Provisioning failed at ${completionTime}`);
 
-                                    // Show Ansible execution summary with error
-                                    setAnsibleOutput({
-                                      title: 'ROSA HCP Cluster Provisioning',
-                                      success: false,
-                                      output: result.output,
-                                      error: result.error,
-                                      timestamp: completionTime,
-                                      playbook: 'provision-rosa-hcp-cluster.yml',
-                                      type: 'ROSA HCP Provisioning',
-                                      clusterFile: trimmedFile
-                                    });
-                                    setShowAnsibleModal(true);
+                                    // Store result in ansibleResults for display in Local Test Environment
+                                    setAnsibleResults((prev) => ({
+                                      ...prev,
+                                      [operationId]: {
+                                        loading: false,
+                                        success: false,
+                                        result: {
+                                          output: result.output,
+                                          error: result.error,
+                                          timestamp: completionTime,
+                                          playbook: 'provision-rosa-hcp-cluster.yml',
+                                          type: 'ROSA HCP Provisioning',
+                                          clusterFile: trimmedFile
+                                        }
+                                      }
+                                    }));
                                   }
                                 } catch (error) {
                                   console.error('ROSA HCP provisioning error:', error);
@@ -3060,7 +3066,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   alert(`Error provisioning ROSA HCP cluster: ${error.message}`);
                                 }
                               }}
-                              className="px-3 py-1 text-xs font-medium text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 rounded-md shadow-sm hover:shadow transition-all duration-200 flex items-center space-x-1"
+                              className="px-3 py-1 text-xs font-medium text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 rounded-md shadow-sm hover:shadow transition-all duration-200 flex items-center space-x-1"
                             >
                               <svg
                                 className="h-3 w-3"
@@ -3244,6 +3250,65 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           </div>
                         )}
                       </div>
+
+                      {/* ROSA HCP Provisioning Output Section */}
+                      {(() => {
+                        // Find the most recent ROSA HCP provisioning operation
+                        const rosaHcpOperation = recentOperations
+                          .filter(op => op.id && op.id.startsWith('provision-rosa-hcp-'))
+                          .sort((a, b) => {
+                            const timeA = parseInt(a.id.split('-').pop()) || 0;
+                            const timeB = parseInt(b.id.split('-').pop()) || 0;
+                            return timeB - timeA;
+                          })[0];
+
+                        if (!rosaHcpOperation || !ansibleResults[rosaHcpOperation.id]) {
+                          return null;
+                        }
+
+                        const result = ansibleResults[rosaHcpOperation.id];
+
+                        return (
+                          <div className="mt-4 pt-4 border-t border-cyan-200">
+                            <h4 className="text-xs font-semibold text-cyan-800 mb-2 flex items-center">
+                              <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              Provision ROSA HCP Output
+                            </h4>
+
+                            {!result.loading && result.result && (
+                              <>
+                                {/* Detailed Output */}
+                                <details className="bg-white rounded border border-cyan-200">
+                                  <summary className="text-xs font-medium text-cyan-700 p-2 cursor-pointer hover:bg-cyan-50">
+                                    View Full Output
+                                  </summary>
+                                  <div className="p-2 border-t bg-gray-50 max-h-40 overflow-y-auto">
+                                    <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono">
+                                      {result.result.output ||
+                                        result.result.error ||
+                                        'No output available'}
+                                    </pre>
+                                  </div>
+                                </details>
+
+                                {/* Error Details */}
+                                {result.result.error && (
+                                  <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs">
+                                    <div className="font-semibold text-red-800 mb-1">Error Details:</div>
+                                    <div className="text-red-700">
+                                      {result.result.error.includes('[WARNING]')
+                                        ? 'Check output above for error details'
+                                        : result.result.error}
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
@@ -5416,8 +5481,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       return (
                         <div
                           key={`${operation.id}-${operation.timestamp}`}
-                          onClick={() => executeOperation(operation)}
-                          className="bg-white rounded p-2 border border-gray-200/50 hover:shadow-sm transition-all duration-200 group cursor-pointer hover:scale-[1.01]"
+                          className="bg-white rounded p-2 border border-gray-200/50 transition-all duration-200 group"
                         >
                           <div className="flex flex-col gap-1">
                             <div className="flex items-center justify-between">
@@ -5425,7 +5489,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 <div
                                   className={`w-1.5 h-1.5 ${(operation.color || 'bg-gray-600').replace('bg-', 'bg-')} rounded-full`}
                                 ></div>
-                                <span className="text-xs font-medium text-gray-900 truncate group-hover:text-indigo-700">
+                                <span className="text-xs font-medium text-gray-900 truncate">
                                   {operation.title}
                                 </span>
                               </div>
