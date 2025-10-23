@@ -279,7 +279,7 @@ export function KindTerminalModal({ isOpen, onClose, clusterName, namespace }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[80vh] my-8 overflow-hidden flex flex-col">
+      <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[80vh] my-8 overflow-hidden flex flex-col border-2 border-cyan-500 ring-4 ring-cyan-500/30">
         {/* Header */}
         <div className="bg-gradient-to-r from-gray-800 to-gray-900 text-white p-4 flex items-center justify-between">
           <div className="flex items-center">
@@ -397,7 +397,7 @@ export function KindTerminalModal({ isOpen, onClose, clusterName, namespace }) {
           {/* Main Terminal Area */}
           <div className="flex-1 flex flex-col min-h-0">
             {/* Command Output */}
-            <div className="flex-1 bg-gray-900 text-gray-100 p-4 overflow-y-auto font-mono text-sm min-h-[300px] max-h-[400px]">
+            <div className="flex-1 bg-gray-900 text-gray-100 p-6 overflow-y-auto font-mono text-sm min-h-[300px] max-h-[400px]">
               {commandHistory.length === 0 ? (
                 <div className="text-gray-500 text-center mt-8">
                   <CommandLineIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -415,9 +415,9 @@ export function KindTerminalModal({ isOpen, onClose, clusterName, namespace }) {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-4 px-4">
                   {filteredHistory.map((entry, index) => (
-                    <div key={index} className="border-b border-gray-700 pb-4">
+                    <div key={index} className="border-b border-gray-700 pb-4 px-2">
                       {/* Command Header */}
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center space-x-2">
@@ -442,7 +442,7 @@ export function KindTerminalModal({ isOpen, onClose, clusterName, namespace }) {
                       {/* Command Output */}
                       {entry.output && (
                         <div className="mt-2 relative group">
-                          <pre className="text-gray-300 whitespace-pre-wrap break-words bg-black/30 rounded p-2 text-xs">
+                          <pre className="text-gray-300 whitespace-pre-wrap break-words bg-black/30 rounded p-4 text-xs">
                             {entry.output}
                           </pre>
                           <button
@@ -470,9 +470,9 @@ export function KindTerminalModal({ isOpen, onClose, clusterName, namespace }) {
             </div>
 
             {/* Command Input */}
-            <div className="bg-gray-800 border-t border-gray-700 p-4">
-              <div className="flex items-center space-x-2">
-                <span className="text-cyan-400 font-mono">$</span>
+            <div className="bg-gray-800 border-t-4 border-cyan-500 p-6">
+              <div className="flex items-center space-x-2 border-2 border-cyan-500 bg-gray-900 rounded-lg px-4 py-2">
+                <span className="text-cyan-400 font-mono font-bold text-lg">$</span>
                 <input
                   ref={inputRef}
                   type="text"
@@ -481,7 +481,7 @@ export function KindTerminalModal({ isOpen, onClose, clusterName, namespace }) {
                   onKeyDown={handleKeyDown}
                   placeholder="Enter command (kubectl, oc, rosa, aliases supported)... (↑↓ for history, Enter to execute)"
                   disabled={executing}
-                  className="flex-1 bg-gray-900 text-white border border-gray-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 disabled:opacity-50 font-mono text-sm"
+                  className="flex-1 bg-gray-900 text-white border-0 rounded-lg px-2 py-2 focus:ring-0 focus:outline-none disabled:opacity-50 font-mono text-sm"
                 />
                 {executing ? (
                   <button

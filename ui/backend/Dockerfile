@@ -2,10 +2,18 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies, Podman CLI, Kind, and kubectl
 RUN apt-get update && apt-get install -y \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    wget \
+    podman \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -Lo /usr/local/bin/kind https://kind.sigs.k8s.io/dl/v0.30.0/kind-linux-amd64 \
+    && chmod +x /usr/local/bin/kind \
+    && curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+    && chmod +x kubectl \
+    && mv kubectl /usr/local/bin/kubectl \
+    && ln -s /usr/bin/podman /usr/local/bin/docker
 
 # Install Python dependencies
 COPY requirements.txt .
@@ -17,9 +25,8 @@ RUN pip install ansible
 # Copy application code
 COPY . .
 
-# Create non-root user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-USER appuser
+# Note: Running as root to access Docker/Podman socket for Kind operations
+# In production, consider using a more restricted user with appropriate group permissions
 
 # Expose port
 EXPOSE 8000
