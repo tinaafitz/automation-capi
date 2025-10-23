@@ -1,6 +1,6 @@
 - name: Get cluster-api deployment
   shell: |
-    oc get deploy -n multicluster-engine -ojson |\
+    oc --context='{{ ocp_context }}' get deploy -n multicluster-engine -ojson |\
     jq -c '.items[] | select(.metadata.name | contains("capi-controller-manager")) | .metadata.name'
   register: capi_controller_manager
 
@@ -11,7 +11,7 @@
 
 - name: Check for cluster-api-provider-aws deployment
   shell: |
-    oc get deploy -n multicluster-engine -ojson |\
+    oc --context='{{ ocp_context }}' get deploy -n multicluster-engine -ojson |\
     jq -c '.items[] | select(.metadata.name | contains("capa-controller-manager")) | .metadata.name'
   register: capa_controller_manager
 
@@ -22,7 +22,7 @@
 
 - name: Get registrationConfiguration
   shell: |
-    oc get clusterManager -n multicluster-engine -ojson |\
+    oc --context='{{ ocp_context }}' get clusterManager -n multicluster-engine -ojson |\
     jq -c '.items[] | select(.spec.registrationConfiguration) | .spec.registrationConfiguration.featureGates[]'
   register: registration_configuration_applied
 
@@ -33,7 +33,7 @@
 
 - name: Get clusterrolebinding
   shell: |
-    oc get ClusterRoleBinding cluster-manager-registration-capi -ojson | jq -r '.metadata.name'
+    oc --context='{{ ocp_context }}' get ClusterRoleBinding cluster-manager-registration-capi -ojson | jq -r '.metadata.name'
   register: cluster_role_binding_applied
 
 - name: Check for cluster-role-binding
@@ -43,7 +43,7 @@
 
 - name: Get capa-manager-bootstrap-credentials
   shell: |
-    oc get secret -n multicluster-engine capa-manager-bootstrap-credentials -ojson | jq -r '.metadata.name'
+    oc --context='{{ ocp_context }}' get secret -n multicluster-engine capa-manager-bootstrap-credentials -ojson | jq -r '.metadata.name'
   register: capa_manager_bootstrap_credentials_exists
 
 - name: Check for capa-manager-bootstrap-credentials
@@ -53,7 +53,7 @@
 
 - name: Get rosa-creds-secret
   shell: |
-    oc get secret -n multicluster-engine rosa-creds-secret -ojson | jq -r '.metadata.name'
+    oc --context='{{ ocp_context }}' get secret -n multicluster-engine rosa-creds-secret -ojson | jq -r '.metadata.name'
   register: rosa_creds_secret_exists
 
 - name: Check for rosa-creds-secret
@@ -63,7 +63,7 @@
 
 - name: Get AWSClusterControllerIdentity
   shell: |
-    oc get AWSClusterControllerIdentity default -ojson | jq -r '.metadata.name'
+    oc --context='{{ ocp_context }}' get AWSClusterControllerIdentity default -ojson | jq -r '.metadata.name'
   register: aws_cluster_controller_identity_exists
 
 - name: Check for aws_cluster_controller_identity

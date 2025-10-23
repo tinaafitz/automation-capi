@@ -423,16 +423,24 @@ export function WhatCanIHelp() {
 
   // Staggered card animations
   useEffect(() => {
+    // Debug: Log array lengths to verify all cards are present
+    console.log('🎯 Initializing card visibility:', {
+      configureEnvironmentCount: configureEnvironment.length,
+      manageROSAClustersCount: manageROSAClusters.length,
+    });
+
     const timer = setTimeout(() => {
-      configureEnvironment.forEach((_, index) => {
+      configureEnvironment.forEach((operation, index) => {
         setTimeout(() => {
+          console.log(`✅ Making visible: config-${index} (${operation.title})`);
           setVisibleCards((prev) => new Set([...prev, `config-${index}`]));
         }, index * 100);
       });
 
-      manageROSAClusters.forEach((_, index) => {
+      manageROSAClusters.forEach((operation, index) => {
         setTimeout(
           () => {
+            console.log(`✅ Making visible: manage-${index} (${operation.title})`);
             setVisibleCards((prev) => new Set([...prev, `manage-${index}`]));
           },
           (index + configureEnvironment.length) * 100
@@ -521,14 +529,104 @@ export function WhatCanIHelp() {
     refreshAllStatus();
   }, []);
 
-  // Auto-run component validation on startup
-  useEffect(() => {
-    const checkOperation = configureEnvironment.find((op) => op.id === 'check-components');
-    if (checkOperation && !ansibleResults['check-components']) {
-      // Run the check-components validation automatically when UI loads
-      checkOperation.action();
-    }
-  }, []); // Empty dependency array ensures this only runs once on mount
+  // Auto-run component validation on startup - DISABLED per user request
+  // User should manually select "Verify" instead
+  // useEffect(() => {
+  //   const runAutoVerification = async () => {
+  //     // Only run if we haven't checked components yet
+  //     if (!ansibleResults['check-components']) {
+  //       // Add to Recent Operations
+  //       const verifyId = `auto-verify-${Date.now()}`;
+  //       addToRecent({
+  //         id: verifyId,
+  //         title: 'MCE Environment Auto-Verification',
+  //         color: 'bg-blue-600',
+  //         status: '⏳ Checking...',
+  //       });
+  //
+  //       try {
+  //         // First, check CAPI/CAPA status
+  //         const statusOperation = configureEnvironment.find((op) => op.id === 'get-capi-capa-status');
+  //         if (statusOperation) {
+  //           await statusOperation.action();
+  //         }
+  //
+  //         // Wait for status check to complete and state to update
+  //         await new Promise(resolve => setTimeout(resolve, 500));
+  //
+  //         // Use a promise to properly check the updated state
+  //         const shouldProceed = await new Promise((resolve) => {
+  //           setAnsibleResults((currentResults) => {
+  //             const statusResult = currentResults['get-capi-capa-status'];
+  //             if (statusResult?.result?.output) {
+  //               const output = statusResult.result.output;
+  //               const capiNotEnabled = output.includes('CAPI is NOT enabled');
+  //               const capaNotEnabled = output.includes('CAPA is NOT enabled');
+  //
+  //               if (capiNotEnabled || capaNotEnabled) {
+  //                 // CAPI/CAPA not enabled - stop verification
+  //                 const completionTime = new Date().toLocaleTimeString('en-US', {
+  //                   hour: 'numeric',
+  //                   minute: '2-digit',
+  //                   second: '2-digit',
+  //                   hour12: true
+  //                 });
+  //                 updateRecentOperationStatus(verifyId, `⚠️ CAPI/CAPA not enabled at ${completionTime}`);
+  //                 resolve(false); // Don't proceed
+  //               } else {
+  //                 // CAPI/CAPA are enabled, proceed with component verification
+  //                 resolve(true); // Proceed
+  //               }
+  //             } else {
+  //               // If no result yet, don't proceed
+  //               const completionTime = new Date().toLocaleTimeString('en-US', {
+  //                 hour: 'numeric',
+  //                 minute: '2-digit',
+  //                 second: '2-digit',
+  //                 hour12: true
+  //               });
+  //               updateRecentOperationStatus(verifyId, `⚠️ Unable to check CAPI/CAPA status at ${completionTime}`);
+  //               resolve(false);
+  //             }
+  //             return currentResults;
+  //           });
+  //         });
+  //
+  //         if (!shouldProceed) {
+  //           return; // Stop if CAPI/CAPA not enabled
+  //         }
+  //
+  //         // Run the check-components validation (only if CAPI/CAPA are enabled)
+  //         const checkOperation = configureEnvironment.find((op) => op.id === 'check-components');
+  //         if (checkOperation) {
+  //           await checkOperation.action();
+  //         }
+  //
+  //         // Wait for check to complete
+  //         await new Promise(resolve => setTimeout(resolve, 500));
+  //
+  //         const completionTime = new Date().toLocaleTimeString('en-US', {
+  //           hour: 'numeric',
+  //           minute: '2-digit',
+  //           second: '2-digit',
+  //           hour12: true
+  //         });
+  //         updateRecentOperationStatus(verifyId, `✅ Completed at ${completionTime}`);
+  //       } catch (error) {
+  //         const completionTime = new Date().toLocaleTimeString('en-US', {
+  //           hour: 'numeric',
+  //           minute: '2-digit',
+  //           second: '2-digit',
+  //           hour12: true
+  //         });
+  //         console.error('Auto-verification error:', error);
+  //         updateRecentOperationStatus(verifyId, `⚠️ Completed with warnings at ${completionTime}`);
+  //       }
+  //     }
+  //   };
+  //
+  //   runAutoVerification();
+  // }, []); // Empty dependency array ensures this only runs once on mount
 
   // Real-time data updates
   useEffect(() => {
@@ -1480,6 +1578,176 @@ export function WhatCanIHelp() {
             'check-components': {
               loading: false,
               result: { error: error.name === 'AbortError' ? 'Request timed out' : error.message },
+              timestamp: new Date(),
+              success: false,
+            },
+          }));
+        }
+      },
+    },
+    {
+      id: 'get-capi-capa-status',
+      title: 'Check CAPI/CAPA Status',
+      subtitle: '',
+      description: 'Check if CAPI and CAPA are enabled in MCE',
+      details: 'Queries the MCE environment to determine if CAPI and CAPA components are currently enabled',
+      icon: CheckCircleIcon,
+      color: 'bg-blue-600',
+      textColor: 'text-blue-700',
+      bgColor: 'bg-blue-50 hover:bg-blue-100',
+      borderColor: 'border-blue-300',
+      duration: '~30s',
+      tooltip: 'Check if CAPI/CAPA are enabled',
+      action: async () => {
+        try {
+          setAnsibleResults((prev) => ({
+            ...prev,
+            'get-capi-capa-status': { loading: true, result: null, timestamp: new Date() },
+          }));
+
+          const response = await fetch('http://localhost:8000/api/ansible/run-task', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              task_file: 'tasks/get_capi_capa_status.yml',
+              description: 'Get CAPI/CAPA status',
+            }),
+          });
+
+          const result = await response.json();
+
+          if (response.ok && result.success) {
+            setAnsibleResults((prev) => ({
+              ...prev,
+              'get-capi-capa-status': {
+                loading: false,
+                result: result,
+                timestamp: new Date(),
+                success: true,
+              },
+            }));
+          } else {
+            setAnsibleResults((prev) => ({
+              ...prev,
+              'get-capi-capa-status': {
+                loading: false,
+                result: result,
+                timestamp: new Date(),
+                success: false,
+              },
+            }));
+          }
+        } catch (error) {
+          console.error('Error checking CAPI/CAPA status:', error);
+          setAnsibleResults((prev) => ({
+            ...prev,
+            'get-capi-capa-status': {
+              loading: false,
+              result: { error: error.message },
+              timestamp: new Date(),
+              success: false,
+            },
+          }));
+        }
+      },
+    },
+    {
+      id: 'configure-environment',
+      title: 'Configure MCE Environment',
+      subtitle: '',
+      description: 'Enable and configure CAPI/CAPA components in MCE',
+      details: 'Enables CAPI/CAPA and configures the MCE environment with all necessary components',
+      icon: Cog6ToothIcon,
+      color: 'bg-indigo-600',
+      textColor: 'text-indigo-700',
+      bgColor: 'bg-indigo-50 hover:bg-indigo-100',
+      borderColor: 'border-indigo-300',
+      duration: '~2m',
+      tooltip: 'Enable and configure CAPI/CAPA components',
+      action: async () => {
+        // Declare operationId outside try block so it's accessible in catch
+        const operationId = `configure-mce-${Date.now()}`;
+
+        try {
+          // Add to Recent Operations
+          addToRecent({
+            id: operationId,
+            title: 'Configure MCE Environment',
+            color: 'bg-indigo-600',
+            status: '⏳ Configuring...',
+          });
+
+          // Set loading state
+          setAnsibleResults((prev) => ({
+            ...prev,
+            'configure-environment': { loading: true, result: null, timestamp: new Date() },
+          }));
+
+          // Configure MCE environment (CAPI/CAPA must be enabled separately)
+          addNotification('🔧 Configuring MCE environment...', 'info', 3000);
+
+          const configureResponse = await fetch('http://localhost:8000/api/ansible/run-role', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              role_name: 'configure-capa-environment',
+              description: 'Configure CAPA environment',
+            }),
+          });
+
+          const configureResult = await configureResponse.json();
+
+          if (configureResponse.ok && configureResult.success) {
+            addNotification(`✅ MCE environment configured successfully!`, 'success', 5000);
+
+            // Update Recent Operations with success
+            addToRecent({
+              id: operationId,
+              title: 'Configure MCE Environment',
+              color: 'bg-indigo-600',
+              status: '✅ Completed successfully',
+            });
+
+            setAnsibleResults((prev) => ({
+              ...prev,
+              'configure-environment': {
+                loading: false,
+                result: {
+                  output: configureResult.output || '',
+                  configureResult,
+                },
+                timestamp: new Date(),
+                success: true,
+              },
+            }));
+          } else {
+            throw new Error(`MCE configuration failed: ${configureResult.error || configureResult.message || 'Unknown error'}`);
+          }
+        } catch (error) {
+          console.error('Configuration error:', error);
+          addNotification(
+            `❌ Configuration failed: ${error.message}`,
+            'error',
+            8000
+          );
+
+          // Update Recent Operations with error
+          addToRecent({
+            id: operationId,
+            title: 'Configure MCE Environment',
+            color: 'bg-red-600',
+            status: `❌ Failed: ${error.message}`,
+          });
+
+          setAnsibleResults((prev) => ({
+            ...prev,
+            'configure-environment': {
+              loading: false,
+              result: { error: error.message },
               timestamp: new Date(),
               success: false,
             },
@@ -2691,8 +2959,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 {!collapsedSections.has('local-environment') && (
                   <div className="space-y-4">
                     <p className="text-sm text-cyan-700 mb-4">
-                      Set up and manage your local Kind (Kubernetes in Docker) cluster for testing
-                      and development.
+                      Configure and verify your local test environment for ROSA HCP cluster automation.
                     </p>
 
                     {/* Kind Cluster Verification Status */}
@@ -2946,6 +3213,81 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             Active Resources
                           </div>
                           <div className="flex items-center space-x-2">
+                            {/* Refresh Active Resources Button */}
+                            <button
+                              onClick={async () => {
+                                let operationId; // Declare outside try block for catch access
+                                try {
+                                  // Create unique ID for this operation
+                                  operationId = `refresh-resources-${Date.now()}`;
+
+                                  // Add to recent operations with "Refreshing..." status
+                                  addToRecent({
+                                    id: operationId,
+                                    title: 'Refresh Active Resources',
+                                    color: 'bg-cyan-600',
+                                    status: '🔄 Refreshing...',
+                                  });
+
+                                  // Fetch updated active resources
+                                  const response = await fetch('http://localhost:8000/api/kind/get-active-resources', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      cluster_name: verifiedKindClusterInfo.name,
+                                      namespace: verifiedKindClusterInfo.namespace
+                                    })
+                                  });
+
+                                  const result = await response.json();
+
+                                  // Get completion time with seconds
+                                  const completionTime = new Date().toLocaleTimeString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    hour12: true
+                                  });
+
+                                  if (response.ok && result.success) {
+                                    console.log(`Resources refreshed successfully at ${completionTime}`);
+                                    updateRecentOperationStatus(operationId, `✅ Refreshed at ${completionTime}`);
+
+                                    // Update the active resources state
+                                    setActiveResources(result.resources || []);
+                                  } else {
+                                    console.log(`Resources refresh failed at ${completionTime}`);
+                                    updateRecentOperationStatus(operationId, `❌ Refresh failed at ${completionTime}`);
+                                  }
+                                } catch (error) {
+                                  console.error('Error refreshing resources:', error);
+                                  const completionTime = new Date().toLocaleTimeString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    hour12: true
+                                  });
+                                  updateRecentOperationStatus(operationId, `❌ Refresh failed at ${completionTime}`);
+                                }
+                              }}
+                              className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                            >
+                              <svg
+                                className="h-3.5 w-3.5 mr-1.5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                />
+                              </svg>
+                              <span>Refresh</span>
+                            </button>
+
                             {/* Provision ROSA HCP Cluster Button */}
                             <button
                               onClick={async () => {
@@ -3208,15 +3550,16 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         {activeResources.length > 0 ? (
                           <>
                             {/* Table Header */}
-                            <div className="grid grid-cols-[2fr_2fr_1fr_1.5fr] gap-4 text-xs font-semibold text-cyan-700 bg-cyan-50 px-3 py-2 rounded mb-2">
+                            <div className="grid grid-cols-[2fr_2fr_1fr_1fr_1.5fr] gap-4 text-xs font-semibold text-cyan-700 bg-cyan-50 px-3 py-2 rounded mb-2">
                               <div>Resource Type</div>
                               <div>Name</div>
                               <div>Version</div>
+                              <div>Age</div>
                               <div className="text-right">Status</div>
                             </div>
                             <div className="space-y-2">
                               {activeResources.map((resource, idx) => (
-                                <div key={idx} className="grid grid-cols-[2fr_2fr_1fr_1.5fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/30 rounded hover:bg-cyan-50/60 transition-colors">
+                                <div key={idx} className="grid grid-cols-[2fr_2fr_1fr_1fr_1.5fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/30 rounded hover:bg-cyan-50/60 transition-colors">
                                   <span className="text-cyan-700">{resource.type}</span>
                                   <button
                                     onClick={() => fetchResourceDetail(
@@ -3230,6 +3573,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                     {resource.name}
                                   </button>
                                   <span className="text-cyan-600 font-mono">{resource.version}</span>
+                                  <span className="text-cyan-700 font-mono">{resource.age || 'unknown'}</span>
                                   <span className={`font-medium text-right ${
                                     resource.status.toLowerCase().includes('ready') ? 'text-green-600' :
                                     resource.status.toLowerCase().includes('configured') ? 'text-cyan-900' :
@@ -3292,18 +3636,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                     </pre>
                                   </div>
                                 </details>
-
-                                {/* Error Details */}
-                                {result.result.error && (
-                                  <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs">
-                                    <div className="font-semibold text-red-800 mb-1">Error Details:</div>
-                                    <div className="text-red-700">
-                                      {result.result.error.includes('[WARNING]')
-                                        ? 'Check output above for error details'
-                                        : result.result.error}
-                                    </div>
-                                  </div>
-                                )}
                               </>
                             )}
                           </div>
@@ -3343,6 +3675,94 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   </div>
                   <span>MCE Test Environment</span>
                   <div className="flex items-center ml-auto space-x-2">
+                    {/* Enable CAPI/CAPA Button - Only show when CAPI/CAPA are NOT enabled */}
+                    {(() => {
+                      const statusResult = ansibleResults['get-capi-capa-status'];
+                      if (statusResult?.result?.output) {
+                        const output = statusResult.result.output;
+                        // Check if CAPI or CAPA is NOT enabled
+                        const capiNotEnabled = output.includes('CAPI is NOT enabled');
+                        const capaNotEnabled = output.includes('CAPA is NOT enabled');
+
+                        if (capiNotEnabled || capaNotEnabled) {
+                          return (
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+
+                                // Create unique ID for this operation using timestamp
+                                const enableId = `enable-capi-capa-${Date.now()}`;
+
+                                // Add to recent operations with "Enabling..." status
+                                addToRecent({
+                                  id: enableId,
+                                  title: 'Enable CAPI/CAPA',
+                                  color: 'bg-blue-600',
+                                  status: '⏳ Enabling...',
+                                });
+
+                                try {
+                                  addNotification('🔧 Enabling CAPI/CAPA...', 'info', 3000);
+
+                                  const enableResponse = await fetch('http://localhost:8000/api/ansible/run-task', {
+                                    method: 'POST',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                      task_file: 'tasks/enable_capi_capa.yml',
+                                      description: 'Enable CAPI and CAPA',
+                                    }),
+                                  });
+
+                                  const enableResult = await enableResponse.json();
+                                  const completionTime = new Date().toLocaleTimeString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    hour12: true
+                                  });
+
+                                  if (!enableResponse.ok || !enableResult.success) {
+                                    throw new Error(`CAPI/CAPA enablement failed: ${enableResult.error || enableResult.message || 'Unknown error'}`);
+                                  }
+
+                                  addNotification('✅ CAPI/CAPA enabled successfully', 'success', 3000);
+                                  updateRecentOperationStatus(enableId, `✅ Enabled at ${completionTime}`);
+
+                                  // Automatically run status check again after successful enablement
+                                  await new Promise(resolve => setTimeout(resolve, 2000));
+                                  const statusOperation = configureEnvironment.find((op) => op.id === 'get-capi-capa-status');
+                                  if (statusOperation) {
+                                    await statusOperation.action();
+                                  }
+
+                                } catch (error) {
+                                  const completionTime = new Date().toLocaleTimeString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    hour12: true
+                                  });
+                                  console.error('CAPI/CAPA enablement error:', error);
+                                  addNotification(`❌ ${error.message}`, 'error', 5000);
+                                  updateRecentOperationStatus(enableId, `❌ Failed at ${completionTime}`);
+                                }
+                              }}
+                              className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                              title="Enable CAPI/CAPA components in MCE"
+                            >
+                              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                              </svg>
+                              <span>Enable CAPI/CAPA</span>
+                            </button>
+                          );
+                        }
+                      }
+                      return null;
+                    })()}
+
                     <button
                       onClick={async (e) => {
                         e.stopPropagation();
@@ -3376,7 +3796,44 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         console.log('Starting MCE verification...');
                         setMceLoading(true);
                         try {
-                          // Run the check-components validation
+                          // First, check CAPI/CAPA status
+                          const statusOperation = configureEnvironment.find((op) => op.id === 'get-capi-capa-status');
+                          if (statusOperation) {
+                            await statusOperation.action();
+                          }
+
+                          // Wait for status check to complete
+                          await new Promise(resolve => setTimeout(resolve, 100));
+
+                          // Check if CAPI/CAPA are enabled before proceeding
+                          const statusResult = ansibleResults['get-capi-capa-status'];
+                          if (statusResult?.result?.output) {
+                            const output = statusResult.result.output;
+                            const capiNotEnabled = output.includes('CAPI is NOT enabled');
+                            const capaNotEnabled = output.includes('CAPA is NOT enabled');
+
+                            if (capiNotEnabled || capaNotEnabled) {
+                              // CAPI/CAPA not enabled - clear validation results and stop
+                              const completionTime = new Date().toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: true
+                              });
+
+                              // Clear the check-components results
+                              setAnsibleResults((prev) => ({
+                                ...prev,
+                                'check-components': null,
+                              }));
+
+                              updateRecentOperationStatus(verifyId, `⚠️ CAPI/CAPA not enabled at ${completionTime}`);
+                              addNotification('⚠️ CAPI/CAPA must be enabled before verification', 'warning', 5000);
+                              return;
+                            }
+                          }
+
+                          // Then run the check-components validation (only if CAPI/CAPA are enabled)
                           const checkOperation = configureEnvironment.find((op) => op.id === 'check-components');
                           if (checkOperation) {
                             await checkOperation.action();
@@ -3433,138 +3890,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                     >
                       <ArrowPathIcon className="h-3 w-3" />
                       <span>Verify</span>
-                    </button>
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation();
-
-                        // Create unique ID for this configuration using timestamp
-                        const configureId = `configure-mce-${Date.now()}`;
-
-                        // Add to recent operations with "Configuring..." status
-                        addToRecent({
-                          id: configureId,
-                          title: 'Configure MCE Environment',
-                          color: 'bg-indigo-600',
-                          status: '⏳ Configuring...',
-                          action: async () => {
-                            // This would re-run the configuration if clicked
-                          }
-                        });
-
-                        try {
-                          // Set loading state
-                          setAnsibleResults((prev) => ({
-                            ...prev,
-                            'configure-environment': { loading: true, result: null, timestamp: new Date() },
-                          }));
-
-                          // Step 1: Enable CAPI/CAPA first
-                          addNotification('🔧 Step 1/3: Enabling CAPI/CAPA...', 'info', 3000);
-
-                          const enableResponse = await fetch('http://localhost:8000/api/ansible/run-task', {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                              task_file: 'tasks/enable_capi_capa.yml',
-                              description: 'Enable CAPI and CAPA',
-                            }),
-                          });
-
-                          const enableResult = await enableResponse.json();
-
-                          if (!enableResponse.ok || !enableResult.success) {
-                            throw new Error(`CAPI/CAPA enablement failed: ${enableResult.error || enableResult.message || 'Unknown error'}`);
-                          }
-
-                          addNotification('✅ CAPI/CAPA enabled successfully', 'success', 3000);
-
-                          // Wait for deployments to be ready (30 seconds)
-                          addNotification('⏳ Waiting for CAPI/CAPA deployments to start (30s)...', 'info', 3000);
-                          await new Promise(resolve => setTimeout(resolve, 30000));
-
-                          // Step 2: Configure the MCE CAPI/CAPA environment
-                          addNotification('🔧 Step 2/3: Configuring MCE CAPI/CAPA environment...', 'info', 3000);
-
-                          const configureResponse = await fetch('http://localhost:8000/api/ansible/run-role', {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                              role_name: 'configure-capa-environment',
-                              description: 'Configure the MCE CAPI/CAPA environment',
-                              extra_vars: {},
-                            }),
-                          });
-
-                          const configureResult = await configureResponse.json();
-
-                          if (configureResponse.ok && configureResult.success) {
-                            addNotification(`✅ Step 3/3: MCE environment configured successfully!`, 'success', 5000);
-
-                            setAnsibleResults((prev) => ({
-                              ...prev,
-                              'configure-environment': {
-                                loading: false,
-                                result: {
-                                  enableResult,
-                                  configureResult,
-                                },
-                                timestamp: new Date(),
-                                success: true,
-                              },
-                            }));
-
-                            // Update recent operation with success and timestamp
-                            const completionTime = new Date().toLocaleTimeString('en-US', {
-                              hour: 'numeric',
-                              minute: '2-digit',
-                              second: '2-digit',
-                              hour12: true
-                            });
-                            updateRecentOperationStatus(configureId, `✅ Configuration completed at ${completionTime}`);
-
-                            // Refresh status after configuration
-                            refreshAllStatus();
-                          } else {
-                            throw new Error(`Configuration failed: ${configureResult.error || configureResult.message || 'Unknown error'}`);
-                          }
-                        } catch (error) {
-                          console.error('Error configuring MCE environment:', error);
-                          addNotification(
-                            `❌ ${error.message || 'Failed to configure MCE environment'}`,
-                            'error',
-                            8000
-                          );
-
-                          setAnsibleResults((prev) => ({
-                            ...prev,
-                            'configure-environment': {
-                              loading: false,
-                              result: { error: error.message },
-                              timestamp: new Date(),
-                              success: false,
-                            },
-                          }));
-
-                          // Update recent operation with error and timestamp
-                          const completionTime = new Date().toLocaleTimeString('en-US', {
-                            hour: 'numeric',
-                            minute: '2-digit',
-                            second: '2-digit',
-                            hour12: true
-                          });
-                          updateRecentOperationStatus(configureId, `❌ Configuration failed at ${completionTime}`);
-                        }
-                      }}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
-                      title="Configure MCE environment"
-                    >
-                      <Cog6ToothIcon className="h-3 w-3" />
-                      <span>Configure</span>
                     </button>
                     <svg
                       className={`h-4 w-4 text-indigo-600 transition-transform duration-200 ${collapsedSections.has('configure-environment') ? 'rotate-180' : ''}`}
@@ -3920,34 +4245,27 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                               <div className="grid grid-cols-2 gap-3">
                                                 <div className="bg-white rounded-lg p-2 border border-emerald-100">
                                                   <div className="text-xs text-emerald-600 font-semibold mb-1">
-                                                    MCE Namespace
+                                                    API Server
                                                   </div>
-                                                  <div className="text-xs text-emerald-900 font-mono">
-                                                    multicluster-engine
-                                                  </div>
-                                                </div>
-                                                <div className="bg-white rounded-lg p-2 border border-emerald-100">
-                                                  <div className="text-xs text-emerald-600 font-semibold mb-1">
-                                                    CAPI Namespace
-                                                  </div>
-                                                  <div className="text-xs text-emerald-900 font-mono">
-                                                    ns-rosa-hcp
+                                                  <div className="text-xs text-emerald-900 font-mono break-all">
+                                                    {ocpStatus?.api_url || 'Not connected'}
                                                   </div>
                                                 </div>
                                                 <div className="bg-white rounded-lg p-2 border border-emerald-100">
                                                   <div className="text-xs text-emerald-600 font-semibold mb-1">
-                                                    CAPI Version
+                                                    Verified
                                                   </div>
-                                                  <div className="text-xs text-emerald-900 font-mono">
-                                                    v1.5.3
-                                                  </div>
-                                                </div>
-                                                <div className="bg-white rounded-lg p-2 border border-emerald-100">
-                                                  <div className="text-xs text-emerald-600 font-semibold mb-1">
-                                                    CAPA Version
-                                                  </div>
-                                                  <div className="text-xs text-emerald-900 font-mono">
-                                                    v2.3.0
+                                                  <div className="text-xs text-emerald-900">
+                                                    {ansibleResults['check-components']?.timestamp
+                                                      ? new Date(ansibleResults['check-components'].timestamp).toLocaleString('en-US', {
+                                                          month: 'short',
+                                                          day: 'numeric',
+                                                          year: 'numeric',
+                                                          hour: 'numeric',
+                                                          minute: '2-digit',
+                                                          hour12: true
+                                                        })
+                                                      : 'Not verified'}
                                                   </div>
                                                 </div>
                                               </div>
@@ -4201,14 +4519,15 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                 return (
                                                   <>
                                                     {/* Table Header */}
-                                                    <div className="grid grid-cols-3 gap-2 text-xs font-semibold text-cyan-700 bg-cyan-50 p-2 rounded mb-1">
+                                                    <div className="grid grid-cols-4 gap-2 text-xs font-semibold text-cyan-700 bg-cyan-50 p-2 rounded mb-1">
                                                       <div>Component</div>
                                                       <div>Version</div>
                                                       <div className="text-right">Status</div>
+                                                      <div className="text-right">Age</div>
                                                     </div>
                                                     {/* Table Rows */}
                                                     <div className="space-y-1">
-                                                      <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                                                      <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
                                                         <span className="text-cyan-800 font-medium">
                                                           {!output.includes(
                                                             'capi_controller_manager deployment was not found'
@@ -4235,8 +4554,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             ? '1/1 ready'
                                                             : 'Not Found'}
                                                         </span>
+                                                        <span className="text-cyan-600 font-mono text-right">-</span>
                                                       </div>
-                                                      <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                                                      <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
                                                         <span className="text-cyan-800 font-medium">
                                                           {!output.includes(
                                                             'capa_controller_manager deployment was not found'
@@ -4263,8 +4583,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             ? '1/1 ready'
                                                             : 'Not Found'}
                                                         </span>
+                                                        <span className="text-cyan-600 font-mono text-right">-</span>
                                                       </div>
-                                                      <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                                                      <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
                                                         <span className="text-cyan-800 font-medium">
                                                           {!output.includes(
                                                             'registration_configuration was not found'
@@ -4291,8 +4612,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             ? 'Configured'
                                                             : 'Not Found'}
                                                         </span>
+                                                        <span className="text-cyan-600 font-mono text-right">-</span>
                                                       </div>
-                                                      <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                                                      <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
                                                         <span className="text-cyan-800 font-medium">
                                                           {!output.includes(
                                                             'cluster-role-binding changes have not been applied'
@@ -4319,8 +4641,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             ? 'Applied'
                                                             : 'Not Applied'}
                                                         </span>
+                                                        <span className="text-cyan-600 font-mono text-right">-</span>
                                                       </div>
-                                                      <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                                                      <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
                                                         <span className="text-cyan-800 font-medium">
                                                           {!output.includes(
                                                             'capa-manager-bootstrap-credentials secret does not exist'
@@ -4347,8 +4670,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             ? 'Configured'
                                                             : 'Missing'}
                                                         </span>
+                                                        <span className="text-cyan-600 font-mono text-right">-</span>
                                                       </div>
-                                                      <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                                                      <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
                                                         <span className="text-cyan-800 font-medium">
                                                           {!output.includes(
                                                             'rosa-creds-secret secret does not exist'
@@ -4375,8 +4699,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             ? 'Configured'
                                                             : 'Missing'}
                                                         </span>
+                                                        <span className="text-cyan-600 font-mono text-right">-</span>
                                                       </div>
-                                                      <div className="grid grid-cols-3 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                                                      <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
                                                         <span className="text-cyan-800 font-medium">
                                                           {!output.includes(
                                                             'aws_cluster_controller_identity does not exist'
@@ -4403,6 +4728,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             ? 'Configured'
                                                             : 'Missing'}
                                                         </span>
+                                                        <span className="text-cyan-600 font-mono text-right">-</span>
                                                       </div>
                                                     </div>
                                                   </>
@@ -4474,41 +4800,79 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                           </pre>
                                         </div>
                                       </details>
-
-                                      {/* Error Details */}
-                                      {ansibleResults[operation.id].result.error &&
-                                        (() => {
-                                          const error = ansibleResults[operation.id].result.error;
-                                          // Hide error box if it only contains inventory warnings
-                                          const isOnlyInventoryWarning =
-                                            error.includes(
-                                              '[WARNING]: No inventory was parsed, only implicit localhost is available'
-                                            ) &&
-                                            error.includes(
-                                              '[WARNING]: provided hosts list is empty, only localhost is available'
-                                            ) &&
-                                            !error.toLowerCase().includes('error!') &&
-                                            !error.toLowerCase().includes('failed') &&
-                                            !error.toLowerCase().includes('fatal');
-
-                                          if (isOnlyInventoryWarning) {
-                                            return null;
-                                          }
-
-                                          return (
-                                            <div className="bg-red-50 border border-red-200 rounded p-2">
-                                              <h5 className="text-xs font-semibold text-red-700 mb-1">
-                                                Error Details:
-                                              </h5>
-                                              <pre className="text-xs text-red-600 whitespace-pre-wrap font-mono">
-                                                {error}
-                                              </pre>
-                                            </div>
-                                          );
-                                        })()}
                                     </div>
                                   )}
                               </div>
+                            </div>
+                          )}
+
+                          {/* Expanded Content for get-capi-capa-status */}
+                          {isExpanded && operation.id === 'get-capi-capa-status' && (
+                            <div className="px-3 pb-3 pt-2 border-t border-blue-100">
+                              <p className="text-xs text-gray-600 mb-2">{operation.description}</p>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  operation.action();
+                                }}
+                                className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded transition-colors duration-200 font-medium"
+                                title={`Run ${operation.title}`}
+                              >
+                                ▶ Run {operation.title}
+                              </button>
+
+                              {/* Results for get-capi-capa-status */}
+                              {ansibleResults[operation.id] && ansibleResults[operation.id].result && (
+                                <div className="mt-3">
+                                  <details className="bg-white rounded border">
+                                    <summary className="text-xs font-medium text-gray-700 p-2 cursor-pointer hover:bg-gray-50">
+                                      View Full Output
+                                    </summary>
+                                    <div className="p-2 border-t bg-gray-50 max-h-40 overflow-y-auto">
+                                      <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono">
+                                        {ansibleResults[operation.id].result.output ||
+                                          ansibleResults[operation.id].result.error ||
+                                          'No output available'}
+                                      </pre>
+                                    </div>
+                                  </details>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Expanded Content for configure-environment */}
+                          {isExpanded && operation.id === 'configure-environment' && (
+                            <div className="px-3 pb-3 pt-2 border-t border-indigo-100">
+                              <p className="text-xs text-gray-600 mb-2">{operation.description}</p>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  operation.action();
+                                }}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded transition-colors duration-200 font-medium"
+                                title={`Run ${operation.title}`}
+                              >
+                                ▶ Run {operation.title}
+                              </button>
+
+                              {/* Results for configure-environment */}
+                              {ansibleResults[operation.id] && ansibleResults[operation.id].result && (
+                                <div className="mt-3">
+                                  <details className="bg-white rounded border">
+                                    <summary className="text-xs font-medium text-gray-700 p-2 cursor-pointer hover:bg-gray-50">
+                                      View Full Output
+                                    </summary>
+                                    <div className="p-2 border-t bg-gray-50 max-h-40 overflow-y-auto">
+                                      <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono">
+                                        {ansibleResults[operation.id].result.output ||
+                                          ansibleResults[operation.id].result.error ||
+                                          'No output available'}
+                                      </pre>
+                                    </div>
+                                  </details>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>

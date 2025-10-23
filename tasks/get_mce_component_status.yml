@@ -1,7 +1,8 @@
 - name: Get the {{ component }} status in MCE
   shell: |
-    oc get mce --output json | jq -r '.items[].spec.overrides.components[] | select(.name == "{{ component }}")' | jq -r '.enabled'
+    oc get mce --output json | jq -r '.items[].spec.overrides.components[] | select(.name == "{{ component }}") | .enabled' | grep -q '^true$' && echo "true" || echo "false"
   register: "component_enabled"
+  changed_when: false
 
 #- name: print component enabled status
 #  debug:

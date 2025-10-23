@@ -1,0 +1,129 @@
+---
+# Validation task for standalone CAPI/CAPA installation in Kind clusters
+# This checks the correct namespaces for Kind-based CAPI/CAPA setups
+
+- name: Get cluster-api deployment (capi-system namespace)
+  shell: |
+    kubectl get deploy -n capi-system -ojson 2>/dev/null |\
+    jq -c '.items[] | select(.metadata.name | contains("capi-controller-manager")) | .metadata.name'
+  register: capi_controller_manager
+  ignore_errors: yes
+
+- name: Check for capi-controller-manager
+  debug:
+    msg: "CAPI controller manager found: {{ capi_controller_manager.stdout }}"
+  when: capi_controller_manager.stdout | length > 0
+
+- name: Report missing CAPI controller
+  debug:
+    msg: "The capi-controller-manager deployment was not found in capi-system namespace."
+  when: not capi_controller_manager.stdout | length > 0
+
+- name: Check for cluster-api-provider-aws deployment (capa-system namespace)
+  shell: |
+    kubectl get deploy -n capa-system -ojson 2>/dev/null |\
+    jq -c '.items[] | select(.metadata.name | contains("capa-controller-manager")) | .metadata.name'
+  register: capa_controller_manager
+  ignore_errors: yes
+
+- name: Check for capa-controller-manager
+  debug:
+    msg: "CAPA controller manager found: {{ capa_controller_manager.stdout }}"
+  when: capa_controller_manager.stdout | length > 0
+
+- name: Report missing CAPA controller
+  debug:
+    msg: "The capa-controller-manager deployment was not found in capa-system namespace."
+  when: not capa_controller_manager.stdout | length > 0
+
+- name: Get capa-manager-bootstrap-credentials (capa-system namespace)
+  shell: |
+    kubectl get secret -n capa-system capa-manager-bootstrap-credentials -ojson 2>/dev/null | jq -r '.metadata.name'
+  register: capa_manager_bootstrap_credentials_exists
+  ignore_errors: yes
+
+- name: Check for capa-manager-bootstrap-credentials
+  debug:
+    msg: "AWS bootstrap credentials found in capa-system namespace"
+  when: capa_manager_bootstrap_credentials_exists.stdout | length > 0
+
+- name: Report missing bootstrap credentials
+  debug:
+    msg: "The capa-manager-bootstrap-credentials secret does not exist in capa-system namespace."
+  when: not capa_manager_bootstrap_credentials_exists.stdout | length > 0
+
+- name: Get rosa-creds-secret (ns-rosa-hcp namespace)
+  shell: |
+    kubectl get secret -n ns-rosa-hcp rosa-creds-secret -ojson 2>/dev/null | jq -r '.metadata.name'
+  register: rosa_creds_secret_exists
+  ignore_errors: yes
+
+- name: Check for rosa-creds-secret
+  debug:
+    msg: "ROSA credentials found in ns-rosa-hcp namespace"
+  when: rosa_creds_secret_exists.stdout | length > 0
+
+- name: Report missing ROSA credentials
+  debug:
+    msg: "The rosa-creds-secret secret does not exist in ns-rosa-hcp namespace."
+  when: not rosa_creds_secret_exists.stdout | length > 0
+
+- name: Get AWSClusterControllerIdentity
+  shell: |
+    kubectl get AWSClusterControllerIdentity default -ojson 2>/dev/null | jq -r '.metadata.name'
+  register: aws_cluster_controller_identity_exists
+  ignore_errors: yes
+
+- name: Check for AWSClusterControllerIdentity
+  debug:
+    msg: "AWSClusterControllerIdentity 'default' found"
+  when: aws_cluster_controller_identity_exists.stdout | length > 0
+
+- name: Report missing AWS identity
+  debug:
+    msg: "The AWSClusterControllerIdentity 'default' does not exist."
+  when: not aws_cluster_controller_identity_exists.stdout | length > 0
+
+- name: Check for ROSA CRDs
+  shell: |
+    kubectl get crd rosacontrolplanes.infrastructure.cluster.x-k8s.io -o name 2>/dev/null
+  register: rosa_controlplane_crd
+  ignore_errors: yes
+
+- name: Report ROSA CRD status
+  debug:
+    msg: "ROSA CRDs installed: {{ 'Yes' if rosa_controlplane_crd.stdout | length > 0 else 'No' }}"
+
+- name: Get CAPI version
+  shell: |
+    kubectl get deploy -n capi-system -ojson 2>/dev/null |\
+    jq -r '.items[] | select(.metadata.name | contains("capi-controller-manager")) | .spec.template.spec.containers[0].image'
+  register: capi_version
+  ignore_errors: yes
+
+- name: Report CAPI version
+  debug:
+    msg: "CAPI controller version: {{ capi_version.stdout | default('unknown') }}"
+
+- name: Get CAPA version
+  shell: |
+    kubectl get deploy -n capa-system -ojson 2>/dev/null |\
+    jq -r '.items[] | select(.metadata.name | contains("capa-controller-manager")) | .spec.template.spec.containers[0].image'
+  register: capa_version
+  ignore_errors: yes
+
+- name: Report CAPA version
+  debug:
+    msg: "CAPA controller version: {{ capa_version.stdout | default('unknown') }}"
+
+- name: Validation summary
+  debug:
+    msg: |
+      Kind Cluster CAPI/CAPA Validation Summary:
+      ==========================================
+      CAPI Controller: {{ 'Found' if capi_controller_manager.stdout | length > 0 else 'Missing' }}
+      CAPA Controller: {{ 'Found' if capa_controller_manager.stdout | length > 0 else 'Missing' }}
+      AWS Bootstrap Credentials: {{ 'Found' if capa_manager_bootstrap_credentials_exists.stdout | length > 0 else 'Missing' }}
+      ROSA Credentials: {{ 'Found' if rosa_creds_secret_exists.stdout | length > 0 else 'Missing' }}
+      AWS Identity: {{ 'Found' if aws_cluster_controller_identity_exists.stdout | length > 0 else 'Missing' }}
+      ROSA CRDs: {{ 'Installed' if rosa_controlplane_crd.stdout | length > 0 else 'Not Installed' }}

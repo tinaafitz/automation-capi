@@ -1,16 +1,26 @@
 - name: Update {{ component }} enabled flag setting value to {{ enable }}
   block:
-  - name: Construct patch string
-    shell: |
-      echo '[{"op": "add", "path": "/spec/overrides/components/-","value":{"name":"{{ component }}","enabled":{{ enable | lower }}}}]'
-    register: patch_str
-
   - name: Get name of MCE
     shell: oc get mce -n multicluster-engine -ojson | jq -r '.items[].metadata.name'
     register: mce_name
 
-  - name: Apply patch {{ patch_str.stdout }} to MCE {{ mce_name.stdout }}
+  - name: Get current components array
     shell: |
-      oc patch mce {{ mce_name.stdout }} -p '{{ patch_str.stdout }}' --type=json
+      oc get mce {{ mce_name.stdout }} -n multicluster-engine -ojson | jq -c '.spec.overrides.components // []'
+    register: current_components
+
+  - name: Remove existing entries for {{ component }}
+    shell: |
+      echo '{{ current_components.stdout }}' | jq -c 'map(select(.name != "{{ component }}"))'
+    register: filtered_components
+
+  - name: Add {{ component }} with enabled={{ enable }}
+    shell: |
+      echo '{{ filtered_components.stdout }}' | jq -c '. + [{"name":"{{ component }}","enabled":{{ enable | lower }},"configOverrides":{}}]'
+    register: updated_components
+
+  - name: Apply updated components array to MCE
+    shell: |
+      oc patch mce {{ mce_name.stdout }} -n multicluster-engine --type=merge -p '{"spec":{"overrides":{"components":{{ updated_components.stdout }}}}}'
     changed_when: true
     register: patch_status

@@ -1296,6 +1296,31 @@ async def get_active_resources(request: Request):
         context_name = f"kind-{cluster_name}"
         resources = []
 
+        # Helper function to calculate age from creation timestamp
+        def calculate_age(creation_timestamp):
+            from datetime import datetime, timezone
+            try:
+                # Parse the Kubernetes timestamp
+                created = datetime.fromisoformat(creation_timestamp.replace('Z', '+00:00'))
+                now = datetime.now(timezone.utc)
+                delta = now - created
+
+                # Calculate human-readable duration
+                days = delta.days
+                hours, remainder = divmod(delta.seconds, 3600)
+                minutes, seconds = divmod(remainder, 60)
+
+                if days > 0:
+                    return f"{days}d{hours}h"
+                elif hours > 0:
+                    return f"{hours}h{minutes}m"
+                elif minutes > 0:
+                    return f"{minutes}m{seconds}s"
+                else:
+                    return f"{seconds}s"
+            except Exception:
+                return "unknown"
+
         # Fetch CAPI Clusters
         try:
             result = subprocess.run(
@@ -1316,7 +1341,55 @@ async def get_active_resources(request: Request):
                         "type": "CAPI Clusters",
                         "name": metadata.get("name", "unknown"),
                         "version": spec.get("topology", {}).get("version", "v1.5.3"),
-                        "status": "Ready" if status.get("phase") == "Provisioned" else status.get("phase", "Active")
+                        "status": "Ready" if status.get("phase") == "Provisioned" else status.get("phase", "Active"),
+                        "age": calculate_age(metadata.get("creationTimestamp", ""))
+                    })
+        except Exception:
+            pass
+
+        # Fetch ROSACluster
+        try:
+            result = subprocess.run(
+                ["kubectl", "get", "rosacluster", "-n", namespace,
+                 "--context", context_name, "-o", "json"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode == 0:
+                import json as json_module
+                data = json_module.loads(result.stdout)
+                for item in data.get("items", []):
+                    metadata = item.get("metadata", {})
+                    spec = item.get("spec", {})
+                    status = item.get("status", {})
+
+                    # Check for ready status - could be in status.ready field or in conditions
+                    is_ready = False
+
+                    # First check if there's a direct ready field
+                    if status.get("ready") == True or status.get("ready") == "true":
+                        is_ready = True
+                    else:
+                        # Check conditions for various ready condition types
+                        conditions = status.get("conditions", [])
+                        for condition in conditions:
+                            condition_type = condition.get("type", "")
+                            # Check for various possible ready condition types
+                            if condition.get("status") == "True" and (
+                                condition_type == "Ready" or
+                                condition_type == "ROSAClusterReady" or
+                                condition_type == "RosaClusterReady"
+                            ):
+                                is_ready = True
+                                break
+
+                    resources.append({
+                        "type": "ROSACluster",
+                        "name": metadata.get("name", "unknown"),
+                        "version": spec.get("version", "v4.20"),
+                        "status": "Ready" if is_ready else "Provisioning",
+                        "age": calculate_age(metadata.get("creationTimestamp", ""))
                     })
         except Exception:
             pass
@@ -1362,7 +1435,8 @@ async def get_active_resources(request: Request):
                         "type": "RosaControlPlane",
                         "name": metadata.get("name", "unknown"),
                         "version": spec.get("version", "v4.20"),
-                        "status": "Ready" if is_ready else "Provisioning"
+                        "status": "Ready" if is_ready else "Provisioning",
+                        "age": calculate_age(metadata.get("creationTimestamp", ""))
                     })
         except Exception:
             pass
@@ -1403,7 +1477,8 @@ async def get_active_resources(request: Request):
                         "type": "RosaNetwork",
                         "name": metadata.get("name", "unknown"),
                         "version": spec.get("version", "v4.20"),
-                        "status": "Ready" if is_ready else "Configuring"
+                        "status": "Ready" if is_ready else "Configuring",
+                        "age": calculate_age(metadata.get("creationTimestamp", ""))
                     })
         except Exception:
             pass
@@ -1444,7 +1519,8 @@ async def get_active_resources(request: Request):
                         "type": "RosaRoleConfig",
                         "name": metadata.get("name", "unknown"),
                         "version": spec.get("version", "v4.20"),
-                        "status": "Ready" if is_ready else "Configuring"
+                        "status": "Ready" if is_ready else "Configuring",
+                        "age": calculate_age(metadata.get("creationTimestamp", ""))
                     })
         except Exception:
             pass
@@ -1485,6 +1561,7 @@ async def get_resource_detail(request: Request):
         # Map friendly resource types to kubectl resource types
         resource_type_map = {
             "CAPI Clusters": "clusters.cluster.x-k8s.io",
+            "ROSACluster": "rosacluster",
             "RosaControlPlane": "rosacontrolplane",
             "RosaNetwork": "rosanetwork",
             "RosaRoleConfig": "rosaroleconfig",
@@ -2118,6 +2195,31 @@ async def run_ansible_task(request: dict):
             raise HTTPException(status_code=404, detail=f"Task file not found: {task_file}")
 
         # Create a temporary playbook that includes the task file
+        # For MCE validation tasks, we need to login to OCP first to set the context
+        tasks = []
+
+        # Check if this is an MCE task that needs OCP login
+        mce_tasks = ["validate-capa-environment", "validate-mce", "enable_capi_capa", "get_capi_capa_status", "get_mce_component_status"]
+        if any(task in task_file for task in mce_tasks):
+            # Add OCP login and variable setup tasks first
+            tasks.extend([
+                {
+                    "name": "Set OCP credentials",
+                    "set_fact": {
+                        "ocp_user": "{{ OCP_HUB_CLUSTER_USER }}",
+                        "ocp_password": "{{ OCP_HUB_CLUSTER_PASSWORD }}",
+                        "api_url": "{{ OCP_HUB_API_URL }}"
+                    }
+                },
+                {
+                    "name": "Login to OCP",
+                    "include_tasks": "tasks/login_ocp.yml"
+                }
+            ])
+
+        # Add the main task
+        tasks.append({"name": "Include task file", "include_tasks": task_file})
+
         playbook_content = [
             {
                 "name": f"Run task: {description}",
@@ -2125,7 +2227,7 @@ async def run_ansible_task(request: dict):
                 "connection": "local",
                 "gather_facts": False,
                 "vars_files": ["vars/vars.yml", "vars/user_vars.yml"],
-                "tasks": [{"name": "Include task file", "include_tasks": task_file}],
+                "tasks": tasks,
             }
         ]
 
@@ -2229,21 +2331,42 @@ async def run_ansible_role(request: dict):
         import tempfile
         import yaml
 
+        # Add OCP login and variable setup tasks first for MCE roles
+        tasks = []
+        mce_roles = ["configure-capa-environment"]
+        if role_name in mce_roles:
+            tasks.extend([
+                {
+                    "name": "Set OCP credentials",
+                    "set_fact": {
+                        "ocp_user": "{{ OCP_HUB_CLUSTER_USER }}",
+                        "ocp_password": "{{ OCP_HUB_CLUSTER_PASSWORD }}",
+                        "api_url": "{{ OCP_HUB_API_URL }}"
+                    }
+                },
+                {
+                    "name": "Login to OCP",
+                    "include_tasks": "tasks/login_ocp.yml"
+                }
+            ])
+
+        # Add the main role task
+        tasks.append({
+            "name": f"Configure the MCE CAPI/CAPA environment",
+            "include_role": {"name": role_name},
+            "vars": {
+                "ocm_client_id": "{{ OCM_CLIENT_ID }}",
+                "ocm_client_secret": "{{ OCM_CLIENT_SECRET }}",
+            },
+        })
+
         playbook_content = {
             "name": f"Run {role_name} role",
             "hosts": "localhost",
+            "connection": "local",
             "gather_facts": False,
             "vars_files": ["vars/vars.yml", "vars/user_vars.yml"],
-            "tasks": [
-                {
-                    "name": f"Configure the MCE CAPI/CAPA environment",
-                    "import_role": {"name": role_name},
-                    "vars": {
-                        "ocm_client_id": "{{ OCM_CLIENT_ID }}",
-                        "ocm_client_secret": "{{ OCM_CLIENT_SECRET }}",
-                    },
-                }
-            ],
+            "tasks": tasks,
         }
 
         # Write temporary playbook
@@ -2259,6 +2382,8 @@ async def run_ansible_role(request: dict):
             cmd = [
                 "ansible-playbook",
                 temp_playbook,
+                "-i",
+                "localhost,",  # Inline inventory with localhost
                 "-e",
                 "skip_ansible_runner=true",
                 "-v",  # Verbose output
