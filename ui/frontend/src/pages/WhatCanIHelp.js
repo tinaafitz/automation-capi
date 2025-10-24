@@ -29,6 +29,29 @@ import { OCPConnectionStatus } from '../components/OCPConnectionStatus';
 import { KindClusterModal } from '../components/KindClusterModal';
 import { KindTerminalModal } from '../components/KindTerminalModal';
 
+// Helper function to calculate age from ISO timestamp
+function calculateAge(isoTimestamp) {
+  if (!isoTimestamp) return '-';
+
+  try {
+    const created = new Date(isoTimestamp);
+    const now = new Date();
+    const diffMs = now - created;
+
+    const seconds = Math.floor(diffMs / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) return `${days}d`;
+    if (hours > 0) return `${hours}h`;
+    if (minutes > 0) return `${minutes}m`;
+    return `${seconds}s`;
+  } catch (e) {
+    return '-';
+  }
+}
+
 export function WhatCanIHelp() {
   const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState(false);
@@ -1484,7 +1507,7 @@ export function WhatCanIHelp() {
 
           // Create an AbortController for timeout
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+          const timeoutId = setTimeout(() => controller.abort(), 180000); // 180 second timeout (3 minutes) - OCP API can be slow
 
           const response = await fetch('http://localhost:8000/api/ansible/run-task', {
             method: 'POST',
@@ -1561,7 +1584,7 @@ export function WhatCanIHelp() {
           // Handle timeout specifically
           if (error.name === 'AbortError') {
             addNotification(
-              '⏱️ Local Test Environment Verification timed out after 60 seconds. This may indicate connection issues.',
+              '⏱️ Local Test Environment Verification timed out after 3 minutes. This may indicate connection issues.',
               'error',
               8000
             );
@@ -1605,6 +1628,10 @@ export function WhatCanIHelp() {
             'get-capi-capa-status': { loading: true, result: null, timestamp: new Date() },
           }));
 
+          // Create an AbortController for timeout
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 second timeout (2 minutes)
+
           const response = await fetch('http://localhost:8000/api/ansible/run-task', {
             method: 'POST',
             headers: {
@@ -1614,8 +1641,10 @@ export function WhatCanIHelp() {
               task_file: 'tasks/get_capi_capa_status.yml',
               description: 'Get CAPI/CAPA status',
             }),
+            signal: controller.signal,
           });
 
+          clearTimeout(timeoutId);
           const result = await response.json();
 
           if (response.ok && result.success) {
@@ -1641,11 +1670,17 @@ export function WhatCanIHelp() {
           }
         } catch (error) {
           console.error('Error checking CAPI/CAPA status:', error);
+
+          // Handle timeout specifically
+          const errorMessage = error.name === 'AbortError'
+            ? 'Status check timed out after 2 minutes'
+            : error.message;
+
           setAnsibleResults((prev) => ({
             ...prev,
             'get-capi-capa-status': {
               loading: false,
-              result: { error: error.message },
+              result: { error: errorMessage },
               timestamp: new Date(),
               success: false,
             },
@@ -3763,6 +3798,113 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       return null;
                     })()}
 
+                    {/* Provision ROSA HCP Button - Only show when MCE verification is successful */}
+                    {(() => {
+                      const checkResult = ansibleResults['check-components'];
+                      if (checkResult?.success && checkResult.result?.output) {
+                        const output = checkResult.result.output;
+                        // Check for verification success (failed=0)
+                        const isVerified = /failed=0/.test(output);
+
+                        if (isVerified) {
+                          return (
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                let operationId;
+
+                                try {
+                                  // Prompt user for cluster definition file name
+                                  const clusterFile = prompt(
+                                    'Enter the ROSA HCP cluster definition file name:\n\n' +
+                                    'Examples:\n' +
+                                    '- capi-rosahcp-test.yml (default)\n' +
+                                    '- my-rosa-cluster.yaml\n' +
+                                    '- rosa-production.yml\n\n' +
+                                    'File should be in /Users/tinafitzgerald/acm_dev/automation-capi/',
+                                    'capi-rosahcp-test.yml'
+                                  );
+
+                                  if (!clusterFile || clusterFile.trim() === '') {
+                                    return;
+                                  }
+
+                                  const trimmedFile = clusterFile.trim();
+
+                                  if (!confirm(`Provision ROSA HCP Cluster using "${trimmedFile}"?\n\nThis will:\n- Create namespace ns-rosa-hcp\n- Apply AWS Identity configuration\n- Create OCM client secret\n- Apply ROSA HCP cluster definition from ${trimmedFile}`)) {
+                                    return;
+                                  }
+
+                                  operationId = `provision-rosa-hcp-mce-${Date.now()}`;
+
+                                  addToRecent({
+                                    id: operationId,
+                                    title: `Provision ROSA HCP: ${trimmedFile}`,
+                                    color: 'bg-rose-600',
+                                    status: '⏳ Provisioning...',
+                                  });
+
+                                  await new Promise(resolve => setTimeout(resolve, 1000));
+
+                                  console.log(`Starting ROSA HCP cluster provisioning with file: ${trimmedFile}`);
+
+                                  const response = await fetch('http://localhost:8000/api/ansible/run-task', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      task_file: 'tasks/provision-rosa-hcp-cluster.yml',
+                                      description: `Provision ROSA HCP Cluster: ${trimmedFile}`,
+                                      extra_vars: {
+                                        ROSA_HCP_CLUSTER_FILE: `/app/automation-capi/${trimmedFile}`,
+                                        SKIP_KIND_CONTEXT: 'true'
+                                      }
+                                    })
+                                  });
+
+                                  const result = await response.json();
+
+                                  const completionTime = new Date().toLocaleTimeString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    hour12: true
+                                  });
+
+                                  if (response.ok && result.success) {
+                                    console.log(`ROSA HCP provisioning completed successfully at ${completionTime}`);
+                                    updateRecentOperationStatus(operationId, `✅ Provisioned at ${completionTime}`);
+                                    addNotification(`✅ ROSA HCP cluster provisioning completed`, 'success', 5000);
+                                  } else {
+                                    throw new Error(result.error || result.message || 'Provisioning failed');
+                                  }
+                                } catch (error) {
+                                  const completionTime = new Date().toLocaleTimeString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    hour12: true
+                                  });
+                                  console.error('ROSA HCP provisioning error:', error);
+                                  if (operationId) {
+                                    updateRecentOperationStatus(operationId, `❌ Failed at ${completionTime}`);
+                                  }
+                                  addNotification(`❌ ${error.message}`, 'error', 5000);
+                                }
+                              }}
+                              className="bg-rose-600 hover:bg-rose-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                              title="Provision ROSA HCP cluster on MCE"
+                            >
+                              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                              </svg>
+                              <span>Provision ROSA HCP</span>
+                            </button>
+                          );
+                        }
+                      }
+                      return null;
+                    })()}
+
                     <button
                       onClick={async (e) => {
                         e.stopPropagation();
@@ -3802,11 +3944,33 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             await statusOperation.action();
                           }
 
-                          // Wait for status check to complete
-                          await new Promise(resolve => setTimeout(resolve, 100));
+                          // Wait for status check to complete and state to update
+                          await new Promise(resolve => setTimeout(resolve, 500));
+
+                          // Check if CAPI/CAPA status check had errors (including timeout)
+                          const statusResult = ansibleResults['get-capi-capa-status'];
+                          const completionTime = new Date().toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true
+                          });
+
+                          if (statusResult?.result?.error) {
+                            const errorMessage = statusResult.result.error;
+                            const isTimeout = errorMessage.includes('timed out') || errorMessage.includes('AbortError');
+
+                            if (isTimeout) {
+                              updateRecentOperationStatus(verifyId, `⏱️ Status check timed out at ${completionTime}`);
+                              addNotification('⏱️ CAPI/CAPA status check timed out', 'error', 5000);
+                            } else {
+                              updateRecentOperationStatus(verifyId, `❌ Status check failed at ${completionTime}`);
+                              addNotification('❌ Failed to check CAPI/CAPA status', 'error', 5000);
+                            }
+                            return;
+                          }
 
                           // Check if CAPI/CAPA are enabled before proceeding
-                          const statusResult = ansibleResults['get-capi-capa-status'];
                           if (statusResult?.result?.output) {
                             const output = statusResult.result.output;
                             const capiNotEnabled = output.includes('CAPI is NOT enabled');
@@ -3814,13 +3978,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                             if (capiNotEnabled || capaNotEnabled) {
                               // CAPI/CAPA not enabled - clear validation results and stop
-                              const completionTime = new Date().toLocaleTimeString('en-US', {
-                                hour: 'numeric',
-                                minute: '2-digit',
-                                second: '2-digit',
-                                hour12: true
-                              });
-
                               // Clear the check-components results
                               setAnsibleResults((prev) => ({
                                 ...prev,
@@ -3839,8 +3996,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             await checkOperation.action();
                           }
 
-                          // Wait a bit for state to update, then check the results
-                          await new Promise(resolve => setTimeout(resolve, 100));
+                          // Wait longer for state to update after async operation completes
+                          // This ensures state updates from the action (including timeout errors) have propagated
+                          await new Promise(resolve => setTimeout(resolve, 500));
 
                           // Use a callback to get the latest state
                           setAnsibleResults((currentResults) => {
@@ -3852,18 +4010,32 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               hour12: true
                             });
 
-                            // Check output for error indicators
+                            // Check for timeout specifically
+                            const errorMessage = validationResult?.result?.error || '';
+                            const isTimeout = errorMessage.includes('timed out') || errorMessage.includes('AbortError');
+                            const hasRealError = errorMessage.trim().length > 0 && !isTimeout;
+
+                            // Check output for actual error indicators (not just the words "error" or "failed")
                             const output = validationResult?.result?.output || '';
                             const hasAuthError = output.includes('Unauthorized') || output.includes('You must be logged in');
-                            const hasError = output.includes('error') || output.includes('failed') || hasAuthError;
+                            // Check for actual ansible failures: "failed=X" where X > 0, or "unreachable=X" where X > 0
+                            const hasFailed = /failed=([1-9]\d*)/.test(output) || /unreachable=([1-9]\d*)/.test(output);
+                            const hasError = hasAuthError || hasFailed || hasRealError;
 
-                            if (validationResult?.result?.error || hasError) {
+                            if (isTimeout) {
+                              console.log('MCE verification timed out at:', completionTime);
+                              updateRecentOperationStatus(verifyId, `⏱️ Verification timed out at ${completionTime}`);
+                            } else if (hasError) {
                               console.log('MCE verification failed at:', completionTime);
                               updateRecentOperationStatus(verifyId, `❌ Verification failed at ${completionTime}`);
                             } else if (validationResult?.success) {
                               console.log('MCE verification completed at:', completionTime);
                               // Update recent operation with success status
                               updateRecentOperationStatus(verifyId, `✅ Verification completed at ${completionTime}`);
+                            } else if (validationResult?.loading) {
+                              // Still loading - operation might still be running
+                              console.log('MCE verification still in progress at:', completionTime);
+                              updateRecentOperationStatus(verifyId, `⏳ Still verifying... (${completionTime})`);
                             } else {
                               console.log('MCE verification completed with issues at:', completionTime);
                               updateRecentOperationStatus(verifyId, `⚠️ Verification completed with issues at ${completionTime}`);
@@ -4013,97 +4185,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             </div>
                           </div>
 
-                          {/* Expanded Content */}
-                          {isExpanded && operation.id === 'check-components' && (
-                            <div className="px-3 pb-3 border-t border-emerald-100 mt-2 pt-2 animate-in slide-in-from-top duration-300">
-                              {/* Kind Cluster Status */}
-                              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg p-4 border border-emerald-200">
-                                <div className="flex items-center justify-between mb-3">
-                                  <h3 className="text-sm font-semibold text-emerald-800 flex items-center">
-                                    <svg
-                                      className="h-4 w-4 text-emerald-600 mr-2"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                                      />
-                                    </svg>
-                                    Kind Cluster Status
-                                  </h3>
-                                  <div className="flex items-center space-x-2">
-                                    <div
-                                      className={`flex items-center text-xs px-2 py-1 rounded-full font-semibold ${
-                                        verifiedKindClusterInfo
-                                          ? 'bg-green-100 text-green-800'
-                                          : 'bg-gray-100 text-gray-800'
-                                      }`}
-                                    >
-                                      {verifiedKindClusterInfo ? (
-                                        <>
-                                          <div className="w-2 h-2 bg-green-500 rounded-full mr-1.5 animate-pulse"></div>
-                                          Verified
-                                        </>
-                                      ) : (
-                                        'Not Configured'
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {verifiedKindClusterInfo ? (
-                                  <>
-                                    {/* Cluster Info */}
-                                    <div className="grid grid-cols-2 gap-3">
-                                      <div className="bg-white rounded-lg p-2 border border-emerald-100">
-                                        <div className="text-xs text-emerald-600 font-semibold mb-1">
-                                          Cluster Name
-                                        </div>
-                                        <div className="text-xs text-emerald-900 font-mono">
-                                          {verifiedKindClusterInfo.name}
-                                        </div>
-                                      </div>
-                                      <div className="bg-white rounded-lg p-2 border border-emerald-100">
-                                        <div className="text-xs text-emerald-600 font-semibold mb-1">
-                                          Namespace
-                                        </div>
-                                        <div className="text-xs text-emerald-900 font-mono">
-                                          {verifiedKindClusterInfo.namespace}
-                                        </div>
-                                      </div>
-                                      <div className="bg-white rounded-lg p-2 border border-emerald-100">
-                                        <div className="text-xs text-emerald-600 font-semibold mb-1">
-                                          API Server
-                                        </div>
-                                        <div className="text-xs text-emerald-900 font-mono">
-                                          {verifiedKindClusterInfo.apiUrl}
-                                        </div>
-                                      </div>
-                                      <div className="bg-white rounded-lg p-2 border border-emerald-100">
-                                        <div className="text-xs text-emerald-600 font-semibold mb-1">
-                                          Verified
-                                        </div>
-                                        <div className="text-xs text-emerald-900">
-                                          {verifiedKindClusterInfo.verifiedDate}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </>
-                                ) : (
-                                  <div className="text-center py-4 text-emerald-600 text-xs">
-                                    <div className="mb-2">No Kind cluster verified</div>
-                                    <div className="text-emerald-500">
-                                      Configure a Kind cluster in the Local Test Environment section
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
                           {isExpanded && operation.id !== 'check-components' && (operation.details || operation.requirements) && (
                             <div className="px-3 pb-3 border-t border-indigo-100 mt-2 pt-2 animate-in slide-in-from-top duration-300">
                               {operation.details && (
@@ -4522,8 +4603,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                     <div className="grid grid-cols-4 gap-2 text-xs font-semibold text-cyan-700 bg-cyan-50 p-2 rounded mb-1">
                                                       <div>Component</div>
                                                       <div>Version</div>
-                                                      <div className="text-right">Status</div>
                                                       <div className="text-right">Age</div>
+                                                      <div className="text-right">Status</div>
                                                     </div>
                                                     {/* Table Rows */}
                                                     <div className="space-y-1">
@@ -4538,6 +4619,16 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                         </span>
                                                         <span className="text-cyan-600 font-mono">
                                                           v1.5.3
+                                                        </span>
+                                                        <span className="text-cyan-600 font-mono text-right">
+                                                          {(() => {
+                                                            try {
+                                                              const match = output.match(/"name":"capi-controller-manager","created":"([^"]+)"/);
+                                                              return match ? calculateAge(match[1]) : '-';
+                                                            } catch (e) {
+                                                              return '-';
+                                                            }
+                                                          })()}
                                                         </span>
                                                         <span
                                                           className={`font-medium text-right ${
@@ -4554,7 +4645,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             ? '1/1 ready'
                                                             : 'Not Found'}
                                                         </span>
-                                                        <span className="text-cyan-600 font-mono text-right">-</span>
                                                       </div>
                                                       <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
                                                         <span className="text-cyan-800 font-medium">
@@ -4567,6 +4657,16 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                         </span>
                                                         <span className="text-cyan-600 font-mono">
                                                           v2.3.0
+                                                        </span>
+                                                        <span className="text-cyan-600 font-mono text-right">
+                                                          {(() => {
+                                                            try {
+                                                              const match = output.match(/"name":"capa-controller-manager","created":"([^"]+)"/);
+                                                              return match ? calculateAge(match[1]) : '-';
+                                                            } catch (e) {
+                                                              return '-';
+                                                            }
+                                                          })()}
                                                         </span>
                                                         <span
                                                           className={`font-medium text-right ${
@@ -4583,7 +4683,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             ? '1/1 ready'
                                                             : 'Not Found'}
                                                         </span>
-                                                        <span className="text-cyan-600 font-mono text-right">-</span>
                                                       </div>
                                                       <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
                                                         <span className="text-cyan-800 font-medium">
@@ -4596,6 +4695,16 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                         </span>
                                                         <span className="text-cyan-600 font-mono">
                                                           -
+                                                        </span>
+                                                        <span className="text-cyan-600 font-mono text-right">
+                                                          {(() => {
+                                                            try {
+                                                              const match = output.match(/"name":"ClusterManager","created":"([^"]+)"/);
+                                                              return match ? calculateAge(match[1]) : '-';
+                                                            } catch (e) {
+                                                              return '-';
+                                                            }
+                                                          })()}
                                                         </span>
                                                         <span
                                                           className={`font-medium text-right ${
@@ -4612,7 +4721,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             ? 'Configured'
                                                             : 'Not Found'}
                                                         </span>
-                                                        <span className="text-cyan-600 font-mono text-right">-</span>
                                                       </div>
                                                       <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
                                                         <span className="text-cyan-800 font-medium">
@@ -4625,6 +4733,16 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                         </span>
                                                         <span className="text-cyan-600 font-mono">
                                                           -
+                                                        </span>
+                                                        <span className="text-cyan-600 font-mono text-right">
+                                                          {(() => {
+                                                            try {
+                                                              const match = output.match(/"name":"cluster-manager-registration-capi","created":"([^"]+)"/);
+                                                              return match ? calculateAge(match[1]) : '-';
+                                                            } catch (e) {
+                                                              return '-';
+                                                            }
+                                                          })()}
                                                         </span>
                                                         <span
                                                           className={`font-medium text-right ${
@@ -4641,7 +4759,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             ? 'Applied'
                                                             : 'Not Applied'}
                                                         </span>
-                                                        <span className="text-cyan-600 font-mono text-right">-</span>
                                                       </div>
                                                       <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
                                                         <span className="text-cyan-800 font-medium">
@@ -4654,6 +4771,16 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                         </span>
                                                         <span className="text-cyan-600 font-mono">
                                                           -
+                                                        </span>
+                                                        <span className="text-cyan-600 font-mono text-right">
+                                                          {(() => {
+                                                            try {
+                                                              const match = output.match(/"name":"capa-manager-bootstrap-credentials","created":"([^"]+)"/);
+                                                              return match ? calculateAge(match[1]) : '-';
+                                                            } catch (e) {
+                                                              return '-';
+                                                            }
+                                                          })()}
                                                         </span>
                                                         <span
                                                           className={`font-medium text-right ${
@@ -4670,7 +4797,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             ? 'Configured'
                                                             : 'Missing'}
                                                         </span>
-                                                        <span className="text-cyan-600 font-mono text-right">-</span>
                                                       </div>
                                                       <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
                                                         <span className="text-cyan-800 font-medium">
@@ -4683,6 +4809,16 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                         </span>
                                                         <span className="text-cyan-600 font-mono">
                                                           -
+                                                        </span>
+                                                        <span className="text-cyan-600 font-mono text-right">
+                                                          {(() => {
+                                                            try {
+                                                              const match = output.match(/"name":"rosa-creds-secret","created":"([^"]+)"/);
+                                                              return match ? calculateAge(match[1]) : '-';
+                                                            } catch (e) {
+                                                              return '-';
+                                                            }
+                                                          })()}
                                                         </span>
                                                         <span
                                                           className={`font-medium text-right ${
@@ -4699,7 +4835,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             ? 'Configured'
                                                             : 'Missing'}
                                                         </span>
-                                                        <span className="text-cyan-600 font-mono text-right">-</span>
                                                       </div>
                                                       <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
                                                         <span className="text-cyan-800 font-medium">
@@ -4712,6 +4847,16 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                         </span>
                                                         <span className="text-cyan-600 font-mono">
                                                           -
+                                                        </span>
+                                                        <span className="text-cyan-600 font-mono text-right">
+                                                          {(() => {
+                                                            try {
+                                                              const match = output.match(/"name":"default","created":"([^"]+)"/);
+                                                              return match ? calculateAge(match[1]) : '-';
+                                                            } catch (e) {
+                                                              return '-';
+                                                            }
+                                                          })()}
                                                         </span>
                                                         <span
                                                           className={`font-medium text-right ${
@@ -4728,7 +4873,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             ? 'Configured'
                                                             : 'Missing'}
                                                         </span>
-                                                        <span className="text-cyan-600 font-mono text-right">-</span>
                                                       </div>
                                                     </div>
                                                   </>

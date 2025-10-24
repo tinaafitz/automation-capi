@@ -1,12 +1,21 @@
-- name: Get capa-controller-manager pod name before restart.
+- name: Check if capa-controller-manager deployment exists
+  shell: |
+    oc get deployment capa-controller-manager -n multicluster-engine --ignore-not-found -o name
+  register: capa_deployment_check
+  changed_when: false
+
+- name: Get capa-controller-manager pod name before restart
   shell: |
     oc get pod -n multicluster-engine -ojson |\
       jq -c '.items[] | select(.metadata.name | contains("capa-controller-manager")) | .metadata.name'
   register: previous_pod_name
+  when: capa_deployment_check.stdout != ""
+  changed_when: false
 
-- name: Restart the capa-controller-manager deployment.
+- name: Restart the capa-controller-manager deployment
   shell: |
     oc rollout restart deployment capa-controller-manager -n multicluster-engine
+  when: capa_deployment_check.stdout != ""
 
 - name: Wait for new capa-controller-manager pod
   shell: |
@@ -16,7 +25,14 @@
   retries: 12
   delay: 15
   until: previous_pod_name.stdout != current_pod_name.stdout
+  when: capa_deployment_check.stdout != ""
 
-- name: print output
+- name: Print restart output
   debug:
-    msg: " pod name before {{ previous_pod_name.stdout }} pod_name_after {{ current_pod_name.stdout }}"
+    msg: "pod name before {{ previous_pod_name.stdout }} pod_name_after {{ current_pod_name.stdout }}"
+  when: capa_deployment_check.stdout != ""
+
+- name: Print skip message
+  debug:
+    msg: "capa-controller-manager deployment not found - skipping restart (CAPI/CAPA may not be enabled yet)"
+  when: capa_deployment_check.stdout == ""

@@ -3,7 +3,7 @@
 # This file is meant to be included via include_tasks, not run as a playbook
 - name: Set automation variables
   set_fact:
-    automation_path: "{{ AUTOMATION_PATH | default(playbook_dir | dirname) }}"
+    automation_path: "{{ AUTOMATION_PATH | default(playbook_dir) }}"
     ocm_client_id: "{{ OCM_CLIENT_ID }}"
     ocm_client_secret: "{{ OCM_CLIENT_SECRET }}"
     ocm_api_url: "{{ OCM_API_URL | default('https://api.stage.openshift.com') }}"
@@ -18,18 +18,28 @@
   register: kind_cluster_result
   changed_when: false
   ignore_errors: true
+  when: SKIP_KIND_CONTEXT is not defined or SKIP_KIND_CONTEXT != 'true'
 
 - name: Set kubectl context to Kind cluster
   shell: |
     kubectl config use-context kind-{{ kind_cluster_result.stdout }}
-  when: kind_cluster_result.stdout is defined and kind_cluster_result.stdout != ""
+  when:
+    - SKIP_KIND_CONTEXT is not defined or SKIP_KIND_CONTEXT != 'true'
+    - kind_cluster_result.stdout is defined and kind_cluster_result.stdout != ""
   register: context_result
   changed_when: false
 
 - name: Display context switch result
   debug:
     msg: "Switched to Kind cluster context: kind-{{ kind_cluster_result.stdout }}"
-  when: kind_cluster_result.stdout is defined and kind_cluster_result.stdout != ""
+  when:
+    - SKIP_KIND_CONTEXT is not defined or SKIP_KIND_CONTEXT != 'true'
+    - kind_cluster_result.stdout is defined and kind_cluster_result.stdout != ""
+
+- name: Display MCE context message
+  debug:
+    msg: "Using current OCP/MCE cluster context (skipping Kind cluster detection)"
+  when: SKIP_KIND_CONTEXT is defined and SKIP_KIND_CONTEXT == 'true'
 
 - name: Provision ROSA HCP resources
   block:
