@@ -2273,11 +2273,14 @@ async def run_ansible_task(request: dict):
             if result.stderr:
                 print(f"STDERR: {result.stderr}")
 
+            # Only treat stderr as an error if returncode is non-zero
+            # Ansible warnings go to stderr but don't indicate failure
             return {
                 "success": result.returncode == 0,
                 "return_code": result.returncode,
                 "output": result.stdout,
-                "error": result.stderr,
+                "error": result.stderr if result.returncode != 0 else "",
+                "warning": result.stderr if result.returncode == 0 else "",
                 "message": (
                     "Task completed successfully" if result.returncode == 0 else "Task failed"
                 ),

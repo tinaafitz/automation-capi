@@ -18,11 +18,9 @@
     - name: Login OCP
       include_tasks: tasks/login_ocp.yml
 
-    - name: Enable CAPI and CAPA
-      include_tasks: tasks/enable_capi_capa.yml
-
     - name: Configure the MCE CAPI/CAPA environment
       import_role:
         name: configure-capa-environment
       vars:
         ocm_client_id: "{{ OCM_CLIENT_ID }}"
+        ocm_client_secret: "{{ OCM_CLIENT_SECRET }}"

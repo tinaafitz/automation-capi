@@ -1,72 +1,121 @@
 - name: Get cluster-api deployment
   shell: |
     oc --context='{{ ocp_context }}' get deploy -n multicluster-engine -ojson |\
-    jq -c '.items[] | select(.metadata.name | contains("capi-controller-manager")) | .metadata.name'
+    jq -c '.items[] | select(.metadata.name | contains("capi-controller-manager")) | {name: .metadata.name, created: .metadata.creationTimestamp}'
   register: capi_controller_manager
+  failed_when: false
+  changed_when: false
 
 - name: Check for capi-controller-manager
   debug:
-    msg: "The capi_controller_manager deployment was not found."
-  when: not capi_controller_manager.stdout |  length > 0
+    msg: "✓ capi-controller-manager deployment found - {{ capi_controller_manager.stdout }}"
+  when: capi_controller_manager.stdout | length > 0
+
+- name: Warn if capi-controller-manager not found
+  debug:
+    msg: "⚠ capi-controller-manager deployment not found (may still be deploying)"
+  when: not capi_controller_manager.stdout | length > 0
 
 - name: Check for cluster-api-provider-aws deployment
   shell: |
     oc --context='{{ ocp_context }}' get deploy -n multicluster-engine -ojson |\
-    jq -c '.items[] | select(.metadata.name | contains("capa-controller-manager")) | .metadata.name'
+    jq -c '.items[] | select(.metadata.name | contains("capa-controller-manager")) | {name: .metadata.name, created: .metadata.creationTimestamp}'
   register: capa_controller_manager
+  failed_when: false
+  changed_when: false
 
 - name: Check for capa-controller-manager
   debug:
-    msg: "The capa_controller_manager deployment was not found."
-  when: not capa_controller_manager.stdout |  length > 0
+    msg: "✓ capa-controller-manager deployment found - {{ capa_controller_manager.stdout }}"
+  when: capa_controller_manager.stdout | length > 0
+
+- name: Warn if capa-controller-manager not found
+  debug:
+    msg: "⚠ capa-controller-manager deployment not found (may still be deploying)"
+  when: not capa_controller_manager.stdout | length > 0
 
 - name: Get registrationConfiguration
   shell: |
     oc --context='{{ ocp_context }}' get clusterManager -n multicluster-engine -ojson |\
-    jq -c '.items[] | select(.spec.registrationConfiguration) | .spec.registrationConfiguration.featureGates[]'
+    jq -c '.items[] | select(.spec.registrationConfiguration) | {name: "ClusterManager", created: .metadata.creationTimestamp}'
   register: registration_configuration_applied
+  failed_when: false
+  changed_when: false
 
 - name: Check for registration configuration
   debug:
-    msg: "The registration_configuration was not found."
-  when: not registration_configuration_applied.stdout |  length > 0
+    msg: "✓ ClusterManager registration configuration found - {{ registration_configuration_applied.stdout }}"
+  when: registration_configuration_applied.stdout | length > 0
+
+- name: Warn if registration configuration not found
+  debug:
+    msg: "❌ ClusterManager registration configuration not found"
+  when: not registration_configuration_applied.stdout | length > 0
 
 - name: Get clusterrolebinding
   shell: |
-    oc --context='{{ ocp_context }}' get ClusterRoleBinding cluster-manager-registration-capi -ojson | jq -r '.metadata.name'
+    oc --context='{{ ocp_context }}' get ClusterRoleBinding cluster-manager-registration-capi -ojson | jq -c '{name: .metadata.name, created: .metadata.creationTimestamp}'
   register: cluster_role_binding_applied
+  failed_when: false
+  changed_when: false
 
 - name: Check for cluster-role-binding
   debug:
-    msg: "The cluster-role-binding changes have not been applied."
-  when: not cluster_role_binding_applied.stdout |  length > 0
+    msg: "✓ ClusterRoleBinding cluster-manager-registration-capi found - {{ cluster_role_binding_applied.stdout }}"
+  when: cluster_role_binding_applied.stdout | length > 0
+
+- name: Warn if cluster-role-binding not found
+  debug:
+    msg: "❌ ClusterRoleBinding cluster-manager-registration-capi not found"
+  when: not cluster_role_binding_applied.stdout | length > 0
 
 - name: Get capa-manager-bootstrap-credentials
   shell: |
-    oc --context='{{ ocp_context }}' get secret -n multicluster-engine capa-manager-bootstrap-credentials -ojson | jq -r '.metadata.name'
+    oc --context='{{ ocp_context }}' get secret -n multicluster-engine capa-manager-bootstrap-credentials -ojson | jq -c '{name: .metadata.name, created: .metadata.creationTimestamp}'
   register: capa_manager_bootstrap_credentials_exists
+  failed_when: false
+  changed_when: false
 
 - name: Check for capa-manager-bootstrap-credentials
   debug:
-    msg: "The capa-manager-bootstrap-credentials secret does not exist. "
-  when: not capa_manager_bootstrap_credentials_exists.stdout |  length > 0
+    msg: "✓ Secret capa-manager-bootstrap-credentials found - {{ capa_manager_bootstrap_credentials_exists.stdout }}"
+  when: capa_manager_bootstrap_credentials_exists.stdout | length > 0
+
+- name: Warn if capa-manager-bootstrap-credentials not found
+  debug:
+    msg: "❌ Secret capa-manager-bootstrap-credentials not found"
+  when: not capa_manager_bootstrap_credentials_exists.stdout | length > 0
 
 - name: Get rosa-creds-secret
   shell: |
-    oc --context='{{ ocp_context }}' get secret -n multicluster-engine rosa-creds-secret -ojson | jq -r '.metadata.name'
+    oc --context='{{ ocp_context }}' get secret -n multicluster-engine rosa-creds-secret -ojson | jq -c '{name: .metadata.name, created: .metadata.creationTimestamp}'
   register: rosa_creds_secret_exists
+  failed_when: false
+  changed_when: false
 
 - name: Check for rosa-creds-secret
   debug:
-    msg: "The rosa-creds-secret secret does not exist. "
-  when: not rosa_creds_secret_exists.stdout |  length > 0
+    msg: "✓ Secret rosa-creds-secret found - {{ rosa_creds_secret_exists.stdout }}"
+  when: rosa_creds_secret_exists.stdout | length > 0
+
+- name: Warn if rosa-creds-secret not found
+  debug:
+    msg: "❌ Secret rosa-creds-secret not found"
+  when: not rosa_creds_secret_exists.stdout | length > 0
 
 - name: Get AWSClusterControllerIdentity
   shell: |
-    oc --context='{{ ocp_context }}' get AWSClusterControllerIdentity default -ojson | jq -r '.metadata.name'
+    oc --context='{{ ocp_context }}' get AWSClusterControllerIdentity default -ojson | jq -c '{name: .metadata.name, created: .metadata.creationTimestamp}'
   register: aws_cluster_controller_identity_exists
+  failed_when: false
+  changed_when: false
 
-- name: Check for aws_cluster_controller_identity
+- name: Check for AWSClusterControllerIdentity
   debug:
-    msg: "The aws_cluster_controller_identity does not exist. "
-  when: not aws_cluster_controller_identity_exists.stdout |  length > 0
+    msg: "✓ AWSClusterControllerIdentity default found - {{ aws_cluster_controller_identity_exists.stdout }}"
+  when: aws_cluster_controller_identity_exists.stdout | length > 0
+
+- name: Warn if AWSClusterControllerIdentity not found
+  debug:
+    msg: "❌ AWSClusterControllerIdentity default not found"
+  when: not aws_cluster_controller_identity_exists.stdout | length > 0
