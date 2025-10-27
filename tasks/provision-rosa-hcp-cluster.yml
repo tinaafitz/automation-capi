@@ -31,9 +31,7 @@
 - name: Display current context message
   debug:
     msg: "Using current kubectl context (OCP/MCE cluster)"
-  when:
-    - KUBE_CONTEXT is not defined
-    - SKIP_KIND_CONTEXT is defined and SKIP_KIND_CONTEXT == 'true'
+  when: KUBE_CONTEXT is not defined
 
 - name: Provision ROSA HCP resources
   block:
