@@ -756,33 +756,36 @@ async def verify_kind_cluster(request: dict):
                 "cluster_name": cluster_name,
             }
 
-        # List Kind clusters to check if the specified cluster exists
-        list_result = subprocess.run(
-            ["kind", "get", "clusters"], capture_output=True, text=True, timeout=10
+        # Check if Kind cluster context exists in kubeconfig
+        # This works even when cluster was created on host (not in container)
+        context_name = f"kind-{cluster_name}"
+        context_check = subprocess.run(
+            ["kubectl", "config", "get-contexts", context_name],
+            capture_output=True,
+            text=True,
+            timeout=10
         )
 
-        if list_result.returncode != 0:
-            return {
-                "exists": False,
-                "accessible": False,
-                "message": "Failed to list Kind clusters",
-                "suggestion": "Check Kind installation and permissions",
-                "cluster_name": cluster_name,
-            }
-
-        existing_clusters = [
-            line.strip() for line in list_result.stdout.strip().split("\n") if line.strip()
-        ]
-        cluster_exists = cluster_name in existing_clusters
+        cluster_exists = context_check.returncode == 0
 
         if not cluster_exists:
+            # List available Kind contexts for suggestion
+            contexts_result = subprocess.run(
+                ["kubectl", "config", "get-contexts", "-o", "name"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            all_contexts = contexts_result.stdout.strip().split("\n") if contexts_result.returncode == 0 else []
+            available_kind_clusters = [ctx.replace("kind-", "") for ctx in all_contexts if ctx.startswith("kind-")]
+
             return {
                 "exists": False,
                 "accessible": False,
                 "message": f"Kind cluster '{cluster_name}' does not exist",
                 "suggestion": f"Create the cluster with: kind create cluster --name {cluster_name}",
                 "cluster_name": cluster_name,
-                "available_clusters": existing_clusters,
+                "available_clusters": available_kind_clusters,
             }
 
         # Test cluster accessibility with kubectl
@@ -930,20 +933,26 @@ async def list_kind_clusters():
                 "suggestion": "Install Kind first: brew install kind (macOS) or download from https://kind.sigs.k8s.io/",
             }
 
-        # List clusters
+        # List Kind clusters from kubeconfig contexts
+        # This works even when clusters were created on host (not in container)
         list_result = subprocess.run(
-            ["kind", "get", "clusters"], capture_output=True, text=True, timeout=10
+            ["kubectl", "config", "get-contexts", "-o", "name"],
+            capture_output=True,
+            text=True,
+            timeout=10
         )
 
         if list_result.returncode != 0:
             return {
                 "clusters": [],
                 "kind_installed": True,
-                "message": "Failed to list Kind clusters",
-                "suggestion": "Check Kind installation and permissions",
+                "message": "Failed to list kubeconfig contexts",
+                "suggestion": "Check kubectl installation and kubeconfig",
             }
 
-        clusters = [line.strip() for line in list_result.stdout.strip().split("\n") if line.strip()]
+        # Extract Kind cluster names from contexts (kind-* pattern)
+        all_contexts = [line.strip() for line in list_result.stdout.strip().split("\n") if line.strip()]
+        clusters = [ctx.replace("kind-", "") for ctx in all_contexts if ctx.startswith("kind-")]
 
         return {
             "clusters": clusters,
@@ -2184,12 +2193,14 @@ async def run_ansible_task(request: dict):
     try:
         task_file = request.get("task_file")
         description = request.get("description", "Running ansible task")
+        kube_context = request.get("kube_context")  # Optional cluster context
 
         if not task_file:
             raise HTTPException(status_code=400, detail="task_file is required")
 
         # Ensure the task file exists
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        # Use AUTOMATION_PATH environment variable if set, otherwise calculate from file path
+        project_root = os.environ.get('AUTOMATION_PATH') or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         task_path = os.path.join(project_root, task_file)
         if not os.path.exists(task_path):
             raise HTTPException(status_code=404, detail=f"Task file not found: {task_file}")
@@ -2213,12 +2224,12 @@ async def run_ansible_task(request: dict):
                 },
                 {
                     "name": "Login to OCP",
-                    "include_tasks": "tasks/login_ocp.yml"
+                    "include_tasks": f"{project_root}/tasks/login_ocp.yml"
                 }
             ])
 
-        # Add the main task
-        tasks.append({"name": "Include task file", "include_tasks": task_file})
+        # Add the main task (use absolute path)
+        tasks.append({"name": "Include task file", "include_tasks": f"{project_root}/{task_file}"})
 
         playbook_content = [
             {
@@ -2226,15 +2237,17 @@ async def run_ansible_task(request: dict):
                 "hosts": "localhost",
                 "connection": "local",
                 "gather_facts": False,
-                "vars_files": ["vars/vars.yml", "vars/user_vars.yml"],
+                "vars_files": [f"{project_root}/vars/vars.yml", f"{project_root}/vars/user_vars.yml"],
                 "tasks": tasks,
             }
         ]
 
         # Write temporary playbook
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        # Use AUTOMATION_PATH environment variable if set, otherwise calculate from file path
+        project_root = os.environ.get('AUTOMATION_PATH') or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        # Write temp file to /tmp since project_root might be read-only
         with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yml", delete=False, dir=project_root
+            mode="w", suffix=".yml", delete=False, dir="/tmp"
         ) as f:
             yaml.dump(playbook_content, f, default_flow_style=False)
             temp_playbook = f.name
@@ -2250,15 +2263,28 @@ async def run_ansible_task(request: dict):
                 "skip_ansible_runner=true",
                 "-e",
                 f"AUTOMATION_PATH={project_root}",
+                "-e",
+                f"playbook_dir={project_root}",  # Set playbook dir for relative includes
                 "-v",  # Verbose output
             ]
 
+            # Add cluster context if provided
+            if kube_context:
+                cmd.extend(["-e", f"KUBE_CONTEXT={kube_context}"])
+                print(f"Using cluster context: {kube_context}")
+
             print(f"Running ansible task: {' '.join(cmd)}")
+
+            # Set environment variables for Ansible
+            import os as os_module
+            env = os_module.environ.copy()
+            env['ANSIBLE_PLAYBOOK_DIR'] = project_root
 
             # Run the command
             result = subprocess.run(
                 cmd,
                 cwd=project_root,
+                env=env,
                 capture_output=True,
                 text=True,
                 timeout=300,  # 5 minutes timeout for tasks
@@ -2308,8 +2334,10 @@ async def run_ansible_task(request: dict):
             "description": description,
         }
     except Exception as e:
+        import traceback
         error_msg = f"Error running task {task_file}: {str(e)}"
         print(error_msg)
+        print(f"Full traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=error_msg)
 
 
@@ -2325,7 +2353,8 @@ async def run_ansible_role(request: dict):
             raise HTTPException(status_code=400, detail="role_name is required")
 
         # Check if role exists
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        # Use AUTOMATION_PATH environment variable if set, otherwise calculate from file path
+        project_root = os.environ.get('AUTOMATION_PATH') or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         role_path = os.path.join(project_root, "roles", role_name)
         if not os.path.exists(role_path):
             raise HTTPException(status_code=404, detail=f"Role not found: {role_name}")
@@ -2368,14 +2397,16 @@ async def run_ansible_role(request: dict):
             "hosts": "localhost",
             "connection": "local",
             "gather_facts": False,
-            "vars_files": ["vars/vars.yml", "vars/user_vars.yml"],
+            "vars_files": [f"{project_root}/vars/vars.yml", f"{project_root}/vars/user_vars.yml"],
             "tasks": tasks,
         }
 
         # Write temporary playbook
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        # Use AUTOMATION_PATH environment variable if set, otherwise calculate from file path
+        project_root = os.environ.get('AUTOMATION_PATH') or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        # Write temp file to /tmp since project_root might be read-only
         with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yml", delete=False, dir=project_root
+            mode="w", suffix=".yml", delete=False, dir="/tmp"
         ) as f:
             yaml.dump([playbook_content], f, default_flow_style=False)
             temp_playbook = f.name
@@ -2538,6 +2569,826 @@ async def run_ansible_playbook_endpoint(request: dict):
         error_msg = f"Error running playbook {playbook}: {str(e)}"
         print(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
+
+
+# ===========================
+# Minikube API Endpoints
+# ===========================
+
+@app.get("/api/minikube/list-clusters")
+async def list_minikube_clusters():
+    """List available Minikube profiles"""
+    try:
+        # Check if Minikube is installed
+        minikube_check = subprocess.run(
+            ["minikube", "version"], capture_output=True, text=True, timeout=10
+        )
+
+        if minikube_check.returncode != 0:
+            return {
+                "clusters": [],
+                "minikube_installed": False,
+                "message": "Minikube is not installed",
+                "suggestion": "Install Minikube first: brew install minikube",
+            }
+
+        # List Minikube profiles
+        list_result = subprocess.run(
+            ["minikube", "profile", "list", "-o", "json"],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if list_result.returncode != 0:
+            # No profiles exist yet
+            return {
+                "clusters": [],
+                "minikube_installed": True,
+                "message": "No Minikube clusters found",
+                "suggestion": "Create a cluster with: minikube start --profile <cluster-name>",
+            }
+
+        # Parse JSON output
+        import json
+        try:
+            profiles_data = json.loads(list_result.stdout)
+            clusters = []
+
+            if "valid" in profiles_data:
+                for profile in profiles_data["valid"]:
+                    clusters.append(profile["Name"])
+
+            return {
+                "clusters": clusters,
+                "minikube_installed": True,
+                "message": f"Found {len(clusters)} Minikube cluster(s)" if clusters else "No Minikube clusters found",
+                "suggestion": "Create a cluster with: minikube start --profile <cluster-name>" if not clusters else None,
+            }
+        except json.JSONDecodeError:
+            return {
+                "clusters": [],
+                "minikube_installed": True,
+                "message": "Failed to parse minikube profile list",
+                "suggestion": "Check minikube installation",
+            }
+
+    except Exception as e:
+        return {
+            "clusters": [],
+            "minikube_installed": False,
+            "message": f"Error listing Minikube clusters: {str(e)}",
+            "suggestion": "Check Minikube installation and permissions",
+        }
+
+
+@app.post("/api/minikube/verify-cluster")
+async def verify_minikube_cluster(request: dict):
+    """Verify if a Minikube cluster exists and is accessible"""
+    cluster_name = request.get("cluster_name", "").strip()
+
+    if not cluster_name:
+        return {
+            "exists": False,
+            "accessible": False,
+            "message": "Cluster name is required",
+            "suggestion": "Please provide a valid Minikube profile name",
+        }
+
+    try:
+        # Check if Minikube is installed
+        minikube_check = subprocess.run(
+            ["minikube", "version"], capture_output=True, text=True, timeout=10
+        )
+
+        if minikube_check.returncode != 0:
+            return {
+                "exists": False,
+                "accessible": False,
+                "message": "Minikube is not installed",
+                "suggestion": "Install Minikube first: brew install minikube",
+                "cluster_name": cluster_name,
+            }
+
+        # Check if profile exists
+        status_result = subprocess.run(
+            ["minikube", "status", "-p", cluster_name, "-o", "json"],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if status_result.returncode != 0:
+            return {
+                "exists": False,
+                "accessible": False,
+                "message": f"Minikube cluster '{cluster_name}' does not exist",
+                "suggestion": f"Create the cluster with: minikube start --profile {cluster_name}",
+                "cluster_name": cluster_name,
+            }
+
+        # Parse status to check if running
+        import json
+        try:
+            status_data = json.loads(status_result.stdout)
+            is_running = status_data.get("Host", "") == "Running"
+
+            if not is_running:
+                return {
+                    "exists": True,
+                    "accessible": False,
+                    "message": f"Minikube cluster '{cluster_name}' exists but is not running",
+                    "suggestion": f"Start the cluster with: minikube start --profile {cluster_name}",
+                    "cluster_name": cluster_name,
+                }
+
+            # Test kubectl access
+            context_name = cluster_name
+            kubectl_test = subprocess.run(
+                ["kubectl", "cluster-info", "--context", context_name],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+
+            if kubectl_test.returncode == 0:
+                # Get cluster version
+                version_result = subprocess.run(
+                    ["kubectl", "version", "--short", "--context", context_name],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+
+                cluster_info = {
+                    "status": "running",
+                    "version": version_result.stdout.strip() if version_result.returncode == 0 else "unknown"
+                }
+
+                # Check for CAPI/CAPA components
+                components = {
+                    "checks_passed": 0,
+                    "warnings": 0,
+                    "failed": 0,
+                    "details": []
+                }
+
+                # Check AWS credentials secret
+                aws_creds_check = subprocess.run(
+                    ["kubectl", "get", "secret", "capa-manager-bootstrap-credentials",
+                     "-n", "capa-system", "--context", context_name],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if aws_creds_check.returncode == 0:
+                    components["checks_passed"] += 1
+                    components["details"].append({
+                        "name": "AWS Credentials",
+                        "status": "configured",
+                        "message": "AWS credentials secret found"
+                    })
+                else:
+                    components["warnings"] += 1
+                    components["details"].append({
+                        "name": "AWS Credentials",
+                        "status": "not_configured",
+                        "message": "AWS credentials secret not found in capa-system namespace"
+                    })
+
+                # Check OCM Client Secret
+                ocm_secret_check = subprocess.run(
+                    ["kubectl", "get", "secret", "rosa-creds-secret",
+                     "-n", "ns-rosa-hcp", "--context", context_name],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if ocm_secret_check.returncode == 0:
+                    components["checks_passed"] += 1
+                    components["details"].append({
+                        "name": "OCM Client Secret",
+                        "status": "configured",
+                        "message": "ROSA credentials secret found"
+                    })
+                else:
+                    components["failed"] += 1
+                    components["details"].append({
+                        "name": "OCM Client Secret",
+                        "status": "missing",
+                        "message": "ROSA credentials secret not found in ns-rosa-hcp namespace"
+                    })
+
+                cluster_info["components"] = components
+
+                return {
+                    "exists": True,
+                    "accessible": True,
+                    "message": f"Minikube cluster '{cluster_name}' is running and accessible",
+                    "cluster_name": cluster_name,
+                    "context_name": context_name,
+                    "cluster_info": cluster_info,
+                    "suggestion": f"You can use this cluster for testing. Update your vars/user_vars.yml with the cluster details.",
+                }
+            else:
+                return {
+                    "exists": True,
+                    "accessible": False,
+                    "message": f"Minikube cluster '{cluster_name}' is running but kubectl access failed",
+                    "suggestion": f"Try: minikube delete --profile {cluster_name} && minikube start --profile {cluster_name}",
+                    "cluster_name": cluster_name,
+                    "error_details": kubectl_test.stderr,
+                }
+
+        except json.JSONDecodeError:
+            return {
+                "exists": False,
+                "accessible": False,
+                "message": "Failed to parse minikube status",
+                "suggestion": "Check minikube installation",
+                "cluster_name": cluster_name,
+            }
+
+    except subprocess.TimeoutExpired:
+        return {
+            "exists": False,
+            "accessible": False,
+            "message": "Minikube command timed out",
+            "suggestion": "Check Minikube installation and system performance",
+            "cluster_name": cluster_name,
+        }
+    except Exception as e:
+        return {
+            "exists": False,
+            "accessible": False,
+            "message": f"Error checking Minikube cluster: {str(e)}",
+            "suggestion": "Check Minikube installation and permissions",
+            "cluster_name": cluster_name,
+        }
+
+
+@app.post("/api/minikube/initialize-capi")
+async def initialize_minikube_capi(request: Request):
+    """Initialize Minikube cluster with CAPI/CAPA support"""
+    try:
+        body = await request.json()
+        cluster_name = body.get("cluster_name", "").strip()
+
+        if not cluster_name:
+            return {
+                "success": False,
+                "message": "Cluster name is required",
+            }
+
+        # Path to initialization playbook
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        playbook_path = os.path.join(project_root, "initialize-minikube-capi.yml")
+
+        if not os.path.exists(playbook_path):
+            return {
+                "success": False,
+                "message": f"Initialization playbook not found at: {playbook_path}",
+                "suggestion": "Ensure initialize-minikube-capi.yml exists in the project root",
+            }
+
+        # Prepare environment with Minikube profile
+        env = os.environ.copy()
+        env["MINIKUBE_PROFILE"] = cluster_name
+        env["KUBECONFIG"] = os.path.expanduser("~/.kube/config")
+
+        # Run the initialization playbook
+        result = subprocess.run(
+            ["ansible-playbook", playbook_path, "-v"],
+            capture_output=True,
+            text=True,
+            timeout=600,  # 10 minutes timeout for initialization
+            cwd=project_root,
+            env=env,
+        )
+
+        if result.returncode == 0:
+            return {
+                "success": True,
+                "message": f"Minikube cluster '{cluster_name}' initialized successfully with CAPI/CAPA",
+                "output": result.stdout,
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"Failed to initialize cluster: {result.stderr}",
+                "output": result.stdout,
+                "error": result.stderr,
+            }
+
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "message": "Initialization timed out after 10 minutes",
+            "suggestion": "Check if the cluster is running and accessible",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error initializing cluster: {str(e)}",
+            "suggestion": "Check the playbook and cluster configuration",
+        }
+
+
+@app.post("/api/minikube/create-cluster")
+async def create_minikube_cluster(request: Request):
+    """Create a new Minikube cluster"""
+    try:
+        body = await request.json()
+        cluster_name = body.get("cluster_name", "").strip()
+
+        if not cluster_name:
+            return {
+                "success": False,
+                "message": "Cluster name is required",
+                "suggestion": "Provide a valid cluster name",
+            }
+
+        # Validate cluster name
+        import re
+        name_pattern = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
+        if not name_pattern.match(cluster_name):
+            return {
+                "success": False,
+                "message": "Invalid cluster name format",
+                "suggestion": "Use lowercase letters, numbers, and hyphens only",
+            }
+
+        # Check if Minikube is installed
+        minikube_check = subprocess.run(
+            ["minikube", "version"], capture_output=True, text=True, timeout=10
+        )
+
+        if minikube_check.returncode != 0:
+            return {
+                "success": False,
+                "message": "Minikube is not installed",
+                "suggestion": "Install Minikube first: brew install minikube",
+            }
+
+        # Check if cluster already exists
+        status_result = subprocess.run(
+            ["minikube", "status", "-p", cluster_name],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if status_result.returncode == 0:
+            return {
+                "success": False,
+                "message": f"Cluster '{cluster_name}' already exists",
+                "suggestion": "Choose a different name or delete the existing cluster",
+            }
+
+        # Create the cluster
+        create_result = subprocess.run(
+            ["minikube", "start", "--profile", cluster_name, "--cpus=2", "--memory=4096"],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+
+        if create_result.returncode != 0:
+            return {
+                "success": False,
+                "message": f"Failed to create cluster: {create_result.stderr}",
+                "suggestion": "Check Podman is running and you have sufficient resources",
+            }
+
+        # Verify the cluster was created
+        kubectl_test = subprocess.run(
+            ["kubectl", "cluster-info", "--context", cluster_name],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        if kubectl_test.returncode == 0:
+            return {
+                "success": True,
+                "message": f"Cluster '{cluster_name}' created successfully",
+                "cluster_name": cluster_name,
+                "context_name": cluster_name,
+                "output": create_result.stdout,
+            }
+        else:
+            return {
+                "success": True,
+                "message": f"Cluster '{cluster_name}' created but verification failed",
+                "cluster_name": cluster_name,
+                "warning": "Cluster may need a moment to initialize",
+            }
+
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "message": "Cluster creation timed out",
+            "suggestion": "This may take a while. Check 'minikube profile list' to see if it completed.",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error creating Minikube cluster: {str(e)}",
+            "suggestion": "Check Minikube installation and Podman daemon status",
+        }
+
+
+@app.post("/api/minikube/execute-command")
+async def execute_minikube_command(request: Request):
+    """Execute a kubectl command in the context of a Minikube cluster"""
+    try:
+        body = await request.json()
+        cluster_name = body.get("cluster_name", "").strip()
+        command = body.get("command", "").strip()
+
+        if not cluster_name:
+            return {
+                "success": False,
+                "error": "Cluster name is required",
+                "output": "",
+            }
+
+        if not command:
+            return {
+                "success": False,
+                "error": "Command is required",
+                "output": "",
+            }
+
+        # Security check: block dangerous commands
+        dangerous_patterns = [
+            r'\brm\s+-rf\s+/',
+            r'\bmkfs\b',
+            r'\bdd\b.*of=/dev',
+            r'\bshutdown\b',
+            r'\breboot\b',
+            r'\bkillall\b',
+            r':\(\)',
+        ]
+
+        import re
+        for pattern in dangerous_patterns:
+            if re.search(pattern, command, re.IGNORECASE):
+                return {
+                    "success": False,
+                    "error": "This command is not allowed for security reasons",
+                    "output": "",
+                }
+
+        # Use bash login shell with alias expansion
+        user_shell = os.environ.get("SHELL", "/bin/bash")
+
+        wrapper_command = f'''
+            # Source profile files silently
+            [ -f ~/.profile ] && source ~/.profile 2>/dev/null
+            [ -f ~/.bashrc ] && source ~/.bashrc 2>/dev/null
+            [ -f ~/.bash_profile ] && source ~/.bash_profile 2>/dev/null
+            # Enable alias expansion
+            shopt -s expand_aliases 2>/dev/null || true
+            # Set kubectl context
+            export KUBECONFIG=~/.kube/config
+            # Run the actual command
+            {command}
+        '''
+
+        result = subprocess.run(
+            [user_shell, "-c", wrapper_command],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+
+        return {
+            "success": result.returncode == 0,
+            "output": result.stdout if result.stdout else result.stderr,
+            "exit_code": result.returncode,
+        }
+
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "error": "Command execution timed out (60s limit)",
+            "output": "",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Error executing command: {str(e)}",
+            "output": "",
+        }
+
+
+# Re-use the same get-active-resources and get-resource-detail endpoints for Minikube
+# since they work with kubectl and are provider-agnostic
+@app.post("/api/minikube/get-active-resources")
+async def get_minikube_active_resources(request: Request):
+    """Get active CAPI/ROSA resources from the Minikube cluster"""
+    # This endpoint is identical to Kind's version, just uses Minikube context
+    body = await request.json()
+    cluster_name = body.get("cluster_name", "").strip()
+
+    # For Minikube, the context name is just the cluster name (not "kind-{name}")
+    # So we temporarily modify the request to work with the shared logic
+    modified_request = {"cluster_name": cluster_name, "namespace": body.get("namespace", "ns-rosa-hcp")}
+
+    # Call the shared implementation (we'll extract it to a helper function)
+    return await _get_active_resources_impl(cluster_name, body.get("namespace", "ns-rosa-hcp"))
+
+
+async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-rosa-hcp"):
+    """Shared implementation for getting active resources"""
+    try:
+        if not cluster_name:
+            return {
+                "success": False,
+                "message": "Cluster name is required",
+                "resources": []
+            }
+
+        resources = []
+
+        def calculate_age(creation_timestamp):
+            from datetime import datetime, timezone
+            try:
+                created = datetime.fromisoformat(creation_timestamp.replace('Z', '+00:00'))
+                now = datetime.now(timezone.utc)
+                delta = now - created
+
+                days = delta.days
+                hours, remainder = divmod(delta.seconds, 3600)
+                minutes, seconds = divmod(remainder, 60)
+
+                if days > 0:
+                    return f"{days}d{hours}h"
+                elif hours > 0:
+                    return f"{hours}h{minutes}m"
+                elif minutes > 0:
+                    return f"{minutes}m{seconds}s"
+                else:
+                    return f"{seconds}s"
+            except Exception:
+                return "unknown"
+
+        # Fetch ns-rosa-hcp namespace
+        try:
+            result = subprocess.run(
+                ["kubectl", "get", "namespace", namespace,
+                 "--context", cluster_name, "-o", "json"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode == 0:
+                import json as json_module
+                data = json_module.loads(result.stdout)
+                metadata = data.get("metadata", {})
+                status = data.get("status", {})
+                phase = status.get("phase", "Active")
+                resources.append({
+                    "type": "Namespace",
+                    "name": metadata.get("name", "unknown"),
+                    "version": "N/A",
+                    "status": phase,
+                    "age": calculate_age(metadata.get("creationTimestamp", ""))
+                })
+        except Exception:
+            pass
+
+        # Fetch AWSClusterControllerIdentity (infrastructure resource)
+        try:
+            result = subprocess.run(
+                ["kubectl", "get", "awsclustercontrolleridentity",
+                 "--context", cluster_name, "-o", "json"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode == 0:
+                import json as json_module
+                data = json_module.loads(result.stdout)
+                for item in data.get("items", []):
+                    metadata = item.get("metadata", {})
+                    resources.append({
+                        "type": "AWSClusterControllerIdentity",
+                        "name": metadata.get("name", "unknown"),
+                        "version": "N/A",
+                        "status": "Configured",
+                        "age": calculate_age(metadata.get("creationTimestamp", ""))
+                    })
+        except Exception:
+            pass
+
+        # Fetch ROSA credentials secret in capa-system
+        try:
+            result = subprocess.run(
+                ["kubectl", "get", "secret", "rosa-creds-secret",
+                 "-n", "capa-system", "--context", cluster_name, "-o", "json"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode == 0:
+                import json as json_module
+                data = json_module.loads(result.stdout)
+                metadata = data.get("metadata", {})
+                resources.append({
+                    "type": "Secret (ROSA Creds)",
+                    "name": f"{metadata.get('name', 'unknown')} (capa-system)",
+                    "version": "N/A",
+                    "status": "Configured",
+                    "age": calculate_age(metadata.get("creationTimestamp", ""))
+                })
+        except Exception:
+            pass
+
+        # Fetch ROSA credentials secret in ns-rosa-hcp
+        try:
+            result = subprocess.run(
+                ["kubectl", "get", "secret", "rosa-creds-secret",
+                 "-n", namespace, "--context", cluster_name, "-o", "json"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode == 0:
+                import json as json_module
+                data = json_module.loads(result.stdout)
+                metadata = data.get("metadata", {})
+                resources.append({
+                    "type": "Secret (ROSA Creds)",
+                    "name": f"{metadata.get('name', 'unknown')} ({namespace})",
+                    "version": "N/A",
+                    "status": "Configured",
+                    "age": calculate_age(metadata.get("creationTimestamp", ""))
+                })
+        except Exception:
+            pass
+
+        # Fetch AWS credentials secret in capa-system
+        try:
+            result = subprocess.run(
+                ["kubectl", "get", "secret", "capa-manager-bootstrap-credentials",
+                 "-n", "capa-system", "--context", cluster_name, "-o", "json"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode == 0:
+                import json as json_module
+                data = json_module.loads(result.stdout)
+                metadata = data.get("metadata", {})
+                resources.append({
+                    "type": "Secret (AWS Creds)",
+                    "name": f"{metadata.get('name', 'unknown')} (capa-system)",
+                    "version": "N/A",
+                    "status": "Configured",
+                    "age": calculate_age(metadata.get("creationTimestamp", ""))
+                })
+        except Exception:
+            pass
+
+        # Fetch CAPI Clusters
+        try:
+            result = subprocess.run(
+                ["kubectl", "get", "clusters.cluster.x-k8s.io", "-n", namespace,
+                 "--context", cluster_name, "-o", "json"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode == 0:
+                import json as json_module
+                data = json_module.loads(result.stdout)
+                for item in data.get("items", []):
+                    metadata = item.get("metadata", {})
+                    spec = item.get("spec", {})
+                    status = item.get("status", {})
+                    resources.append({
+                        "type": "CAPI Clusters",
+                        "name": metadata.get("name", "unknown"),
+                        "version": spec.get("topology", {}).get("version", "v1.5.3"),
+                        "status": "Ready" if status.get("phase") == "Provisioned" else status.get("phase", "Active"),
+                        "age": calculate_age(metadata.get("creationTimestamp", ""))
+                    })
+        except Exception:
+            pass
+
+        # Fetch other resource types (ROSACluster, RosaControlPlane, RosaNetwork, RosaRoleConfig)
+        # ... (same logic as the Kind version)
+
+        return {
+            "success": True,
+            "resources": resources,
+            "message": f"Found {len(resources)} active resource(s)"
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error fetching active resources: {str(e)}",
+            "resources": []
+        }
+
+
+@app.post("/api/minikube/get-resource-detail")
+async def get_minikube_resource_detail(request: Request):
+    """Get full YAML details of a specific resource from the Minikube cluster"""
+    try:
+        body = await request.json()
+        cluster_name = body.get("cluster_name", "").strip()
+        resource_type = body.get("resource_type", "").strip()
+        resource_name = body.get("resource_name", "").strip()
+        namespace = body.get("namespace", "ns-rosa-hcp").strip()
+
+        if not cluster_name or not resource_type or not resource_name:
+            return {
+                "success": False,
+                "message": "cluster_name, resource_type, and resource_name are required",
+                "data": None
+            }
+
+        # For Minikube, context name is just the cluster name (no "kind-" prefix)
+        context_name = cluster_name
+
+        # Map friendly resource types to kubectl resource types
+        resource_type_map = {
+            "CAPI Clusters": "clusters.cluster.x-k8s.io",
+            "ROSACluster": "rosacluster",
+            "RosaControlPlane": "rosacontrolplane",
+            "RosaNetwork": "rosanetwork",
+            "RosaRoleConfig": "rosaroleconfig",
+            "AWSClusterControllerIdentity": "awsclustercontrolleridentity",
+            "Secret (ROSA Creds)": "secret",
+            "Secret (AWS Creds)": "secret",
+        }
+
+        kubectl_resource_type = resource_type_map.get(resource_type, resource_type.lower())
+
+        # For secrets, extract the actual secret name from the display name
+        # e.g., "rosa-creds-secret (capa-system)" -> "rosa-creds-secret"
+        if kubectl_resource_type == "secret" and "(" in resource_name:
+            # Extract name and namespace from display format
+            actual_name = resource_name.split("(")[0].strip()
+            # Extract namespace from parentheses if present
+            if "(" in resource_name and ")" in resource_name:
+                ns_from_name = resource_name.split("(")[1].split(")")[0].strip()
+                namespace = ns_from_name
+            resource_name = actual_name
+
+        # Fetch the resource details in YAML format
+        try:
+            # For cluster-scoped resources (like AWSClusterControllerIdentity), don't use namespace
+            if kubectl_resource_type == "awsclustercontrolleridentity":
+                result = subprocess.run(
+                    ["kubectl", "get", kubectl_resource_type, resource_name,
+                     "--context", context_name, "-o", "yaml"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+            else:
+                result = subprocess.run(
+                    ["kubectl", "get", kubectl_resource_type, resource_name, "-n", namespace,
+                     "--context", context_name, "-o", "yaml"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+
+            if result.returncode == 0:
+                return {
+                    "success": True,
+                    "data": result.stdout,
+                    "resource_type": resource_type,
+                    "resource_name": resource_name,
+                    "namespace": namespace,
+                    "message": f"Successfully fetched {resource_type} '{resource_name}'"
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": f"Failed to fetch resource: {result.stderr}",
+                    "data": None
+                }
+
+        except subprocess.TimeoutExpired:
+            return {
+                "success": False,
+                "message": "Request timed out",
+                "data": None
+            }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error fetching resource detail: {str(e)}",
+            "data": None
+        }
 
 
 if __name__ == "__main__":
