@@ -54,6 +54,29 @@ function calculateAge(isoTimestamp) {
   }
 }
 
+// Helper function to calculate age from ISO timestamp
+function calculateAge(isoTimestamp) {
+  if (!isoTimestamp) return '-';
+
+  try {
+    const created = new Date(isoTimestamp);
+    const now = new Date();
+    const diffMs = now - created;
+
+    const seconds = Math.floor(diffMs / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) return `${days}d`;
+    if (hours > 0) return `${hours}h`;
+    if (minutes > 0) return `${minutes}m`;
+    return `${seconds}s`;
+  } catch (e) {
+    return '-';
+  }
+}
+
 export function WhatCanIHelp() {
   const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState(false);
