@@ -28,6 +28,31 @@ import { ConfigStatus } from '../components/ConfigStatus';
 import { OCPConnectionStatus } from '../components/OCPConnectionStatus';
 import { KindClusterModal } from '../components/KindClusterModal';
 import { KindTerminalModal } from '../components/KindTerminalModal';
+import { MinikubeClusterModal } from '../components/MinikubeClusterModal';
+import { MinikubeTerminalModal } from '../components/MinikubeTerminalModal';
+
+// Helper function to calculate age from ISO timestamp
+function calculateAge(isoTimestamp) {
+  if (!isoTimestamp) return '-';
+
+  try {
+    const created = new Date(isoTimestamp);
+    const now = new Date();
+    const diffMs = now - created;
+
+    const seconds = Math.floor(diffMs / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) return `${days}d`;
+    if (hours > 0) return `${hours}h`;
+    if (minutes > 0) return `${minutes}m`;
+    return `${seconds}s`;
+  } catch (e) {
+    return '-';
+  }
+}
 
 // Helper function to calculate age from ISO timestamp
 function calculateAge(isoTimestamp) {
@@ -124,6 +149,11 @@ export function WhatCanIHelp() {
   const [selectedResourceDetail, setSelectedResourceDetail] = useState(null);
   const [showAnsibleModal, setShowAnsibleModal] = useState(false);
   const [ansibleOutput, setAnsibleOutput] = useState(null);
+
+  // Minikube cluster state
+  const [showMinikubeConfigModal, setShowMinikubeConfigModal] = useState(false);
+  const [showMinikubeTerminalModal, setShowMinikubeTerminalModal] = useState(false);
+  const [verifiedMinikubeClusterInfo, setVerifiedMinikubeClusterInfo] = useState(null);
 
   // Track if we've already shown initial notifications to prevent loops
   const hasShownInitialNotifications = useRef(false);
@@ -256,6 +286,63 @@ export function WhatCanIHelp() {
     }
   };
 
+  const handleMinikubeClusterSelected = async ({ cluster_name, verificationData }) => {
+    try {
+      const operationId = `configure-minikube-${Date.now()}`;
+
+      // Add to recent operations immediately
+      addToRecent({
+        id: operationId,
+        title: 'Configure Minikube Cluster',
+        color: 'bg-purple-600',
+        status: `⏳ Configuring ${cluster_name}...`,
+      });
+
+      // Small delay to show the "Configuring..." status
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Store the verified cluster information with time
+      const clusterInfo = {
+        name: cluster_name,
+        apiUrl: verificationData.cluster_info?.api_url || 'https://127.0.0.1:8443',
+        contextName: verificationData.context_name || cluster_name,
+        verifiedDate: new Date().toLocaleString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        }),
+        namespace: 'ns-rosa-hcp',
+        status: verificationData.cluster_info?.status || 'ready',
+        components: verificationData.cluster_info?.components || {},
+      };
+      setVerifiedMinikubeClusterInfo(clusterInfo);
+
+      // Store in localStorage for persistence
+      localStorage.setItem('verified-minikube-cluster', JSON.stringify(clusterInfo));
+
+      // Fetch active resources
+      await fetchMinikubeActiveResources(cluster_name, clusterInfo.namespace);
+
+      // Update operation status with success and timestamp
+      const completionTime = new Date().toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      });
+      updateRecentOperationStatus(operationId, `✅ Configured at ${completionTime}`);
+
+      // Add success notification
+      addNotification('🎉 Minikube cluster configured successfully!', 'success', 3000);
+    } catch (error) {
+      console.error('Error handling Minikube cluster selection:', error);
+      addNotification('Failed to configure Minikube cluster', 'error');
+    }
+  };
+
   // Fetch active resources from the Kind cluster
   const fetchActiveResources = async (clusterName, namespace = 'ns-rosa-hcp') => {
     try {
@@ -283,9 +370,36 @@ export function WhatCanIHelp() {
     }
   };
 
+  // Fetch active resources from the Minikube cluster
+  const fetchMinikubeActiveResources = async (clusterName, namespace = 'ns-rosa-hcp') => {
+    try {
+      const response = await fetch('http://localhost:8000/api/minikube/get-active-resources', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          cluster_name: clusterName,
+          namespace: namespace
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setActiveResources(data.resources);
+      } else {
+        setActiveResources([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch Minikube active resources:', error);
+      setActiveResources([]);
+    }
+  };
+
   const fetchResourceDetail = async (clusterName, resourceType, resourceName, namespace = 'ns-rosa-hcp') => {
     try {
-      const response = await fetch('http://localhost:8000/api/kind/get-resource-detail', {
+      const response = await fetch('http://localhost:8000/api/minikube/get-resource-detail', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2520,10 +2634,10 @@ export function WhatCanIHelp() {
                                   </button>
 
                                   <button
-                                    onClick={() => handleKindClusterCheck()}
-                                    className="bg-green-600 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-green-700 transition-colors"
+                                    onClick={() => setShowMinikubeConfigModal(true)}
+                                    className="bg-purple-600 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-purple-700 transition-colors"
                                   >
-                                    🐳 Use Kind cluster
+                                    🎯 Use Minikube cluster
                                   </button>
                                 </div>
                               </div>
@@ -2867,12 +2981,12 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
             {/* Main Content Sections */}
             <div className="space-y-6">
               {/* Local Test Environment */}
-              <div className="bg-gradient-to-br from-cyan-50 to-teal-50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-cyan-200/50 p-6 backdrop-blur-sm hover:scale-[1.02] hover:-translate-y-1 animate-in fade-in-50 slide-in-from-bottom-4 duration-800">
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-purple-200/50 p-6 backdrop-blur-sm hover:scale-[1.02] hover:-translate-y-1 animate-in fade-in-50 slide-in-from-bottom-4 duration-800">
                 <h2
-                  className="text-sm font-semibold text-cyan-900 mb-3 flex items-center cursor-pointer hover:bg-cyan-100/50 rounded-lg p-2 -m-2 transition-colors"
+                  className="text-sm font-semibold text-purple-900 mb-3 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-2 -m-2 transition-colors"
                   onClick={() => toggleSection('local-environment')}
                 >
-                  <div className="bg-cyan-600 rounded-full p-1 mr-2">
+                  <div className="bg-purple-600 rounded-full p-1 mr-2">
                     <svg
                       className="h-3 w-3 text-white"
                       fill="none"
@@ -2889,11 +3003,11 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   </div>
                   <span>Local Test Environment</span>
                   <div className="flex items-center ml-auto space-x-2">
-                    {verifiedKindClusterInfo && (
+                    {verifiedMinikubeClusterInfo && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setShowKindTerminalModal(true);
+                          setShowMinikubeTerminalModal(true);
                         }}
                         className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
                         title="Open terminal for verified cluster"
@@ -2906,46 +3020,47 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       onClick={async (e) => {
                         e.stopPropagation();
 
-                        // Prevent starting a new verification while one is already running
-                        if (kindLoading) {
-                          console.log('Verification already in progress, please wait...');
-                          addNotification('Verification already in progress, please wait...', 'info', 2000);
-                          return;
-                        }
+                        console.log('Manual verify clicked for Minikube cluster');
 
-                        console.log('Manual verify clicked for Kind cluster');
-
-                        // Verify Kind cluster status
-                        if (verifiedKindClusterInfo?.name) {
+                        // Verify Minikube cluster status
+                        if (verifiedMinikubeClusterInfo?.name) {
                           // Create unique ID for this verification using timestamp
-                          const verifyId = `verify-kind-cluster-${Date.now()}`;
+                          const verifyId = `verify-minikube-cluster-${Date.now()}`;
 
                           // Add to recent operations with "Verifying..." status
                           addToRecent({
                             id: verifyId,
-                            title: 'Verify Kind Cluster',
-                            color: 'bg-cyan-600',
+                            title: 'Verify Minikube Cluster',
+                            color: 'bg-purple-600',
                             status: '⏳ Verifying...',
-                            action: async () => {
-                              if (verifiedKindClusterInfo?.name) {
-                                await verifyKindCluster(verifiedKindClusterInfo.name);
-                              }
-                            }
                           });
 
                           console.log('Starting verification...');
                           try {
-                            await verifyKindCluster(verifiedKindClusterInfo.name);
-                            // Update operation status with success and timestamp (including seconds)
+                            // Call the verify cluster API endpoint
+                            const response = await fetch('http://localhost:8000/api/minikube/verify-cluster', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ cluster_name: verifiedMinikubeClusterInfo.name })
+                            });
+
+                            const data = await response.json();
+
+                            // Get completion time with seconds
                             const completionTime = new Date().toLocaleTimeString('en-US', {
                               hour: 'numeric',
                               minute: '2-digit',
                               second: '2-digit',
                               hour12: true
                             });
-                            console.log('Verification completed at:', completionTime);
-                            // Update recent operation with success status
-                            updateRecentOperationStatus(verifyId, `✅ Verification completed at ${completionTime}`);
+
+                            if (response.ok && data.exists && data.accessible) {
+                              console.log('Verification completed at:', completionTime);
+                              updateRecentOperationStatus(verifyId, `✅ Verification completed at ${completionTime}`);
+                            } else {
+                              console.log('Verification failed at:', completionTime);
+                              updateRecentOperationStatus(verifyId, `❌ Verification failed at ${completionTime}: ${data.message || 'Unknown error'}`);
+                            }
                           } catch (error) {
                             // Update operation status with error and timestamp (including seconds)
                             const completionTime = new Date().toLocaleTimeString('en-US', {
@@ -2954,13 +3069,13 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               second: '2-digit',
                               hour12: true
                             });
-                            console.log('Verification failed at:', completionTime);
+                            console.log('Verification failed at:', completionTime, error);
                             updateRecentOperationStatus(verifyId, `❌ Verification failed at ${completionTime}`);
                           }
                         }
                       }}
-                      className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
-                      title="Verify Kind cluster status"
+                      className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                      title="Verify Minikube cluster status"
                     >
                       <ArrowPathIcon className="h-3 w-3" />
                       <span>Verify</span>
@@ -2968,16 +3083,16 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setShowKindConfigModal(true);
+                        setShowMinikubeConfigModal(true);
                       }}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
-                      title="Configure Kind cluster"
+                      className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                      title="Configure Minikube cluster"
                     >
                       <Cog6ToothIcon className="h-3 w-3" />
                       <span>Configure</span>
                     </button>
                     <svg
-                      className={`h-4 w-4 text-cyan-600 transition-transform duration-200 ${collapsedSections.has('local-environment') ? 'rotate-180' : ''}`}
+                      className={`h-4 w-4 text-purple-600 transition-transform duration-200 ${collapsedSections.has('local-environment') ? 'rotate-180' : ''}`}
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -2993,16 +3108,16 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 </h2>
                 {!collapsedSections.has('local-environment') && (
                   <div className="space-y-4">
-                    <p className="text-sm text-cyan-700 mb-4">
+                    <p className="text-sm text-purple-700 mb-4">
                       Configure and verify your local test environment for ROSA HCP cluster automation.
                     </p>
 
-                    {/* Kind Cluster Verification Status */}
-                    <div className="bg-gradient-to-r from-cyan-50 to-teal-50 rounded-lg p-4 border border-cyan-200">
+                    {/* Minikube Cluster Verification Status */}
+                    <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-200">
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-semibold text-cyan-800 flex items-center">
+                        <h3 className="text-sm font-semibold text-purple-800 flex items-center">
                           <svg
-                            className="h-4 w-4 text-cyan-600 mr-2"
+                            className="h-4 w-4 text-purple-600 mr-2"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -3014,17 +3129,17 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                             />
                           </svg>
-                          Kind Cluster Status
+                          Minikube Cluster Status
                         </h3>
                         <div className="flex items-center space-x-2">
                           <div
                             className={`flex items-center text-xs px-2 py-1 rounded-full font-semibold ${
-                              verifiedKindClusterInfo
+                              verifiedMinikubeClusterInfo
                                 ? 'bg-green-100 text-green-800'
                                 : 'bg-gray-100 text-gray-800'
                             }`}
                           >
-                            {verifiedKindClusterInfo ? (
+                            {verifiedMinikubeClusterInfo ? (
                               <>
                                 <div className="w-2 h-2 bg-green-500 rounded-full mr-1.5 animate-pulse"></div>
                                 Verified
@@ -3036,59 +3151,59 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         </div>
                       </div>
 
-                      {verifiedKindClusterInfo ? (
+                      {verifiedMinikubeClusterInfo ? (
                         <>
                           {/* Cluster Info */}
                           <div className="grid grid-cols-2 gap-3 mb-4">
-                            <div className="bg-white rounded-lg p-2 border border-cyan-100">
-                              <div className="text-xs text-cyan-600 font-semibold mb-1">
+                            <div className="bg-white rounded-lg p-2 border border-purple-100">
+                              <div className="text-xs text-purple-600 font-semibold mb-1">
                                 Cluster Name
                               </div>
-                              <div className="text-xs text-cyan-900 font-mono">
-                                {verifiedKindClusterInfo.name}
+                              <div className="text-xs text-purple-900 font-mono">
+                                {verifiedMinikubeClusterInfo.name}
                               </div>
                             </div>
-                            <div className="bg-white rounded-lg p-2 border border-cyan-100">
-                              <div className="text-xs text-cyan-600 font-semibold mb-1">
+                            <div className="bg-white rounded-lg p-2 border border-purple-100">
+                              <div className="text-xs text-purple-600 font-semibold mb-1">
                                 Namespace
                               </div>
-                              <div className="text-xs text-cyan-900 font-mono">
-                                {verifiedKindClusterInfo.namespace}
+                              <div className="text-xs text-purple-900 font-mono">
+                                {verifiedMinikubeClusterInfo.namespace}
                               </div>
                             </div>
-                            <div className="bg-white rounded-lg p-2 border border-cyan-100">
-                              <div className="text-xs text-cyan-600 font-semibold mb-1">
+                            <div className="bg-white rounded-lg p-2 border border-purple-100">
+                              <div className="text-xs text-purple-600 font-semibold mb-1">
                                 API Server
                               </div>
-                              <div className="text-xs text-cyan-900 font-mono">
-                                {verifiedKindClusterInfo.apiUrl}
+                              <div className="text-xs text-purple-900 font-mono">
+                                {verifiedMinikubeClusterInfo.apiUrl}
                               </div>
                             </div>
-                            <div className="bg-white rounded-lg p-2 border border-cyan-100">
-                              <div className="text-xs text-cyan-600 font-semibold mb-1">
+                            <div className="bg-white rounded-lg p-2 border border-purple-100">
+                              <div className="text-xs text-purple-600 font-semibold mb-1">
                                 Verified
                               </div>
-                              <div className="text-xs text-cyan-900">
-                                {verifiedKindClusterInfo.verifiedDate}
+                              <div className="text-xs text-purple-900">
+                                {verifiedMinikubeClusterInfo.verifiedDate}
                               </div>
                             </div>
                           </div>
 
                         </>
                       ) : (
-                        <div className="text-center py-4 text-cyan-600 text-xs">
-                          <div className="mb-2">No Kind cluster verified</div>
-                          <div className="text-cyan-500">
-                            Click "Update Kind Cluster Information" to verify a cluster
+                        <div className="text-center py-4 text-purple-600 text-xs">
+                          <div className="mb-2">No Minikube cluster verified</div>
+                          <div className="text-purple-500">
+                            Click "Configure Minikube Cluster" to verify a cluster
                           </div>
                         </div>
                       )}
 
                       {/* Key Components */}
-                      <div className="bg-white rounded-lg p-4 border border-cyan-100 mb-4">
-                        <h4 className="text-sm font-semibold text-cyan-800 mb-3 flex items-center">
+                      <div className="bg-white rounded-lg p-4 border border-purple-100 mb-4">
+                        <h4 className="text-sm font-semibold text-purple-800 mb-3 flex items-center">
                           <svg
-                            className="h-4 w-4 text-cyan-600 mr-2"
+                            className="h-4 w-4 text-purple-600 mr-2"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -3103,49 +3218,55 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           Key Components
                         </h4>
                         {/* Table Header */}
-                        <div className="grid grid-cols-[2fr_1fr_1.5fr] gap-4 text-xs font-semibold text-cyan-700 bg-cyan-50 px-3 py-2 rounded mb-2">
+                        <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs font-semibold text-purple-700 bg-purple-50 px-3 py-2 rounded mb-2">
                           <div>Component</div>
                           <div>Version</div>
-                          <div className="text-right">Status</div>
+                          <div>Age</div>
+                          <div>Status</div>
                         </div>
                         {/* Table Rows */}
                         <div className="space-y-2">
-                          <div className="grid grid-cols-[2fr_1fr_1.5fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/50 rounded">
-                            <span className="text-cyan-800 font-medium">✅ Kind Cluster</span>
-                            <span className="text-cyan-600 font-mono">v0.20.0</span>
-                            <span className="text-green-600 font-medium text-right">Running</span>
+                          <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                            <span className="text-purple-800 font-medium">✅ Minikube Cluster</span>
+                            <span className="text-purple-600 font-mono">v1.32.0</span>
+                            <span className="text-purple-700 font-mono text-xs">-</span>
+                            <span className="text-green-600 font-medium">Running</span>
                           </div>
-                          <div className="grid grid-cols-[2fr_1fr_1.5fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/50 rounded">
-                            <span className="text-cyan-800 font-medium">✅ Cert Manager</span>
-                            <span className="text-cyan-600 font-mono">v1.13.0</span>
-                            <span className="text-green-600 font-medium text-right">
+                          <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                            <span className="text-purple-800 font-medium">✅ Cert Manager</span>
+                            <span className="text-purple-600 font-mono">v1.13.0</span>
+                            <span className="text-purple-700 font-mono text-xs">-</span>
+                            <span className="text-green-600 font-medium">
                               3 pods running
                             </span>
                           </div>
-                          <div className="grid grid-cols-[2fr_1fr_1.5fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/50 rounded">
-                            <span className="text-cyan-800 font-medium">✅ CAPI Controller</span>
-                            <span className="text-cyan-600 font-mono">v1.5.3</span>
-                            <span className="text-green-600 font-medium text-right">1/1 ready</span>
+                          <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                            <span className="text-purple-800 font-medium">✅ CAPI Controller</span>
+                            <span className="text-purple-600 font-mono">v1.5.3</span>
+                            <span className="text-purple-700 font-mono text-xs">-</span>
+                            <span className="text-green-600 font-medium">1/1 ready</span>
                           </div>
-                          <div className="grid grid-cols-[2fr_1fr_1.5fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/50 rounded">
-                            <span className="text-cyan-800 font-medium">✅ CAPA Controller</span>
-                            <span className="text-cyan-600 font-mono">v2.3.0</span>
-                            <span className="text-green-600 font-medium text-right">1/1 ready</span>
+                          <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                            <span className="text-purple-800 font-medium">✅ CAPA Controller</span>
+                            <span className="text-purple-600 font-mono">v2.3.0</span>
+                            <span className="text-purple-700 font-mono text-xs">-</span>
+                            <span className="text-green-600 font-medium">1/1 ready</span>
                           </div>
-                          <div className="grid grid-cols-[2fr_1fr_1.5fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/50 rounded">
-                            <span className="text-cyan-800 font-medium">✅ ROSA CRDs</span>
-                            <span className="text-cyan-600 font-mono">v4.20</span>
-                            <span className="text-green-600 font-medium text-right">
+                          <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                            <span className="text-purple-800 font-medium">✅ ROSA CRDs</span>
+                            <span className="text-purple-600 font-mono">v4.20</span>
+                            <span className="text-purple-700 font-mono text-xs">-</span>
+                            <span className="text-green-600 font-medium">
                               All installed
                             </span>
                           </div>
-                          {verifiedKindClusterInfo?.components?.details?.map((component, idx) => {
+                          {verifiedMinikubeClusterInfo?.components?.details?.map((component, idx) => {
                             const statusConfig = {
                               configured: {
                                 icon: '✅',
                                 color: 'text-green-600',
                                 text: 'Configured',
-                                bgClass: 'bg-cyan-50/50',
+                                bgClass: 'bg-purple-50/50',
                               },
                               not_configured: {
                                 icon: '⚠️',
@@ -3165,34 +3286,37 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             return (
                               <div
                                 key={idx}
-                                className={`grid grid-cols-[2fr_1fr_1.5fr] gap-4 text-xs px-3 py-2.5 rounded ${config.bgClass}`}
+                                className={`grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 rounded ${config.bgClass}`}
                               >
-                                <span className="text-cyan-800 font-medium">
+                                <span className="text-purple-800 font-medium">
                                   {config.icon} {component.name}
                                 </span>
-                                <span className="text-cyan-600 font-mono">-</span>
-                                <span className={`${config.color} font-medium text-right`}>
+                                <span className="text-purple-600 font-mono">-</span>
+                                <span className="text-purple-700 font-mono text-xs">-</span>
+                                <span className={`${config.color} font-medium`}>
                                   {config.text}
                                 </span>
                               </div>
                             );
                           }) || (
                             <>
-                              <div className="grid grid-cols-[2fr_1fr_1.5fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/50 rounded">
-                                <span className="text-cyan-800 font-medium">
+                              <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                                <span className="text-purple-800 font-medium">
                                   ℹ️ AWS Credentials
                                 </span>
-                                <span className="text-cyan-600 font-mono">-</span>
-                                <span className="text-gray-500 font-medium text-right">
+                                <span className="text-purple-600 font-mono">-</span>
+                                <span className="text-purple-700 font-mono text-xs">-</span>
+                                <span className="text-gray-500 font-medium">
                                   Not checked
                                 </span>
                               </div>
-                              <div className="grid grid-cols-[2fr_1fr_1.5fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/50 rounded">
-                                <span className="text-cyan-800 font-medium">
+                              <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                                <span className="text-purple-800 font-medium">
                                   ℹ️ OCM Client Secret
                                 </span>
-                                <span className="text-cyan-600 font-mono">-</span>
-                                <span className="text-gray-500 font-medium text-right">
+                                <span className="text-purple-600 font-mono">-</span>
+                                <span className="text-purple-700 font-mono text-xs">-</span>
+                                <span className="text-gray-500 font-medium">
                                   Not checked
                                 </span>
                               </div>
@@ -3201,7 +3325,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         </div>
 
                         {/* Create Secrets Button - Show if any secrets are missing */}
-                        {verifiedKindClusterInfo?.components?.details?.some(
+                        {verifiedMinikubeClusterInfo?.components?.details?.some(
                           (c) => c.status === 'missing' || c.status === 'not_configured'
                         ) && (
                           <div className="mt-3">
@@ -3229,11 +3353,11 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       </div>
 
                       {/* Active Resources */}
-                      <div className="bg-white rounded-lg p-4 border border-cyan-100">
-                        <h4 className="text-sm font-semibold text-cyan-800 mb-3 flex items-center justify-between">
+                      <div className="bg-white rounded-lg p-4 border border-purple-100">
+                        <h4 className="text-sm font-semibold text-purple-800 mb-3 flex items-center justify-between">
                           <div className="flex items-center">
                             <svg
-                              className="h-4 w-4 text-cyan-600 mr-2"
+                              className="h-4 w-4 text-purple-600 mr-2"
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -3260,17 +3384,17 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   addToRecent({
                                     id: operationId,
                                     title: 'Refresh Active Resources',
-                                    color: 'bg-cyan-600',
+                                    color: 'bg-purple-600',
                                     status: '🔄 Refreshing...',
                                   });
 
                                   // Fetch updated active resources
-                                  const response = await fetch('http://localhost:8000/api/kind/get-active-resources', {
+                                  const response = await fetch('http://localhost:8000/api/minikube/get-active-resources', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                      cluster_name: verifiedKindClusterInfo.name,
-                                      namespace: verifiedKindClusterInfo.namespace
+                                      cluster_name: verifiedMinikubeClusterInfo.name,
+                                      namespace: verifiedMinikubeClusterInfo.namespace
                                     })
                                   });
 
@@ -3285,13 +3409,13 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   });
 
                                   if (response.ok && result.success) {
-                                    console.log(`Resources refreshed successfully at ${completionTime}`);
+                                    console.log(`Resources refreshed successfully at ${completionTime}`, result);
                                     updateRecentOperationStatus(operationId, `✅ Refreshed at ${completionTime}`);
 
                                     // Update the active resources state
                                     setActiveResources(result.resources || []);
                                   } else {
-                                    console.log(`Resources refresh failed at ${completionTime}`);
+                                    console.log(`Resources refresh failed at ${completionTime}. response.ok=${response.ok}, result.success=${result.success}`, result);
                                     updateRecentOperationStatus(operationId, `❌ Refresh failed at ${completionTime}`);
                                   }
                                 } catch (error) {
@@ -3305,7 +3429,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   updateRecentOperationStatus(operationId, `❌ Refresh failed at ${completionTime}`);
                                 }
                               }}
-                              className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                              className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
                             >
                               <svg
                                 className="h-3.5 w-3.5 mr-1.5"
@@ -3372,6 +3496,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                     body: JSON.stringify({
                                       task_file: 'tasks/provision-rosa-hcp-cluster.yml',
                                       description: `Provision ROSA HCP Cluster: ${trimmedFile}`,
+                                      kube_context: verifiedMinikubeClusterInfo?.contextName || verifiedMinikubeClusterInfo?.name,
                                       extra_vars: {
                                         ROSA_HCP_CLUSTER_FILE: `/app/automation-capi/${trimmedFile}`
                                       }
@@ -3585,45 +3710,50 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         {activeResources.length > 0 ? (
                           <>
                             {/* Table Header */}
-                            <div className="grid grid-cols-[2fr_2fr_1fr_1fr_1.5fr] gap-4 text-xs font-semibold text-cyan-700 bg-cyan-50 px-3 py-2 rounded mb-2">
-                              <div>Resource Type</div>
+                            <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs font-semibold text-purple-700 bg-purple-50 px-3 py-2 rounded mb-2">
                               <div>Name</div>
                               <div>Version</div>
                               <div>Age</div>
-                              <div className="text-right">Status</div>
+                              <div>Status</div>
                             </div>
-                            <div className="space-y-2">
+                            <div className="space-y-1.5">
                               {activeResources.map((resource, idx) => (
-                                <div key={idx} className="grid grid-cols-[2fr_2fr_1fr_1fr_1.5fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/30 rounded hover:bg-cyan-50/60 transition-colors">
-                                  <span className="text-cyan-700">{resource.type}</span>
-                                  <button
-                                    onClick={() => fetchResourceDetail(
-                                      verifiedKindClusterInfo.name,
-                                      resource.type,
-                                      resource.name,
-                                      verifiedKindClusterInfo.namespace
-                                    )}
-                                    className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
-                                  >
-                                    {resource.name}
-                                  </button>
-                                  <span className="text-cyan-600 font-mono">{resource.version}</span>
-                                  <span className="text-cyan-700 font-mono">{resource.age || 'unknown'}</span>
-                                  <span className={`font-medium text-right ${
-                                    resource.status.toLowerCase().includes('ready') ? 'text-green-600' :
-                                    resource.status.toLowerCase().includes('configured') ? 'text-cyan-900' :
-                                    'text-orange-600'
-                                  }`}>
-                                    {resource.status}
-                                  </span>
+                                <div key={idx} className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-purple-50/50 transition-colors rounded">
+                                  <div className="flex items-center">
+                                    <svg
+                                      className="h-4 w-4 text-green-500 mr-2 flex-shrink-0"
+                                      fill="currentColor"
+                                      viewBox="0 0 20 20"
+                                    >
+                                      <path
+                                        fillRule="evenodd"
+                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                        clipRule="evenodd"
+                                      />
+                                    </svg>
+                                    <button
+                                      onClick={() => fetchResourceDetail(
+                                        verifiedMinikubeClusterInfo.name,
+                                        resource.type,
+                                        resource.name,
+                                        verifiedMinikubeClusterInfo.namespace
+                                      )}
+                                      className="text-purple-800 font-medium hover:text-purple-600 hover:underline text-left cursor-pointer transition-colors"
+                                    >
+                                      {resource.name}
+                                    </button>
+                                  </div>
+                                  <span className="text-purple-700 text-xs">{resource.version || 'N/A'}</span>
+                                  <span className="text-purple-700 font-mono text-xs">{resource.age || 'unknown'}</span>
+                                  <span className="text-purple-700 text-xs">{resource.status || 'Unknown'}</span>
                                 </div>
                               ))}
                             </div>
                           </>
                         ) : (
-                          <div className="text-center py-4 text-cyan-600 text-xs">
+                          <div className="text-center py-4 text-purple-600 text-xs">
                             <div className="mb-2">No active resources found</div>
-                            <div className="text-cyan-500">
+                            <div className="text-purple-500">
                               Resources will appear here after they are created in the cluster
                             </div>
                           </div>
@@ -3648,8 +3778,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         const result = ansibleResults[rosaHcpOperation.id];
 
                         return (
-                          <div className="mt-4 pt-4 border-t border-cyan-200">
-                            <h4 className="text-xs font-semibold text-cyan-800 mb-2 flex items-center">
+                          <div className="mt-4 pt-4 border-t border-purple-200">
+                            <h4 className="text-xs font-semibold text-purple-800 mb-2 flex items-center">
                               <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                               </svg>
@@ -3659,8 +3789,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             {!result.loading && result.result && (
                               <>
                                 {/* Detailed Output */}
-                                <details className="bg-white rounded border border-cyan-200">
-                                  <summary className="text-xs font-medium text-cyan-700 p-2 cursor-pointer hover:bg-cyan-50">
+                                <details className="bg-white rounded border border-purple-200">
+                                  <summary className="text-xs font-medium text-purple-700 p-2 cursor-pointer hover:bg-purple-50">
                                     View Full Output
                                   </summary>
                                   <div className="p-2 border-t bg-gray-50 max-h-40 overflow-y-auto">
@@ -6598,6 +6728,21 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
         onClose={() => setShowKindTerminalModal(false)}
         clusterName={verifiedKindClusterInfo?.cluster_name || verifiedKindClusterInfo?.name}
         namespace={verifiedKindClusterInfo?.namespace}
+      />
+
+      {/* Minikube Cluster Configuration Modal */}
+      <MinikubeClusterModal
+        isOpen={showMinikubeConfigModal}
+        onClose={() => setShowMinikubeConfigModal(false)}
+        onClusterSelected={handleMinikubeClusterSelected}
+        currentCluster={verifiedMinikubeClusterInfo?.name}
+      />
+
+      {/* Minikube Terminal Modal */}
+      <MinikubeTerminalModal
+        isOpen={showMinikubeTerminalModal}
+        onClose={() => setShowMinikubeTerminalModal(false)}
+        clusterName={verifiedMinikubeClusterInfo?.cluster_name || verifiedMinikubeClusterInfo?.name}
       />
 
       {/* Resource Detail Modal */}
