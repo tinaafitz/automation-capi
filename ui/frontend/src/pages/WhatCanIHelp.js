@@ -4084,12 +4084,12 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   <div className="flex items-center ml-auto space-x-2">
                     {/* Enable CAPI/CAPA Button - Only show when CAPI/CAPA are NOT enabled */}
                     {(() => {
-                      const statusResult = ansibleResults['get-capi-capa-status'];
+                      const statusResult = ansibleResults['check-components'];
                       if (statusResult?.result?.output) {
                         const output = statusResult.result.output;
-                        // Check if CAPI or CAPA is NOT enabled
-                        const capiNotEnabled = output.includes('CAPI is NOT enabled');
-                        const capaNotEnabled = output.includes('CAPA is NOT enabled');
+                        // Check if CAPI or CAPA deployments are NOT found
+                        const capiNotEnabled = output.includes('capi-controller-manager deployment not found');
+                        const capaNotEnabled = output.includes('capa-controller-manager deployment not found');
 
                         if (capiNotEnabled || capaNotEnabled) {
                           return (
@@ -4152,7 +4152,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   // Automatically run status check again after successful enablement
                                   await new Promise((resolve) => setTimeout(resolve, 2000));
                                   const statusOperation = configureEnvironment.find(
-                                    (op) => op.id === 'get-capi-capa-status'
+                                    (op) => op.id === 'check-components'
                                   );
                                   if (statusOperation) {
                                     await statusOperation.action();
@@ -4198,12 +4198,12 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                     {/* Enable HyperShift Button - Only show when CAPI/CAPA ARE enabled (HyperShift disabled) */}
                     {(() => {
-                      const statusResult = ansibleResults['get-capi-capa-status'];
+                      const statusResult = ansibleResults['check-components'];
                       if (statusResult?.result?.output) {
                         const output = statusResult.result.output;
-                        // Check if CAPI AND CAPA are both enabled (meaning HyperShift was disabled)
-                        const capiEnabled = output.includes('CAPI is enabled');
-                        const capaEnabled = output.includes('CAPA is enabled');
+                        // Check if CAPI AND CAPA deployments are both found
+                        const capiEnabled = output.includes('capi-controller-manager deployment found');
+                        const capaEnabled = output.includes('capa-controller-manager deployment found');
 
                         if (capiEnabled && capaEnabled) {
                           return (
@@ -4266,7 +4266,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   // Automatically run status check again after successful enablement
                                   await new Promise((resolve) => setTimeout(resolve, 2000));
                                   const statusOperation = configureEnvironment.find(
-                                    (op) => op.id === 'get-capi-capa-status'
+                                    (op) => op.id === 'check-components'
                                   );
                                   if (statusOperation) {
                                     await statusOperation.action();
@@ -4351,7 +4351,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         try {
                           // First, check CAPI/CAPA status
                           const statusOperation = configureEnvironment.find(
-                            (op) => op.id === 'get-capi-capa-status'
+                            (op) => op.id === 'check-components'
                           );
                           if (statusOperation) {
                             await statusOperation.action();
@@ -4361,7 +4361,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           await new Promise((resolve) => setTimeout(resolve, 500));
 
                           // Check if CAPI/CAPA status check had errors (including timeout)
-                          const statusResult = ansibleResults['get-capi-capa-status'];
+                          const statusResult = ansibleResults['check-components'];
                           const completionTime = new Date().toLocaleTimeString('en-US', {
                             hour: 'numeric',
                             minute: '2-digit',
@@ -5367,9 +5367,24 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                           )}
                                       </div>
 
-                                      {/* Active Resources */}
-                                      {operation.id === 'check-components' &&
-                                        ansibleResults['check-components']?.result?.output && (
+                                      {/* Active Resources - Show for most recent operation with results */}
+                                      {(() => {
+                                        // Find the most recent operation with results
+                                        const mostRecentOp = recentOperations
+                                          .filter(op => ansibleResults[op.id]?.result?.output)
+                                          .sort((a, b) => {
+                                            const timeA = parseInt(a.id.split('-').pop()) || 0;
+                                            const timeB = parseInt(b.id.split('-').pop()) || 0;
+                                            return timeB - timeA;
+                                          })[0];
+
+                                        // Only render this section once for the most recent operation
+                                        if (!mostRecentOp || operation.id !== mostRecentOp.id) {
+                                          return null;
+                                        }
+
+                                        return (
+                                          <>
                                           <div className="bg-white rounded-lg p-4 border border-cyan-100 mt-4">
                                             <h4 className="text-sm font-semibold text-cyan-800 mb-3 flex items-center justify-between">
                                               <div className="flex items-center">
@@ -5817,26 +5832,54 @@ ${statusResult.result.output}
                                         )}
 
                                       {/* Detailed Output */}
-                                      <details className="bg-white rounded border">
+                                      <details className="bg-white rounded border mt-4">
                                         <summary className="text-xs font-medium text-gray-700 p-2 cursor-pointer hover:bg-gray-50">
                                           View Full Output
                                         </summary>
-                                        <div className="p-2 border-t bg-gray-50 max-h-40 overflow-y-auto">
-                                          <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono">
-                                            {ansibleResults[operation.id].result.output ||
-                                              ansibleResults[operation.id].result.error ||
-                                              'No output available'}
-                                          </pre>
+                                        <div className="p-2 border-t bg-gray-50">
+                                          {/* Eyecatcher showing which playbook/task is running */}
+                                          <div className="mb-2 flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded p-2">
+                                            <svg className="h-4 w-4 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                            </svg>
+                                            <div className="flex-1 min-w-0">
+                                              <div className="text-xs font-semibold text-blue-900 truncate">
+                                                {mostRecentOp.title}
+                                              </div>
+                                              {ansibleResults[mostRecentOp.id]?.result?.description && (
+                                                <div className="text-[10px] text-blue-700/70 truncate">
+                                                  {ansibleResults[mostRecentOp.id].result.description}
+                                                </div>
+                                              )}
+                                            </div>
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
+                                              ansibleResults[mostRecentOp.id].result.return_code === 0
+                                                ? 'bg-green-100 text-green-700'
+                                                : 'bg-red-100 text-red-700'
+                                            }`}>
+                                              {ansibleResults[mostRecentOp.id].result.return_code === 0 ? '✓ Success' : '✗ Failed'}
+                                            </span>
+                                          </div>
+                                          {/* Output content */}
+                                          <div className="max-h-40 overflow-y-auto">
+                                            <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono">
+                                              {ansibleResults[mostRecentOp.id].result.output ||
+                                                ansibleResults[mostRecentOp.id].result.error ||
+                                                'No output available'}
+                                            </pre>
+                                          </div>
                                         </div>
                                       </details>
-                                    </div>
-                                  )}
+                                          </div>
+                                          </>
+                                        );
+                                      })()}
                               </div>
                             </div>
                           )}
 
-                          {/* Expanded Content for get-capi-capa-status */}
-                          {isExpanded && operation.id === 'get-capi-capa-status' && (
+                          {/* Expanded Content for check-components */}
+                          {isExpanded && operation.id === 'check-components' && (
                             <div className="px-3 pb-3 pt-2 border-t border-blue-100">
                               <p className="text-xs text-gray-600 mb-2">{operation.description}</p>
                               <button
@@ -5858,12 +5901,38 @@ ${statusResult.result.output}
                                       <summary className="text-xs font-medium text-gray-700 p-2 cursor-pointer hover:bg-gray-50">
                                         View Full Output
                                       </summary>
-                                      <div className="p-2 border-t bg-gray-50 max-h-40 overflow-y-auto">
-                                        <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono">
-                                          {ansibleResults[operation.id].result.output ||
-                                            ansibleResults[operation.id].result.error ||
-                                            'No output available'}
-                                        </pre>
+                                      <div className="p-2 border-t bg-gray-50">
+                                        {/* Eyecatcher showing which playbook/task is running */}
+                                        <div className="mb-2 flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded p-2">
+                                          <svg className="h-4 w-4 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                          </svg>
+                                          <div className="flex-1 min-w-0">
+                                            <div className="text-xs font-semibold text-blue-900 truncate">
+                                              {operation.title}
+                                            </div>
+                                            {ansibleResults[operation.id]?.result?.description && (
+                                              <div className="text-[10px] text-blue-700/70 truncate">
+                                                {ansibleResults[operation.id].result.description}
+                                              </div>
+                                            )}
+                                          </div>
+                                          <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
+                                            ansibleResults[operation.id].result.return_code === 0
+                                              ? 'bg-green-100 text-green-700'
+                                              : 'bg-red-100 text-red-700'
+                                          }`}>
+                                            {ansibleResults[operation.id].result.return_code === 0 ? '✓ Success' : '✗ Failed'}
+                                          </span>
+                                        </div>
+                                        {/* Output content */}
+                                        <div className="max-h-40 overflow-y-auto">
+                                          <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono">
+                                            {ansibleResults[operation.id].result.output ||
+                                              ansibleResults[operation.id].result.error ||
+                                              'No output available'}
+                                          </pre>
+                                        </div>
                                       </div>
                                     </details>
                                   </div>
