@@ -54,29 +54,6 @@ function calculateAge(isoTimestamp) {
   }
 }
 
-// Helper function to calculate age from ISO timestamp
-function calculateAge(isoTimestamp) {
-  if (!isoTimestamp) return '-';
-
-  try {
-    const created = new Date(isoTimestamp);
-    const now = new Date();
-    const diffMs = now - created;
-
-    const seconds = Math.floor(diffMs / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-
-    if (days > 0) return `${days}d`;
-    if (hours > 0) return `${hours}h`;
-    if (minutes > 0) return `${minutes}m`;
-    return `${seconds}s`;
-  } catch (e) {
-    return '-';
-  }
-}
-
 export function WhatCanIHelp() {
   const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState(false);
@@ -3227,13 +3204,51 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         {/* Table Rows */}
                         <div className="space-y-2">
                           <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
-                            <span className="text-purple-800 font-medium">✅ Minikube Cluster</span>
+                            <div className="flex items-center">
+                              <span className="mr-2">✅</span>
+                              <button
+                                onClick={() => {
+                                  if (!verifiedMinikubeClusterInfo) {
+                                    alert('Please verify the Minikube cluster first');
+                                    return;
+                                  }
+                                  fetchResourceDetail(
+                                    verifiedMinikubeClusterInfo.name,
+                                    'Namespace',
+                                    verifiedMinikubeClusterInfo.namespace,
+                                    ''
+                                  );
+                                }}
+                                className="text-purple-800 font-medium hover:text-purple-600 hover:underline text-left cursor-pointer transition-colors"
+                              >
+                                Minikube Cluster
+                              </button>
+                            </div>
                             <span className="text-purple-600 font-mono">v1.32.0</span>
                             <span className="text-purple-700 font-mono text-xs">-</span>
                             <span className="text-green-600 font-medium">Running</span>
                           </div>
                           <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
-                            <span className="text-purple-800 font-medium">✅ Cert Manager</span>
+                            <div className="flex items-center">
+                              <span className="mr-2">✅</span>
+                              <button
+                                onClick={() => {
+                                  if (!verifiedMinikubeClusterInfo) {
+                                    alert('Please verify the Minikube cluster first');
+                                    return;
+                                  }
+                                  fetchResourceDetail(
+                                    verifiedMinikubeClusterInfo.name,
+                                    'Deployment',
+                                    'cert-manager',
+                                    'cert-manager'
+                                  );
+                                }}
+                                className="text-purple-800 font-medium hover:text-purple-600 hover:underline text-left cursor-pointer transition-colors"
+                              >
+                                Cert Manager
+                              </button>
+                            </div>
                             <span className="text-purple-600 font-mono">v1.13.0</span>
                             <span className="text-purple-700 font-mono text-xs">-</span>
                             <span className="text-green-600 font-medium">
@@ -3241,19 +3256,76 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             </span>
                           </div>
                           <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
-                            <span className="text-purple-800 font-medium">✅ CAPI Controller</span>
+                            <div className="flex items-center">
+                              <span className="mr-2">✅</span>
+                              <button
+                                onClick={() => {
+                                  if (!verifiedMinikubeClusterInfo) {
+                                    alert('Please verify the Minikube cluster first');
+                                    return;
+                                  }
+                                  fetchResourceDetail(
+                                    verifiedMinikubeClusterInfo.name,
+                                    'Deployment',
+                                    'capi-controller-manager',
+                                    'capi-system'
+                                  );
+                                }}
+                                className="text-purple-800 font-medium hover:text-purple-600 hover:underline text-left cursor-pointer transition-colors"
+                              >
+                                CAPI Controller
+                              </button>
+                            </div>
                             <span className="text-purple-600 font-mono">v1.5.3</span>
                             <span className="text-purple-700 font-mono text-xs">-</span>
                             <span className="text-green-600 font-medium">1/1 ready</span>
                           </div>
                           <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
-                            <span className="text-purple-800 font-medium">✅ CAPA Controller</span>
+                            <div className="flex items-center">
+                              <span className="mr-2">✅</span>
+                              <button
+                                onClick={() => {
+                                  if (!verifiedMinikubeClusterInfo) {
+                                    alert('Please verify the Minikube cluster first');
+                                    return;
+                                  }
+                                  fetchResourceDetail(
+                                    verifiedMinikubeClusterInfo.name,
+                                    'Deployment',
+                                    'capa-controller-manager',
+                                    'capa-system'
+                                  );
+                                }}
+                                className="text-purple-800 font-medium hover:text-purple-600 hover:underline text-left cursor-pointer transition-colors"
+                              >
+                                CAPA Controller
+                              </button>
+                            </div>
                             <span className="text-purple-600 font-mono">v2.3.0</span>
                             <span className="text-purple-700 font-mono text-xs">-</span>
                             <span className="text-green-600 font-medium">1/1 ready</span>
                           </div>
                           <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
-                            <span className="text-purple-800 font-medium">✅ ROSA CRDs</span>
+                            <div className="flex items-center">
+                              <span className="mr-2">✅</span>
+                              <button
+                                onClick={() => {
+                                  if (!verifiedMinikubeClusterInfo) {
+                                    alert('Please verify the Minikube cluster first');
+                                    return;
+                                  }
+                                  fetchResourceDetail(
+                                    verifiedMinikubeClusterInfo.name,
+                                    'CustomResourceDefinition',
+                                    'rosacontrolplanes.controlplane.cluster.x-k8s.io',
+                                    ''
+                                  );
+                                }}
+                                className="text-purple-800 font-medium hover:text-purple-600 hover:underline text-left cursor-pointer transition-colors"
+                              >
+                                ROSA CRDs
+                              </button>
+                            </div>
                             <span className="text-purple-600 font-mono">v4.20</span>
                             <span className="text-purple-700 font-mono text-xs">-</span>
                             <span className="text-green-600 font-medium">
@@ -3372,6 +3444,162 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             Active Resources
                           </div>
                           <div className="flex items-center space-x-2">
+                            {/* Export Active Resources Button */}
+                            <button
+                              onClick={async () => {
+                                if (!activeResources || activeResources.length === 0) {
+                                  alert('No active resources to export');
+                                  return;
+                                }
+
+                                let operationId;
+                                try {
+                                  operationId = `export-resources-${Date.now()}`;
+
+                                  addToRecent({
+                                    id: operationId,
+                                    title: 'Export Active Resources',
+                                    color: 'bg-indigo-600',
+                                    status: '⏳ Exporting...',
+                                  });
+
+                                  console.log(`Exporting ${activeResources.length} active resources...`);
+
+                                  // Function to redact sensitive data from YAML
+                                  const redactSensitiveData = (yamlContent) => {
+                                    // First, handle entire data/stringData blocks in secrets
+                                    yamlContent = yamlContent.replace(/^(\s*)(data|stringData):\s*\n((?:\s+.+\n)*)/gm, (match, indent, fieldName, dataBlock) => {
+                                      return `${indent}${fieldName}:\n${indent}  # [SENSITIVE DATA REMOVED - All secret data redacted]\n`;
+                                    });
+
+                                    // Redact any remaining sensitive field values (in case they're not in data blocks)
+                                    yamlContent = yamlContent.replace(/^(\s+)(password|token|apiKey|secretKey|accessKey|privateKey|certificate|clientSecret|clientID|ocmClientSecret|ocmClientID|ocmApiUrl|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|aws_access_key_id|aws_secret_access_key):\s+(.+)$/gmi,
+                                      (match, indent, key, value) => {
+                                        return `${indent}${key}: "[SENSITIVE DATA REMOVED]"`;
+                                      });
+
+                                    // Redact any field with "secret" or "password" or "token" in the key name
+                                    yamlContent = yamlContent.replace(/^(\s+)([a-zA-Z0-9_-]*(?:secret|password|token|credential|key|api)[a-zA-Z0-9_-]*):\s+(.+)$/gmi,
+                                      (match, indent, key, value) => {
+                                        // Skip metadata fields and non-sensitive fields
+                                        if (key.toLowerCase().includes('secretname') ||
+                                            key.toLowerCase().includes('secretref') ||
+                                            key.toLowerCase().includes('type') ||
+                                            key.toLowerCase() === 'apiversion') {
+                                          return match;
+                                        }
+                                        return `${indent}${key}: "[SENSITIVE DATA REMOVED]"`;
+                                      });
+
+                                    return yamlContent;
+                                  };
+
+                                  // Fetch YAML for all resources
+                                  const yamls = [];
+                                  for (const resource of activeResources) {
+                                    try {
+                                      // Determine the namespace - some resources are cluster-scoped
+                                      let namespace = verifiedMinikubeClusterInfo.namespace;
+                                      if (resource.type === 'Namespace' || resource.type === 'AWSClusterControllerIdentity') {
+                                        namespace = '';
+                                      }
+                                      // Extract actual resource name if it contains namespace info in parentheses
+                                      let resourceName = resource.name;
+                                      if (resource.name.includes('(')) {
+                                        resourceName = resource.name.split('(')[0].trim();
+                                        // Extract namespace from the name if present
+                                        const namespaceMatch = resource.name.match(/\(([^)]+)\)/);
+                                        if (namespaceMatch) {
+                                          namespace = namespaceMatch[1];
+                                        }
+                                      }
+
+                                      const response = await fetch('http://localhost:8000/api/minikube/get-resource-detail', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                          cluster_name: verifiedMinikubeClusterInfo.name,
+                                          resource_type: resource.type,
+                                          resource_name: resourceName,
+                                          namespace: namespace
+                                        })
+                                      });
+
+                                      const result = await response.json();
+                                      if (response.ok && result.success && result.data) {
+                                        // Redact sensitive data before adding to export
+                                        const sanitizedContent = redactSensitiveData(result.data);
+
+                                        yamls.push({
+                                          name: `${resourceName.replace(/[^a-zA-Z0-9-]/g, '_')}_${resource.type.replace(/[^a-zA-Z0-9-]/g, '_')}.yaml`,
+                                          content: sanitizedContent
+                                        });
+                                      }
+                                    } catch (error) {
+                                      console.error(`Error fetching YAML for ${resource.name}:`, error);
+                                    }
+                                  }
+
+                                  const completionTime = new Date().toLocaleTimeString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    hour12: true
+                                  });
+
+                                  if (yamls.length > 0) {
+                                    // Create a combined YAML file with document separators
+                                    const combinedYaml = yamls.map(y => `# ${y.name}\n---\n${y.content}`).join('\n\n');
+
+                                    // Create a download link
+                                    const blob = new Blob([combinedYaml], { type: 'text/yaml' });
+                                    const url = window.URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `active-resources-${verifiedMinikubeClusterInfo.name}-${Date.now()}.yaml`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    window.URL.revokeObjectURL(url);
+
+                                    console.log(`Exported ${yamls.length} resources successfully at ${completionTime}`);
+                                    updateRecentOperationStatus(operationId, `✅ Exported ${yamls.length} resources at ${completionTime}`);
+                                  } else {
+                                    updateRecentOperationStatus(operationId, `❌ Export failed at ${completionTime}`);
+                                    alert('Failed to export resources');
+                                  }
+                                } catch (error) {
+                                  console.error('Error exporting resources:', error);
+                                  const completionTime = new Date().toLocaleTimeString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    hour12: true
+                                  });
+                                  if (operationId) {
+                                    updateRecentOperationStatus(operationId, `❌ Export failed at ${completionTime}`);
+                                  }
+                                  alert(`Error exporting resources: ${error.message}`);
+                                }
+                              }}
+                              className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                            >
+                              <svg
+                                className="h-3.5 w-3.5 mr-1.5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                />
+                              </svg>
+                              <span>Export</span>
+                            </button>
+
                             {/* Refresh Active Resources Button */}
                             <button
                               onClick={async () => {
@@ -3498,7 +3726,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                       description: `Provision ROSA HCP Cluster: ${trimmedFile}`,
                                       kube_context: verifiedMinikubeClusterInfo?.contextName || verifiedMinikubeClusterInfo?.name,
                                       extra_vars: {
-                                        ROSA_HCP_CLUSTER_FILE: `/app/automation-capi/${trimmedFile}`
+                                        ROSA_HCP_CLUSTER_FILE: trimmedFile
                                       }
                                     })
                                   });
@@ -3532,6 +3760,28 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                         }
                                       }
                                     }));
+
+                                    // Automatically refresh active resources after successful provisioning
+                                    try {
+                                      console.log('Auto-refreshing active resources after provisioning...');
+                                      const refreshResponse = await fetch('http://localhost:8000/api/minikube/get-active-resources', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                          cluster_name: verifiedMinikubeClusterInfo.name,
+                                          namespace: verifiedMinikubeClusterInfo.namespace
+                                        })
+                                      });
+
+                                      const refreshResult = await refreshResponse.json();
+
+                                      if (refreshResponse.ok && refreshResult.success) {
+                                        console.log('Active resources refreshed automatically', refreshResult);
+                                        setActiveResources(refreshResult.resources || []);
+                                      }
+                                    } catch (refreshError) {
+                                      console.error('Error auto-refreshing resources:', refreshError);
+                                    }
                                   } else {
                                     console.log(`ROSA HCP provisioning failed at ${completionTime}`);
                                     updateRecentOperationStatus(operationId, `❌ Provisioning failed at ${completionTime}`);
@@ -3984,9 +4234,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                     body: JSON.stringify({
                                       task_file: 'tasks/provision-rosa-hcp-cluster.yml',
                                       description: `Provision ROSA HCP Cluster: ${trimmedFile}`,
+                                      kube_context: verifiedMinikubeClusterInfo?.contextName || verifiedMinikubeClusterInfo?.name,
                                       extra_vars: {
-                                        ROSA_HCP_CLUSTER_FILE: `/app/automation-capi/${trimmedFile}`,
-                                        SKIP_KIND_CONTEXT: 'true'
+                                        ROSA_HCP_CLUSTER_FILE: trimmedFile
                                       }
                                     })
                                   });
@@ -4004,6 +4254,30 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                     console.log(`ROSA HCP provisioning completed successfully at ${completionTime}`);
                                     updateRecentOperationStatus(operationId, `✅ Provisioned at ${completionTime}`);
                                     addNotification(`✅ ROSA HCP cluster provisioning completed`, 'success', 5000);
+
+                                    // Automatically refresh active resources after successful provisioning
+                                    if (verifiedMinikubeClusterInfo?.name) {
+                                      try {
+                                        console.log('Auto-refreshing active resources after provisioning...');
+                                        const refreshResponse = await fetch('http://localhost:8000/api/minikube/get-active-resources', {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({
+                                            cluster_name: verifiedMinikubeClusterInfo.name,
+                                            namespace: verifiedMinikubeClusterInfo.namespace
+                                          })
+                                        });
+
+                                        const refreshResult = await refreshResponse.json();
+
+                                        if (refreshResponse.ok && refreshResult.success) {
+                                          console.log('Active resources refreshed automatically', refreshResult);
+                                          setActiveResources(refreshResult.resources || []);
+                                        }
+                                      } catch (refreshError) {
+                                        console.error('Error auto-refreshing resources:', refreshError);
+                                      }
+                                    }
                                   } else {
                                     throw new Error(result.error || result.message || 'Provisioning failed');
                                   }

@@ -2194,6 +2194,7 @@ async def run_ansible_task(request: dict):
         task_file = request.get("task_file")
         description = request.get("description", "Running ansible task")
         kube_context = request.get("kube_context")  # Optional cluster context
+        extra_vars = request.get("extra_vars", {})  # Optional extra variables
 
         if not task_file:
             raise HTTPException(status_code=400, detail="task_file is required")
@@ -2272,6 +2273,10 @@ async def run_ansible_task(request: dict):
             if kube_context:
                 cmd.extend(["-e", f"KUBE_CONTEXT={kube_context}"])
                 print(f"Using cluster context: {kube_context}")
+
+            # Add extra vars if provided
+            for key, value in extra_vars.items():
+                cmd.extend(["-e", f"{key}={value}"])
 
             print(f"Running ansible task: {' '.join(cmd)}")
 
