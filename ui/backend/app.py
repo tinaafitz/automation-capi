@@ -763,7 +763,7 @@ async def verify_kind_cluster(request: dict):
             ["kubectl", "config", "get-contexts", context_name],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
         )
 
         cluster_exists = context_check.returncode == 0
@@ -774,10 +774,16 @@ async def verify_kind_cluster(request: dict):
                 ["kubectl", "config", "get-contexts", "-o", "name"],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
-            all_contexts = contexts_result.stdout.strip().split("\n") if contexts_result.returncode == 0 else []
-            available_kind_clusters = [ctx.replace("kind-", "") for ctx in all_contexts if ctx.startswith("kind-")]
+            all_contexts = (
+                contexts_result.stdout.strip().split("\n")
+                if contexts_result.returncode == 0
+                else []
+            )
+            available_kind_clusters = [
+                ctx.replace("kind-", "") for ctx in all_contexts if ctx.startswith("kind-")
+            ]
 
             return {
                 "exists": False,
@@ -815,58 +821,77 @@ async def verify_kind_cluster(request: dict):
                                 cluster_info["api_url"] = url_match.group()
 
                 # Check for components in the cluster
-                components = {
-                    "checks_passed": 0,
-                    "warnings": 0,
-                    "failed": 0,
-                    "details": []
-                }
+                components = {"checks_passed": 0, "warnings": 0, "failed": 0, "details": []}
 
                 # Check AWS credentials secret
                 aws_creds_check = subprocess.run(
-                    ["kubectl", "get", "secret", "capa-manager-bootstrap-credentials",
-                     "-n", "capa-system", "--context", context_name],
+                    [
+                        "kubectl",
+                        "get",
+                        "secret",
+                        "capa-manager-bootstrap-credentials",
+                        "-n",
+                        "capa-system",
+                        "--context",
+                        context_name,
+                    ],
                     capture_output=True,
                     text=True,
-                    timeout=10
+                    timeout=10,
                 )
                 if aws_creds_check.returncode == 0:
                     components["checks_passed"] += 1
-                    components["details"].append({
-                        "name": "AWS Credentials",
-                        "status": "configured",
-                        "message": "AWS credentials secret found"
-                    })
+                    components["details"].append(
+                        {
+                            "name": "AWS Credentials",
+                            "status": "configured",
+                            "message": "AWS credentials secret found",
+                        }
+                    )
                 else:
                     components["warnings"] += 1
-                    components["details"].append({
-                        "name": "AWS Credentials",
-                        "status": "not_configured",
-                        "message": "AWS credentials secret not found in capa-system namespace"
-                    })
+                    components["details"].append(
+                        {
+                            "name": "AWS Credentials",
+                            "status": "not_configured",
+                            "message": "AWS credentials secret not found in capa-system namespace",
+                        }
+                    )
 
                 # Check OCM Client Secret (rosa-creds-secret)
                 ocm_secret_check = subprocess.run(
-                    ["kubectl", "get", "secret", "rosa-creds-secret",
-                     "-n", "ns-rosa-hcp", "--context", context_name],
+                    [
+                        "kubectl",
+                        "get",
+                        "secret",
+                        "rosa-creds-secret",
+                        "-n",
+                        "ns-rosa-hcp",
+                        "--context",
+                        context_name,
+                    ],
                     capture_output=True,
                     text=True,
-                    timeout=10
+                    timeout=10,
                 )
                 if ocm_secret_check.returncode == 0:
                     components["checks_passed"] += 1
-                    components["details"].append({
-                        "name": "OCM Client Secret",
-                        "status": "configured",
-                        "message": "ROSA credentials secret found"
-                    })
+                    components["details"].append(
+                        {
+                            "name": "OCM Client Secret",
+                            "status": "configured",
+                            "message": "ROSA credentials secret found",
+                        }
+                    )
                 else:
                     components["failed"] += 1
-                    components["details"].append({
-                        "name": "OCM Client Secret",
-                        "status": "missing",
-                        "message": "ROSA credentials secret not found in ns-rosa-hcp namespace"
-                    })
+                    components["details"].append(
+                        {
+                            "name": "OCM Client Secret",
+                            "status": "missing",
+                            "message": "ROSA credentials secret not found in ns-rosa-hcp namespace",
+                        }
+                    )
 
                 cluster_info["components"] = components
 
@@ -939,7 +964,7 @@ async def list_kind_clusters():
             ["kubectl", "config", "get-contexts", "-o", "name"],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
         )
 
         if list_result.returncode != 0:
@@ -951,7 +976,9 @@ async def list_kind_clusters():
             }
 
         # Extract Kind cluster names from contexts (kind-* pattern)
-        all_contexts = [line.strip() for line in list_result.stdout.strip().split("\n") if line.strip()]
+        all_contexts = [
+            line.strip() for line in list_result.stdout.strip().split("\n") if line.strip()
+        ]
         clusters = [ctx.replace("kind-", "") for ctx in all_contexts if ctx.startswith("kind-")]
 
         return {
@@ -1131,7 +1158,7 @@ async def create_ocm_secret(request: Request):
             ["kubectl", "create", "namespace", "ns-rosa-hcp", "--context", context_name],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=30,
         )
         # Ignore error if namespace already exists
 
@@ -1141,7 +1168,10 @@ async def create_ocm_secret(request: Request):
             capture_output=True,
             text=True,
             timeout=60,
-            env={**os.environ, "KUBECONFIG": os.environ.get("KUBECONFIG", os.path.expanduser("~/.kube/config"))}
+            env={
+                **os.environ,
+                "KUBECONFIG": os.environ.get("KUBECONFIG", os.path.expanduser("~/.kube/config")),
+            },
         )
 
         if result.returncode == 0:
@@ -1198,16 +1228,17 @@ async def execute_kind_command(request: Request):
         # Only block destructive file system operations and system commands
         # Note: We allow 'oc delete' and 'kubectl delete' for Kubernetes resources
         dangerous_patterns = [
-            r'\brm\s+-rf\s+/',  # rm -rf / or similar
-            r'\bmkfs\b',         # format filesystem
-            r'\bdd\b.*of=/dev', # dd to device
-            r'\bshutdown\b',
-            r'\breboot\b',
-            r'\bkillall\b',
-            r':\(\)',            # fork bomb
+            r"\brm\s+-rf\s+/",  # rm -rf / or similar
+            r"\bmkfs\b",  # format filesystem
+            r"\bdd\b.*of=/dev",  # dd to device
+            r"\bshutdown\b",
+            r"\breboot\b",
+            r"\bkillall\b",
+            r":\(\)",  # fork bomb
         ]
 
         import re
+
         for pattern in dangerous_patterns:
             if re.search(pattern, command, re.IGNORECASE):
                 return {
@@ -1233,7 +1264,8 @@ async def execute_kind_command(request: Request):
 
         # Write kubeconfig to a temporary file
         import tempfile
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.kubeconfig') as f:
+
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".kubeconfig") as f:
             f.write(kubeconfig_result.stdout)
             temp_kubeconfig = f.name
 
@@ -1243,7 +1275,7 @@ async def execute_kind_command(request: Request):
 
             # Build a command that sources profile and runs the user command
             # Redirect stderr from sourcing to suppress "Restored session" messages
-            wrapper_command = f'''
+            wrapper_command = f"""
                 # Source profile files silently
                 [ -f ~/.profile ] && source ~/.profile 2>/dev/null
                 [ -f ~/.bashrc ] && source ~/.bashrc 2>/dev/null
@@ -1252,14 +1284,14 @@ async def execute_kind_command(request: Request):
                 shopt -s expand_aliases 2>/dev/null || true
                 # Run the actual command
                 {command}
-            '''
+            """
 
             result = subprocess.run(
                 [user_shell, "-c", wrapper_command],
                 capture_output=True,
                 text=True,
                 timeout=60,
-                env={**os.environ, "KUBECONFIG": temp_kubeconfig}
+                env={**os.environ, "KUBECONFIG": temp_kubeconfig},
             )
 
             return {
@@ -1296,11 +1328,7 @@ async def get_active_resources(request: Request):
         namespace = body.get("namespace", "ns-rosa-hcp").strip()
 
         if not cluster_name:
-            return {
-                "success": False,
-                "message": "Cluster name is required",
-                "resources": []
-            }
+            return {"success": False, "message": "Cluster name is required", "resources": []}
 
         context_name = f"kind-{cluster_name}"
         resources = []
@@ -1308,9 +1336,10 @@ async def get_active_resources(request: Request):
         # Helper function to calculate age from creation timestamp
         def calculate_age(creation_timestamp):
             from datetime import datetime, timezone
+
             try:
                 # Parse the Kubernetes timestamp
-                created = datetime.fromisoformat(creation_timestamp.replace('Z', '+00:00'))
+                created = datetime.fromisoformat(creation_timestamp.replace("Z", "+00:00"))
                 now = datetime.now(timezone.utc)
                 delta = now - created
 
@@ -1333,40 +1362,66 @@ async def get_active_resources(request: Request):
         # Fetch CAPI Clusters
         try:
             result = subprocess.run(
-                ["kubectl", "get", "clusters.cluster.x-k8s.io", "-n", namespace,
-                 "--context", context_name, "-o", "json"],
+                [
+                    "kubectl",
+                    "get",
+                    "clusters.cluster.x-k8s.io",
+                    "-n",
+                    namespace,
+                    "--context",
+                    context_name,
+                    "-o",
+                    "json",
+                ],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
             if result.returncode == 0:
                 import json as json_module
+
                 data = json_module.loads(result.stdout)
                 for item in data.get("items", []):
                     metadata = item.get("metadata", {})
                     spec = item.get("spec", {})
                     status = item.get("status", {})
-                    resources.append({
-                        "type": "CAPI Clusters",
-                        "name": metadata.get("name", "unknown"),
-                        "version": spec.get("topology", {}).get("version", "v1.5.3"),
-                        "status": "Ready" if status.get("phase") == "Provisioned" else status.get("phase", "Active"),
-                        "age": calculate_age(metadata.get("creationTimestamp", ""))
-                    })
+                    resources.append(
+                        {
+                            "type": "CAPI Clusters",
+                            "name": metadata.get("name", "unknown"),
+                            "version": spec.get("topology", {}).get("version", "v1.5.3"),
+                            "status": (
+                                "Ready"
+                                if status.get("phase") == "Provisioned"
+                                else status.get("phase", "Active")
+                            ),
+                            "age": calculate_age(metadata.get("creationTimestamp", "")),
+                        }
+                    )
         except Exception:
             pass
 
         # Fetch ROSACluster
         try:
             result = subprocess.run(
-                ["kubectl", "get", "rosacluster", "-n", namespace,
-                 "--context", context_name, "-o", "json"],
+                [
+                    "kubectl",
+                    "get",
+                    "rosacluster",
+                    "-n",
+                    namespace,
+                    "--context",
+                    context_name,
+                    "-o",
+                    "json",
+                ],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
             if result.returncode == 0:
                 import json as json_module
+
                 data = json_module.loads(result.stdout)
                 for item in data.get("items", []):
                     metadata = item.get("metadata", {})
@@ -1386,34 +1441,46 @@ async def get_active_resources(request: Request):
                             condition_type = condition.get("type", "")
                             # Check for various possible ready condition types
                             if condition.get("status") == "True" and (
-                                condition_type == "Ready" or
-                                condition_type == "ROSAClusterReady" or
-                                condition_type == "RosaClusterReady"
+                                condition_type == "Ready"
+                                or condition_type == "ROSAClusterReady"
+                                or condition_type == "RosaClusterReady"
                             ):
                                 is_ready = True
                                 break
 
-                    resources.append({
-                        "type": "ROSACluster",
-                        "name": metadata.get("name", "unknown"),
-                        "version": spec.get("version", "v4.20"),
-                        "status": "Ready" if is_ready else "Provisioning",
-                        "age": calculate_age(metadata.get("creationTimestamp", ""))
-                    })
+                    resources.append(
+                        {
+                            "type": "ROSACluster",
+                            "name": metadata.get("name", "unknown"),
+                            "version": spec.get("version", "v4.20"),
+                            "status": "Ready" if is_ready else "Provisioning",
+                            "age": calculate_age(metadata.get("creationTimestamp", "")),
+                        }
+                    )
         except Exception:
             pass
 
         # Fetch RosaControlPlane
         try:
             result = subprocess.run(
-                ["kubectl", "get", "rosacontrolplane", "-n", namespace,
-                 "--context", context_name, "-o", "json"],
+                [
+                    "kubectl",
+                    "get",
+                    "rosacontrolplane",
+                    "-n",
+                    namespace,
+                    "--context",
+                    context_name,
+                    "-o",
+                    "json",
+                ],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
             if result.returncode == 0:
                 import json as json_module
+
                 data = json_module.loads(result.stdout)
                 for item in data.get("items", []):
                     metadata = item.get("metadata", {})
@@ -1433,34 +1500,46 @@ async def get_active_resources(request: Request):
                             condition_type = condition.get("type", "")
                             # Check for various possible ready condition types
                             if condition.get("status") == "True" and (
-                                condition_type == "Ready" or
-                                condition_type == "ROSAControlPlaneReady" or
-                                condition_type == "RosaControlPlaneReady"
+                                condition_type == "Ready"
+                                or condition_type == "ROSAControlPlaneReady"
+                                or condition_type == "RosaControlPlaneReady"
                             ):
                                 is_ready = True
                                 break
 
-                    resources.append({
-                        "type": "RosaControlPlane",
-                        "name": metadata.get("name", "unknown"),
-                        "version": spec.get("version", "v4.20"),
-                        "status": "Ready" if is_ready else "Provisioning",
-                        "age": calculate_age(metadata.get("creationTimestamp", ""))
-                    })
+                    resources.append(
+                        {
+                            "type": "RosaControlPlane",
+                            "name": metadata.get("name", "unknown"),
+                            "version": spec.get("version", "v4.20"),
+                            "status": "Ready" if is_ready else "Provisioning",
+                            "age": calculate_age(metadata.get("creationTimestamp", "")),
+                        }
+                    )
         except Exception:
             pass
 
         # Fetch RosaNetwork
         try:
             result = subprocess.run(
-                ["kubectl", "get", "rosanetwork", "-n", namespace,
-                 "--context", context_name, "-o", "json"],
+                [
+                    "kubectl",
+                    "get",
+                    "rosanetwork",
+                    "-n",
+                    namespace,
+                    "--context",
+                    context_name,
+                    "-o",
+                    "json",
+                ],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
             if result.returncode == 0:
                 import json as json_module
+
                 data = json_module.loads(result.stdout)
                 for item in data.get("items", []):
                     metadata = item.get("metadata", {})
@@ -1475,34 +1554,46 @@ async def get_active_resources(request: Request):
                         condition_type = condition.get("type", "")
                         # Check for various possible ready condition types
                         if condition.get("status") == "True" and (
-                            condition_type == "ROSANetworkReady" or
-                            condition_type == "RosaNetworkReady" or
-                            condition_type == "Ready"
+                            condition_type == "ROSANetworkReady"
+                            or condition_type == "RosaNetworkReady"
+                            or condition_type == "Ready"
                         ):
                             is_ready = True
                             break
 
-                    resources.append({
-                        "type": "RosaNetwork",
-                        "name": metadata.get("name", "unknown"),
-                        "version": spec.get("version", "v4.20"),
-                        "status": "Ready" if is_ready else "Configuring",
-                        "age": calculate_age(metadata.get("creationTimestamp", ""))
-                    })
+                    resources.append(
+                        {
+                            "type": "RosaNetwork",
+                            "name": metadata.get("name", "unknown"),
+                            "version": spec.get("version", "v4.20"),
+                            "status": "Ready" if is_ready else "Configuring",
+                            "age": calculate_age(metadata.get("creationTimestamp", "")),
+                        }
+                    )
         except Exception:
             pass
 
         # Fetch RosaRoleConfig
         try:
             result = subprocess.run(
-                ["kubectl", "get", "rosaroleconfig", "-n", namespace,
-                 "--context", context_name, "-o", "json"],
+                [
+                    "kubectl",
+                    "get",
+                    "rosaroleconfig",
+                    "-n",
+                    namespace,
+                    "--context",
+                    context_name,
+                    "-o",
+                    "json",
+                ],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
             if result.returncode == 0:
                 import json as json_module
+
                 data = json_module.loads(result.stdout)
                 for item in data.get("items", []):
                     metadata = item.get("metadata", {})
@@ -1517,34 +1608,36 @@ async def get_active_resources(request: Request):
                         condition_type = condition.get("type", "")
                         # Check for various possible ready condition types
                         if condition.get("status") == "True" and (
-                            condition_type == "ROSARoleConfigReady" or
-                            condition_type == "RosaRoleConfigReady" or
-                            condition_type == "Ready"
+                            condition_type == "ROSARoleConfigReady"
+                            or condition_type == "RosaRoleConfigReady"
+                            or condition_type == "Ready"
                         ):
                             is_ready = True
                             break
 
-                    resources.append({
-                        "type": "RosaRoleConfig",
-                        "name": metadata.get("name", "unknown"),
-                        "version": spec.get("version", "v4.20"),
-                        "status": "Ready" if is_ready else "Configuring",
-                        "age": calculate_age(metadata.get("creationTimestamp", ""))
-                    })
+                    resources.append(
+                        {
+                            "type": "RosaRoleConfig",
+                            "name": metadata.get("name", "unknown"),
+                            "version": spec.get("version", "v4.20"),
+                            "status": "Ready" if is_ready else "Configuring",
+                            "age": calculate_age(metadata.get("creationTimestamp", "")),
+                        }
+                    )
         except Exception:
             pass
 
         return {
             "success": True,
             "resources": resources,
-            "message": f"Found {len(resources)} active resource(s)"
+            "message": f"Found {len(resources)} active resource(s)",
         }
 
     except Exception as e:
         return {
             "success": False,
             "message": f"Error fetching active resources: {str(e)}",
-            "resources": []
+            "resources": [],
         }
 
 
@@ -1562,7 +1655,7 @@ async def get_resource_detail(request: Request):
             return {
                 "success": False,
                 "message": "cluster_name, resource_type, and resource_name are required",
-                "data": None
+                "data": None,
             }
 
         context_name = f"kind-{cluster_name}"
@@ -1581,11 +1674,21 @@ async def get_resource_detail(request: Request):
         # Fetch the resource details in YAML format
         try:
             result = subprocess.run(
-                ["kubectl", "get", kubectl_resource_type, resource_name, "-n", namespace,
-                 "--context", context_name, "-o", "yaml"],
+                [
+                    "kubectl",
+                    "get",
+                    kubectl_resource_type,
+                    resource_name,
+                    "-n",
+                    namespace,
+                    "--context",
+                    context_name,
+                    "-o",
+                    "yaml",
+                ],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
 
             if result.returncode == 0:
@@ -1595,29 +1698,24 @@ async def get_resource_detail(request: Request):
                     "resource_type": resource_type,
                     "resource_name": resource_name,
                     "namespace": namespace,
-                    "message": f"Successfully fetched {resource_type} '{resource_name}'"
+                    "message": f"Successfully fetched {resource_type} '{resource_name}'",
                 }
             else:
                 return {
                     "success": False,
                     "message": f"Failed to fetch resource: {result.stderr}",
-                    "data": None
+                    "data": None,
                 }
 
         except subprocess.TimeoutExpired:
-            return {
-                "success": False,
-                "message": "Request timed out",
-                "data": None
-            }
+            return {"success": False, "message": "Request timed out", "data": None}
 
     except Exception as e:
         return {
             "success": False,
             "message": f"Error fetching resource detail: {str(e)}",
-            "data": None
+            "data": None,
         }
-
 
 
 @app.get("/api/ocp/connection-status")
@@ -2201,7 +2299,9 @@ async def run_ansible_task(request: dict):
 
         # Ensure the task file exists
         # Use AUTOMATION_PATH environment variable if set, otherwise calculate from file path
-        project_root = os.environ.get('AUTOMATION_PATH') or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        project_root = os.environ.get("AUTOMATION_PATH") or os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
         task_path = os.path.join(project_root, task_file)
         if not os.path.exists(task_path):
             raise HTTPException(status_code=404, detail=f"Task file not found: {task_file}")
@@ -2211,23 +2311,31 @@ async def run_ansible_task(request: dict):
         tasks = []
 
         # Check if this is an MCE task that needs OCP login
-        mce_tasks = ["validate-capa-environment", "validate-mce", "enable_capi_capa", "get_capi_capa_status", "get_mce_component_status"]
+        mce_tasks = [
+            "validate-capa-environment",
+            "validate-mce",
+            "enable_capi_capa",
+            "get_capi_capa_status",
+            "get_mce_component_status",
+        ]
         if any(task in task_file for task in mce_tasks):
             # Add OCP login and variable setup tasks first
-            tasks.extend([
-                {
-                    "name": "Set OCP credentials",
-                    "set_fact": {
-                        "ocp_user": "{{ OCP_HUB_CLUSTER_USER }}",
-                        "ocp_password": "{{ OCP_HUB_CLUSTER_PASSWORD }}",
-                        "api_url": "{{ OCP_HUB_API_URL }}"
-                    }
-                },
-                {
-                    "name": "Login to OCP",
-                    "include_tasks": f"{project_root}/tasks/login_ocp.yml"
-                }
-            ])
+            tasks.extend(
+                [
+                    {
+                        "name": "Set OCP credentials",
+                        "set_fact": {
+                            "ocp_user": "{{ OCP_HUB_CLUSTER_USER }}",
+                            "ocp_password": "{{ OCP_HUB_CLUSTER_PASSWORD }}",
+                            "api_url": "{{ OCP_HUB_API_URL }}",
+                        },
+                    },
+                    {
+                        "name": "Login to OCP",
+                        "include_tasks": f"{project_root}/tasks/login_ocp.yml",
+                    },
+                ]
+            )
 
         # Add the main task (use absolute path)
         tasks.append({"name": "Include task file", "include_tasks": f"{project_root}/{task_file}"})
@@ -2238,18 +2346,21 @@ async def run_ansible_task(request: dict):
                 "hosts": "localhost",
                 "connection": "local",
                 "gather_facts": False,
-                "vars_files": [f"{project_root}/vars/vars.yml", f"{project_root}/vars/user_vars.yml"],
+                "vars_files": [
+                    f"{project_root}/vars/vars.yml",
+                    f"{project_root}/vars/user_vars.yml",
+                ],
                 "tasks": tasks,
             }
         ]
 
         # Write temporary playbook
         # Use AUTOMATION_PATH environment variable if set, otherwise calculate from file path
-        project_root = os.environ.get('AUTOMATION_PATH') or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        project_root = os.environ.get("AUTOMATION_PATH") or os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
         # Write temp file to /tmp since project_root might be read-only
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yml", delete=False, dir="/tmp"
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False, dir="/tmp") as f:
             yaml.dump(playbook_content, f, default_flow_style=False)
             temp_playbook = f.name
 
@@ -2282,8 +2393,9 @@ async def run_ansible_task(request: dict):
 
             # Set environment variables for Ansible
             import os as os_module
+
             env = os_module.environ.copy()
-            env['ANSIBLE_PLAYBOOK_DIR'] = project_root
+            env["ANSIBLE_PLAYBOOK_DIR"] = project_root
 
             # Run the command
             result = subprocess.run(
@@ -2340,6 +2452,7 @@ async def run_ansible_task(request: dict):
         }
     except Exception as e:
         import traceback
+
         error_msg = f"Error running task {task_file}: {str(e)}"
         print(error_msg)
         print(f"Full traceback: {traceback.format_exc()}")
@@ -2359,7 +2472,9 @@ async def run_ansible_role(request: dict):
 
         # Check if role exists
         # Use AUTOMATION_PATH environment variable if set, otherwise calculate from file path
-        project_root = os.environ.get('AUTOMATION_PATH') or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        project_root = os.environ.get("AUTOMATION_PATH") or os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
         role_path = os.path.join(project_root, "roles", role_name)
         if not os.path.exists(role_path):
             raise HTTPException(status_code=404, detail=f"Role not found: {role_name}")
@@ -2372,30 +2487,31 @@ async def run_ansible_role(request: dict):
         tasks = []
         mce_roles = ["configure-capa-environment"]
         if role_name in mce_roles:
-            tasks.extend([
-                {
-                    "name": "Set OCP credentials",
-                    "set_fact": {
-                        "ocp_user": "{{ OCP_HUB_CLUSTER_USER }}",
-                        "ocp_password": "{{ OCP_HUB_CLUSTER_PASSWORD }}",
-                        "api_url": "{{ OCP_HUB_API_URL }}"
-                    }
-                },
-                {
-                    "name": "Login to OCP",
-                    "include_tasks": "tasks/login_ocp.yml"
-                }
-            ])
+            tasks.extend(
+                [
+                    {
+                        "name": "Set OCP credentials",
+                        "set_fact": {
+                            "ocp_user": "{{ OCP_HUB_CLUSTER_USER }}",
+                            "ocp_password": "{{ OCP_HUB_CLUSTER_PASSWORD }}",
+                            "api_url": "{{ OCP_HUB_API_URL }}",
+                        },
+                    },
+                    {"name": "Login to OCP", "include_tasks": "tasks/login_ocp.yml"},
+                ]
+            )
 
         # Add the main role task
-        tasks.append({
-            "name": f"Configure the MCE CAPI/CAPA environment",
-            "include_role": {"name": role_name},
-            "vars": {
-                "ocm_client_id": "{{ OCM_CLIENT_ID }}",
-                "ocm_client_secret": "{{ OCM_CLIENT_SECRET }}",
-            },
-        })
+        tasks.append(
+            {
+                "name": f"Configure the MCE CAPI/CAPA environment",
+                "include_role": {"name": role_name},
+                "vars": {
+                    "ocm_client_id": "{{ OCM_CLIENT_ID }}",
+                    "ocm_client_secret": "{{ OCM_CLIENT_SECRET }}",
+                },
+            }
+        )
 
         playbook_content = {
             "name": f"Run {role_name} role",
@@ -2408,11 +2524,11 @@ async def run_ansible_role(request: dict):
 
         # Write temporary playbook
         # Use AUTOMATION_PATH environment variable if set, otherwise calculate from file path
-        project_root = os.environ.get('AUTOMATION_PATH') or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        project_root = os.environ.get("AUTOMATION_PATH") or os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
         # Write temp file to /tmp since project_root might be read-only
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yml", delete=False, dir="/tmp"
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False, dir="/tmp") as f:
             yaml.dump([playbook_content], f, default_flow_style=False)
             temp_playbook = f.name
 
@@ -2580,6 +2696,7 @@ async def run_ansible_playbook_endpoint(request: dict):
 # Minikube API Endpoints
 # ===========================
 
+
 @app.get("/api/minikube/list-clusters")
 async def list_minikube_clusters():
     """List available Minikube profiles"""
@@ -2602,7 +2719,7 @@ async def list_minikube_clusters():
             ["minikube", "profile", "list", "-o", "json"],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
         )
 
         if list_result.returncode != 0:
@@ -2616,6 +2733,7 @@ async def list_minikube_clusters():
 
         # Parse JSON output
         import json
+
         try:
             profiles_data = json.loads(list_result.stdout)
             clusters = []
@@ -2627,8 +2745,16 @@ async def list_minikube_clusters():
             return {
                 "clusters": clusters,
                 "minikube_installed": True,
-                "message": f"Found {len(clusters)} Minikube cluster(s)" if clusters else "No Minikube clusters found",
-                "suggestion": "Create a cluster with: minikube start --profile <cluster-name>" if not clusters else None,
+                "message": (
+                    f"Found {len(clusters)} Minikube cluster(s)"
+                    if clusters
+                    else "No Minikube clusters found"
+                ),
+                "suggestion": (
+                    "Create a cluster with: minikube start --profile <cluster-name>"
+                    if not clusters
+                    else None
+                ),
             }
         except json.JSONDecodeError:
             return {
@@ -2680,7 +2806,7 @@ async def verify_minikube_cluster(request: dict):
             ["minikube", "status", "-p", cluster_name, "-o", "json"],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
         )
 
         if status_result.returncode != 0:
@@ -2694,6 +2820,7 @@ async def verify_minikube_cluster(request: dict):
 
         # Parse status to check if running
         import json
+
         try:
             status_data = json.loads(status_result.stdout)
             is_running = status_data.get("Host", "") == "Running"
@@ -2722,67 +2849,90 @@ async def verify_minikube_cluster(request: dict):
                     ["kubectl", "version", "--short", "--context", context_name],
                     capture_output=True,
                     text=True,
-                    timeout=10
+                    timeout=10,
                 )
 
                 cluster_info = {
                     "status": "running",
-                    "version": version_result.stdout.strip() if version_result.returncode == 0 else "unknown"
+                    "version": (
+                        version_result.stdout.strip()
+                        if version_result.returncode == 0
+                        else "unknown"
+                    ),
                 }
 
                 # Check for CAPI/CAPA components
-                components = {
-                    "checks_passed": 0,
-                    "warnings": 0,
-                    "failed": 0,
-                    "details": []
-                }
+                components = {"checks_passed": 0, "warnings": 0, "failed": 0, "details": []}
 
                 # Check AWS credentials secret
                 aws_creds_check = subprocess.run(
-                    ["kubectl", "get", "secret", "capa-manager-bootstrap-credentials",
-                     "-n", "capa-system", "--context", context_name],
+                    [
+                        "kubectl",
+                        "get",
+                        "secret",
+                        "capa-manager-bootstrap-credentials",
+                        "-n",
+                        "capa-system",
+                        "--context",
+                        context_name,
+                    ],
                     capture_output=True,
                     text=True,
-                    timeout=10
+                    timeout=10,
                 )
                 if aws_creds_check.returncode == 0:
                     components["checks_passed"] += 1
-                    components["details"].append({
-                        "name": "AWS Credentials",
-                        "status": "configured",
-                        "message": "AWS credentials secret found"
-                    })
+                    components["details"].append(
+                        {
+                            "name": "AWS Credentials",
+                            "status": "configured",
+                            "message": "AWS credentials secret found",
+                        }
+                    )
                 else:
                     components["warnings"] += 1
-                    components["details"].append({
-                        "name": "AWS Credentials",
-                        "status": "not_configured",
-                        "message": "AWS credentials secret not found in capa-system namespace"
-                    })
+                    components["details"].append(
+                        {
+                            "name": "AWS Credentials",
+                            "status": "not_configured",
+                            "message": "AWS credentials secret not found in capa-system namespace",
+                        }
+                    )
 
                 # Check OCM Client Secret
                 ocm_secret_check = subprocess.run(
-                    ["kubectl", "get", "secret", "rosa-creds-secret",
-                     "-n", "ns-rosa-hcp", "--context", context_name],
+                    [
+                        "kubectl",
+                        "get",
+                        "secret",
+                        "rosa-creds-secret",
+                        "-n",
+                        "ns-rosa-hcp",
+                        "--context",
+                        context_name,
+                    ],
                     capture_output=True,
                     text=True,
-                    timeout=10
+                    timeout=10,
                 )
                 if ocm_secret_check.returncode == 0:
                     components["checks_passed"] += 1
-                    components["details"].append({
-                        "name": "OCM Client Secret",
-                        "status": "configured",
-                        "message": "ROSA credentials secret found"
-                    })
+                    components["details"].append(
+                        {
+                            "name": "OCM Client Secret",
+                            "status": "configured",
+                            "message": "ROSA credentials secret found",
+                        }
+                    )
                 else:
                     components["failed"] += 1
-                    components["details"].append({
-                        "name": "OCM Client Secret",
-                        "status": "missing",
-                        "message": "ROSA credentials secret not found in ns-rosa-hcp namespace"
-                    })
+                    components["details"].append(
+                        {
+                            "name": "OCM Client Secret",
+                            "status": "missing",
+                            "message": "ROSA credentials secret not found in ns-rosa-hcp namespace",
+                        }
+                    )
 
                 cluster_info["components"] = components
 
@@ -2915,6 +3065,7 @@ async def create_minikube_cluster(request: Request):
 
         # Validate cluster name
         import re
+
         name_pattern = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
         if not name_pattern.match(cluster_name):
             return {
@@ -2937,10 +3088,7 @@ async def create_minikube_cluster(request: Request):
 
         # Check if cluster already exists
         status_result = subprocess.run(
-            ["minikube", "status", "-p", cluster_name],
-            capture_output=True,
-            text=True,
-            timeout=10
+            ["minikube", "status", "-p", cluster_name], capture_output=True, text=True, timeout=10
         )
 
         if status_result.returncode == 0:
@@ -3027,16 +3175,17 @@ async def execute_minikube_command(request: Request):
 
         # Security check: block dangerous commands
         dangerous_patterns = [
-            r'\brm\s+-rf\s+/',
-            r'\bmkfs\b',
-            r'\bdd\b.*of=/dev',
-            r'\bshutdown\b',
-            r'\breboot\b',
-            r'\bkillall\b',
-            r':\(\)',
+            r"\brm\s+-rf\s+/",
+            r"\bmkfs\b",
+            r"\bdd\b.*of=/dev",
+            r"\bshutdown\b",
+            r"\breboot\b",
+            r"\bkillall\b",
+            r":\(\)",
         ]
 
         import re
+
         for pattern in dangerous_patterns:
             if re.search(pattern, command, re.IGNORECASE):
                 return {
@@ -3048,7 +3197,7 @@ async def execute_minikube_command(request: Request):
         # Use bash login shell with alias expansion
         user_shell = os.environ.get("SHELL", "/bin/bash")
 
-        wrapper_command = f'''
+        wrapper_command = f"""
             # Source profile files silently
             [ -f ~/.profile ] && source ~/.profile 2>/dev/null
             [ -f ~/.bashrc ] && source ~/.bashrc 2>/dev/null
@@ -3059,7 +3208,7 @@ async def execute_minikube_command(request: Request):
             export KUBECONFIG=~/.kube/config
             # Run the actual command
             {command}
-        '''
+        """
 
         result = subprocess.run(
             [user_shell, "-c", wrapper_command],
@@ -3099,7 +3248,10 @@ async def get_minikube_active_resources(request: Request):
 
     # For Minikube, the context name is just the cluster name (not "kind-{name}")
     # So we temporarily modify the request to work with the shared logic
-    modified_request = {"cluster_name": cluster_name, "namespace": body.get("namespace", "ns-rosa-hcp")}
+    modified_request = {
+        "cluster_name": cluster_name,
+        "namespace": body.get("namespace", "ns-rosa-hcp"),
+    }
 
     # Call the shared implementation (we'll extract it to a helper function)
     return await _get_active_resources_impl(cluster_name, body.get("namespace", "ns-rosa-hcp"))
@@ -3109,18 +3261,15 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
     """Shared implementation for getting active resources"""
     try:
         if not cluster_name:
-            return {
-                "success": False,
-                "message": "Cluster name is required",
-                "resources": []
-            }
+            return {"success": False, "message": "Cluster name is required", "resources": []}
 
         resources = []
 
         def calculate_age(creation_timestamp):
             from datetime import datetime, timezone
+
             try:
-                created = datetime.fromisoformat(creation_timestamp.replace('Z', '+00:00'))
+                created = datetime.fromisoformat(creation_timestamp.replace("Z", "+00:00"))
                 now = datetime.now(timezone.utc)
                 delta = now - created
 
@@ -3142,144 +3291,211 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
         # Fetch ns-rosa-hcp namespace
         try:
             result = subprocess.run(
-                ["kubectl", "get", "namespace", namespace,
-                 "--context", cluster_name, "-o", "json"],
+                ["kubectl", "get", "namespace", namespace, "--context", cluster_name, "-o", "json"],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
             if result.returncode == 0:
                 import json as json_module
+
                 data = json_module.loads(result.stdout)
                 metadata = data.get("metadata", {})
                 status = data.get("status", {})
                 phase = status.get("phase", "Active")
-                resources.append({
-                    "type": "Namespace",
-                    "name": metadata.get("name", "unknown"),
-                    "version": "N/A",
-                    "status": phase,
-                    "age": calculate_age(metadata.get("creationTimestamp", ""))
-                })
+                resources.append(
+                    {
+                        "type": "Namespace",
+                        "name": metadata.get("name", "unknown"),
+                        "version": "N/A",
+                        "status": phase,
+                        "age": calculate_age(metadata.get("creationTimestamp", "")),
+                    }
+                )
         except Exception:
             pass
 
         # Fetch AWSClusterControllerIdentity (infrastructure resource)
         try:
             result = subprocess.run(
-                ["kubectl", "get", "awsclustercontrolleridentity",
-                 "--context", cluster_name, "-o", "json"],
+                [
+                    "kubectl",
+                    "get",
+                    "awsclustercontrolleridentity",
+                    "--context",
+                    cluster_name,
+                    "-o",
+                    "json",
+                ],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
             if result.returncode == 0:
                 import json as json_module
+
                 data = json_module.loads(result.stdout)
                 for item in data.get("items", []):
                     metadata = item.get("metadata", {})
-                    resources.append({
-                        "type": "AWSClusterControllerIdentity",
-                        "name": metadata.get("name", "unknown"),
-                        "version": "N/A",
-                        "status": "Configured",
-                        "age": calculate_age(metadata.get("creationTimestamp", ""))
-                    })
+                    resources.append(
+                        {
+                            "type": "AWSClusterControllerIdentity",
+                            "name": metadata.get("name", "unknown"),
+                            "version": "N/A",
+                            "status": "Configured",
+                            "age": calculate_age(metadata.get("creationTimestamp", "")),
+                        }
+                    )
         except Exception:
             pass
 
         # Fetch ROSA credentials secret in capa-system
         try:
             result = subprocess.run(
-                ["kubectl", "get", "secret", "rosa-creds-secret",
-                 "-n", "capa-system", "--context", cluster_name, "-o", "json"],
+                [
+                    "kubectl",
+                    "get",
+                    "secret",
+                    "rosa-creds-secret",
+                    "-n",
+                    "capa-system",
+                    "--context",
+                    cluster_name,
+                    "-o",
+                    "json",
+                ],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
             if result.returncode == 0:
                 import json as json_module
+
                 data = json_module.loads(result.stdout)
                 metadata = data.get("metadata", {})
-                resources.append({
-                    "type": "Secret (ROSA Creds)",
-                    "name": f"{metadata.get('name', 'unknown')} (capa-system)",
-                    "version": "N/A",
-                    "status": "Configured",
-                    "age": calculate_age(metadata.get("creationTimestamp", ""))
-                })
+                resources.append(
+                    {
+                        "type": "Secret (ROSA Creds)",
+                        "name": f"{metadata.get('name', 'unknown')} (capa-system)",
+                        "version": "N/A",
+                        "status": "Configured",
+                        "age": calculate_age(metadata.get("creationTimestamp", "")),
+                    }
+                )
         except Exception:
             pass
 
         # Fetch ROSA credentials secret in ns-rosa-hcp
         try:
             result = subprocess.run(
-                ["kubectl", "get", "secret", "rosa-creds-secret",
-                 "-n", namespace, "--context", cluster_name, "-o", "json"],
+                [
+                    "kubectl",
+                    "get",
+                    "secret",
+                    "rosa-creds-secret",
+                    "-n",
+                    namespace,
+                    "--context",
+                    cluster_name,
+                    "-o",
+                    "json",
+                ],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
             if result.returncode == 0:
                 import json as json_module
+
                 data = json_module.loads(result.stdout)
                 metadata = data.get("metadata", {})
-                resources.append({
-                    "type": "Secret (ROSA Creds)",
-                    "name": f"{metadata.get('name', 'unknown')} ({namespace})",
-                    "version": "N/A",
-                    "status": "Configured",
-                    "age": calculate_age(metadata.get("creationTimestamp", ""))
-                })
+                resources.append(
+                    {
+                        "type": "Secret (ROSA Creds)",
+                        "name": f"{metadata.get('name', 'unknown')} ({namespace})",
+                        "version": "N/A",
+                        "status": "Configured",
+                        "age": calculate_age(metadata.get("creationTimestamp", "")),
+                    }
+                )
         except Exception:
             pass
 
         # Fetch AWS credentials secret in capa-system
         try:
             result = subprocess.run(
-                ["kubectl", "get", "secret", "capa-manager-bootstrap-credentials",
-                 "-n", "capa-system", "--context", cluster_name, "-o", "json"],
+                [
+                    "kubectl",
+                    "get",
+                    "secret",
+                    "capa-manager-bootstrap-credentials",
+                    "-n",
+                    "capa-system",
+                    "--context",
+                    cluster_name,
+                    "-o",
+                    "json",
+                ],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
             if result.returncode == 0:
                 import json as json_module
+
                 data = json_module.loads(result.stdout)
                 metadata = data.get("metadata", {})
-                resources.append({
-                    "type": "Secret (AWS Creds)",
-                    "name": f"{metadata.get('name', 'unknown')} (capa-system)",
-                    "version": "N/A",
-                    "status": "Configured",
-                    "age": calculate_age(metadata.get("creationTimestamp", ""))
-                })
+                resources.append(
+                    {
+                        "type": "Secret (AWS Creds)",
+                        "name": f"{metadata.get('name', 'unknown')} (capa-system)",
+                        "version": "N/A",
+                        "status": "Configured",
+                        "age": calculate_age(metadata.get("creationTimestamp", "")),
+                    }
+                )
         except Exception:
             pass
 
         # Fetch CAPI Clusters
         try:
             result = subprocess.run(
-                ["kubectl", "get", "clusters.cluster.x-k8s.io", "-n", namespace,
-                 "--context", cluster_name, "-o", "json"],
+                [
+                    "kubectl",
+                    "get",
+                    "clusters.cluster.x-k8s.io",
+                    "-n",
+                    namespace,
+                    "--context",
+                    cluster_name,
+                    "-o",
+                    "json",
+                ],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
             if result.returncode == 0:
                 import json as json_module
+
                 data = json_module.loads(result.stdout)
                 for item in data.get("items", []):
                     metadata = item.get("metadata", {})
                     spec = item.get("spec", {})
                     status = item.get("status", {})
-                    resources.append({
-                        "type": "CAPI Clusters",
-                        "name": metadata.get("name", "unknown"),
-                        "version": spec.get("topology", {}).get("version", "v1.5.3"),
-                        "status": "Ready" if status.get("phase") == "Provisioned" else status.get("phase", "Active"),
-                        "age": calculate_age(metadata.get("creationTimestamp", ""))
-                    })
+                    resources.append(
+                        {
+                            "type": "CAPI Clusters",
+                            "name": metadata.get("name", "unknown"),
+                            "version": spec.get("topology", {}).get("version", "v1.5.3"),
+                            "status": (
+                                "Ready"
+                                if status.get("phase") == "Provisioned"
+                                else status.get("phase", "Active")
+                            ),
+                            "age": calculate_age(metadata.get("creationTimestamp", "")),
+                        }
+                    )
         except Exception:
             pass
 
@@ -3289,14 +3505,14 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
         return {
             "success": True,
             "resources": resources,
-            "message": f"Found {len(resources)} active resource(s)"
+            "message": f"Found {len(resources)} active resource(s)",
         }
 
     except Exception as e:
         return {
             "success": False,
             "message": f"Error fetching active resources: {str(e)}",
-            "resources": []
+            "resources": [],
         }
 
 
@@ -3314,7 +3530,7 @@ async def get_minikube_resource_detail(request: Request):
             return {
                 "success": False,
                 "message": "cluster_name, resource_type, and resource_name are required",
-                "data": None
+                "data": None,
             }
 
         # For Minikube, context name is just the cluster name (no "kind-" prefix)
@@ -3350,19 +3566,37 @@ async def get_minikube_resource_detail(request: Request):
             # For cluster-scoped resources (like AWSClusterControllerIdentity), don't use namespace
             if kubectl_resource_type == "awsclustercontrolleridentity":
                 result = subprocess.run(
-                    ["kubectl", "get", kubectl_resource_type, resource_name,
-                     "--context", context_name, "-o", "yaml"],
+                    [
+                        "kubectl",
+                        "get",
+                        kubectl_resource_type,
+                        resource_name,
+                        "--context",
+                        context_name,
+                        "-o",
+                        "yaml",
+                    ],
                     capture_output=True,
                     text=True,
-                    timeout=10
+                    timeout=10,
                 )
             else:
                 result = subprocess.run(
-                    ["kubectl", "get", kubectl_resource_type, resource_name, "-n", namespace,
-                     "--context", context_name, "-o", "yaml"],
+                    [
+                        "kubectl",
+                        "get",
+                        kubectl_resource_type,
+                        resource_name,
+                        "-n",
+                        namespace,
+                        "--context",
+                        context_name,
+                        "-o",
+                        "yaml",
+                    ],
                     capture_output=True,
                     text=True,
-                    timeout=10
+                    timeout=10,
                 )
 
             if result.returncode == 0:
@@ -3372,27 +3606,23 @@ async def get_minikube_resource_detail(request: Request):
                     "resource_type": resource_type,
                     "resource_name": resource_name,
                     "namespace": namespace,
-                    "message": f"Successfully fetched {resource_type} '{resource_name}'"
+                    "message": f"Successfully fetched {resource_type} '{resource_name}'",
                 }
             else:
                 return {
                     "success": False,
                     "message": f"Failed to fetch resource: {result.stderr}",
-                    "data": None
+                    "data": None,
                 }
 
         except subprocess.TimeoutExpired:
-            return {
-                "success": False,
-                "message": "Request timed out",
-                "data": None
-            }
+            return {"success": False, "message": "Request timed out", "data": None}
 
     except Exception as e:
         return {
             "success": False,
             "message": f"Error fetching resource detail: {str(e)}",
-            "data": None
+            "data": None,
         }
 
 

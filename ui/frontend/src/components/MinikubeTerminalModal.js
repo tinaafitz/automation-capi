@@ -138,7 +138,7 @@ export function MinikubeTerminalModal({ isOpen, onClose, clusterName }) {
     setShowHistory(false);
   };
 
-  const useHistoryCommand = (cmd) => {
+  const selectHistoryCommand = (cmd) => {
     setCommand(cmd);
     setShowHistory(false);
     if (inputRef.current) {
@@ -239,7 +239,7 @@ export function MinikubeTerminalModal({ isOpen, onClose, clusterName }) {
                     {commands.map((template, idx) => (
                       <button
                         key={idx}
-                        onClick={() => useHistoryCommand(template.cmd)}
+                        onClick={() => selectHistoryCommand(template.cmd)}
                         className="w-full text-left p-2 rounded-lg hover:bg-purple-50 transition-colors group"
                       >
                         <p className="text-xs font-medium text-gray-900 group-hover:text-purple-700">
@@ -365,7 +365,7 @@ export function MinikubeTerminalModal({ isOpen, onClose, clusterName }) {
                     <div
                       key={idx}
                       className="p-3 hover:bg-purple-50 transition-colors group cursor-pointer"
-                      onClick={() => useHistoryCommand(item.command)}
+                      onClick={() => selectHistoryCommand(item.command)}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
