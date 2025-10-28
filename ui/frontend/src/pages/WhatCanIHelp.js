@@ -5870,7 +5870,6 @@ ${statusResult.result.output}
                                           </div>
                                         </div>
                                       </details>
-                                          </div>
                                           </>
                                         );
                                       })()}
