@@ -48,28 +48,76 @@ export function KindTerminalModal({ isOpen, onClose, clusterName, namespace }) {
     {
       category: 'Cluster Info',
       commands: [
-        { label: 'Get Pods', cmd: 'kubectl get pods -A', description: 'List all pods across all namespaces' },
-        { label: 'Get Nodes', cmd: 'kubectl get nodes', description: 'List all nodes in the cluster' },
-        { label: 'Cluster Info', cmd: 'kubectl cluster-info', description: 'Display cluster information' },
-        { label: 'Get Namespaces', cmd: 'kubectl get namespaces', description: 'List all namespaces' },
+        {
+          label: 'Get Pods',
+          cmd: 'kubectl get pods -A',
+          description: 'List all pods across all namespaces',
+        },
+        {
+          label: 'Get Nodes',
+          cmd: 'kubectl get nodes',
+          description: 'List all nodes in the cluster',
+        },
+        {
+          label: 'Cluster Info',
+          cmd: 'kubectl cluster-info',
+          description: 'Display cluster information',
+        },
+        {
+          label: 'Get Namespaces',
+          cmd: 'kubectl get namespaces',
+          description: 'List all namespaces',
+        },
       ],
     },
     {
       category: 'CAPI/CAPA Components',
       commands: [
-        { label: 'CAPI Pods', cmd: `kubectl get pods -n capi-system`, description: 'Check CAPI controller pods' },
-        { label: 'CAPA Pods', cmd: `kubectl get pods -n capa-system`, description: 'Check CAPA controller pods' },
-        { label: 'CAPI Controllers', cmd: 'kubectl get deployment -n capi-system', description: 'List CAPI deployments' },
-        { label: 'CAPA Controllers', cmd: 'kubectl get deployment -n capa-system', description: 'List CAPA deployments' },
+        {
+          label: 'CAPI Pods',
+          cmd: `kubectl get pods -n capi-system`,
+          description: 'Check CAPI controller pods',
+        },
+        {
+          label: 'CAPA Pods',
+          cmd: `kubectl get pods -n capa-system`,
+          description: 'Check CAPA controller pods',
+        },
+        {
+          label: 'CAPI Controllers',
+          cmd: 'kubectl get deployment -n capi-system',
+          description: 'List CAPI deployments',
+        },
+        {
+          label: 'CAPA Controllers',
+          cmd: 'kubectl get deployment -n capa-system',
+          description: 'List CAPA deployments',
+        },
       ],
     },
     {
       category: 'ROSA Resources',
       commands: [
-        { label: 'ROSA Clusters', cmd: `kubectl get rosaclusters -n ${namespace || 'default'}`, description: 'List ROSA clusters' },
-        { label: 'ROSA Networks', cmd: `kubectl get rosanetworks -n ${namespace || 'default'}`, description: 'List ROSA network resources' },
-        { label: 'ROSA Roles', cmd: `kubectl get rosaroleconfigs -n ${namespace || 'default'}`, description: 'List ROSA role configurations' },
-        { label: 'Control Planes', cmd: `kubectl get rosacontrolplanes -n ${namespace || 'default'}`, description: 'List ROSA control planes' },
+        {
+          label: 'ROSA Clusters',
+          cmd: `kubectl get rosaclusters -n ${namespace || 'default'}`,
+          description: 'List ROSA clusters',
+        },
+        {
+          label: 'ROSA Networks',
+          cmd: `kubectl get rosanetworks -n ${namespace || 'default'}`,
+          description: 'List ROSA network resources',
+        },
+        {
+          label: 'ROSA Roles',
+          cmd: `kubectl get rosaroleconfigs -n ${namespace || 'default'}`,
+          description: 'List ROSA role configurations',
+        },
+        {
+          label: 'Control Planes',
+          cmd: `kubectl get rosacontrolplanes -n ${namespace || 'default'}`,
+          description: 'List ROSA control planes',
+        },
       ],
     },
     {
@@ -78,7 +126,11 @@ export function KindTerminalModal({ isOpen, onClose, clusterName, namespace }) {
         { label: 'OC Projects', cmd: 'oc projects', description: 'List all projects (namespaces)' },
         { label: 'OC Status', cmd: 'oc status', description: 'Show overview of current project' },
         { label: 'OC Get Routes', cmd: 'oc get routes -A', description: 'List all routes' },
-        { label: 'OC Get Operators', cmd: 'oc get operators', description: 'List installed operators' },
+        {
+          label: 'OC Get Operators',
+          cmd: 'oc get operators',
+          description: 'List installed operators',
+        },
       ],
     },
     {
@@ -97,18 +149,46 @@ export function KindTerminalModal({ isOpen, onClose, clusterName, namespace }) {
       category: 'ROSA CLI',
       commands: [
         { label: 'ROSA Version', cmd: 'rosa version', description: 'Show ROSA CLI version' },
-        { label: 'ROSA List Clusters', cmd: 'rosa list clusters', description: 'List all ROSA clusters' },
-        { label: 'ROSA Whoami', cmd: 'rosa whoami', description: 'Display current AWS account info' },
-        { label: 'ROSA Verify Quota', cmd: 'rosa verify quota', description: 'Verify AWS quota for ROSA' },
+        {
+          label: 'ROSA List Clusters',
+          cmd: 'rosa list clusters',
+          description: 'List all ROSA clusters',
+        },
+        {
+          label: 'ROSA Whoami',
+          cmd: 'rosa whoami',
+          description: 'Display current AWS account info',
+        },
+        {
+          label: 'ROSA Verify Quota',
+          cmd: 'rosa verify quota',
+          description: 'Verify AWS quota for ROSA',
+        },
       ],
     },
     {
       category: 'Debugging',
       commands: [
-        { label: 'Recent Events', cmd: 'kubectl get events --sort-by=.metadata.creationTimestamp -A', description: 'Show recent cluster events' },
-        { label: 'Failed Pods', cmd: 'kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded', description: 'List pods not running' },
-        { label: 'Pod Logs', cmd: 'kubectl logs -n <namespace> <pod-name>', description: 'View pod logs (replace placeholders)' },
-        { label: 'Describe Pod', cmd: 'kubectl describe pod -n <namespace> <pod-name>', description: 'Get detailed pod info' },
+        {
+          label: 'Recent Events',
+          cmd: 'kubectl get events --sort-by=.metadata.creationTimestamp -A',
+          description: 'Show recent cluster events',
+        },
+        {
+          label: 'Failed Pods',
+          cmd: 'kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded',
+          description: 'List pods not running',
+        },
+        {
+          label: 'Pod Logs',
+          cmd: 'kubectl logs -n <namespace> <pod-name>',
+          description: 'View pod logs (replace placeholders)',
+        },
+        {
+          label: 'Describe Pod',
+          cmd: 'kubectl describe pod -n <namespace> <pod-name>',
+          description: 'Get detailed pod info',
+        },
       ],
     },
   ];
@@ -410,9 +490,7 @@ export function KindTerminalModal({ isOpen, onClose, clusterName, namespace }) {
                 <div className="text-gray-500 text-center mt-8">
                   <MagnifyingGlassIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
                   <p>No commands match your search</p>
-                  <p className="text-xs mt-1">
-                    Try a different search term or clear the search
-                  </p>
+                  <p className="text-xs mt-1">Try a different search term or clear the search</p>
                 </div>
               ) : (
                 <div className="space-y-4 px-4">

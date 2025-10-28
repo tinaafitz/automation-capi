@@ -58,7 +58,9 @@ export function KindClusterModal({ isOpen, onClose, onClusterSelected, currentCl
       if (err.name === 'AbortError') {
         setError('Request timed out. Please check if the backend is running on port 8000.');
       } else {
-        setError(`Failed to connect to backend: ${err.message}. Please ensure the server is running on port 8000.`);
+        setError(
+          `Failed to connect to backend: ${err.message}. Please ensure the server is running on port 8000.`
+        );
       }
     } finally {
       console.log('🔵 [KindClusterModal] Setting loading to false');
@@ -199,8 +201,7 @@ export function KindClusterModal({ isOpen, onClose, onClusterSelected, currentCl
                   <br />
                   # Linux
                   <br />
-                  curl -Lo ./kind
-                  https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+                  curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
                   <br />
                   chmod +x ./kind
                   <br />
@@ -261,9 +262,7 @@ export function KindClusterModal({ isOpen, onClose, onClusterSelected, currentCl
                               <p className="font-mono text-sm font-semibold text-gray-900">
                                 {cluster}
                               </p>
-                              <p className="text-xs text-gray-500 mt-0.5">
-                                Click to select
-                              </p>
+                              <p className="text-xs text-gray-500 mt-0.5">Click to select</p>
                             </div>
                           </div>
                           {currentCluster === cluster && (
