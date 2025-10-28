@@ -2497,7 +2497,7 @@ async def run_ansible_role(request: dict):
                             "api_url": "{{ OCP_HUB_API_URL }}",
                         },
                     },
-                    {"name": "Login to OCP", "include_tasks": "tasks/login_ocp.yml"},
+                    {"name": "Login to OCP", "include_tasks": f"{project_root}/tasks/login_ocp.yml"},
                 ]
             )
 
@@ -2541,6 +2541,10 @@ async def run_ansible_role(request: dict):
                 "localhost,",  # Inline inventory with localhost
                 "-e",
                 "skip_ansible_runner=true",
+                "-e",
+                f"AUTOMATION_PATH={project_root}",
+                "-e",
+                f"playbook_dir={project_root}",
                 "-v",  # Verbose output
             ]
 
@@ -2550,10 +2554,18 @@ async def run_ansible_role(request: dict):
 
             print(f"Running ansible role: {' '.join(cmd)}")
 
+            # Set environment variables for Ansible
+            import os as os_module
+
+            env = os_module.environ.copy()
+            env["ANSIBLE_ROLES_PATH"] = f"{project_root}/roles"
+            env["ANSIBLE_PLAYBOOK_DIR"] = project_root
+
             # Run the command
             result = subprocess.run(
                 cmd,
                 cwd=project_root,
+                env=env,
                 capture_output=True,
                 text=True,
                 timeout=600,  # 10 minutes timeout for roles
@@ -3591,6 +3603,109 @@ async def get_minikube_resource_detail(request: Request):
                         namespace,
                         "--context",
                         context_name,
+                        "-o",
+                        "yaml",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+
+            if result.returncode == 0:
+                return {
+                    "success": True,
+                    "data": result.stdout,
+                    "resource_type": resource_type,
+                    "resource_name": resource_name,
+                    "namespace": namespace,
+                    "message": f"Successfully fetched {resource_type} '{resource_name}'",
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": f"Failed to fetch resource: {result.stderr}",
+                    "data": None,
+                }
+
+        except subprocess.TimeoutExpired:
+            return {"success": False, "message": "Request timed out", "data": None}
+
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error fetching resource detail: {str(e)}",
+            "data": None,
+        }
+
+
+@app.post("/api/ocp/get-resource-detail")
+async def get_ocp_resource_detail(request: Request):
+    """Get full YAML details of a specific resource from the OCP/MCE cluster"""
+    try:
+        body = await request.json()
+        resource_type = body.get("resource_type", "").strip()
+        resource_name = body.get("resource_name", "").strip()
+        namespace = body.get("namespace", "").strip()
+
+        if not resource_type or not resource_name:
+            return {
+                "success": False,
+                "message": "resource_type and resource_name are required",
+                "data": None,
+            }
+
+        # Map friendly resource types to oc/kubectl resource types
+        resource_type_map = {
+            "Deployment": "deployment",
+            "ClusterManager": "clustermanager",
+            "ClusterRoleBinding": "clusterrolebinding",
+            "Secret": "secret",
+            "AWSClusterControllerIdentity": "awsclustercontrolleridentity",
+            "Namespace": "namespace",
+        }
+
+        oc_resource_type = resource_type_map.get(resource_type, resource_type.lower())
+
+        # Fetch the resource details in YAML format using oc
+        try:
+            # For cluster-scoped resources, don't use namespace
+            cluster_scoped_resources = [
+                "clusterrolebinding",
+                "awsclustercontrolleridentity",
+                "namespace",
+                "clustermanager",
+            ]
+
+            if oc_resource_type in cluster_scoped_resources:
+                result = subprocess.run(
+                    [
+                        "oc",
+                        "get",
+                        oc_resource_type,
+                        resource_name,
+                        "-o",
+                        "yaml",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+            else:
+                # Namespace-scoped resources
+                if not namespace:
+                    return {
+                        "success": False,
+                        "message": f"Namespace is required for resource type '{resource_type}'",
+                        "data": None,
+                    }
+                result = subprocess.run(
+                    [
+                        "oc",
+                        "get",
+                        oc_resource_type,
+                        resource_name,
+                        "-n",
+                        namespace,
                         "-o",
                         "yaml",
                     ],

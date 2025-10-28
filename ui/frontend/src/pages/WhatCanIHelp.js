@@ -413,6 +413,39 @@ export function WhatCanIHelp() {
     }
   };
 
+  const fetchOcpResourceDetail = async (resourceType, resourceName, namespace = '') => {
+    try {
+      const response = await fetch('http://localhost:8000/api/ocp/get-resource-detail', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          resource_type: resourceType,
+          resource_name: resourceName,
+          namespace: namespace,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSelectedResourceDetail({
+          type: resourceType,
+          name: resourceName,
+          namespace: namespace,
+          yaml: data.data,
+        });
+        setShowResourceDetailModal(true);
+      } else {
+        addNotification(`Failed to fetch resource: ${data.message}`, 'error', 3000);
+      }
+    } catch (error) {
+      console.error('Failed to fetch OCP resource detail:', error);
+      addNotification('Failed to fetch resource details', 'error', 3000);
+    }
+  };
+
   const verifyKindCluster = async (clusterName) => {
     if (!clusterName.trim()) {
       addNotification('Please enter a cluster name', 'error');
@@ -1696,186 +1729,6 @@ export function WhatCanIHelp() {
             'check-components': {
               loading: false,
               result: { error: error.name === 'AbortError' ? 'Request timed out' : error.message },
-              timestamp: new Date(),
-              success: false,
-            },
-          }));
-        }
-      },
-    },
-    {
-      id: 'get-capi-capa-status',
-      title: 'Check CAPI/CAPA Status',
-      subtitle: '',
-      description: 'Check if CAPI and CAPA are enabled in MCE',
-      details:
-        'Queries the MCE environment to determine if CAPI and CAPA components are currently enabled',
-      icon: CheckCircleIcon,
-      color: 'bg-blue-600',
-      textColor: 'text-blue-700',
-      bgColor: 'bg-blue-50 hover:bg-blue-100',
-      borderColor: 'border-blue-300',
-      duration: '~30s',
-      tooltip: 'Check if CAPI/CAPA are enabled',
-      action: async () => {
-        try {
-          setAnsibleResults((prev) => ({
-            ...prev,
-            'get-capi-capa-status': { loading: true, result: null, timestamp: new Date() },
-          }));
-
-          // Create an AbortController for timeout
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 second timeout (2 minutes)
-
-          const response = await fetch('http://localhost:8000/api/ansible/run-task', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              task_file: 'tasks/get_capi_capa_status.yml',
-              description: 'Get CAPI/CAPA status',
-            }),
-            signal: controller.signal,
-          });
-
-          clearTimeout(timeoutId);
-          const result = await response.json();
-
-          if (response.ok && result.success) {
-            setAnsibleResults((prev) => ({
-              ...prev,
-              'get-capi-capa-status': {
-                loading: false,
-                result: result,
-                timestamp: new Date(),
-                success: true,
-              },
-            }));
-          } else {
-            setAnsibleResults((prev) => ({
-              ...prev,
-              'get-capi-capa-status': {
-                loading: false,
-                result: result,
-                timestamp: new Date(),
-                success: false,
-              },
-            }));
-          }
-        } catch (error) {
-          console.error('Error checking CAPI/CAPA status:', error);
-
-          // Handle timeout specifically
-          const errorMessage =
-            error.name === 'AbortError' ? 'Status check timed out after 2 minutes' : error.message;
-
-          setAnsibleResults((prev) => ({
-            ...prev,
-            'get-capi-capa-status': {
-              loading: false,
-              result: { error: errorMessage },
-              timestamp: new Date(),
-              success: false,
-            },
-          }));
-        }
-      },
-    },
-    {
-      id: 'configure-environment',
-      title: 'Configure MCE Environment',
-      subtitle: '',
-      description: 'Enable and configure CAPI/CAPA components in MCE',
-      details: 'Enables CAPI/CAPA and configures the MCE environment with all necessary components',
-      icon: Cog6ToothIcon,
-      color: 'bg-indigo-600',
-      textColor: 'text-indigo-700',
-      bgColor: 'bg-indigo-50 hover:bg-indigo-100',
-      borderColor: 'border-indigo-300',
-      duration: '~2m',
-      tooltip: 'Enable and configure CAPI/CAPA components',
-      action: async () => {
-        // Declare operationId outside try block so it's accessible in catch
-        const operationId = `configure-mce-${Date.now()}`;
-
-        try {
-          // Add to Recent Operations
-          addToRecent({
-            id: operationId,
-            title: 'Configure MCE Environment',
-            color: 'bg-indigo-600',
-            status: '⏳ Configuring...',
-          });
-
-          // Set loading state
-          setAnsibleResults((prev) => ({
-            ...prev,
-            'configure-environment': { loading: true, result: null, timestamp: new Date() },
-          }));
-
-          // Configure MCE environment (CAPI/CAPA must be enabled separately)
-          addNotification('🔧 Configuring MCE environment...', 'info', 3000);
-
-          const configureResponse = await fetch('http://localhost:8000/api/ansible/run-role', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              role_name: 'configure-capa-environment',
-              description: 'Configure CAPA environment',
-            }),
-          });
-
-          const configureResult = await configureResponse.json();
-
-          if (configureResponse.ok && configureResult.success) {
-            addNotification(`✅ MCE environment configured successfully!`, 'success', 5000);
-
-            // Update Recent Operations with success
-            addToRecent({
-              id: operationId,
-              title: 'Configure MCE Environment',
-              color: 'bg-indigo-600',
-              status: '✅ Completed successfully',
-            });
-
-            setAnsibleResults((prev) => ({
-              ...prev,
-              'configure-environment': {
-                loading: false,
-                result: {
-                  output: configureResult.output || '',
-                  configureResult,
-                },
-                timestamp: new Date(),
-                success: true,
-              },
-            }));
-          } else {
-            throw new Error(
-              `MCE configuration failed: ${configureResult.error || configureResult.message || 'Unknown error'}`
-            );
-          }
-        } catch (error) {
-          console.error('Configuration error:', error);
-          addNotification(`❌ Configuration failed: ${error.message}`, 'error', 8000);
-
-          // Update Recent Operations with error
-          addToRecent({
-            id: operationId,
-            title: 'Configure MCE Environment',
-            color: 'bg-red-600',
-            status: `❌ Failed: ${error.message}`,
-          });
-
-          setAnsibleResults((prev) => ({
-            ...prev,
-            'configure-environment': {
-              loading: false,
-              result: { error: error.message },
               timestamp: new Date(),
               success: false,
             },
@@ -4343,82 +4196,50 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       return null;
                     })()}
 
-                    {/* Provision ROSA HCP Button - Only show when MCE verification is successful */}
+                    {/* Enable HyperShift Button - Only show when CAPI/CAPA ARE enabled (HyperShift disabled) */}
                     {(() => {
-                      const checkResult = ansibleResults['check-components'];
-                      if (checkResult?.success && checkResult.result?.output) {
-                        const output = checkResult.result.output;
-                        // Check for verification success (failed=0)
-                        const isVerified = /failed=0/.test(output);
+                      const statusResult = ansibleResults['get-capi-capa-status'];
+                      if (statusResult?.result?.output) {
+                        const output = statusResult.result.output;
+                        // Check if CAPI AND CAPA are both enabled (meaning HyperShift was disabled)
+                        const capiEnabled = output.includes('CAPI is enabled');
+                        const capaEnabled = output.includes('CAPA is enabled');
 
-                        if (isVerified) {
+                        if (capiEnabled && capaEnabled) {
                           return (
                             <button
                               onClick={async (e) => {
                                 e.stopPropagation();
-                                let operationId;
+
+                                // Create unique ID for this operation using timestamp
+                                const enableId = `enable-hypershift-${Date.now()}`;
+
+                                // Add to recent operations with "Enabling..." status
+                                addToRecent({
+                                  id: enableId,
+                                  title: 'Enable HyperShift',
+                                  color: 'bg-purple-600',
+                                  status: '⏳ Enabling...',
+                                });
 
                                 try {
-                                  // Prompt user for cluster definition file name
-                                  const clusterFile = prompt(
-                                    'Enter the ROSA HCP cluster definition file name:\n\n' +
-                                      'Examples:\n' +
-                                      '- capi-rosahcp-test.yml (default)\n' +
-                                      '- my-rosa-cluster.yaml\n' +
-                                      '- rosa-production.yml\n\n' +
-                                      'File should be in /Users/tinafitzgerald/acm_dev/automation-capi/',
-                                    'capi-rosahcp-test.yml'
-                                  );
+                                  addNotification('🔧 Enabling HyperShift...', 'info', 3000);
 
-                                  if (!clusterFile || clusterFile.trim() === '') {
-                                    return;
-                                  }
-
-                                  const trimmedFile = clusterFile.trim();
-
-                                  if (
-                                    !confirm(
-                                      `Provision ROSA HCP Cluster using "${trimmedFile}"?\n\nThis will:\n- Create namespace ns-rosa-hcp\n- Apply AWS Identity configuration\n- Create OCM client secret\n- Apply ROSA HCP cluster definition from ${trimmedFile}`
-                                    )
-                                  ) {
-                                    return;
-                                  }
-
-                                  operationId = `provision-rosa-hcp-mce-${Date.now()}`;
-
-                                  addToRecent({
-                                    id: operationId,
-                                    title: `Provision ROSA HCP: ${trimmedFile}`,
-                                    color: 'bg-rose-600',
-                                    status: '⏳ Provisioning...',
-                                  });
-
-                                  await new Promise((resolve) => setTimeout(resolve, 1000));
-
-                                  console.log(
-                                    `Starting ROSA HCP cluster provisioning with file: ${trimmedFile}`
-                                  );
-
-                                  const response = await fetch(
+                                  const enableResponse = await fetch(
                                     'http://localhost:8000/api/ansible/run-task',
                                     {
                                       method: 'POST',
-                                      headers: { 'Content-Type': 'application/json' },
+                                      headers: {
+                                        'Content-Type': 'application/json',
+                                      },
                                       body: JSON.stringify({
-                                        task_file: 'tasks/provision-rosa-hcp-cluster.yml',
-                                        description: `Provision ROSA HCP Cluster: ${trimmedFile}`,
-                                        kube_context:
-                                          verifiedMinikubeClusterInfo?.contextName ||
-                                          verifiedMinikubeClusterInfo?.name,
-                                        extra_vars: {
-                                          ROSA_HCP_CLUSTER_FILE: trimmedFile,
-                                        },
+                                        task_file: 'tasks/enable_hypershift.yml',
+                                        description: 'Enable HyperShift',
                                       }),
                                     }
                                   );
 
-                                  const result = await response.json();
-
+                                  const enableResult = await enableResponse.json();
                                   const completionTime = new Date().toLocaleTimeString('en-US', {
                                     hour: 'numeric',
                                     minute: '2-digit',
@@ -4426,58 +4247,29 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                     hour12: true,
                                   });
 
-                                  if (response.ok && result.success) {
-                                    console.log(
-                                      `ROSA HCP provisioning completed successfully at ${completionTime}`
-                                    );
-                                    updateRecentOperationStatus(
-                                      operationId,
-                                      `✅ Provisioned at ${completionTime}`
-                                    );
-                                    addNotification(
-                                      `✅ ROSA HCP cluster provisioning completed`,
-                                      'success',
-                                      5000
-                                    );
-
-                                    // Automatically refresh active resources after successful provisioning
-                                    if (verifiedMinikubeClusterInfo?.name) {
-                                      try {
-                                        console.log(
-                                          'Auto-refreshing active resources after provisioning...'
-                                        );
-                                        const refreshResponse = await fetch(
-                                          'http://localhost:8000/api/minikube/get-active-resources',
-                                          {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({
-                                              cluster_name: verifiedMinikubeClusterInfo.name,
-                                              namespace: verifiedMinikubeClusterInfo.namespace,
-                                            }),
-                                          }
-                                        );
-
-                                        const refreshResult = await refreshResponse.json();
-
-                                        if (refreshResponse.ok && refreshResult.success) {
-                                          console.log(
-                                            'Active resources refreshed automatically',
-                                            refreshResult
-                                          );
-                                          setActiveResources(refreshResult.resources || []);
-                                        }
-                                      } catch (refreshError) {
-                                        console.error(
-                                          'Error auto-refreshing resources:',
-                                          refreshError
-                                        );
-                                      }
-                                    }
-                                  } else {
+                                  if (!enableResponse.ok || !enableResult.success) {
                                     throw new Error(
-                                      result.error || result.message || 'Provisioning failed'
+                                      `HyperShift enablement failed: ${enableResult.error || enableResult.message || 'Unknown error'}`
                                     );
+                                  }
+
+                                  addNotification(
+                                    '✅ HyperShift enabled successfully',
+                                    'success',
+                                    3000
+                                  );
+                                  updateRecentOperationStatus(
+                                    enableId,
+                                    `✅ Enabled at ${completionTime}`
+                                  );
+
+                                  // Automatically run status check again after successful enablement
+                                  await new Promise((resolve) => setTimeout(resolve, 2000));
+                                  const statusOperation = configureEnvironment.find(
+                                    (op) => op.id === 'get-capi-capa-status'
+                                  );
+                                  if (statusOperation) {
+                                    await statusOperation.action();
                                   }
                                 } catch (error) {
                                   const completionTime = new Date().toLocaleTimeString('en-US', {
@@ -4486,18 +4278,16 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                     second: '2-digit',
                                     hour12: true,
                                   });
-                                  console.error('ROSA HCP provisioning error:', error);
-                                  if (operationId) {
-                                    updateRecentOperationStatus(
-                                      operationId,
-                                      `❌ Failed at ${completionTime}`
-                                    );
-                                  }
+                                  console.error('HyperShift enablement error:', error);
                                   addNotification(`❌ ${error.message}`, 'error', 5000);
+                                  updateRecentOperationStatus(
+                                    enableId,
+                                    `❌ Failed at ${completionTime}`
+                                  );
                                 }
                               }}
-                              className="bg-rose-600 hover:bg-rose-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
-                              title="Provision ROSA HCP cluster on MCE"
+                              className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                              title="Enable HyperShift components in MCE (will disable CAPI/CAPA)"
                             >
                               <svg
                                 className="h-3 w-3"
@@ -4512,7 +4302,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   d="M12 6v6m0 0v6m0-6h6m-6 0H6"
                                 />
                               </svg>
-                              <span>Provision ROSA HCP</span>
+                              <span>Enable HyperShift</span>
                             </button>
                           );
                         }
@@ -4730,6 +4520,129 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       <ArrowPathIcon className="h-3 w-3" />
                       <span>Verify</span>
                     </button>
+
+                    {/* Configure MCE Environment Button */}
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+
+                        const operationId = `configure-mce-${Date.now()}`;
+
+                        try {
+                          // Add to Recent Operations
+                          addToRecent({
+                            id: operationId,
+                            title: 'Configure MCE Environment',
+                            color: 'bg-indigo-600',
+                            status: '⏳ Configuring...',
+                          });
+
+                          // Set loading state
+                          setAnsibleResults((prev) => ({
+                            ...prev,
+                            'configure-environment': { loading: true, result: null, timestamp: new Date() },
+                          }));
+
+                          // Configure MCE environment (CAPI/CAPA must be enabled separately)
+                          addNotification('🔧 Configuring MCE environment...', 'info', 3000);
+
+                          const configureResponse = await fetch('http://localhost:8000/api/ansible/run-role', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                              role_name: 'configure-capa-environment',
+                              description: 'Configure CAPA environment',
+                            }),
+                          });
+
+                          const configureResult = await configureResponse.json();
+                          const completionTime = new Date().toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true,
+                          });
+
+                          if (configureResponse.ok && configureResult.success) {
+                            addNotification(`✅ MCE environment configured successfully!`, 'success', 5000);
+
+                            // Update Recent Operations with success
+                            updateRecentOperationStatus(
+                              operationId,
+                              `✅ Configured at ${completionTime}`
+                            );
+
+                            setAnsibleResults((prev) => ({
+                              ...prev,
+                              'configure-environment': {
+                                loading: false,
+                                result: {
+                                  output: configureResult.output || '',
+                                  configureResult,
+                                },
+                                timestamp: new Date(),
+                                success: true,
+                              },
+                            }));
+                          } else {
+                            throw new Error(
+                              `MCE configuration failed: ${configureResult.error || configureResult.message || 'Unknown error'}`
+                            );
+                          }
+                        } catch (error) {
+                          console.error('Configuration error:', error);
+                          const completionTime = new Date().toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true,
+                          });
+                          addNotification(`❌ Configuration failed: ${error.message}`, 'error', 8000);
+
+                          // Update Recent Operations with error
+                          updateRecentOperationStatus(
+                            operationId,
+                            `❌ Failed at ${completionTime}`
+                          );
+
+                          setAnsibleResults((prev) => ({
+                            ...prev,
+                            'configure-environment': {
+                              loading: false,
+                              result: { error: error.message },
+                              timestamp: new Date(),
+                              success: false,
+                            },
+                          }));
+                        }
+                      }}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                      title="Configure MCE environment with CAPI/CAPA components"
+                    >
+                      <svg
+                        className="h-3 w-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                      </svg>
+                      <span>Configure</span>
+                    </button>
+
                     <svg
                       className={`h-4 w-4 text-indigo-600 transition-transform duration-200 ${collapsedSections.has('configure-environment') ? 'rotate-180' : ''}`}
                       fill="none"
@@ -5282,14 +5195,30 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                     {/* Table Rows */}
                                                     <div className="space-y-1">
                                                       <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
-                                                        <span className="text-cyan-800 font-medium">
-                                                          {!output.includes(
-                                                            'capi_controller_manager deployment was not found'
-                                                          )
-                                                            ? '✅'
-                                                            : '❌'}{' '}
-                                                          CAPI Controller
-                                                        </span>
+                                                        <div className="flex flex-col">
+                                                          <div className="flex items-center">
+                                                            <span className="mr-2">
+                                                              {!output.includes(
+                                                                'capi_controller_manager deployment was not found'
+                                                              )
+                                                                ? '✅'
+                                                                : '❌'}
+                                                            </span>
+                                                            <button
+                                                              onClick={() => {
+                                                                fetchOcpResourceDetail(
+                                                                  'Deployment',
+                                                                  'capi-controller-manager',
+                                                                  'multicluster-engine'
+                                                                );
+                                                              }}
+                                                              className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                            >
+                                                              CAPI Controller
+                                                            </button>
+                                                          </div>
+                                                          <span className="text-cyan-600/70 text-[10px] ml-6">multicluster-engine</span>
+                                                        </div>
                                                         <span className="text-cyan-600 font-mono">
                                                           v1.5.3
                                                         </span>
@@ -5324,14 +5253,30 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                         </span>
                                                       </div>
                                                       <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
-                                                        <span className="text-cyan-800 font-medium">
-                                                          {!output.includes(
-                                                            'capa_controller_manager deployment was not found'
-                                                          )
-                                                            ? '✅'
-                                                            : '❌'}{' '}
-                                                          CAPA Controller
-                                                        </span>
+                                                        <div className="flex flex-col">
+                                                          <div className="flex items-center">
+                                                            <span className="mr-2">
+                                                              {!output.includes(
+                                                                'capa_controller_manager deployment was not found'
+                                                              )
+                                                                ? '✅'
+                                                                : '❌'}
+                                                            </span>
+                                                            <button
+                                                              onClick={() => {
+                                                                fetchOcpResourceDetail(
+                                                                  'Deployment',
+                                                                  'capa-controller-manager',
+                                                                  'multicluster-engine'
+                                                                );
+                                                              }}
+                                                              className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                            >
+                                                              CAPA Controller
+                                                            </button>
+                                                          </div>
+                                                          <span className="text-cyan-600/70 text-[10px] ml-6">multicluster-engine</span>
+                                                        </div>
                                                         <span className="text-cyan-600 font-mono">
                                                           v2.3.0
                                                         </span>
@@ -5363,216 +5308,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                           )
                                                             ? '1/1 ready'
                                                             : 'Not Found'}
-                                                        </span>
-                                                      </div>
-                                                      <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
-                                                        <span className="text-cyan-800 font-medium">
-                                                          {!output.includes(
-                                                            'registration_configuration was not found'
-                                                          )
-                                                            ? '✅'
-                                                            : '❌'}{' '}
-                                                          Registration Config
-                                                        </span>
-                                                        <span className="text-cyan-600 font-mono">
-                                                          -
-                                                        </span>
-                                                        <span className="text-cyan-600 font-mono text-right">
-                                                          {(() => {
-                                                            try {
-                                                              const match = output.match(
-                                                                /"name":"ClusterManager","created":"([^"]+)"/
-                                                              );
-                                                              return match
-                                                                ? calculateAge(match[1])
-                                                                : '-';
-                                                            } catch (e) {
-                                                              return '-';
-                                                            }
-                                                          })()}
-                                                        </span>
-                                                        <span
-                                                          className={`font-medium text-right ${
-                                                            !output.includes(
-                                                              'registration_configuration was not found'
-                                                            )
-                                                              ? 'text-green-600'
-                                                              : 'text-red-600'
-                                                          }`}
-                                                        >
-                                                          {!output.includes(
-                                                            'registration_configuration was not found'
-                                                          )
-                                                            ? 'Configured'
-                                                            : 'Not Found'}
-                                                        </span>
-                                                      </div>
-                                                      <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
-                                                        <span className="text-cyan-800 font-medium">
-                                                          {!output.includes(
-                                                            'cluster-role-binding changes have not been applied'
-                                                          )
-                                                            ? '✅'
-                                                            : '❌'}{' '}
-                                                          Cluster Role Binding
-                                                        </span>
-                                                        <span className="text-cyan-600 font-mono">
-                                                          -
-                                                        </span>
-                                                        <span className="text-cyan-600 font-mono text-right">
-                                                          {(() => {
-                                                            try {
-                                                              const match = output.match(
-                                                                /"name":"cluster-manager-registration-capi","created":"([^"]+)"/
-                                                              );
-                                                              return match
-                                                                ? calculateAge(match[1])
-                                                                : '-';
-                                                            } catch (e) {
-                                                              return '-';
-                                                            }
-                                                          })()}
-                                                        </span>
-                                                        <span
-                                                          className={`font-medium text-right ${
-                                                            !output.includes(
-                                                              'cluster-role-binding changes have not been applied'
-                                                            )
-                                                              ? 'text-green-600'
-                                                              : 'text-red-600'
-                                                          }`}
-                                                        >
-                                                          {!output.includes(
-                                                            'cluster-role-binding changes have not been applied'
-                                                          )
-                                                            ? 'Applied'
-                                                            : 'Not Applied'}
-                                                        </span>
-                                                      </div>
-                                                      <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
-                                                        <span className="text-cyan-800 font-medium">
-                                                          {!output.includes(
-                                                            'capa-manager-bootstrap-credentials secret does not exist'
-                                                          )
-                                                            ? '✅'
-                                                            : '❌'}{' '}
-                                                          Bootstrap Credentials
-                                                        </span>
-                                                        <span className="text-cyan-600 font-mono">
-                                                          -
-                                                        </span>
-                                                        <span className="text-cyan-600 font-mono text-right">
-                                                          {(() => {
-                                                            try {
-                                                              const match = output.match(
-                                                                /"name":"capa-manager-bootstrap-credentials","created":"([^"]+)"/
-                                                              );
-                                                              return match
-                                                                ? calculateAge(match[1])
-                                                                : '-';
-                                                            } catch (e) {
-                                                              return '-';
-                                                            }
-                                                          })()}
-                                                        </span>
-                                                        <span
-                                                          className={`font-medium text-right ${
-                                                            !output.includes(
-                                                              'capa-manager-bootstrap-credentials secret does not exist'
-                                                            )
-                                                              ? 'text-green-600'
-                                                              : 'text-red-600'
-                                                          }`}
-                                                        >
-                                                          {!output.includes(
-                                                            'capa-manager-bootstrap-credentials secret does not exist'
-                                                          )
-                                                            ? 'Configured'
-                                                            : 'Missing'}
-                                                        </span>
-                                                      </div>
-                                                      <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
-                                                        <span className="text-cyan-800 font-medium">
-                                                          {!output.includes(
-                                                            'rosa-creds-secret secret does not exist'
-                                                          )
-                                                            ? '✅'
-                                                            : '❌'}{' '}
-                                                          ROSA Credentials
-                                                        </span>
-                                                        <span className="text-cyan-600 font-mono">
-                                                          -
-                                                        </span>
-                                                        <span className="text-cyan-600 font-mono text-right">
-                                                          {(() => {
-                                                            try {
-                                                              const match = output.match(
-                                                                /"name":"rosa-creds-secret","created":"([^"]+)"/
-                                                              );
-                                                              return match
-                                                                ? calculateAge(match[1])
-                                                                : '-';
-                                                            } catch (e) {
-                                                              return '-';
-                                                            }
-                                                          })()}
-                                                        </span>
-                                                        <span
-                                                          className={`font-medium text-right ${
-                                                            !output.includes(
-                                                              'rosa-creds-secret secret does not exist'
-                                                            )
-                                                              ? 'text-green-600'
-                                                              : 'text-red-600'
-                                                          }`}
-                                                        >
-                                                          {!output.includes(
-                                                            'rosa-creds-secret secret does not exist'
-                                                          )
-                                                            ? 'Configured'
-                                                            : 'Missing'}
-                                                        </span>
-                                                      </div>
-                                                      <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
-                                                        <span className="text-cyan-800 font-medium">
-                                                          {!output.includes(
-                                                            'aws_cluster_controller_identity does not exist'
-                                                          )
-                                                            ? '✅'
-                                                            : '❌'}{' '}
-                                                          AWS Identity
-                                                        </span>
-                                                        <span className="text-cyan-600 font-mono">
-                                                          -
-                                                        </span>
-                                                        <span className="text-cyan-600 font-mono text-right">
-                                                          {(() => {
-                                                            try {
-                                                              const match = output.match(
-                                                                /"name":"default","created":"([^"]+)"/
-                                                              );
-                                                              return match
-                                                                ? calculateAge(match[1])
-                                                                : '-';
-                                                            } catch (e) {
-                                                              return '-';
-                                                            }
-                                                          })()}
-                                                        </span>
-                                                        <span
-                                                          className={`font-medium text-right ${
-                                                            !output.includes(
-                                                              'aws_cluster_controller_identity does not exist'
-                                                            )
-                                                              ? 'text-green-600'
-                                                              : 'text-red-600'
-                                                          }`}
-                                                        >
-                                                          {!output.includes(
-                                                            'aws_cluster_controller_identity does not exist'
-                                                          )
-                                                            ? 'Configured'
-                                                            : 'Missing'}
                                                         </span>
                                                       </div>
                                                     </div>
@@ -5632,6 +5367,455 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                           )}
                                       </div>
 
+                                      {/* Active Resources */}
+                                      {operation.id === 'check-components' &&
+                                        ansibleResults['check-components']?.result?.output && (
+                                          <div className="bg-white rounded-lg p-4 border border-cyan-100 mt-4">
+                                            <h4 className="text-sm font-semibold text-cyan-800 mb-3 flex items-center justify-between">
+                                              <div className="flex items-center">
+                                                <svg
+                                                  className="h-4 w-4 text-cyan-600 mr-2"
+                                                  fill="none"
+                                                  stroke="currentColor"
+                                                  viewBox="0 0 24 24"
+                                                >
+                                                  <path
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    strokeWidth={2}
+                                                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                                                  />
+                                                </svg>
+                                                Active Resources
+                                              </div>
+                                              <div className="flex items-center space-x-2">
+                                                {/* Export Button */}
+                                                <button
+                                                  onClick={async () => {
+                                                    const statusResult = ansibleResults['check-components'];
+                                                    if (!statusResult?.result?.output) {
+                                                      alert('No MCE component data to export.');
+                                                      return;
+                                                    }
+
+                                                    try {
+                                                      const operationId = `export-mce-resources-${Date.now()}`;
+                                                      addToRecent({
+                                                        id: operationId,
+                                                        title: 'Export MCE Resources',
+                                                        color: 'bg-cyan-600',
+                                                        status: '⏳ Exporting...',
+                                                      });
+
+                                                      const exportContent = `MCE Active Resources Export
+Generated: ${new Date().toLocaleString()}
+
+${statusResult.result.output}
+`;
+
+                                                      const blob = new Blob([exportContent], { type: 'text/plain' });
+                                                      const url = window.URL.createObjectURL(blob);
+                                                      const a = document.createElement('a');
+                                                      a.href = url;
+                                                      a.download = `mce-resources-${Date.now()}.txt`;
+                                                      document.body.appendChild(a);
+                                                      a.click();
+                                                      document.body.removeChild(a);
+                                                      window.URL.revokeObjectURL(url);
+
+                                                      const completionTime = new Date().toLocaleTimeString('en-US', {
+                                                        hour: 'numeric',
+                                                        minute: '2-digit',
+                                                        second: '2-digit',
+                                                        hour12: true,
+                                                      });
+                                                      updateRecentOperationStatus(
+                                                        operationId,
+                                                        `✅ Exported at ${completionTime}`
+                                                      );
+                                                    } catch (error) {
+                                                      console.error('Error exporting MCE resources:', error);
+                                                      alert(`Error exporting: ${error.message}`);
+                                                    }
+                                                  }}
+                                                  className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                                                >
+                                                  <svg
+                                                    className="h-3.5 w-3.5 mr-1.5"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    viewBox="0 0 24 24"
+                                                  >
+                                                    <path
+                                                      strokeLinecap="round"
+                                                      strokeLinejoin="round"
+                                                      strokeWidth={2}
+                                                      d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                                    />
+                                                  </svg>
+                                                  <span>Export</span>
+                                                </button>
+
+                                                {/* Refresh Button */}
+                                                <button
+                                                  onClick={async () => {
+                                                    const operationId = `refresh-mce-resources-${Date.now()}`;
+                                                    try {
+                                                      addToRecent({
+                                                        id: operationId,
+                                                        title: 'Refresh MCE Resources',
+                                                        color: 'bg-cyan-600',
+                                                        status: '🔄 Refreshing...',
+                                                      });
+
+                                                      const checkOperation = configureEnvironment.find(
+                                                        (op) => op.id === 'check-components'
+                                                      );
+                                                      if (checkOperation) {
+                                                        await checkOperation.action();
+                                                      }
+
+                                                      const completionTime = new Date().toLocaleTimeString('en-US', {
+                                                        hour: 'numeric',
+                                                        minute: '2-digit',
+                                                        second: '2-digit',
+                                                        hour12: true,
+                                                      });
+                                                      updateRecentOperationStatus(
+                                                        operationId,
+                                                        `✅ Refreshed at ${completionTime}`
+                                                      );
+                                                    } catch (error) {
+                                                      console.error('Error refreshing MCE resources:', error);
+                                                      const completionTime = new Date().toLocaleTimeString('en-US', {
+                                                        hour: 'numeric',
+                                                        minute: '2-digit',
+                                                        second: '2-digit',
+                                                        hour12: true,
+                                                      });
+                                                      updateRecentOperationStatus(
+                                                        operationId,
+                                                        `❌ Refresh failed at ${completionTime}`
+                                                      );
+                                                    }
+                                                  }}
+                                                  className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                                                >
+                                                  <svg
+                                                    className="h-3.5 w-3.5 mr-1.5"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    viewBox="0 0 24 24"
+                                                  >
+                                                    <path
+                                                      strokeLinecap="round"
+                                                      strokeLinejoin="round"
+                                                      strokeWidth={2}
+                                                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                                    />
+                                                  </svg>
+                                                  <span>Refresh</span>
+                                                </button>
+
+                                                {/* Provision ROSA HCP Cluster Button */}
+                                                <button
+                                                  onClick={async () => {
+                                                    let operationId;
+                                                    try {
+                                                      const clusterFile = prompt(
+                                                        'Enter the ROSA HCP cluster definition file name:\n\n' +
+                                                          'Examples:\n' +
+                                                          '- capi-rosahcp-test.yml (default)\n' +
+                                                          '- my-rosa-cluster.yaml\n' +
+                                                          '- rosa-production.yml\n\n' +
+                                                          'File should be in /Users/tinafitzgerald/acm_dev/automation-capi/',
+                                                        'capi-rosahcp-test.yml'
+                                                      );
+
+                                                      if (!clusterFile || clusterFile.trim() === '') return;
+
+                                                      const trimmedFile = clusterFile.trim();
+
+                                                      if (
+                                                        !confirm(
+                                                          `Provision ROSA HCP Cluster using "${trimmedFile}"?\n\nThis will:\n- Create namespace ns-rosa-hcp\n- Apply AWS Identity configuration\n- Create OCM client secret\n- Apply ROSA HCP cluster definition from ${trimmedFile}`
+                                                        )
+                                                      ) return;
+
+                                                      operationId = `provision-rosa-hcp-mce-${Date.now()}`;
+
+                                                      addToRecent({
+                                                        id: operationId,
+                                                        title: `Provision ROSA HCP: ${trimmedFile}`,
+                                                        color: 'bg-rose-600',
+                                                        status: '⏳ Provisioning...',
+                                                      });
+
+                                                      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+                                                      const response = await fetch(
+                                                        'http://localhost:8000/api/ansible/run-task',
+                                                        {
+                                                          method: 'POST',
+                                                          headers: { 'Content-Type': 'application/json' },
+                                                          body: JSON.stringify({
+                                                            task_file: 'tasks/provision-rosa-hcp-cluster.yml',
+                                                            description: `Provision ROSA HCP Cluster: ${trimmedFile}`,
+                                                            kube_context:
+                                                              verifiedMinikubeClusterInfo?.contextName ||
+                                                              verifiedMinikubeClusterInfo?.name,
+                                                            extra_vars: {
+                                                              ROSA_HCP_CLUSTER_FILE: trimmedFile,
+                                                            },
+                                                          }),
+                                                        }
+                                                      );
+
+                                                      const result = await response.json();
+                                                      const completionTime = new Date().toLocaleTimeString('en-US', {
+                                                        hour: 'numeric',
+                                                        minute: '2-digit',
+                                                        second: '2-digit',
+                                                        hour12: true,
+                                                      });
+
+                                                      if (response.ok && result.success) {
+                                                        updateRecentOperationStatus(
+                                                          operationId,
+                                                          `✅ Provisioned at ${completionTime}`
+                                                        );
+                                                        addNotification(
+                                                          `✅ ROSA HCP cluster provisioning completed`,
+                                                          'success',
+                                                          5000
+                                                        );
+                                                      } else {
+                                                        throw new Error(result.error || result.message || 'Provisioning failed');
+                                                      }
+                                                    } catch (error) {
+                                                      const completionTime = new Date().toLocaleTimeString('en-US', {
+                                                        hour: 'numeric',
+                                                        minute: '2-digit',
+                                                        second: '2-digit',
+                                                        hour12: true,
+                                                      });
+                                                      if (operationId) {
+                                                        updateRecentOperationStatus(
+                                                          operationId,
+                                                          `❌ Failed at ${completionTime}`
+                                                        );
+                                                      }
+                                                      addNotification(`❌ ${error.message}`, 'error', 5000);
+                                                    }
+                                                  }}
+                                                  className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                                                >
+                                                  <svg className="h-3.5 w-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                                  </svg>
+                                                  <span>Provision ROSA HCP</span>
+                                                </button>
+                                              </div>
+                                            </h4>
+
+                                            {/* Display MCE Component Status */}
+                                            {(() => {
+                                              const statusResult = ansibleResults['check-components'];
+                                              const output = statusResult.result.output;
+                                              // Check for deployment found messages
+                                              const capiEnabled = output.includes('capi-controller-manager deployment found') &&
+                                                                  !output.includes('capi-controller-manager deployment not found');
+                                              const capaEnabled = output.includes('capa-controller-manager deployment found') &&
+                                                                  !output.includes('capa-controller-manager deployment not found');
+                                              // For HyperShift, check if those deployments exist (you'll need to add this to the task if needed)
+                                              const hypershiftEnabled = output.includes('hypershift') && output.includes('deployment found');
+                                              const hypershiftLocalEnabled = false; // Not checked in current task
+
+                                              return (
+                                                <>
+                                                  <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs font-semibold text-cyan-700 bg-cyan-50 px-3 py-2 rounded mb-2">
+                                                    <div>Name</div>
+                                                    <div>Version</div>
+                                                    <div>Age</div>
+                                                    <div>Status</div>
+                                                  </div>
+                                                  <div className="space-y-1.5">
+                                                    {/* Registration Config */}
+                                                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
+                                                      <div className="flex flex-col">
+                                                        <div className="flex items-center">
+                                                          <span className="mr-2">
+                                                            {!output.includes('registration_configuration was not found') ? '✅' : '❌'}
+                                                          </span>
+                                                          <button
+                                                            onClick={() => {
+                                                              fetchOcpResourceDetail('ClusterManager', 'cluster-manager', '');
+                                                            }}
+                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                          >
+                                                            Registration Config
+                                                          </button>
+                                                        </div>
+                                                        <span className="text-cyan-600/70 text-[10px] ml-6">cluster-scoped</span>
+                                                      </div>
+                                                      <span className="text-cyan-600 font-mono">-</span>
+                                                      <span className="text-cyan-600 font-mono">
+                                                        {(() => {
+                                                          try {
+                                                            const match = output.match(/"name":"ClusterManager","created":"([^"]+)"/);
+                                                            return match ? calculateAge(match[1]) : '-';
+                                                          } catch (e) {
+                                                            return '-';
+                                                          }
+                                                        })()}
+                                                      </span>
+                                                      <span className={`font-medium ${!output.includes('registration_configuration was not found') ? 'text-green-600' : 'text-red-600'}`}>
+                                                        {!output.includes('registration_configuration was not found') ? 'Configured' : 'Not Found'}
+                                                      </span>
+                                                    </div>
+
+                                                    {/* Cluster Role Binding */}
+                                                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
+                                                      <div className="flex flex-col">
+                                                        <div className="flex items-center">
+                                                          <span className="mr-2">
+                                                            {!output.includes('cluster-role-binding changes have not been applied') ? '✅' : '❌'}
+                                                          </span>
+                                                          <button
+                                                            onClick={() => {
+                                                              fetchOcpResourceDetail('ClusterRoleBinding', 'cluster-manager-registration-capi', '');
+                                                            }}
+                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                          >
+                                                            Cluster Role Binding
+                                                          </button>
+                                                        </div>
+                                                        <span className="text-cyan-600/70 text-[10px] ml-6">cluster-scoped</span>
+                                                      </div>
+                                                      <span className="text-cyan-600 font-mono">-</span>
+                                                      <span className="text-cyan-600 font-mono">
+                                                        {(() => {
+                                                          try {
+                                                            const match = output.match(/"name":"cluster-manager-registration-capi","created":"([^"]+)"/);
+                                                            return match ? calculateAge(match[1]) : '-';
+                                                          } catch (e) {
+                                                            return '-';
+                                                          }
+                                                        })()}
+                                                      </span>
+                                                      <span className={`font-medium ${!output.includes('cluster-role-binding changes have not been applied') ? 'text-green-600' : 'text-red-600'}`}>
+                                                        {!output.includes('cluster-role-binding changes have not been applied') ? 'Applied' : 'Not Applied'}
+                                                      </span>
+                                                    </div>
+
+                                                    {/* Bootstrap Credentials */}
+                                                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
+                                                      <div className="flex flex-col">
+                                                        <div className="flex items-center">
+                                                          <span className="mr-2">
+                                                            {!output.includes('capa-manager-bootstrap-credentials secret does not exist') ? '✅' : '❌'}
+                                                          </span>
+                                                          <button
+                                                            onClick={() => {
+                                                              fetchOcpResourceDetail('Secret', 'capa-manager-bootstrap-credentials', 'multicluster-engine');
+                                                            }}
+                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                          >
+                                                            Bootstrap Credentials
+                                                          </button>
+                                                        </div>
+                                                        <span className="text-cyan-600/70 text-[10px] ml-6">multicluster-engine</span>
+                                                      </div>
+                                                      <span className="text-cyan-600 font-mono">-</span>
+                                                      <span className="text-cyan-600 font-mono">
+                                                        {(() => {
+                                                          try {
+                                                            const match = output.match(/"name":"capa-manager-bootstrap-credentials","created":"([^"]+)"/);
+                                                            return match ? calculateAge(match[1]) : '-';
+                                                          } catch (e) {
+                                                            return '-';
+                                                          }
+                                                        })()}
+                                                      </span>
+                                                      <span className={`font-medium ${!output.includes('capa-manager-bootstrap-credentials secret does not exist') ? 'text-green-600' : 'text-red-600'}`}>
+                                                        {!output.includes('capa-manager-bootstrap-credentials secret does not exist') ? 'Configured' : 'Missing'}
+                                                      </span>
+                                                    </div>
+
+                                                    {/* ROSA Credentials */}
+                                                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
+                                                      <div className="flex flex-col">
+                                                        <div className="flex items-center">
+                                                          <span className="mr-2">
+                                                            {!output.includes('rosa-creds-secret secret does not exist') ? '✅' : '❌'}
+                                                          </span>
+                                                          <button
+                                                            onClick={() => {
+                                                              fetchOcpResourceDetail('Secret', 'rosa-creds-secret', 'multicluster-engine');
+                                                            }}
+                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                          >
+                                                            ROSA Credentials
+                                                          </button>
+                                                        </div>
+                                                        <span className="text-cyan-600/70 text-[10px] ml-6">multicluster-engine</span>
+                                                      </div>
+                                                      <span className="text-cyan-600 font-mono">-</span>
+                                                      <span className="text-cyan-600 font-mono">
+                                                        {(() => {
+                                                          try {
+                                                            const match = output.match(/"name":"rosa-creds-secret","created":"([^"]+)"/);
+                                                            return match ? calculateAge(match[1]) : '-';
+                                                          } catch (e) {
+                                                            return '-';
+                                                          }
+                                                        })()}
+                                                      </span>
+                                                      <span className={`font-medium ${!output.includes('rosa-creds-secret secret does not exist') ? 'text-green-600' : 'text-red-600'}`}>
+                                                        {!output.includes('rosa-creds-secret secret does not exist') ? 'Configured' : 'Missing'}
+                                                      </span>
+                                                    </div>
+
+                                                    {/* AWS Identity */}
+                                                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
+                                                      <div className="flex flex-col">
+                                                        <div className="flex items-center">
+                                                          <span className="mr-2">
+                                                            {!output.includes('aws_cluster_controller_identity does not exist') ? '✅' : '❌'}
+                                                          </span>
+                                                          <button
+                                                            onClick={() => {
+                                                              fetchOcpResourceDetail('AWSClusterControllerIdentity', 'default', '');
+                                                            }}
+                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                          >
+                                                            AWS Identity
+                                                          </button>
+                                                        </div>
+                                                        <span className="text-cyan-600/70 text-[10px] ml-6">cluster-scoped</span>
+                                                      </div>
+                                                      <span className="text-cyan-600 font-mono">-</span>
+                                                      <span className="text-cyan-600 font-mono">
+                                                        {(() => {
+                                                          try {
+                                                            const match = output.match(/"name":"default","created":"([^"]+)"/);
+                                                            return match ? calculateAge(match[1]) : '-';
+                                                          } catch (e) {
+                                                            return '-';
+                                                          }
+                                                        })()}
+                                                      </span>
+                                                      <span className={`font-medium ${!output.includes('aws_cluster_controller_identity does not exist') ? 'text-green-600' : 'text-red-600'}`}>
+                                                        {!output.includes('aws_cluster_controller_identity does not exist') ? 'Configured' : 'Missing'}
+                                                      </span>
+                                                    </div>
+                                                  </div>
+                                                </>
+                                              );
+                                            })()}
+                                          </div>
+                                        )}
+
                                       {/* Detailed Output */}
                                       <details className="bg-white rounded border">
                                         <summary className="text-xs font-medium text-gray-700 p-2 cursor-pointer hover:bg-gray-50">
@@ -5687,41 +5871,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             </div>
                           )}
 
-                          {/* Expanded Content for configure-environment */}
-                          {isExpanded && operation.id === 'configure-environment' && (
-                            <div className="px-3 pb-3 pt-2 border-t border-indigo-100">
-                              <p className="text-xs text-gray-600 mb-2">{operation.description}</p>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  operation.action();
-                                }}
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded transition-colors duration-200 font-medium"
-                                title={`Run ${operation.title}`}
-                              >
-                                ▶ Run {operation.title}
-                              </button>
-
-                              {/* Results for configure-environment */}
-                              {ansibleResults[operation.id] &&
-                                ansibleResults[operation.id].result && (
-                                  <div className="mt-3">
-                                    <details className="bg-white rounded border">
-                                      <summary className="text-xs font-medium text-gray-700 p-2 cursor-pointer hover:bg-gray-50">
-                                        View Full Output
-                                      </summary>
-                                      <div className="p-2 border-t bg-gray-50 max-h-40 overflow-y-auto">
-                                        <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono">
-                                          {ansibleResults[operation.id].result.output ||
-                                            ansibleResults[operation.id].result.error ||
-                                            'No output available'}
-                                        </pre>
-                                      </div>
-                                    </details>
-                                  </div>
-                                )}
-                            </div>
-                          )}
                         </div>
                       );
                     })}
