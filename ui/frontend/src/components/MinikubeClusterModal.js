@@ -7,7 +7,12 @@ import {
   PlusIcon,
 } from '@heroicons/react/24/outline';
 
-export function MinikubeClusterModal({ isOpen, onClose, onClusterSelected, currentCluster = null }) {
+export function MinikubeClusterModal({
+  isOpen,
+  onClose,
+  onClusterSelected,
+  currentCluster = null,
+}) {
   const [clusters, setClusters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCluster, setSelectedCluster] = useState(currentCluster);
@@ -58,7 +63,9 @@ export function MinikubeClusterModal({ isOpen, onClose, onClusterSelected, curre
       if (err.name === 'AbortError') {
         setError('Request timed out. Please check if the backend is running on port 8000.');
       } else {
-        setError(`Failed to connect to backend: ${err.message}. Please ensure the server is running on port 8000.`);
+        setError(
+          `Failed to connect to backend: ${err.message}. Please ensure the server is running on port 8000.`
+        );
       }
     } finally {
       console.log('🔵 [MinikubeClusterModal] Setting loading to false');
@@ -234,7 +241,8 @@ export function MinikubeClusterModal({ isOpen, onClose, onClusterSelected, curre
                   <br />
                   # Linux
                   <br />
-                  curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+                  curl -LO
+                  https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                   <br />
                   sudo install minikube-linux-amd64 /usr/local/bin/minikube
                 </code>
@@ -293,9 +301,7 @@ export function MinikubeClusterModal({ isOpen, onClose, onClusterSelected, curre
                               <p className="font-mono text-sm font-semibold text-gray-900">
                                 {cluster}
                               </p>
-                              <p className="text-xs text-gray-500 mt-0.5">
-                                Click to select
-                              </p>
+                              <p className="text-xs text-gray-500 mt-0.5">Click to select</p>
                             </div>
                           </div>
                           {currentCluster === cluster && (

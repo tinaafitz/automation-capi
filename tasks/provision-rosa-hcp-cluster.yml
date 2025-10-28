@@ -10,7 +10,16 @@
 
 - name: Set cluster file path
   set_fact:
-    rosa_hcp_cluster_file: "{{ ROSA_HCP_CLUSTER_FILE | default(automation_path + '/capi-rosahcp-test.yml') }}"
+    rosa_hcp_cluster_file: >-
+      {%- if ROSA_HCP_CLUSTER_FILE is defined -%}
+        {%- if ROSA_HCP_CLUSTER_FILE.startswith('/') -%}
+          {{ ROSA_HCP_CLUSTER_FILE }}
+        {%- else -%}
+          {{ automation_path }}/{{ ROSA_HCP_CLUSTER_FILE }}
+        {%- endif -%}
+      {%- else -%}
+        {{ automation_path }}/capi-rosahcp-test.yml
+      {%- endif -%}
 
 - name: Set kubectl context (if provided)
   block:
@@ -31,9 +40,7 @@
 - name: Display current context message
   debug:
     msg: "Using current kubectl context (OCP/MCE cluster)"
-  when:
-    - KUBE_CONTEXT is not defined
-    - SKIP_KIND_CONTEXT is defined and SKIP_KIND_CONTEXT == 'true'
+  when: KUBE_CONTEXT is not defined
 
 - name: Provision ROSA HCP resources
   block:

@@ -65,7 +65,7 @@ export function MinikubeTerminalModal({ isOpen, onClose, clusterName }) {
     const timestamp = new Date().toLocaleTimeString();
 
     // Add to output
-    setOutput(prev => `${prev}\n$ ${command}\n`);
+    setOutput((prev) => `${prev}\n$ ${command}\n`);
 
     // Add to history
     const newHistoryItem = {
@@ -73,7 +73,7 @@ export function MinikubeTerminalModal({ isOpen, onClose, clusterName }) {
       timestamp: new Date().toISOString(),
       timestampFormatted: timestamp,
     };
-    setHistory(prev => [newHistoryItem, ...prev].slice(0, 100)); // Keep last 100 commands
+    setHistory((prev) => [newHistoryItem, ...prev].slice(0, 100)); // Keep last 100 commands
     setHistoryIndex(-1);
 
     try {
@@ -91,13 +91,15 @@ export function MinikubeTerminalModal({ isOpen, onClose, clusterName }) {
       const data = await response.json();
 
       if (data.success) {
-        setOutput(prev => `${prev}${data.output}\n`);
+        setOutput((prev) => `${prev}${data.output}\n`);
       } else {
-        setOutput(prev => `${prev}Error: ${data.error || 'Command failed'}\n${data.output || ''}\n`);
+        setOutput(
+          (prev) => `${prev}Error: ${data.error || 'Command failed'}\n${data.output || ''}\n`
+        );
       }
     } catch (err) {
       console.error('Failed to execute command:', err);
-      setOutput(prev => `${prev}Error: Failed to execute command - ${err.message}\n`);
+      setOutput((prev) => `${prev}Error: Failed to execute command - ${err.message}\n`);
     } finally {
       setExecuting(false);
       setCommand('');
@@ -138,7 +140,7 @@ export function MinikubeTerminalModal({ isOpen, onClose, clusterName }) {
     setShowHistory(false);
   };
 
-  const useHistoryCommand = (cmd) => {
+  const selectHistoryCommand = (cmd) => {
     setCommand(cmd);
     setShowHistory(false);
     if (inputRef.current) {
@@ -156,7 +158,7 @@ export function MinikubeTerminalModal({ isOpen, onClose, clusterName }) {
     }
   };
 
-  const filteredHistory = history.filter(item =>
+  const filteredHistory = history.filter((item) =>
     item.command.toLowerCase().includes(historySearch.toLowerCase())
   );
 
@@ -175,7 +177,10 @@ export function MinikubeTerminalModal({ isOpen, onClose, clusterName }) {
       { label: 'Get CAPI deployments', cmd: 'kubectl get deploy -n capi-system' },
       { label: 'Get CAPA pods', cmd: 'kubectl get pods -n capa-system' },
       { label: 'Get CAPI pods', cmd: 'kubectl get pods -n capi-system' },
-      { label: 'Watch CAPA controller logs', cmd: 'kubectl logs -n capa-system -l cluster.x-k8s.io/provider=infrastructure-aws --tail=50 -f' },
+      {
+        label: 'Watch CAPA controller logs',
+        cmd: 'kubectl logs -n capa-system -l cluster.x-k8s.io/provider=infrastructure-aws --tail=50 -f',
+      },
     ],
     'ROSA Resources': [
       { label: 'Get ROSA clusters', cmd: 'kubectl get rosacluster -n ns-rosa-hcp' },
@@ -185,16 +190,34 @@ export function MinikubeTerminalModal({ isOpen, onClose, clusterName }) {
       { label: 'Describe ROSA cluster', cmd: 'kubectl describe rosacluster -n ns-rosa-hcp' },
     ],
     'Secrets & Config': [
-      { label: 'Get AWS credentials secret', cmd: 'kubectl get secret capa-manager-bootstrap-credentials -n capa-system' },
-      { label: 'Get ROSA credentials secret', cmd: 'kubectl get secret rosa-creds-secret -n ns-rosa-hcp' },
+      {
+        label: 'Get AWS credentials secret',
+        cmd: 'kubectl get secret capa-manager-bootstrap-credentials -n capa-system',
+      },
+      {
+        label: 'Get ROSA credentials secret',
+        cmd: 'kubectl get secret rosa-creds-secret -n ns-rosa-hcp',
+      },
       { label: 'List all secrets in ns-rosa-hcp', cmd: 'kubectl get secrets -n ns-rosa-hcp' },
       { label: 'List all configmaps', cmd: 'kubectl get configmaps --all-namespaces' },
     ],
-    'Troubleshooting': [
-      { label: 'Get events in ns-rosa-hcp', cmd: 'kubectl get events -n ns-rosa-hcp --sort-by=.lastTimestamp' },
-      { label: 'Get all events', cmd: 'kubectl get events --all-namespaces --sort-by=.lastTimestamp' },
-      { label: 'Describe failed pods', cmd: 'kubectl get pods --all-namespaces --field-selector=status.phase!=Running,status.phase!=Succeeded' },
-      { label: 'Check controller logs', cmd: 'kubectl logs -n capa-system -l cluster.x-k8s.io/provider=infrastructure-aws --tail=100' },
+    Troubleshooting: [
+      {
+        label: 'Get events in ns-rosa-hcp',
+        cmd: 'kubectl get events -n ns-rosa-hcp --sort-by=.lastTimestamp',
+      },
+      {
+        label: 'Get all events',
+        cmd: 'kubectl get events --all-namespaces --sort-by=.lastTimestamp',
+      },
+      {
+        label: 'Describe failed pods',
+        cmd: 'kubectl get pods --all-namespaces --field-selector=status.phase!=Running,status.phase!=Succeeded',
+      },
+      {
+        label: 'Check controller logs',
+        cmd: 'kubectl logs -n capa-system -l cluster.x-k8s.io/provider=infrastructure-aws --tail=100',
+      },
     ],
   };
 
@@ -239,7 +262,7 @@ export function MinikubeTerminalModal({ isOpen, onClose, clusterName }) {
                     {commands.map((template, idx) => (
                       <button
                         key={idx}
-                        onClick={() => useHistoryCommand(template.cmd)}
+                        onClick={() => selectHistoryCommand(template.cmd)}
                         className="w-full text-left p-2 rounded-lg hover:bg-purple-50 transition-colors group"
                       >
                         <p className="text-xs font-medium text-gray-900 group-hover:text-purple-700">
@@ -263,7 +286,8 @@ export function MinikubeTerminalModal({ isOpen, onClose, clusterName }) {
               ref={outputRef}
               className="flex-1 bg-gray-900 text-green-400 font-mono text-sm p-4 overflow-y-auto whitespace-pre-wrap"
             >
-              {output || '# Ready to execute commands. Type a command below or select from templates.\n# Press Enter to execute, Up/Down arrows to navigate history.\n'}
+              {output ||
+                '# Ready to execute commands. Type a command below or select from templates.\n# Press Enter to execute, Up/Down arrows to navigate history.\n'}
             </div>
 
             {/* Command Input Area */}
@@ -306,10 +330,7 @@ export function MinikubeTerminalModal({ isOpen, onClose, clusterName }) {
                     <ClockIcon className="h-4 w-4 mr-1" />
                     History ({history.length})
                   </button>
-                  <button
-                    onClick={clearOutput}
-                    className="text-purple-400 hover:text-purple-300"
-                  >
+                  <button onClick={clearOutput} className="text-purple-400 hover:text-purple-300">
                     Clear Output
                   </button>
                 </div>
@@ -365,16 +386,14 @@ export function MinikubeTerminalModal({ isOpen, onClose, clusterName }) {
                     <div
                       key={idx}
                       className="p-3 hover:bg-purple-50 transition-colors group cursor-pointer"
-                      onClick={() => useHistoryCommand(item.command)}
+                      onClick={() => selectHistoryCommand(item.command)}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-mono text-gray-900 truncate group-hover:text-purple-700">
                             {item.command}
                           </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {item.timestampFormatted}
-                          </p>
+                          <p className="text-xs text-gray-500 mt-1">{item.timestampFormatted}</p>
                         </div>
                         <button
                           onClick={(e) => {
