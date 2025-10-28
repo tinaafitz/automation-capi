@@ -1,8 +1,12 @@
+- name: Set automation path
+  set_fact:
+    automation_path: "{{ AUTOMATION_PATH | default(playbook_dir) }}"
+
 - set_fact:
     component: "cluster-api"
 
 - name: Get {{ component }} status
-  include_tasks: tasks/get_mce_component_status.yml
+  include_tasks: "{{ automation_path }}/tasks/get_mce_component_status.yml"
   register: component_enabled
 
 - name: print {{ component }} status
@@ -19,7 +23,7 @@
     component: "cluster-api-provider-aws"
 
 - name: Get {{ component }} status
-  include_tasks: tasks/get_mce_component_status.yml
+  include_tasks: "{{ automation_path }}/tasks/get_mce_component_status.yml"
   register: component_enabled
 
 - name: print {{ component }} status
