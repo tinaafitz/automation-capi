@@ -54,6 +54,110 @@ function calculateAge(isoTimestamp) {
   }
 }
 
+// Extract timestamp from MCE component debug output
+function extractMCEComponentTimestamp(output, debugPattern) {
+  try {
+    // Look for the debug pattern followed by JSON containing created or creationTimestamp
+    // Format 1: "✓ capi-controller-manager deployment found - {"name":"...","created":"2025-10-28T14:40:49Z"}"
+    // Format 2: "Namespace ns-rosa-hcp details: {"name":"...","creationTimestamp":"2025-10-28T14:40:49Z"}"
+
+    // Try matching "created" first (with optional backslash escaping)
+    let regex = new RegExp(
+      debugPattern + '.*?\\\\?"created\\\\?"\\s*:\\s*\\\\?"([^"\\\\"]+)\\\\?"',
+      'i'
+    );
+    let match = output.match(regex);
+
+    // If not found, try matching "creationTimestamp" (with optional backslash escaping)
+    if (!match) {
+      regex = new RegExp(
+        debugPattern + '.*?\\\\?"creationTimestamp\\\\?"\\s*:\\s*\\\\?"([^"\\\\"]+)\\\\?"',
+        'i'
+      );
+      match = output.match(regex);
+    }
+
+    // Debug logging for first pattern
+    if (debugPattern.includes('capi-controller-manager')) {
+      console.log('=== MCE Timestamp Debug ===');
+      console.log('Pattern:', debugPattern);
+      console.log('Output length:', output?.length);
+      console.log('Match found:', !!match);
+      if (match) {
+        console.log('Timestamp:', match[1]);
+      }
+      // Show a snippet of the output around the pattern
+      const patternIndex = output.indexOf(debugPattern);
+      if (patternIndex >= 0) {
+        const snippet = output.substring(patternIndex, patternIndex + 250);
+        console.log('Snippet:', snippet);
+      } else {
+        console.log('Pattern NOT found in output');
+        // Try to find similar patterns
+        const checkmarkIndex = output.indexOf('✓');
+        if (checkmarkIndex >= 0) {
+          console.log('Found ✓ at index:', checkmarkIndex);
+          console.log('Context around ✓:', output.substring(checkmarkIndex, checkmarkIndex + 150));
+        }
+        const capiIndex = output.indexOf('capi-controller-manager');
+        if (capiIndex >= 0) {
+          console.log('Found capi-controller-manager at index:', capiIndex);
+          console.log('Context:', output.substring(capiIndex - 20, capiIndex + 150));
+        }
+      }
+    }
+
+    return match ? match[1] : null;
+  } catch (e) {
+    console.error('Error extracting timestamp:', e);
+    return null;
+  }
+}
+
+// Format Ansible playbook output with eye-catchers for PLAY and TASK banners
+function formatPlaybookOutput(output) {
+  if (!output) return 'No output available';
+
+  // Split output into lines
+  const lines = output.split('\n');
+  const formattedLines = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Check if line is a PLAY banner (starts with "PLAY [")
+    if (line.trim().startsWith('PLAY [')) {
+      formattedLines.push({
+        type: 'play',
+        content: line
+      });
+    }
+    // Check if line is a TASK banner (starts with "TASK [")
+    else if (line.trim().startsWith('TASK [')) {
+      formattedLines.push({
+        type: 'task',
+        content: line
+      });
+    }
+    // Check for asterisk lines (decorative banners)
+    else if (line.trim().match(/^\*+$/)) {
+      formattedLines.push({
+        type: 'banner',
+        content: line
+      });
+    }
+    // Regular output lines
+    else {
+      formattedLines.push({
+        type: 'normal',
+        content: line
+      });
+    }
+  }
+
+  return formattedLines;
+}
+
 export function WhatCanIHelp() {
   const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState(false);
@@ -1614,7 +1718,7 @@ export function WhatCanIHelp() {
   const configureEnvironment = [
     {
       id: 'check-components',
-      title: 'MCE Test Environment Status',
+      title: 'MCE Cluster Status',
       subtitle: '',
       description: 'Ensure all CAPI/CAPA components are present and configured',
       details:
@@ -4155,10 +4259,25 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                     View Full Output
                                   </summary>
                                   <div className="p-2 border-t bg-gray-50 max-h-40 overflow-y-auto">
-                                    <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono">
-                                      {result.result.output ||
-                                        result.result.error ||
-                                        'No output available'}
+                                    <pre className="text-xs whitespace-pre-wrap font-mono">
+                                      {formatPlaybookOutput(
+                                        result.result.output || result.result.error || ''
+                                      ).map((line, idx) => (
+                                        <div
+                                          key={idx}
+                                          className={
+                                            line.type === 'play'
+                                              ? 'text-green-700 font-bold'
+                                              : line.type === 'task'
+                                              ? 'text-blue-700 font-semibold'
+                                              : line.type === 'banner'
+                                              ? 'text-gray-400'
+                                              : 'text-gray-600'
+                                          }
+                                        >
+                                          {line.content}
+                                        </div>
+                                      ))}
                                     </pre>
                                   </div>
                                 </details>
@@ -5035,7 +5154,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                 </div>
                                                 <div className="bg-white rounded-lg p-2 border border-emerald-100">
                                                   <div className="text-xs text-emerald-600 font-semibold mb-1">
-                                                    Verified
+                                                    Last Verified
                                                   </div>
                                                   <div className="text-xs text-emerald-900">
                                                     {ansibleResults['check-components']?.timestamp
@@ -5305,15 +5424,16 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                 return (
                                                   <>
                                                     {/* Table Header */}
-                                                    <div className="grid grid-cols-4 gap-2 text-xs font-semibold text-cyan-700 bg-cyan-50 p-2 rounded mb-1">
+                                                    <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs font-semibold text-cyan-700 bg-cyan-50 px-3 py-2 rounded mb-2">
                                                       <div>Component</div>
+                                                      <div>Name</div>
                                                       <div>Version</div>
-                                                      <div className="text-right">Age</div>
-                                                      <div className="text-right">Status</div>
+                                                      <div>Age</div>
+                                                      <div>Status</div>
                                                     </div>
                                                     {/* Table Rows */}
-                                                    <div className="space-y-1">
-                                                      <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                                                    <div className="space-y-1.5">
+                                                      <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/50 rounded">
                                                         <div className="flex flex-col">
                                                           <div className="flex items-center">
                                                             <span className="mr-2">
@@ -5323,40 +5443,37 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                                 ? '✅'
                                                                 : '❌'}
                                                             </span>
-                                                            <button
-                                                              onClick={() => {
-                                                                fetchOcpResourceDetail(
-                                                                  'Deployment',
-                                                                  'capi-controller-manager',
-                                                                  'multicluster-engine'
-                                                                );
-                                                              }}
-                                                              className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
-                                                            >
+                                                            <span className="text-cyan-800 font-medium">
                                                               CAPI Controller
-                                                            </button>
+                                                            </span>
                                                           </div>
                                                           <span className="text-cyan-600/70 text-[10px] ml-6">multicluster-engine</span>
+                                                        </div>
+                                                        <div className="flex items-center">
+                                                          <button
+                                                            onClick={() => {
+                                                              fetchOcpResourceDetail(
+                                                                'Deployment',
+                                                                'capi-controller-manager',
+                                                                'multicluster-engine'
+                                                              );
+                                                            }}
+                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline cursor-pointer transition-colors"
+                                                          >
+                                                            capi-controller-manager
+                                                          </button>
                                                         </div>
                                                         <span className="text-cyan-600 font-mono">
                                                           v1.5.3
                                                         </span>
-                                                        <span className="text-cyan-600 font-mono text-right">
+                                                        <span className="text-cyan-700 font-mono text-xs">
                                                           {(() => {
-                                                            try {
-                                                              const match = output.match(
-                                                                /"name":"capi-controller-manager","created":"([^"]+)"/
-                                                              );
-                                                              return match
-                                                                ? calculateAge(match[1])
-                                                                : '-';
-                                                            } catch (e) {
-                                                              return '-';
-                                                            }
+                                                            const timestamp = extractMCEComponentTimestamp(output, '✓ capi-controller-manager deployment found');
+                                                            return timestamp ? calculateAge(timestamp) : '-';
                                                           })()}
                                                         </span>
                                                         <span
-                                                          className={`font-medium text-right ${
+                                                          className={`font-medium ${
                                                             !output.includes(
                                                               'capi_controller_manager deployment was not found'
                                                             )
@@ -5371,7 +5488,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             : 'Not Found'}
                                                         </span>
                                                       </div>
-                                                      <div className="grid grid-cols-4 gap-2 text-xs p-2 bg-cyan-50/50 rounded">
+                                                      <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/50 rounded">
                                                         <div className="flex flex-col">
                                                           <div className="flex items-center">
                                                             <span className="mr-2">
@@ -5381,40 +5498,37 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                                 ? '✅'
                                                                 : '❌'}
                                                             </span>
-                                                            <button
-                                                              onClick={() => {
-                                                                fetchOcpResourceDetail(
-                                                                  'Deployment',
-                                                                  'capa-controller-manager',
-                                                                  'multicluster-engine'
-                                                                );
-                                                              }}
-                                                              className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
-                                                            >
+                                                            <span className="text-cyan-800 font-medium">
                                                               CAPA Controller
-                                                            </button>
+                                                            </span>
                                                           </div>
                                                           <span className="text-cyan-600/70 text-[10px] ml-6">multicluster-engine</span>
+                                                        </div>
+                                                        <div className="flex items-center">
+                                                          <button
+                                                            onClick={() => {
+                                                              fetchOcpResourceDetail(
+                                                                'Deployment',
+                                                                'capa-controller-manager',
+                                                                'multicluster-engine'
+                                                              );
+                                                            }}
+                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline cursor-pointer transition-colors"
+                                                          >
+                                                            capa-controller-manager
+                                                          </button>
                                                         </div>
                                                         <span className="text-cyan-600 font-mono">
                                                           v2.3.0
                                                         </span>
-                                                        <span className="text-cyan-600 font-mono text-right">
+                                                        <span className="text-cyan-700 font-mono text-xs">
                                                           {(() => {
-                                                            try {
-                                                              const match = output.match(
-                                                                /"name":"capa-controller-manager","created":"([^"]+)"/
-                                                              );
-                                                              return match
-                                                                ? calculateAge(match[1])
-                                                                : '-';
-                                                            } catch (e) {
-                                                              return '-';
-                                                            }
+                                                            const timestamp = extractMCEComponentTimestamp(output, '✓ capa-controller-manager deployment found');
+                                                            return timestamp ? calculateAge(timestamp) : '-';
                                                           })()}
                                                         </span>
                                                         <span
-                                                          className={`font-medium text-right ${
+                                                          className={`font-medium ${
                                                             !output.includes(
                                                               'capa_controller_manager deployment was not found'
                                                             )
@@ -5427,6 +5541,105 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                           )
                                                             ? '1/1 ready'
                                                             : 'Not Found'}
+                                                        </span>
+                                                      </div>
+
+                                                      {/* Registration Config */}
+                                                      <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/50 rounded">
+                                                        <div className="flex flex-col">
+                                                          <div className="flex items-center">
+                                                            <span className="mr-2">
+                                                              {!output.includes('registration_configuration was not found') ? '✅' : '❌'}
+                                                            </span>
+                                                            <span className="text-cyan-800 font-medium">Registration Config</span>
+                                                          </div>
+                                                          <span className="text-cyan-600/70 text-[10px] ml-6">cluster-scoped</span>
+                                                        </div>
+                                                        <div className="flex items-center">
+                                                          <button
+                                                            onClick={() => {
+                                                              fetchOcpResourceDetail('ClusterManager', 'cluster-manager', '');
+                                                            }}
+                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline cursor-pointer transition-colors"
+                                                          >
+                                                            cluster-manager
+                                                          </button>
+                                                        </div>
+                                                        <span className="text-cyan-600 font-mono">-</span>
+                                                        <span className="text-cyan-700 font-mono text-xs">
+                                                          {(() => {
+                                                            const timestamp = extractMCEComponentTimestamp(output, '✓ ClusterManager registration configuration found');
+                                                            return timestamp ? calculateAge(timestamp) : '-';
+                                                          })()}
+                                                        </span>
+                                                        <span className={`font-medium ${!output.includes('registration_configuration was not found') ? 'text-green-600' : 'text-red-600'}`}>
+                                                          {!output.includes('registration_configuration was not found') ? 'Configured' : 'Not Found'}
+                                                        </span>
+                                                      </div>
+
+                                                      {/* Cluster Role Binding */}
+                                                      <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/50 rounded">
+                                                        <div className="flex flex-col">
+                                                          <div className="flex items-center">
+                                                            <span className="mr-2">
+                                                              {!output.includes('cluster-role-binding changes have not been applied') ? '✅' : '❌'}
+                                                            </span>
+                                                            <span className="text-cyan-800 font-medium">Cluster Role Binding</span>
+                                                          </div>
+                                                          <span className="text-cyan-600/70 text-[10px] ml-6">cluster-scoped</span>
+                                                        </div>
+                                                        <div className="flex items-center">
+                                                          <button
+                                                            onClick={() => {
+                                                              fetchOcpResourceDetail('ClusterRoleBinding', 'cluster-manager-registration-capi', '');
+                                                            }}
+                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline cursor-pointer transition-colors"
+                                                          >
+                                                            cluster-manager-registration-capi
+                                                          </button>
+                                                        </div>
+                                                        <span className="text-cyan-600 font-mono">-</span>
+                                                        <span className="text-cyan-700 font-mono text-xs">
+                                                          {(() => {
+                                                            const timestamp = extractMCEComponentTimestamp(output, '✓ ClusterRoleBinding cluster-manager-registration-capi found');
+                                                            return timestamp ? calculateAge(timestamp) : '-';
+                                                          })()}
+                                                        </span>
+                                                        <span className={`font-medium ${!output.includes('cluster-role-binding changes have not been applied') ? 'text-green-600' : 'text-red-600'}`}>
+                                                          {!output.includes('cluster-role-binding changes have not been applied') ? 'Applied' : 'Not Applied'}
+                                                        </span>
+                                                      </div>
+
+                                                      {/* Bootstrap Credentials */}
+                                                      <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/50 rounded">
+                                                        <div className="flex flex-col">
+                                                          <div className="flex items-center">
+                                                            <span className="mr-2">
+                                                              {!output.includes('capa-manager-bootstrap-credentials secret does not exist') ? '✅' : '❌'}
+                                                            </span>
+                                                            <span className="text-cyan-800 font-medium">Bootstrap Credentials</span>
+                                                          </div>
+                                                          <span className="text-cyan-600/70 text-[10px] ml-6">multicluster-engine</span>
+                                                        </div>
+                                                        <div className="flex items-center">
+                                                          <button
+                                                            onClick={() => {
+                                                              fetchOcpResourceDetail('Secret', 'capa-manager-bootstrap-credentials', 'multicluster-engine');
+                                                            }}
+                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline cursor-pointer transition-colors"
+                                                          >
+                                                            capa-manager-bootstrap-credentials
+                                                          </button>
+                                                        </div>
+                                                        <span className="text-cyan-600 font-mono">-</span>
+                                                        <span className="text-cyan-700 font-mono text-xs">
+                                                          {(() => {
+                                                            const timestamp = extractMCEComponentTimestamp(output, '✓ Secret capa-manager-bootstrap-credentials found');
+                                                            return timestamp ? calculateAge(timestamp) : '-';
+                                                          })()}
+                                                        </span>
+                                                        <span className={`font-medium ${!output.includes('capa-manager-bootstrap-credentials secret does not exist') ? 'text-green-600' : 'text-red-600'}`}>
+                                                          {!output.includes('capa-manager-bootstrap-credentials secret does not exist') ? 'Configured' : 'Missing'}
                                                         </span>
                                                       </div>
                                                     </div>
@@ -5760,119 +5973,6 @@ ${statusResult.result.output}
                                                     <div>Status</div>
                                                   </div>
                                                   <div className="space-y-1.5">
-                                                    {/* Registration Config */}
-                                                    <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
-                                                      <div className="flex flex-col">
-                                                        <div className="flex items-center">
-                                                          <span className="mr-2">
-                                                            {!output.includes('registration_configuration was not found') ? '✅' : '❌'}
-                                                          </span>
-                                                          <span className="text-cyan-800 font-medium">Registration Config</span>
-                                                        </div>
-                                                        <span className="text-cyan-600/70 text-[10px] ml-6">cluster-scoped</span>
-                                                      </div>
-                                                      <div className="flex items-center">
-                                                        <button
-                                                          onClick={() => {
-                                                            fetchOcpResourceDetail('ClusterManager', 'cluster-manager', '');
-                                                          }}
-                                                          className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
-                                                        >
-                                                          cluster-manager
-                                                        </button>
-                                                      </div>
-                                                      <span className="text-cyan-600 font-mono">-</span>
-                                                      <span className="text-cyan-600 font-mono">
-                                                        {(() => {
-                                                          try {
-                                                            const clusterManagerMatch = output.match(/\{"name":\s*"ClusterManager"[^}]*"creationTimestamp":\s*"([^"]+)"/);
-                                                            if (clusterManagerMatch) return calculateAge(clusterManagerMatch[1]);
-                                                            const anyMatch = output.match(/"creationTimestamp":\s*"([^"]+)"/);
-                                                            return anyMatch ? calculateAge(anyMatch[1]) : '-';
-                                                          } catch (e) {
-                                                            return '-';
-                                                          }
-                                                        })()}
-                                                      </span>
-                                                      <span className={`font-medium ${!output.includes('registration_configuration was not found') ? 'text-green-600' : 'text-red-600'}`}>
-                                                        {!output.includes('registration_configuration was not found') ? 'Configured' : 'Not Found'}
-                                                      </span>
-                                                    </div>
-
-                                                    {/* Cluster Role Binding */}
-                                                    <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
-                                                      <div className="flex flex-col">
-                                                        <div className="flex items-center">
-                                                          <span className="mr-2">
-                                                            {!output.includes('cluster-role-binding changes have not been applied') ? '✅' : '❌'}
-                                                          </span>
-                                                          <span className="text-cyan-800 font-medium">Cluster Role Binding</span>
-                                                        </div>
-                                                        <span className="text-cyan-600/70 text-[10px] ml-6">cluster-scoped</span>
-                                                      </div>
-                                                      <div className="flex items-center">
-                                                        <button
-                                                          onClick={() => {
-                                                            fetchOcpResourceDetail('ClusterRoleBinding', 'cluster-manager-registration-capi', '');
-                                                          }}
-                                                          className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
-                                                        >
-                                                          cluster-manager-registration-capi
-                                                        </button>
-                                                      </div>
-                                                      <span className="text-cyan-600 font-mono">-</span>
-                                                      <span className="text-cyan-600 font-mono">
-                                                        {(() => {
-                                                          try {
-                                                            const match = output.match(/\{"name":\s*"cluster-manager-registration-capi"[^}]*"creationTimestamp":\s*"([^"]+)"/);
-                                                            return match ? calculateAge(match[1]) : '-';
-                                                          } catch (e) {
-                                                            return '-';
-                                                          }
-                                                        })()}
-                                                      </span>
-                                                      <span className={`font-medium ${!output.includes('cluster-role-binding changes have not been applied') ? 'text-green-600' : 'text-red-600'}`}>
-                                                        {!output.includes('cluster-role-binding changes have not been applied') ? 'Applied' : 'Not Applied'}
-                                                      </span>
-                                                    </div>
-
-                                                    {/* Bootstrap Credentials */}
-                                                    <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
-                                                      <div className="flex flex-col">
-                                                        <div className="flex items-center">
-                                                          <span className="mr-2">
-                                                            {!output.includes('capa-manager-bootstrap-credentials secret does not exist') ? '✅' : '❌'}
-                                                          </span>
-                                                          <span className="text-cyan-800 font-medium">Bootstrap Credentials</span>
-                                                        </div>
-                                                        <span className="text-cyan-600/70 text-[10px] ml-6">multicluster-engine</span>
-                                                      </div>
-                                                      <div className="flex items-center">
-                                                        <button
-                                                          onClick={() => {
-                                                            fetchOcpResourceDetail('Secret', 'capa-manager-bootstrap-credentials', 'multicluster-engine');
-                                                          }}
-                                                          className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
-                                                        >
-                                                          capa-manager-bootstrap-credentials
-                                                        </button>
-                                                      </div>
-                                                      <span className="text-cyan-600 font-mono">-</span>
-                                                      <span className="text-cyan-600 font-mono">
-                                                        {(() => {
-                                                          try {
-                                                            const match = output.match(/\{"name":\s*"capa-manager-bootstrap-credentials"[^}]*"creationTimestamp":\s*"([^"]+)"/);
-                                                            return match ? calculateAge(match[1]) : '-';
-                                                          } catch (e) {
-                                                            return '-';
-                                                          }
-                                                        })()}
-                                                      </span>
-                                                      <span className={`font-medium ${!output.includes('capa-manager-bootstrap-credentials secret does not exist') ? 'text-green-600' : 'text-red-600'}`}>
-                                                        {!output.includes('capa-manager-bootstrap-credentials secret does not exist') ? 'Configured' : 'Missing'}
-                                                      </span>
-                                                    </div>
-
                                                     {/* ROSA Credentials */}
                                                     <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
                                                       <div className="flex flex-col">
@@ -5897,12 +5997,8 @@ ${statusResult.result.output}
                                                       <span className="text-cyan-600 font-mono">-</span>
                                                       <span className="text-cyan-600 font-mono">
                                                         {(() => {
-                                                          try {
-                                                            const match = output.match(/\{"name":\s*"rosa-creds-secret"[^}]*"creationTimestamp":\s*"([^"]+)"/);
-                                                            return match ? calculateAge(match[1]) : '-';
-                                                          } catch (e) {
-                                                            return '-';
-                                                          }
+                                                          const timestamp = extractMCEComponentTimestamp(output, '✓ Secret rosa-creds-secret found');
+                                                          return timestamp ? calculateAge(timestamp) : '-';
                                                         })()}
                                                       </span>
                                                       <span className={`font-medium ${!output.includes('rosa-creds-secret secret does not exist') ? 'text-green-600' : 'text-red-600'}`}>
@@ -5934,18 +6030,90 @@ ${statusResult.result.output}
                                                       <span className="text-cyan-600 font-mono">-</span>
                                                       <span className="text-cyan-600 font-mono">
                                                         {(() => {
-                                                          try {
-                                                            const match = output.match(/\{"name":\s*"default"[^}]*"creationTimestamp":\s*"([^"]+)"/);
-                                                            return match ? calculateAge(match[1]) : '-';
-                                                          } catch (e) {
-                                                            return '-';
-                                                          }
+                                                          const timestamp = extractMCEComponentTimestamp(output, '✓ AWSClusterControllerIdentity default found');
+                                                          return timestamp ? calculateAge(timestamp) : '-';
                                                         })()}
                                                       </span>
                                                       <span className={`font-medium ${!output.includes('aws_cluster_controller_identity does not exist') ? 'text-green-600' : 'text-red-600'}`}>
                                                         {!output.includes('aws_cluster_controller_identity does not exist') ? 'Configured' : 'Missing'}
                                                       </span>
                                                     </div>
+
+                                                    {/* Namespace ns-rosa-hcp */}
+                                                    {output.includes('"name":"ns-rosa-hcp"') && (
+                                                      <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
+                                                        <div className="flex flex-col">
+                                                          <div className="flex items-center">
+                                                            <span className="mr-2">✅</span>
+                                                            <span className="text-cyan-800 font-medium">Namespace</span>
+                                                          </div>
+                                                          <span className="text-cyan-600/70 text-[10px] ml-6">cluster-scoped</span>
+                                                        </div>
+                                                        <div className="flex items-center">
+                                                          <button
+                                                            onClick={() => {
+                                                              fetchOcpResourceDetail('Namespace', 'ns-rosa-hcp', '');
+                                                            }}
+                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                          >
+                                                            ns-rosa-hcp
+                                                          </button>
+                                                        </div>
+                                                        <span className="text-cyan-600 font-mono">-</span>
+                                                        <span className="text-cyan-600 font-mono">
+                                                          {(() => {
+                                                            const timestamp = extractMCEComponentTimestamp(output, 'Namespace ns-rosa-hcp details:');
+                                                            return timestamp ? calculateAge(timestamp) : '-';
+                                                          })()}
+                                                        </span>
+                                                        <span className="font-medium text-green-600">Active</span>
+                                                      </div>
+                                                    )}
+
+                                                    {/* RosaControlPlane */}
+                                                    {output.includes('RosaControlPlane details:') && (
+                                                      <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
+                                                        <div className="flex flex-col">
+                                                          <div className="flex items-center">
+                                                            <span className="mr-2">✅</span>
+                                                            <span className="text-cyan-800 font-medium">RosaControlPlane</span>
+                                                          </div>
+                                                          <span className="text-cyan-600/70 text-[10px] ml-6">ns-rosa-hcp</span>
+                                                        </div>
+                                                        <div className="flex items-center">
+                                                          <button
+                                                            onClick={() => {
+                                                              const nameMatch = output.match(/RosaControlPlane details: \{[^}]*["']?name["']?\s*:\s*["']([^"']+)["']/);
+                                                              const name = nameMatch ? nameMatch[1] : 'unknown';
+                                                              fetchOcpResourceDetail('RosaControlPlane', name, 'ns-rosa-hcp');
+                                                            }}
+                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                          >
+                                                            {(() => {
+                                                              const match = output.match(/RosaControlPlane details: \{[^}]*["']?name["']?\s*:\s*["']([^"']+)["']/);
+                                                              return match ? match[1] : 'unknown';
+                                                            })()}
+                                                          </button>
+                                                        </div>
+                                                        <span className="text-cyan-600 font-mono">
+                                                          {(() => {
+                                                            try {
+                                                              const match = output.match(/RosaControlPlane details: \{[^}]*["']?version["']?\s*:\s*["']([^"']+)["']/);
+                                                              return match ? match[1] : '-';
+                                                            } catch (e) {
+                                                              return '-';
+                                                            }
+                                                          })()}
+                                                        </span>
+                                                        <span className="text-cyan-600 font-mono">
+                                                          {(() => {
+                                                            const timestamp = extractMCEComponentTimestamp(output, 'RosaControlPlane details:');
+                                                            return timestamp ? calculateAge(timestamp) : '-';
+                                                          })()}
+                                                        </span>
+                                                        <span className="font-medium text-green-600">Provisioning</span>
+                                                      </div>
+                                                    )}
                                                   </div>
                                                 </>
                                               );
@@ -5954,18 +6122,69 @@ ${statusResult.result.output}
                                         )}
 
                                       {/* Detailed Output */}
-                                      <details className="bg-white rounded border">
-                                        <summary className="text-xs font-medium text-gray-700 p-2 cursor-pointer hover:bg-gray-50">
-                                          View Full Output
-                                        </summary>
-                                        <div className="p-2 border-t bg-gray-50 max-h-40 overflow-y-auto">
-                                          <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono">
-                                            {ansibleResults[operation.id].result.output ||
-                                              ansibleResults[operation.id].result.error ||
-                                              'No output available'}
-                                          </pre>
-                                        </div>
-                                      </details>
+                                      {(() => {
+                                        // Determine which operation to display (most recent)
+                                        const checkComponentsResult = ansibleResults['check-components'];
+                                        const configureEnvResult = ansibleResults['configure-environment'];
+
+                                        let displayResult = checkComponentsResult;
+                                        let operationName = 'Validate CAPA Environment';
+
+                                        // If both exist, show the most recent one
+                                        if (configureEnvResult && checkComponentsResult) {
+                                          const configTime = configureEnvResult.timestamp?.getTime() || 0;
+                                          const checkTime = checkComponentsResult.timestamp?.getTime() || 0;
+                                          if (configTime > checkTime) {
+                                            displayResult = configureEnvResult;
+                                            operationName = 'Configure CAPA Environment';
+                                          }
+                                        } else if (configureEnvResult) {
+                                          displayResult = configureEnvResult;
+                                          operationName = 'Configure CAPA Environment';
+                                        }
+
+                                        if (!displayResult?.result) return null;
+
+                                        return (
+                                          <details className="bg-white rounded border">
+                                            <summary className="text-xs font-medium text-gray-700 p-2 cursor-pointer hover:bg-gray-50">
+                                              View Full Output
+                                            </summary>
+                                            <div className="p-2 border-t bg-gray-50">
+                                              {/* Header identifying the operation */}
+                                              <div className="mb-2 pb-2 border-b border-gray-200">
+                                                <span className="text-xs font-semibold text-cyan-700">
+                                                  Operation: {operationName}
+                                                </span>
+                                              </div>
+                                              <div className="max-h-40 overflow-y-auto">
+                                                <pre className="text-xs whitespace-pre-wrap font-mono">
+                                                  {formatPlaybookOutput(
+                                                    displayResult.result.output ||
+                                                      displayResult.result.error ||
+                                                      ''
+                                                  ).map((line, idx) => (
+                                                    <div
+                                                      key={idx}
+                                                      className={
+                                                        line.type === 'play'
+                                                          ? 'text-green-700 font-bold'
+                                                          : line.type === 'task'
+                                                          ? 'text-blue-700 font-semibold'
+                                                          : line.type === 'banner'
+                                                          ? 'text-gray-400'
+                                                          : 'text-gray-600'
+                                                      }
+                                                    >
+                                                      {line.content}
+                                                    </div>
+                                                  ))}
+                                                </pre>
+                                              </div>
+                                            </div>
+                                          </details>
+                                        );
+                                      })()}
                                     </div>
                                   )}
                               </div>
@@ -5996,10 +6215,27 @@ ${statusResult.result.output}
                                         View Full Output
                                       </summary>
                                       <div className="p-2 border-t bg-gray-50 max-h-40 overflow-y-auto">
-                                        <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono">
-                                          {ansibleResults[operation.id].result.output ||
-                                            ansibleResults[operation.id].result.error ||
-                                            'No output available'}
+                                        <pre className="text-xs whitespace-pre-wrap font-mono">
+                                          {formatPlaybookOutput(
+                                            ansibleResults[operation.id].result.output ||
+                                              ansibleResults[operation.id].result.error ||
+                                              ''
+                                          ).map((line, idx) => (
+                                            <div
+                                              key={idx}
+                                              className={
+                                                line.type === 'play'
+                                                  ? 'text-green-700 font-bold'
+                                                  : line.type === 'task'
+                                                  ? 'text-blue-700 font-semibold'
+                                                  : line.type === 'banner'
+                                                  ? 'text-gray-400'
+                                                  : 'text-gray-600'
+                                              }
+                                            >
+                                              {line.content}
+                                            </div>
+                                          ))}
                                         </pre>
                                       </div>
                                     </details>
