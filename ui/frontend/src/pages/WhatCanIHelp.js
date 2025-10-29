@@ -294,6 +294,7 @@ export function WhatCanIHelp() {
         namespace: 'ns-rosa-hcp',
         status: verificationData.cluster_info?.status || 'ready',
         components: verificationData.cluster_info?.components || {},
+        component_timestamps: verificationData.cluster_info?.component_timestamps || {},
       };
       setVerifiedMinikubeClusterInfo(clusterInfo);
 
@@ -3002,6 +3003,14 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           <div className="grid grid-cols-2 gap-3 mb-4">
                             <div className="bg-white rounded-lg p-2 border border-purple-100">
                               <div className="text-xs text-purple-600 font-semibold mb-1">
+                                API Server
+                              </div>
+                              <div className="text-xs text-purple-900 font-mono">
+                                {verifiedMinikubeClusterInfo.apiUrl}
+                              </div>
+                            </div>
+                            <div className="bg-white rounded-lg p-2 border border-purple-100">
+                              <div className="text-xs text-purple-600 font-semibold mb-1">
                                 Cluster Name
                               </div>
                               <div className="text-xs text-purple-900 font-mono">
@@ -3018,15 +3027,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             </div>
                             <div className="bg-white rounded-lg p-2 border border-purple-100">
                               <div className="text-xs text-purple-600 font-semibold mb-1">
-                                API Server
-                              </div>
-                              <div className="text-xs text-purple-900 font-mono">
-                                {verifiedMinikubeClusterInfo.apiUrl}
-                              </div>
-                            </div>
-                            <div className="bg-white rounded-lg p-2 border border-purple-100">
-                              <div className="text-xs text-purple-600 font-semibold mb-1">
-                                Verified
+                                Last Verified
                               </div>
                               <div className="text-xs text-purple-900">
                                 {verifiedMinikubeClusterInfo.verifiedDate}
@@ -3062,17 +3063,24 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           Key Components
                         </h4>
                         {/* Table Header */}
-                        <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs font-semibold text-purple-700 bg-purple-50 px-3 py-2 rounded mb-2">
+                        <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs font-semibold text-purple-700 bg-purple-50 px-3 py-2 rounded mb-2">
                           <div>Component</div>
+                          <div>Name</div>
                           <div>Version</div>
                           <div>Age</div>
                           <div>Status</div>
                         </div>
                         {/* Table Rows */}
                         <div className="space-y-2">
-                          <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                          <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                            <div className="flex flex-col">
+                              <div className="flex items-center">
+                                <span className="mr-2">✅</span>
+                                <span className="text-purple-800 font-medium">Minikube Cluster</span>
+                              </div>
+                              <span className="text-purple-600/70 text-[10px] ml-6">cluster-scoped</span>
+                            </div>
                             <div className="flex items-center">
-                              <span className="mr-2">✅</span>
                               <button
                                 onClick={() => {
                                   if (!verifiedMinikubeClusterInfo) {
@@ -3088,16 +3096,31 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 }}
                                 className="text-purple-800 font-medium hover:text-purple-600 hover:underline text-left cursor-pointer transition-colors"
                               >
-                                Minikube Cluster
+                                {verifiedMinikubeClusterInfo?.name || 'N/A'}
                               </button>
                             </div>
                             <span className="text-purple-600 font-mono">v1.32.0</span>
-                            <span className="text-purple-700 font-mono text-xs">-</span>
+                            <span className="text-purple-700 font-mono text-xs">
+                              {(() => {
+                                try {
+                                  const timestamp = verifiedMinikubeClusterInfo?.component_timestamps?.namespace;
+                                  return timestamp ? calculateAge(timestamp) : '-';
+                                } catch (e) {
+                                  return '-';
+                                }
+                              })()}
+                            </span>
                             <span className="text-green-600 font-medium">Running</span>
                           </div>
-                          <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                          <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                            <div className="flex flex-col">
+                              <div className="flex items-center">
+                                <span className="mr-2">✅</span>
+                                <span className="text-purple-800 font-medium">Cert Manager</span>
+                              </div>
+                              <span className="text-purple-600/70 text-[10px] ml-6">cert-manager</span>
+                            </div>
                             <div className="flex items-center">
-                              <span className="mr-2">✅</span>
                               <button
                                 onClick={() => {
                                   if (!verifiedMinikubeClusterInfo) {
@@ -3113,16 +3136,31 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 }}
                                 className="text-purple-800 font-medium hover:text-purple-600 hover:underline text-left cursor-pointer transition-colors"
                               >
-                                Cert Manager
+                                cert-manager
                               </button>
                             </div>
                             <span className="text-purple-600 font-mono">v1.13.0</span>
-                            <span className="text-purple-700 font-mono text-xs">-</span>
+                            <span className="text-purple-700 font-mono text-xs">
+                              {(() => {
+                                try {
+                                  const timestamp = verifiedMinikubeClusterInfo?.component_timestamps?.['cert-manager'];
+                                  return timestamp ? calculateAge(timestamp) : '-';
+                                } catch (e) {
+                                  return '-';
+                                }
+                              })()}
+                            </span>
                             <span className="text-green-600 font-medium">3 pods running</span>
                           </div>
-                          <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                          <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                            <div className="flex flex-col">
+                              <div className="flex items-center">
+                                <span className="mr-2">✅</span>
+                                <span className="text-purple-800 font-medium">CAPI Controller</span>
+                              </div>
+                              <span className="text-purple-600/70 text-[10px] ml-6">capi-system</span>
+                            </div>
                             <div className="flex items-center">
-                              <span className="mr-2">✅</span>
                               <button
                                 onClick={() => {
                                   if (!verifiedMinikubeClusterInfo) {
@@ -3138,16 +3176,31 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 }}
                                 className="text-purple-800 font-medium hover:text-purple-600 hover:underline text-left cursor-pointer transition-colors"
                               >
-                                CAPI Controller
+                                capi-controller-manager
                               </button>
                             </div>
                             <span className="text-purple-600 font-mono">v1.5.3</span>
-                            <span className="text-purple-700 font-mono text-xs">-</span>
+                            <span className="text-purple-700 font-mono text-xs">
+                              {(() => {
+                                try {
+                                  const timestamp = verifiedMinikubeClusterInfo?.component_timestamps?.['capi-controller'];
+                                  return timestamp ? calculateAge(timestamp) : '-';
+                                } catch (e) {
+                                  return '-';
+                                }
+                              })()}
+                            </span>
                             <span className="text-green-600 font-medium">1/1 ready</span>
                           </div>
-                          <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                          <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                            <div className="flex flex-col">
+                              <div className="flex items-center">
+                                <span className="mr-2">✅</span>
+                                <span className="text-purple-800 font-medium">CAPA Controller</span>
+                              </div>
+                              <span className="text-purple-600/70 text-[10px] ml-6">capa-system</span>
+                            </div>
                             <div className="flex items-center">
-                              <span className="mr-2">✅</span>
                               <button
                                 onClick={() => {
                                   if (!verifiedMinikubeClusterInfo) {
@@ -3163,16 +3216,31 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 }}
                                 className="text-purple-800 font-medium hover:text-purple-600 hover:underline text-left cursor-pointer transition-colors"
                               >
-                                CAPA Controller
+                                capa-controller-manager
                               </button>
                             </div>
                             <span className="text-purple-600 font-mono">v2.3.0</span>
-                            <span className="text-purple-700 font-mono text-xs">-</span>
+                            <span className="text-purple-700 font-mono text-xs">
+                              {(() => {
+                                try {
+                                  const timestamp = verifiedMinikubeClusterInfo?.component_timestamps?.['capa-controller'];
+                                  return timestamp ? calculateAge(timestamp) : '-';
+                                } catch (e) {
+                                  return '-';
+                                }
+                              })()}
+                            </span>
                             <span className="text-green-600 font-medium">1/1 ready</span>
                           </div>
-                          <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                          <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                            <div className="flex flex-col">
+                              <div className="flex items-center">
+                                <span className="mr-2">✅</span>
+                                <span className="text-purple-800 font-medium">ROSA CRDs</span>
+                              </div>
+                              <span className="text-purple-600/70 text-[10px] ml-6">cluster-scoped</span>
+                            </div>
                             <div className="flex items-center">
-                              <span className="mr-2">✅</span>
                               <button
                                 onClick={() => {
                                   if (!verifiedMinikubeClusterInfo) {
@@ -3188,11 +3256,20 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 }}
                                 className="text-purple-800 font-medium hover:text-purple-600 hover:underline text-left cursor-pointer transition-colors"
                               >
-                                ROSA CRDs
+                                rosacontrolplanes...
                               </button>
                             </div>
                             <span className="text-purple-600 font-mono">v4.20</span>
-                            <span className="text-purple-700 font-mono text-xs">-</span>
+                            <span className="text-purple-700 font-mono text-xs">
+                              {(() => {
+                                try {
+                                  const timestamp = verifiedMinikubeClusterInfo?.component_timestamps?.['rosa-crd'];
+                                  return timestamp ? calculateAge(timestamp) : '-';
+                                } catch (e) {
+                                  return '-';
+                                }
+                              })()}
+                            </span>
                             <span className="text-green-600 font-medium">All installed</span>
                           </div>
                           {verifiedMinikubeClusterInfo?.components?.details?.map(
@@ -3222,11 +3299,12 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               return (
                                 <div
                                   key={idx}
-                                  className={`grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 rounded ${config.bgClass}`}
+                                  className={`grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 rounded ${config.bgClass}`}
                                 >
                                   <span className="text-purple-800 font-medium">
                                     {config.icon} {component.name}
                                   </span>
+                                  <span className="text-purple-600 font-mono">-</span>
                                   <span className="text-purple-600 font-mono">-</span>
                                   <span className="text-purple-700 font-mono text-xs">-</span>
                                   <span className={`${config.color} font-medium`}>
@@ -3237,18 +3315,20 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             }
                           ) || (
                             <>
-                              <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                              <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
                                 <span className="text-purple-800 font-medium">
                                   ℹ️ AWS Credentials
                                 </span>
                                 <span className="text-purple-600 font-mono">-</span>
+                                <span className="text-purple-600 font-mono">-</span>
                                 <span className="text-purple-700 font-mono text-xs">-</span>
                                 <span className="text-gray-500 font-medium">Not checked</span>
                               </div>
-                              <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                              <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
                                 <span className="text-purple-800 font-medium">
                                   ℹ️ OCM Client Secret
                                 </span>
+                                <span className="text-purple-600 font-mono">-</span>
                                 <span className="text-purple-600 font-mono">-</span>
                                 <span className="text-purple-700 font-mono text-xs">-</span>
                                 <span className="text-gray-500 font-medium">Not checked</span>
@@ -3931,55 +4011,94 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         {activeResources.length > 0 ? (
                           <>
                             {/* Table Header */}
-                            <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs font-semibold text-purple-700 bg-purple-50 px-3 py-2 rounded mb-2">
+                            <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs font-semibold text-purple-700 bg-purple-50 px-3 py-2 rounded mb-2">
+                              <div>Type</div>
                               <div>Name</div>
                               <div>Version</div>
                               <div>Age</div>
                               <div>Status</div>
                             </div>
                             <div className="space-y-1.5">
-                              {activeResources.map((resource, idx) => (
-                                <div
-                                  key={idx}
-                                  className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-purple-50/50 transition-colors rounded"
-                                >
-                                  <div className="flex items-center">
-                                    <svg
-                                      className="h-4 w-4 text-green-500 mr-2 flex-shrink-0"
-                                      fill="currentColor"
-                                      viewBox="0 0 20 20"
-                                    >
-                                      <path
-                                        fillRule="evenodd"
-                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                        clipRule="evenodd"
-                                      />
-                                    </svg>
-                                    <button
-                                      onClick={() =>
-                                        fetchResourceDetail(
-                                          verifiedMinikubeClusterInfo.name,
-                                          resource.type,
-                                          resource.name,
-                                          verifiedMinikubeClusterInfo.namespace
-                                        )
-                                      }
-                                      className="text-purple-800 font-medium hover:text-purple-600 hover:underline text-left cursor-pointer transition-colors"
-                                    >
-                                      {resource.name}
-                                    </button>
+                              {activeResources.map((resource, idx) => {
+                                // Extract resource name and namespace
+                                let resourceName = resource.name;
+                                let namespace = verifiedMinikubeClusterInfo.namespace;
+
+                                // Check if name contains namespace in parentheses
+                                if (resource.name.includes('(')) {
+                                  resourceName = resource.name.split('(')[0].trim();
+                                  const namespaceMatch = resource.name.match(/\(([^)]+)\)/);
+                                  if (namespaceMatch) {
+                                    namespace = namespaceMatch[1];
+                                  }
+                                }
+
+                                // Determine if cluster-scoped
+                                const isClusterScoped = resource.type === 'Namespace' ||
+                                                       resource.type === 'AWSClusterControllerIdentity' ||
+                                                       resource.type === 'CustomResourceDefinition';
+
+                                return (
+                                  <div
+                                    key={idx}
+                                    className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-purple-50/50 transition-colors rounded"
+                                  >
+                                    <div className="flex flex-col">
+                                      <div className="flex items-center">
+                                        <svg
+                                          className="h-4 w-4 text-green-500 mr-2 flex-shrink-0"
+                                          fill="currentColor"
+                                          viewBox="0 0 20 20"
+                                        >
+                                          <path
+                                            fillRule="evenodd"
+                                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                            clipRule="evenodd"
+                                          />
+                                        </svg>
+                                        <span className="text-purple-800 font-medium">
+                                          {resource.type === 'Secret' && resourceName.includes('rosa-creds-secret') ? 'ROSA Credentials' :
+                                           resource.type === 'Secret' && resourceName.includes('bootstrap-credentials') ? 'Bootstrap Credentials' :
+                                           resource.type === 'AWSClusterControllerIdentity' ? 'AWS Identity' :
+                                           resource.type === 'RosaControlPlane' ? 'RosaControlPlane' :
+                                           resource.type}
+                                        </span>
+                                      </div>
+                                      <span className="text-purple-600/70 text-[10px] ml-6">
+                                        {isClusterScoped ? 'cluster-scoped' : namespace}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <button
+                                        onClick={() =>
+                                          fetchResourceDetail(
+                                            verifiedMinikubeClusterInfo.name,
+                                            resource.type,
+                                            resourceName,
+                                            isClusterScoped ? '' : namespace
+                                          )
+                                        }
+                                        className="text-purple-800 font-medium hover:text-purple-600 hover:underline text-left cursor-pointer transition-colors"
+                                      >
+                                        {resourceName}
+                                      </button>
+                                    </div>
+                                    <span className="text-purple-600 font-mono text-xs">
+                                      {resource.version || 'N/A'}
+                                    </span>
+                                    <span className="text-purple-600 font-mono text-xs">
+                                      {resource.age || '-'}
+                                    </span>
+                                    <span className={`font-medium text-xs ${
+                                      resource.status?.toLowerCase().includes('active') ||
+                                      resource.status?.toLowerCase().includes('configured') ||
+                                      resource.status?.toLowerCase().includes('provisioning') ? 'text-green-600' : 'text-purple-700'
+                                    }`}>
+                                      {resource.status || 'Unknown'}
+                                    </span>
                                   </div>
-                                  <span className="text-purple-700 text-xs">
-                                    {resource.version || 'N/A'}
-                                  </span>
-                                  <span className="text-purple-700 font-mono text-xs">
-                                    {resource.age || 'unknown'}
-                                  </span>
-                                  <span className="text-purple-700 text-xs">
-                                    {resource.status || 'Unknown'}
-                                  </span>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </>
                         ) : (
