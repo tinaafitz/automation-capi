@@ -109,6 +109,31 @@
       delay: 2
       when: cluster_file_stat.stat.exists
 
+    - name: Get namespace ns-rosa-hcp details
+      shell: |
+        oc get namespace ns-rosa-hcp -ojson | jq -c '{name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
+      register: namespace_details
+      failed_when: false
+      changed_when: false
+
+    - name: Display namespace details
+      debug:
+        msg: "Namespace ns-rosa-hcp details: {{ namespace_details.stdout }}"
+      when: namespace_details.stdout | length > 0
+
+    - name: Get RosaControlPlane details
+      shell: |
+        oc get rosacontrolplane -n ns-rosa-hcp -ojson | jq -c '.items[] | {name: .metadata.name, version: .spec.version, creationTimestamp: .metadata.creationTimestamp}'
+      register: controlplane_details
+      failed_when: false
+      changed_when: false
+      when: cluster_file_stat.stat.exists
+
+    - name: Display RosaControlPlane details
+      debug:
+        msg: "RosaControlPlane details: {{ controlplane_details.stdout }}"
+      when: cluster_file_stat.stat.exists and controlplane_details.stdout | length > 0
+
     - name: Display provisioning status
       debug:
         msg: |

@@ -1615,7 +1615,7 @@ export function WhatCanIHelp() {
       id: 'check-components',
       title: 'MCE Test Environment Status',
       subtitle: '',
-      description: 'Ensure all CAPI/CAPA components are present and configured',
+      description: '',
       details:
         'Validates that all required CAPI/CAPA components are properly installed and configured in your MCE environment',
       icon: CheckCircleIcon,
@@ -1665,6 +1665,12 @@ export function WhatCanIHelp() {
                   success: true,
                 },
               }));
+
+              // Add to recent operations for Active Resources display
+              addToRecent({
+                id: 'check-components',
+                title: 'MCE Test Environment Status',
+              });
 
               // Parse output to determine component status
               const output = result.output || '';
@@ -5373,13 +5379,14 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                         const mostRecentOp = recentOperations
                                           .filter(op => ansibleResults[op.id]?.result?.output)
                                           .sort((a, b) => {
-                                            const timeA = parseInt(a.id.split('-').pop()) || 0;
-                                            const timeB = parseInt(b.id.split('-').pop()) || 0;
+                                            const timeA = a.timestamp || 0;
+                                            const timeB = b.timestamp || 0;
                                             return timeB - timeA;
                                           })[0];
 
-                                        // Only render this section once for the most recent operation
-                                        if (!mostRecentOp || operation.id !== mostRecentOp.id) {
+                                        // Only render this section once - when we're on the check-components operation
+                                        // This ensures it renders once regardless of which operation is mostRecentOp
+                                        if (!mostRecentOp || operation.id !== 'check-components') {
                                           return null;
                                         }
 
@@ -5595,6 +5602,17 @@ ${statusResult.result.output}
                                                       });
 
                                                       if (response.ok && result.success) {
+                                                        // Store the result in ansibleResults for display
+                                                        setAnsibleResults((prev) => ({
+                                                          ...prev,
+                                                          [operationId]: {
+                                                            loading: false,
+                                                            result: result,
+                                                            timestamp: new Date(),
+                                                            success: true,
+                                                          },
+                                                        }));
+
                                                         updateRecentOperationStatus(
                                                           operationId,
                                                           `✅ Provisioned at ${completionTime}`
@@ -5605,6 +5623,16 @@ ${statusResult.result.output}
                                                           5000
                                                         );
                                                       } else {
+                                                        // Store failed result
+                                                        setAnsibleResults((prev) => ({
+                                                          ...prev,
+                                                          [operationId]: {
+                                                            loading: false,
+                                                            result: result,
+                                                            timestamp: new Date(),
+                                                            success: false,
+                                                          },
+                                                        }));
                                                         throw new Error(result.error || result.message || 'Provisioning failed');
                                                       }
                                                     } catch (error) {
@@ -5615,6 +5643,18 @@ ${statusResult.result.output}
                                                         hour12: true,
                                                       });
                                                       if (operationId) {
+                                                        // Store error result if not already stored
+                                                        if (!ansibleResults[operationId]) {
+                                                          setAnsibleResults((prev) => ({
+                                                            ...prev,
+                                                            [operationId]: {
+                                                              loading: false,
+                                                              result: { error: error.message, output: error.message },
+                                                              timestamp: new Date(),
+                                                              success: false,
+                                                            },
+                                                          }));
+                                                        }
                                                         updateRecentOperationStatus(
                                                           operationId,
                                                           `❌ Failed at ${completionTime}`
@@ -5635,8 +5675,12 @@ ${statusResult.result.output}
 
                                             {/* Display MCE Component Status */}
                                             {(() => {
-                                              const statusResult = ansibleResults['check-components'];
-                                              const output = statusResult.result.output;
+                                              // Use check-components output for infrastructure resources
+                                              // Use most recent operation output for provisioning resources
+                                              const validationResult = ansibleResults['check-components'];
+                                              const mostRecentResult = ansibleResults[mostRecentOp.id];
+                                              const output = validationResult?.result?.output || '';
+                                              const provisioningOutput = mostRecentResult?.result?.output || '';
                                               // Check for deployment found messages
                                               const capiEnabled = output.includes('capi-controller-manager deployment found') &&
                                                                   !output.includes('capi-controller-manager deployment not found');
@@ -5648,7 +5692,8 @@ ${statusResult.result.output}
 
                                               return (
                                                 <>
-                                                  <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs font-semibold text-cyan-700 bg-cyan-50 px-3 py-2 rounded mb-2">
+                                                  <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs font-semibold text-cyan-700 bg-cyan-50 px-3 py-2 rounded mb-2">
+                                                    <div>Type</div>
                                                     <div>Name</div>
                                                     <div>Version</div>
                                                     <div>Age</div>
@@ -5656,29 +5701,40 @@ ${statusResult.result.output}
                                                   </div>
                                                   <div className="space-y-1.5">
                                                     {/* Registration Config */}
-                                                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
+                                                    <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
                                                       <div className="flex flex-col">
                                                         <div className="flex items-center">
                                                           <span className="mr-2">
                                                             {!output.includes('registration_configuration was not found') ? '✅' : '❌'}
                                                           </span>
-                                                          <button
-                                                            onClick={() => {
-                                                              fetchOcpResourceDetail('ClusterManager', 'cluster-manager', '');
-                                                            }}
-                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
-                                                          >
+                                                          <span className="text-cyan-800 font-medium">
                                                             Registration Config
-                                                          </button>
+                                                          </span>
                                                         </div>
                                                         <span className="text-cyan-600/70 text-[10px] ml-6">cluster-scoped</span>
+                                                      </div>
+                                                      <div className="flex items-center">
+                                                        <button
+                                                          onClick={() => {
+                                                            fetchOcpResourceDetail('ClusterManager', 'cluster-manager', '');
+                                                          }}
+                                                          className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                        >
+                                                          cluster-manager
+                                                        </button>
                                                       </div>
                                                       <span className="text-cyan-600 font-mono">-</span>
                                                       <span className="text-cyan-600 font-mono">
                                                         {(() => {
                                                           try {
-                                                            const match = output.match(/"name":"ClusterManager","created":"([^"]+)"/);
-                                                            return match ? calculateAge(match[1]) : '-';
+                                                            // Look for ClusterManager's creationTimestamp in the JSON output
+                                                            // Pattern: {"name":"ClusterManager","creationTimestamp":"..."}
+                                                            const clusterManagerMatch = output.match(/\{"name":\s*"ClusterManager"[^}]*"creationTimestamp":\s*"([^"]+)"/);
+                                                            if (clusterManagerMatch) return calculateAge(clusterManagerMatch[1]);
+
+                                                            // Fallback: any creationTimestamp in output
+                                                            const anyMatch = output.match(/"creationTimestamp":\s*"([^"]+)"/);
+                                                            return anyMatch ? calculateAge(anyMatch[1]) : '-';
                                                           } catch (e) {
                                                             return '-';
                                                           }
@@ -5690,29 +5746,40 @@ ${statusResult.result.output}
                                                     </div>
 
                                                     {/* Cluster Role Binding */}
-                                                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
+                                                    <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
                                                       <div className="flex flex-col">
                                                         <div className="flex items-center">
                                                           <span className="mr-2">
                                                             {!output.includes('cluster-role-binding changes have not been applied') ? '✅' : '❌'}
                                                           </span>
-                                                          <button
-                                                            onClick={() => {
-                                                              fetchOcpResourceDetail('ClusterRoleBinding', 'cluster-manager-registration-capi', '');
-                                                            }}
-                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
-                                                          >
+                                                          <span className="text-cyan-800 font-medium">
                                                             Cluster Role Binding
-                                                          </button>
+                                                          </span>
                                                         </div>
                                                         <span className="text-cyan-600/70 text-[10px] ml-6">cluster-scoped</span>
+                                                      </div>
+                                                      <div className="flex items-center">
+                                                        <button
+                                                          onClick={() => {
+                                                            fetchOcpResourceDetail('ClusterRoleBinding', 'cluster-manager-registration-capi', '');
+                                                          }}
+                                                          className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                        >
+                                                          cluster-manager-registration-capi
+                                                        </button>
                                                       </div>
                                                       <span className="text-cyan-600 font-mono">-</span>
                                                       <span className="text-cyan-600 font-mono">
                                                         {(() => {
                                                           try {
-                                                            const match = output.match(/"name":"cluster-manager-registration-capi","created":"([^"]+)"/);
-                                                            return match ? calculateAge(match[1]) : '-';
+                                                            // Look for cluster-manager-registration-capi's creationTimestamp
+                                                            // Pattern: {"name":"cluster-manager-registration-capi","creationTimestamp":"..."}
+                                                            const crbMatch = output.match(/\{"name":\s*"cluster-manager-registration-capi"[^}]*"creationTimestamp":\s*"([^"]+)"/);
+                                                            if (crbMatch) return calculateAge(crbMatch[1]);
+
+                                                            // Fallback: search for any ClusterRoleBinding timestamp
+                                                            const anyMatch = output.match(/"creationTimestamp":\s*"([^"]+)"/);
+                                                            return anyMatch ? calculateAge(anyMatch[1]) : '-';
                                                           } catch (e) {
                                                             return '-';
                                                           }
@@ -5724,29 +5791,37 @@ ${statusResult.result.output}
                                                     </div>
 
                                                     {/* Bootstrap Credentials */}
-                                                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
+                                                    <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
                                                       <div className="flex flex-col">
                                                         <div className="flex items-center">
                                                           <span className="mr-2">
                                                             {!output.includes('capa-manager-bootstrap-credentials secret does not exist') ? '✅' : '❌'}
                                                           </span>
-                                                          <button
-                                                            onClick={() => {
-                                                              fetchOcpResourceDetail('Secret', 'capa-manager-bootstrap-credentials', 'multicluster-engine');
-                                                            }}
-                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
-                                                          >
-                                                            Bootstrap Credentials
-                                                          </button>
+                                                          <span className="text-cyan-800 font-medium">Bootstrap Credentials</span>
                                                         </div>
                                                         <span className="text-cyan-600/70 text-[10px] ml-6">multicluster-engine</span>
+                                                      </div>
+                                                      <div className="flex items-center">
+                                                        <button
+                                                          onClick={() => {
+                                                            fetchOcpResourceDetail('Secret', 'capa-manager-bootstrap-credentials', 'multicluster-engine');
+                                                          }}
+                                                          className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                        >
+                                                          capa-manager-bootstrap-credentials
+                                                        </button>
                                                       </div>
                                                       <span className="text-cyan-600 font-mono">-</span>
                                                       <span className="text-cyan-600 font-mono">
                                                         {(() => {
                                                           try {
-                                                            const match = output.match(/"name":"capa-manager-bootstrap-credentials","created":"([^"]+)"/);
-                                                            return match ? calculateAge(match[1]) : '-';
+                                                            // Look for capa-manager-bootstrap-credentials's creationTimestamp
+                                                            const bootstrapMatch = output.match(/\{"name":\s*"capa-manager-bootstrap-credentials"[^}]*"creationTimestamp":\s*"([^"]+)"/);
+                                                            if (bootstrapMatch) return calculateAge(bootstrapMatch[1]);
+
+                                                            // Fallback
+                                                            const anyMatch = output.match(/"creationTimestamp":\s*"([^"]+)"/);
+                                                            return anyMatch ? calculateAge(anyMatch[1]) : '-';
                                                           } catch (e) {
                                                             return '-';
                                                           }
@@ -5758,29 +5833,37 @@ ${statusResult.result.output}
                                                     </div>
 
                                                     {/* ROSA Credentials */}
-                                                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
+                                                    <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
                                                       <div className="flex flex-col">
                                                         <div className="flex items-center">
                                                           <span className="mr-2">
                                                             {!output.includes('rosa-creds-secret secret does not exist') ? '✅' : '❌'}
                                                           </span>
-                                                          <button
-                                                            onClick={() => {
-                                                              fetchOcpResourceDetail('Secret', 'rosa-creds-secret', 'multicluster-engine');
-                                                            }}
-                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
-                                                          >
-                                                            ROSA Credentials
-                                                          </button>
+                                                          <span className="text-cyan-800 font-medium">ROSA Credentials</span>
                                                         </div>
                                                         <span className="text-cyan-600/70 text-[10px] ml-6">multicluster-engine</span>
+                                                      </div>
+                                                      <div className="flex items-center">
+                                                        <button
+                                                          onClick={() => {
+                                                            fetchOcpResourceDetail('Secret', 'rosa-creds-secret', 'multicluster-engine');
+                                                          }}
+                                                          className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                        >
+                                                          rosa-creds-secret
+                                                        </button>
                                                       </div>
                                                       <span className="text-cyan-600 font-mono">-</span>
                                                       <span className="text-cyan-600 font-mono">
                                                         {(() => {
                                                           try {
-                                                            const match = output.match(/"name":"rosa-creds-secret","created":"([^"]+)"/);
-                                                            return match ? calculateAge(match[1]) : '-';
+                                                            // Look for rosa-creds-secret's creationTimestamp
+                                                            const rosaMatch = output.match(/\{"name":\s*"rosa-creds-secret"[^}]*"creationTimestamp":\s*"([^"]+)"/);
+                                                            if (rosaMatch) return calculateAge(rosaMatch[1]);
+
+                                                            // Fallback
+                                                            const anyMatch = output.match(/"creationTimestamp":\s*"([^"]+)"/);
+                                                            return anyMatch ? calculateAge(anyMatch[1]) : '-';
                                                           } catch (e) {
                                                             return '-';
                                                           }
@@ -5792,29 +5875,37 @@ ${statusResult.result.output}
                                                     </div>
 
                                                     {/* AWS Identity */}
-                                                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
+                                                    <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
                                                       <div className="flex flex-col">
                                                         <div className="flex items-center">
                                                           <span className="mr-2">
                                                             {!output.includes('aws_cluster_controller_identity does not exist') ? '✅' : '❌'}
                                                           </span>
-                                                          <button
-                                                            onClick={() => {
-                                                              fetchOcpResourceDetail('AWSClusterControllerIdentity', 'default', '');
-                                                            }}
-                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
-                                                          >
-                                                            AWS Identity
-                                                          </button>
+                                                          <span className="text-cyan-800 font-medium">AWS Identity</span>
                                                         </div>
                                                         <span className="text-cyan-600/70 text-[10px] ml-6">cluster-scoped</span>
+                                                      </div>
+                                                      <div className="flex items-center">
+                                                        <button
+                                                          onClick={() => {
+                                                            fetchOcpResourceDetail('AWSClusterControllerIdentity', 'default', '');
+                                                          }}
+                                                          className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                        >
+                                                          default
+                                                        </button>
                                                       </div>
                                                       <span className="text-cyan-600 font-mono">-</span>
                                                       <span className="text-cyan-600 font-mono">
                                                         {(() => {
                                                           try {
-                                                            const match = output.match(/"name":"default","created":"([^"]+)"/);
-                                                            return match ? calculateAge(match[1]) : '-';
+                                                            // Look for AWS Identity (default)'s creationTimestamp
+                                                            const awsMatch = output.match(/\{"name":\s*"default"[^}]*"creationTimestamp":\s*"([^"]+)"/);
+                                                            if (awsMatch) return calculateAge(awsMatch[1]);
+
+                                                            // Fallback
+                                                            const anyMatch = output.match(/"creationTimestamp":\s*"([^"]+)"/);
+                                                            return anyMatch ? calculateAge(anyMatch[1]) : '-';
                                                           } catch (e) {
                                                             return '-';
                                                           }
@@ -5824,12 +5915,99 @@ ${statusResult.result.output}
                                                         {!output.includes('aws_cluster_controller_identity does not exist') ? 'Configured' : 'Missing'}
                                                       </span>
                                                     </div>
+
+                                                    {/* Namespace ns-rosa-hcp - only show if it exists */}
+                                                    {((provisioningOutput.includes('namespace/ns-rosa-hcp') || provisioningOutput.includes('ns-rosa-hcp')) && !provisioningOutput.includes('ns-rosa-hcp not found')) && (
+                                                      <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
+                                                        <div className="flex flex-col">
+                                                          <div className="flex items-center">
+                                                            <span className="mr-2">✅</span>
+                                                            <span className="text-cyan-800 font-medium">Namespace</span>
+                                                          </div>
+                                                          <span className="text-cyan-600/70 text-[10px] ml-6">cluster-scoped</span>
+                                                        </div>
+                                                        <div className="flex items-center">
+                                                          <button
+                                                            onClick={() => {
+                                                              fetchOcpResourceDetail('Namespace', 'ns-rosa-hcp', '');
+                                                            }}
+                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                          >
+                                                            ns-rosa-hcp
+                                                          </button>
+                                                        </div>
+                                                        <span className="text-cyan-600 font-mono">-</span>
+                                                        <span className="text-cyan-600 font-mono">
+                                                          {(() => {
+                                                            try {
+                                                              // Look for ns-rosa-hcp namespace's creationTimestamp
+                                                              const nsMatch = provisioningOutput.match(/\{"name":\s*"ns-rosa-hcp"[^}]*"creationTimestamp":\s*"([^"]+)"/);
+                                                              if (nsMatch) return calculateAge(nsMatch[1]);
+
+                                                              // Fallback
+                                                              const anyMatch = provisioningOutput.match(/"creationTimestamp":\s*"([^"]+)"/);
+                                                              return anyMatch ? calculateAge(anyMatch[1]) : '-';
+                                                            } catch (e) {
+                                                              return '-';
+                                                            }
+                                                          })()}
+                                                        </span>
+                                                        <span className="font-medium text-green-600">Active</span>
+                                                      </div>
+                                                    )}
+
+                                                    {/* RosaControlPlane - only show if it exists */}
+                                                    {(provisioningOutput.includes('rosacontrolplane') && !provisioningOutput.includes('rosacontrolplane not found')) && (
+                                                      <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
+                                                        <div className="flex flex-col">
+                                                          <div className="flex items-center">
+                                                            <span className="mr-2">✅</span>
+                                                            <span className="text-cyan-800 font-medium">RosaControlPlane</span>
+                                                          </div>
+                                                          <span className="text-cyan-600/70 text-[10px] ml-6">ns-rosa-hcp</span>
+                                                        </div>
+                                                        <div className="flex items-center">
+                                                          <span className="text-cyan-800 font-medium">
+                                                            {(() => {
+                                                              try {
+                                                                // Try to extract RosaControlPlane name from output
+                                                                const match = provisioningOutput.match(/rosacontrolplane\.controlplane\.cluster\.x-k8s\.io\/([^\s]+)/);
+                                                                return match ? match[1] : '-';
+                                                              } catch (e) {
+                                                                return '-';
+                                                              }
+                                                            })()}
+                                                          </span>
+                                                        </div>
+                                                        <span className="text-cyan-600 font-mono">
+                                                          {(() => {
+                                                            try {
+                                                              // Try to extract version from RosaControlPlane spec
+                                                              const versionMatch = provisioningOutput.match(/"version":\s*"([^"]+)"/);
+                                                              return versionMatch ? versionMatch[1] : '-';
+                                                            } catch (e) {
+                                                              return '-';
+                                                            }
+                                                          })()}
+                                                        </span>
+                                                        <span className="text-cyan-600 font-mono">
+                                                          {(() => {
+                                                            try {
+                                                              const match = provisioningOutput.match(/"creationTimestamp":\s*"([^"]+)"/);
+                                                              return match ? calculateAge(match[1]) : '-';
+                                                            } catch (e) {
+                                                              return '-';
+                                                            }
+                                                          })()}
+                                                        </span>
+                                                        <span className="font-medium text-green-600">Ready</span>
+                                                      </div>
+                                                    )}
                                                   </div>
                                                 </>
                                               );
                                             })()}
                                           </div>
-                                        )}
 
                                       {/* Detailed Output */}
                                       <details className="bg-white rounded border mt-4">
@@ -5873,6 +6051,8 @@ ${statusResult.result.output}
                                           </>
                                         );
                                       })()}
+                                    </div>
+                                  )}
                               </div>
                             </div>
                           )}
