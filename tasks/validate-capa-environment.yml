@@ -1,7 +1,7 @@
 - name: Get cluster-api deployment
   shell: |
     oc --context='{{ ocp_context }}' get deploy -n multicluster-engine -ojson |\
-    jq -c '.items[] | select(.metadata.name | contains("capi-controller-manager")) | {name: .metadata.name, created: .metadata.creationTimestamp}'
+    jq -c '.items[] | select(.metadata.name | contains("capi-controller-manager")) | {name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
   register: capi_controller_manager
   failed_when: false
   changed_when: false
@@ -19,7 +19,7 @@
 - name: Check for cluster-api-provider-aws deployment
   shell: |
     oc --context='{{ ocp_context }}' get deploy -n multicluster-engine -ojson |\
-    jq -c '.items[] | select(.metadata.name | contains("capa-controller-manager")) | {name: .metadata.name, created: .metadata.creationTimestamp}'
+    jq -c '.items[] | select(.metadata.name | contains("capa-controller-manager")) | {name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
   register: capa_controller_manager
   failed_when: false
   changed_when: false
@@ -37,7 +37,7 @@
 - name: Get registrationConfiguration
   shell: |
     oc --context='{{ ocp_context }}' get clusterManager -n multicluster-engine -ojson |\
-    jq -c '.items[] | select(.spec.registrationConfiguration) | {name: "ClusterManager", created: .metadata.creationTimestamp}'
+    jq -c '.items[] | select(.spec.registrationConfiguration) | {name: "ClusterManager", creationTimestamp: .metadata.creationTimestamp}'
   register: registration_configuration_applied
   failed_when: false
   changed_when: false
@@ -54,7 +54,7 @@
 
 - name: Get clusterrolebinding
   shell: |
-    oc --context='{{ ocp_context }}' get ClusterRoleBinding cluster-manager-registration-capi -ojson | jq -c '{name: .metadata.name, created: .metadata.creationTimestamp}'
+    oc --context='{{ ocp_context }}' get ClusterRoleBinding cluster-manager-registration-capi -ojson | jq -c '{name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
   register: cluster_role_binding_applied
   failed_when: false
   changed_when: false
@@ -71,7 +71,7 @@
 
 - name: Get capa-manager-bootstrap-credentials
   shell: |
-    oc --context='{{ ocp_context }}' get secret -n multicluster-engine capa-manager-bootstrap-credentials -ojson | jq -c '{name: .metadata.name, created: .metadata.creationTimestamp}'
+    oc --context='{{ ocp_context }}' get secret -n multicluster-engine capa-manager-bootstrap-credentials -ojson | jq -c '{name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
   register: capa_manager_bootstrap_credentials_exists
   failed_when: false
   changed_when: false
@@ -88,7 +88,7 @@
 
 - name: Get rosa-creds-secret
   shell: |
-    oc --context='{{ ocp_context }}' get secret -n multicluster-engine rosa-creds-secret -ojson | jq -c '{name: .metadata.name, created: .metadata.creationTimestamp}'
+    oc --context='{{ ocp_context }}' get secret -n multicluster-engine rosa-creds-secret -ojson | jq -c '{name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
   register: rosa_creds_secret_exists
   failed_when: false
   changed_when: false
@@ -105,7 +105,7 @@
 
 - name: Get AWSClusterControllerIdentity
   shell: |
-    oc --context='{{ ocp_context }}' get AWSClusterControllerIdentity default -ojson | jq -c '{name: .metadata.name, created: .metadata.creationTimestamp}'
+    oc --context='{{ ocp_context }}' get AWSClusterControllerIdentity default -ojson | jq -c '{name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
   register: aws_cluster_controller_identity_exists
   failed_when: false
   changed_when: false

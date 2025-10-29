@@ -5633,7 +5633,8 @@ ${statusResult.result.output}
 
                                               return (
                                                 <>
-                                                  <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs font-semibold text-cyan-700 bg-cyan-50 px-3 py-2 rounded mb-2">
+                                                  <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs font-semibold text-cyan-700 bg-cyan-50 px-3 py-2 rounded mb-2">
+                                                    <div>Type</div>
                                                     <div>Name</div>
                                                     <div>Version</div>
                                                     <div>Age</div>
@@ -5641,29 +5642,34 @@ ${statusResult.result.output}
                                                   </div>
                                                   <div className="space-y-1.5">
                                                     {/* Registration Config */}
-                                                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
+                                                    <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
                                                       <div className="flex flex-col">
                                                         <div className="flex items-center">
                                                           <span className="mr-2">
                                                             {!output.includes('registration_configuration was not found') ? '✅' : '❌'}
                                                           </span>
-                                                          <button
-                                                            onClick={() => {
-                                                              fetchOcpResourceDetail('ClusterManager', 'cluster-manager', '');
-                                                            }}
-                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
-                                                          >
-                                                            Registration Config
-                                                          </button>
+                                                          <span className="text-cyan-800 font-medium">Registration Config</span>
                                                         </div>
                                                         <span className="text-cyan-600/70 text-[10px] ml-6">cluster-scoped</span>
+                                                      </div>
+                                                      <div className="flex items-center">
+                                                        <button
+                                                          onClick={() => {
+                                                            fetchOcpResourceDetail('ClusterManager', 'cluster-manager', '');
+                                                          }}
+                                                          className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                        >
+                                                          cluster-manager
+                                                        </button>
                                                       </div>
                                                       <span className="text-cyan-600 font-mono">-</span>
                                                       <span className="text-cyan-600 font-mono">
                                                         {(() => {
                                                           try {
-                                                            const match = output.match(/"name":"ClusterManager","created":"([^"]+)"/);
-                                                            return match ? calculateAge(match[1]) : '-';
+                                                            const clusterManagerMatch = output.match(/\{"name":\s*"ClusterManager"[^}]*"creationTimestamp":\s*"([^"]+)"/);
+                                                            if (clusterManagerMatch) return calculateAge(clusterManagerMatch[1]);
+                                                            const anyMatch = output.match(/"creationTimestamp":\s*"([^"]+)"/);
+                                                            return anyMatch ? calculateAge(anyMatch[1]) : '-';
                                                           } catch (e) {
                                                             return '-';
                                                           }
@@ -5675,28 +5681,31 @@ ${statusResult.result.output}
                                                     </div>
 
                                                     {/* Cluster Role Binding */}
-                                                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
+                                                    <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
                                                       <div className="flex flex-col">
                                                         <div className="flex items-center">
                                                           <span className="mr-2">
                                                             {!output.includes('cluster-role-binding changes have not been applied') ? '✅' : '❌'}
                                                           </span>
-                                                          <button
-                                                            onClick={() => {
-                                                              fetchOcpResourceDetail('ClusterRoleBinding', 'cluster-manager-registration-capi', '');
-                                                            }}
-                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
-                                                          >
-                                                            Cluster Role Binding
-                                                          </button>
+                                                          <span className="text-cyan-800 font-medium">Cluster Role Binding</span>
                                                         </div>
                                                         <span className="text-cyan-600/70 text-[10px] ml-6">cluster-scoped</span>
+                                                      </div>
+                                                      <div className="flex items-center">
+                                                        <button
+                                                          onClick={() => {
+                                                            fetchOcpResourceDetail('ClusterRoleBinding', 'cluster-manager-registration-capi', '');
+                                                          }}
+                                                          className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                        >
+                                                          cluster-manager-registration-capi
+                                                        </button>
                                                       </div>
                                                       <span className="text-cyan-600 font-mono">-</span>
                                                       <span className="text-cyan-600 font-mono">
                                                         {(() => {
                                                           try {
-                                                            const match = output.match(/"name":"cluster-manager-registration-capi","created":"([^"]+)"/);
+                                                            const match = output.match(/\{"name":\s*"cluster-manager-registration-capi"[^}]*"creationTimestamp":\s*"([^"]+)"/);
                                                             return match ? calculateAge(match[1]) : '-';
                                                           } catch (e) {
                                                             return '-';
@@ -5709,28 +5718,31 @@ ${statusResult.result.output}
                                                     </div>
 
                                                     {/* Bootstrap Credentials */}
-                                                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
+                                                    <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
                                                       <div className="flex flex-col">
                                                         <div className="flex items-center">
                                                           <span className="mr-2">
                                                             {!output.includes('capa-manager-bootstrap-credentials secret does not exist') ? '✅' : '❌'}
                                                           </span>
-                                                          <button
-                                                            onClick={() => {
-                                                              fetchOcpResourceDetail('Secret', 'capa-manager-bootstrap-credentials', 'multicluster-engine');
-                                                            }}
-                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
-                                                          >
-                                                            Bootstrap Credentials
-                                                          </button>
+                                                          <span className="text-cyan-800 font-medium">Bootstrap Credentials</span>
                                                         </div>
                                                         <span className="text-cyan-600/70 text-[10px] ml-6">multicluster-engine</span>
+                                                      </div>
+                                                      <div className="flex items-center">
+                                                        <button
+                                                          onClick={() => {
+                                                            fetchOcpResourceDetail('Secret', 'capa-manager-bootstrap-credentials', 'multicluster-engine');
+                                                          }}
+                                                          className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                        >
+                                                          capa-manager-bootstrap-credentials
+                                                        </button>
                                                       </div>
                                                       <span className="text-cyan-600 font-mono">-</span>
                                                       <span className="text-cyan-600 font-mono">
                                                         {(() => {
                                                           try {
-                                                            const match = output.match(/"name":"capa-manager-bootstrap-credentials","created":"([^"]+)"/);
+                                                            const match = output.match(/\{"name":\s*"capa-manager-bootstrap-credentials"[^}]*"creationTimestamp":\s*"([^"]+)"/);
                                                             return match ? calculateAge(match[1]) : '-';
                                                           } catch (e) {
                                                             return '-';
@@ -5743,28 +5755,31 @@ ${statusResult.result.output}
                                                     </div>
 
                                                     {/* ROSA Credentials */}
-                                                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
+                                                    <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
                                                       <div className="flex flex-col">
                                                         <div className="flex items-center">
                                                           <span className="mr-2">
                                                             {!output.includes('rosa-creds-secret secret does not exist') ? '✅' : '❌'}
                                                           </span>
-                                                          <button
-                                                            onClick={() => {
-                                                              fetchOcpResourceDetail('Secret', 'rosa-creds-secret', 'multicluster-engine');
-                                                            }}
-                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
-                                                          >
-                                                            ROSA Credentials
-                                                          </button>
+                                                          <span className="text-cyan-800 font-medium">ROSA Credentials</span>
                                                         </div>
                                                         <span className="text-cyan-600/70 text-[10px] ml-6">multicluster-engine</span>
+                                                      </div>
+                                                      <div className="flex items-center">
+                                                        <button
+                                                          onClick={() => {
+                                                            fetchOcpResourceDetail('Secret', 'rosa-creds-secret', 'multicluster-engine');
+                                                          }}
+                                                          className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                        >
+                                                          rosa-creds-secret
+                                                        </button>
                                                       </div>
                                                       <span className="text-cyan-600 font-mono">-</span>
                                                       <span className="text-cyan-600 font-mono">
                                                         {(() => {
                                                           try {
-                                                            const match = output.match(/"name":"rosa-creds-secret","created":"([^"]+)"/);
+                                                            const match = output.match(/\{"name":\s*"rosa-creds-secret"[^}]*"creationTimestamp":\s*"([^"]+)"/);
                                                             return match ? calculateAge(match[1]) : '-';
                                                           } catch (e) {
                                                             return '-';
@@ -5777,28 +5792,31 @@ ${statusResult.result.output}
                                                     </div>
 
                                                     {/* AWS Identity */}
-                                                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
+                                                    <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
                                                       <div className="flex flex-col">
                                                         <div className="flex items-center">
                                                           <span className="mr-2">
                                                             {!output.includes('aws_cluster_controller_identity does not exist') ? '✅' : '❌'}
                                                           </span>
-                                                          <button
-                                                            onClick={() => {
-                                                              fetchOcpResourceDetail('AWSClusterControllerIdentity', 'default', '');
-                                                            }}
-                                                            className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
-                                                          >
-                                                            AWS Identity
-                                                          </button>
+                                                          <span className="text-cyan-800 font-medium">AWS Identity</span>
                                                         </div>
                                                         <span className="text-cyan-600/70 text-[10px] ml-6">cluster-scoped</span>
+                                                      </div>
+                                                      <div className="flex items-center">
+                                                        <button
+                                                          onClick={() => {
+                                                            fetchOcpResourceDetail('AWSClusterControllerIdentity', 'default', '');
+                                                          }}
+                                                          className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                        >
+                                                          default
+                                                        </button>
                                                       </div>
                                                       <span className="text-cyan-600 font-mono">-</span>
                                                       <span className="text-cyan-600 font-mono">
                                                         {(() => {
                                                           try {
-                                                            const match = output.match(/"name":"default","created":"([^"]+)"/);
+                                                            const match = output.match(/\{"name":\s*"default"[^}]*"creationTimestamp":\s*"([^"]+)"/);
                                                             return match ? calculateAge(match[1]) : '-';
                                                           } catch (e) {
                                                             return '-';
