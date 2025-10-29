@@ -294,6 +294,7 @@ export function WhatCanIHelp() {
         namespace: 'ns-rosa-hcp',
         status: verificationData.cluster_info?.status || 'ready',
         components: verificationData.cluster_info?.components || {},
+        component_timestamps: verificationData.cluster_info?.component_timestamps || {},
       };
       setVerifiedMinikubeClusterInfo(clusterInfo);
 
@@ -3072,9 +3073,12 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         {/* Table Rows */}
                         <div className="space-y-2">
                           <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
-                            <div className="flex items-center">
-                              <span className="mr-2">✅</span>
-                              <span className="text-purple-800 font-medium">Minikube Cluster</span>
+                            <div className="flex flex-col">
+                              <div className="flex items-center">
+                                <span className="mr-2">✅</span>
+                                <span className="text-purple-800 font-medium">Minikube Cluster</span>
+                              </div>
+                              <span className="text-purple-600/70 text-[10px] ml-6">cluster-scoped</span>
                             </div>
                             <div className="flex items-center">
                               <button
@@ -3096,13 +3100,25 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               </button>
                             </div>
                             <span className="text-purple-600 font-mono">v1.32.0</span>
-                            <span className="text-purple-700 font-mono text-xs">-</span>
+                            <span className="text-purple-700 font-mono text-xs">
+                              {(() => {
+                                try {
+                                  const timestamp = verifiedMinikubeClusterInfo?.component_timestamps?.namespace;
+                                  return timestamp ? calculateAge(timestamp) : '-';
+                                } catch (e) {
+                                  return '-';
+                                }
+                              })()}
+                            </span>
                             <span className="text-green-600 font-medium">Running</span>
                           </div>
                           <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
-                            <div className="flex items-center">
-                              <span className="mr-2">✅</span>
-                              <span className="text-purple-800 font-medium">Cert Manager</span>
+                            <div className="flex flex-col">
+                              <div className="flex items-center">
+                                <span className="mr-2">✅</span>
+                                <span className="text-purple-800 font-medium">Cert Manager</span>
+                              </div>
+                              <span className="text-purple-600/70 text-[10px] ml-6">cert-manager</span>
                             </div>
                             <div className="flex items-center">
                               <button
@@ -3124,13 +3140,25 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               </button>
                             </div>
                             <span className="text-purple-600 font-mono">v1.13.0</span>
-                            <span className="text-purple-700 font-mono text-xs">-</span>
+                            <span className="text-purple-700 font-mono text-xs">
+                              {(() => {
+                                try {
+                                  const timestamp = verifiedMinikubeClusterInfo?.component_timestamps?.['cert-manager'];
+                                  return timestamp ? calculateAge(timestamp) : '-';
+                                } catch (e) {
+                                  return '-';
+                                }
+                              })()}
+                            </span>
                             <span className="text-green-600 font-medium">3 pods running</span>
                           </div>
                           <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
-                            <div className="flex items-center">
-                              <span className="mr-2">✅</span>
-                              <span className="text-purple-800 font-medium">CAPI Controller</span>
+                            <div className="flex flex-col">
+                              <div className="flex items-center">
+                                <span className="mr-2">✅</span>
+                                <span className="text-purple-800 font-medium">CAPI Controller</span>
+                              </div>
+                              <span className="text-purple-600/70 text-[10px] ml-6">capi-system</span>
                             </div>
                             <div className="flex items-center">
                               <button
@@ -3152,13 +3180,25 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               </button>
                             </div>
                             <span className="text-purple-600 font-mono">v1.5.3</span>
-                            <span className="text-purple-700 font-mono text-xs">-</span>
+                            <span className="text-purple-700 font-mono text-xs">
+                              {(() => {
+                                try {
+                                  const timestamp = verifiedMinikubeClusterInfo?.component_timestamps?.['capi-controller'];
+                                  return timestamp ? calculateAge(timestamp) : '-';
+                                } catch (e) {
+                                  return '-';
+                                }
+                              })()}
+                            </span>
                             <span className="text-green-600 font-medium">1/1 ready</span>
                           </div>
                           <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
-                            <div className="flex items-center">
-                              <span className="mr-2">✅</span>
-                              <span className="text-purple-800 font-medium">CAPA Controller</span>
+                            <div className="flex flex-col">
+                              <div className="flex items-center">
+                                <span className="mr-2">✅</span>
+                                <span className="text-purple-800 font-medium">CAPA Controller</span>
+                              </div>
+                              <span className="text-purple-600/70 text-[10px] ml-6">capa-system</span>
                             </div>
                             <div className="flex items-center">
                               <button
@@ -3180,13 +3220,25 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               </button>
                             </div>
                             <span className="text-purple-600 font-mono">v2.3.0</span>
-                            <span className="text-purple-700 font-mono text-xs">-</span>
+                            <span className="text-purple-700 font-mono text-xs">
+                              {(() => {
+                                try {
+                                  const timestamp = verifiedMinikubeClusterInfo?.component_timestamps?.['capa-controller'];
+                                  return timestamp ? calculateAge(timestamp) : '-';
+                                } catch (e) {
+                                  return '-';
+                                }
+                              })()}
+                            </span>
                             <span className="text-green-600 font-medium">1/1 ready</span>
                           </div>
                           <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
-                            <div className="flex items-center">
-                              <span className="mr-2">✅</span>
-                              <span className="text-purple-800 font-medium">ROSA CRDs</span>
+                            <div className="flex flex-col">
+                              <div className="flex items-center">
+                                <span className="mr-2">✅</span>
+                                <span className="text-purple-800 font-medium">ROSA CRDs</span>
+                              </div>
+                              <span className="text-purple-600/70 text-[10px] ml-6">cluster-scoped</span>
                             </div>
                             <div className="flex items-center">
                               <button
@@ -3208,7 +3260,16 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               </button>
                             </div>
                             <span className="text-purple-600 font-mono">v4.20</span>
-                            <span className="text-purple-700 font-mono text-xs">-</span>
+                            <span className="text-purple-700 font-mono text-xs">
+                              {(() => {
+                                try {
+                                  const timestamp = verifiedMinikubeClusterInfo?.component_timestamps?.['rosa-crd'];
+                                  return timestamp ? calculateAge(timestamp) : '-';
+                                } catch (e) {
+                                  return '-';
+                                }
+                              })()}
+                            </span>
                             <span className="text-green-600 font-medium">All installed</span>
                           </div>
                           {verifiedMinikubeClusterInfo?.components?.details?.map(
@@ -3238,11 +3299,12 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               return (
                                 <div
                                   key={idx}
-                                  className={`grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 rounded ${config.bgClass}`}
+                                  className={`grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 rounded ${config.bgClass}`}
                                 >
                                   <span className="text-purple-800 font-medium">
                                     {config.icon} {component.name}
                                   </span>
+                                  <span className="text-purple-600 font-mono">-</span>
                                   <span className="text-purple-600 font-mono">-</span>
                                   <span className="text-purple-700 font-mono text-xs">-</span>
                                   <span className={`${config.color} font-medium`}>
@@ -3253,18 +3315,20 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             }
                           ) || (
                             <>
-                              <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                              <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
                                 <span className="text-purple-800 font-medium">
                                   ℹ️ AWS Credentials
                                 </span>
                                 <span className="text-purple-600 font-mono">-</span>
+                                <span className="text-purple-600 font-mono">-</span>
                                 <span className="text-purple-700 font-mono text-xs">-</span>
                                 <span className="text-gray-500 font-medium">Not checked</span>
                               </div>
-                              <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                              <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
                                 <span className="text-purple-800 font-medium">
                                   ℹ️ OCM Client Secret
                                 </span>
+                                <span className="text-purple-600 font-mono">-</span>
                                 <span className="text-purple-600 font-mono">-</span>
                                 <span className="text-purple-700 font-mono text-xs">-</span>
                                 <span className="text-gray-500 font-medium">Not checked</span>

@@ -2873,6 +2873,86 @@ async def verify_minikube_cluster(request: dict):
                     ),
                 }
 
+                # Fetch creationTimestamp for key components
+                component_timestamps = {}
+
+                # Get namespace timestamp (for Minikube Cluster)
+                namespace_timestamp = subprocess.run(
+                    ["kubectl", "get", "namespace", "ns-rosa-hcp", "-ojson", "--context", context_name],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if namespace_timestamp.returncode == 0:
+                    try:
+                        import json
+                        ns_data = json.loads(namespace_timestamp.stdout)
+                        component_timestamps["namespace"] = ns_data.get("metadata", {}).get("creationTimestamp", "")
+                    except:
+                        pass
+
+                # Get cert-manager deployment timestamp
+                cert_manager_timestamp = subprocess.run(
+                    ["kubectl", "get", "deployment", "cert-manager", "-n", "cert-manager", "-ojson", "--context", context_name],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if cert_manager_timestamp.returncode == 0:
+                    try:
+                        import json
+                        cm_data = json.loads(cert_manager_timestamp.stdout)
+                        component_timestamps["cert-manager"] = cm_data.get("metadata", {}).get("creationTimestamp", "")
+                    except:
+                        pass
+
+                # Get CAPI controller timestamp
+                capi_timestamp = subprocess.run(
+                    ["kubectl", "get", "deployment", "capi-controller-manager", "-n", "capi-system", "-ojson", "--context", context_name],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if capi_timestamp.returncode == 0:
+                    try:
+                        import json
+                        capi_data = json.loads(capi_timestamp.stdout)
+                        component_timestamps["capi-controller"] = capi_data.get("metadata", {}).get("creationTimestamp", "")
+                    except:
+                        pass
+
+                # Get CAPA controller timestamp
+                capa_timestamp = subprocess.run(
+                    ["kubectl", "get", "deployment", "capa-controller-manager", "-n", "capa-system", "-ojson", "--context", context_name],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if capa_timestamp.returncode == 0:
+                    try:
+                        import json
+                        capa_data = json.loads(capa_timestamp.stdout)
+                        component_timestamps["capa-controller"] = capa_data.get("metadata", {}).get("creationTimestamp", "")
+                    except:
+                        pass
+
+                # Get ROSA CRD timestamp
+                rosa_crd_timestamp = subprocess.run(
+                    ["kubectl", "get", "crd", "rosacontrolplanes.controlplane.cluster.x-k8s.io", "-ojson", "--context", context_name],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if rosa_crd_timestamp.returncode == 0:
+                    try:
+                        import json
+                        crd_data = json.loads(rosa_crd_timestamp.stdout)
+                        component_timestamps["rosa-crd"] = crd_data.get("metadata", {}).get("creationTimestamp", "")
+                    except:
+                        pass
+
+                cluster_info["component_timestamps"] = component_timestamps
+
                 # Check for CAPI/CAPA components
                 components = {"checks_passed": 0, "warnings": 0, "failed": 0, "details": []}
 
