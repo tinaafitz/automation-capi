@@ -30,6 +30,7 @@ import { KindClusterModal } from '../components/KindClusterModal';
 import { KindTerminalModal } from '../components/KindTerminalModal';
 import { MinikubeClusterModal } from '../components/MinikubeClusterModal';
 import { MinikubeTerminalModal } from '../components/MinikubeTerminalModal';
+import { MCETerminalModal } from '../components/MCETerminalModal';
 
 // Helper function to calculate age from ISO timestamp
 function calculateAge(isoTimestamp) {
@@ -164,7 +165,19 @@ export function WhatCanIHelp() {
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [visibleCards, setVisibleCards] = useState(new Set());
-  const [expandedCards, setExpandedCards] = useState(new Set());
+  // Load expanded cards from localStorage on initial mount
+  const [expandedCards, setExpandedCards] = useState(() => {
+    try {
+      const saved = localStorage.getItem('expandedCards');
+      console.log('💾 Loading expandedCards from localStorage:', saved);
+      const loaded = saved ? new Set(JSON.parse(saved)) : new Set();
+      console.log('📥 Loaded expandedCards as Set:', [...loaded]);
+      return loaded;
+    } catch (error) {
+      console.error('❌ Error loading expandedCards from localStorage:', error);
+      return new Set();
+    }
+  });
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackData, setFeedbackData] = useState({ type: 'general', message: '', email: '' });
   const [showHelp, setShowHelp] = useState(false);
@@ -185,7 +198,31 @@ export function WhatCanIHelp() {
   const [kindVerificationResult, setKindVerificationResult] = useState(null);
   const [kindLoading, setKindLoading] = useState(false);
   const [mceLoading, setMceLoading] = useState(false);
-  const [ansibleResults, setAnsibleResults] = useState({});
+  const [ansibleResults, setAnsibleResults] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ansibleResults');
+      console.log('💾 Loading ansibleResults from localStorage');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Convert timestamp strings back to Date objects
+        Object.keys(parsed).forEach((key) => {
+          if (parsed[key].timestamp) {
+            parsed[key].timestamp = new Date(parsed[key].timestamp);
+          }
+          // Also convert nested result.timestamp if it exists
+          if (parsed[key].result?.timestamp) {
+            parsed[key].result.timestamp = new Date(parsed[key].result.timestamp);
+          }
+        });
+        console.log('📥 Loaded ansibleResults:', Object.keys(parsed));
+        return parsed;
+      }
+      return {};
+    } catch (error) {
+      console.error('❌ Error loading ansibleResults from localStorage:', error);
+      return {};
+    }
+  });
   const [collapsedSections, setCollapsedSections] = useState(new Set());
   const [systemStats, setSystemStats] = useState({
     clustersActive: 2,
@@ -235,6 +272,9 @@ export function WhatCanIHelp() {
   const [showMinikubeConfigModal, setShowMinikubeConfigModal] = useState(false);
   const [showMinikubeTerminalModal, setShowMinikubeTerminalModal] = useState(false);
   const [verifiedMinikubeClusterInfo, setVerifiedMinikubeClusterInfo] = useState(null);
+
+  // MCE Terminal state
+  const [showMCETerminalModal, setShowMCETerminalModal] = useState(false);
 
   // Track if we've already shown initial notifications to prevent loops
   const hasShownInitialNotifications = useRef(false);
@@ -641,9 +681,40 @@ export function WhatCanIHelp() {
     localStorage.setItem('favorites', JSON.stringify([...favorites]));
   }, [favorites]);
 
+  // Save expanded cards to localStorage
+  useEffect(() => {
+    const cardsArray = [...expandedCards];
+    console.log('💾 Saving expandedCards to localStorage:', cardsArray);
+    localStorage.setItem('expandedCards', JSON.stringify(cardsArray));
+    console.log('✅ Saved to localStorage');
+  }, [expandedCards]);
+
   useEffect(() => {
     localStorage.setItem('recentOperations', JSON.stringify(recentOperations));
   }, [recentOperations]);
+
+  // Save ansibleResults to localStorage
+  useEffect(() => {
+    try {
+      console.log('💾 Saving ansibleResults to localStorage:', Object.keys(ansibleResults));
+      localStorage.setItem('ansibleResults', JSON.stringify(ansibleResults));
+      console.log('✅ Saved ansibleResults to localStorage');
+    } catch (error) {
+      console.error('❌ Error saving ansibleResults to localStorage:', error);
+    }
+  }, [ansibleResults]);
+
+  // Auto-expand MCE card if validation results exist
+  useEffect(() => {
+    if (ansibleResults['check-components']?.result?.output || ansibleResults['refresh-check-components']?.result?.output) {
+      console.log('📂 MCE validation results detected - auto-expanding card');
+      setExpandedCards((prev) => {
+        const newSet = new Set(prev);
+        newSet.add('check-components');
+        return newSet;
+      });
+    }
+  }, [ansibleResults]);
 
   // Enhanced keyboard shortcuts
   useEffect(() => {
@@ -1771,6 +1842,14 @@ export function WhatCanIHelp() {
                 },
               }));
 
+              // Automatically expand the MCE card so it stays open
+              setExpandedCards((prev) => {
+                const newSet = new Set(prev);
+                newSet.add('check-components');
+                console.log('✅ Auto-expanding MCE card after validation');
+                return newSet;
+              });
+
               // Parse output to determine component status
               const output = result.output || '';
               console.log('Local Test Environment Verification Result:', {
@@ -1841,6 +1920,130 @@ export function WhatCanIHelp() {
         }
       },
     },
+    {
+      id: 'get-capi-capa-status',
+      title: 'Get CAPI/CAPA/HyperShift Status',
+      subtitle: 'Check component enablement',
+      description: 'Get current status of CAPI, CAPA, and HyperShift components',
+      details:
+        'Queries the MCE environment to determine which components (CAPI, CAPA, HyperShift) are currently enabled',
+      icon: CheckCircleIcon,
+      color: 'bg-blue-600',
+      textColor: 'text-blue-700',
+      bgColor: 'bg-blue-50 hover:bg-blue-100',
+      borderColor: 'border-blue-300',
+      duration: '~30s',
+      tooltip: 'Check which CAPI/CAPA/HyperShift components are enabled',
+      hidden: true, // Hide from UI but keep functionality
+      action: async () => {
+        try {
+          // Set loading state for this specific operation
+          setAnsibleResults((prev) => ({
+            ...prev,
+            'get-capi-capa-status': { loading: true, result: null, timestamp: new Date() },
+          }));
+
+          // Create an AbortController for timeout
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+
+          const response = await fetch('http://localhost:8000/api/ansible/run-task', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              task_file: 'tasks/get_capi_capa_status.yml',
+              description: 'Get CAPI/CAPA status',
+            }),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          const result = await response.json();
+
+          if (response.ok) {
+            if (result.success) {
+              // Store the result for display in the UI
+              setAnsibleResults((prev) => ({
+                ...prev,
+                'get-capi-capa-status': {
+                  loading: false,
+                  result: result,
+                  timestamp: new Date(),
+                  success: true,
+                },
+              }));
+
+              console.log('CAPI/CAPA Status Check Result:', {
+                success: true,
+                fullOutput: result.output || '',
+              });
+            } else {
+              addNotification(
+                `⚠️ CAPI/CAPA Status Check completed with issues: ${result.message || 'Check logs for details'}`,
+                'error',
+                8000
+              );
+
+              setAnsibleResults((prev) => ({
+                ...prev,
+                'get-capi-capa-status': {
+                  loading: false,
+                  result: result,
+                  timestamp: new Date(),
+                  success: false,
+                },
+              }));
+            }
+          } else {
+            addNotification(
+              `❌ Failed to get CAPI/CAPA status: ${result.error || 'Unknown error'}`,
+              'error',
+              8000
+            );
+
+            setAnsibleResults((prev) => ({
+              ...prev,
+              'get-capi-capa-status': {
+                loading: false,
+                result: { error: result.error || 'Unknown error' },
+                timestamp: new Date(),
+                success: false,
+              },
+            }));
+          }
+        } catch (error) {
+          console.error('Error getting CAPI/CAPA status:', error);
+
+          // Handle timeout specifically
+          if (error.name === 'AbortError') {
+            addNotification(
+              '⏱️ CAPI/CAPA Status Check timed out after 60 seconds.',
+              'error',
+              8000
+            );
+          } else {
+            addNotification(
+              '❌ Failed to get CAPI/CAPA status. Check console for details.',
+              'error',
+              8000
+            );
+          }
+
+          setAnsibleResults((prev) => ({
+            ...prev,
+            'get-capi-capa-status': {
+              loading: false,
+              result: { error: error.name === 'AbortError' ? 'Request timed out' : error.message },
+              timestamp: new Date(),
+              success: false,
+            },
+          }));
+        }
+      },
+    },
   ];
 
   const manageROSAClusters = [
@@ -1892,9 +2095,9 @@ export function WhatCanIHelp() {
 
   // All operations for command palette
   const allOperations = [
-    ...configureEnvironment.map((op) => ({ ...op, category: 'Configure Environment' })),
-    ...manageROSAClusters.map((op) => ({ ...op, category: 'Manage Clusters' })),
-    ...userFriendlyCategories.map((op) => ({ ...op, category: 'Getting Started' })),
+    ...configureEnvironment.filter(op => !op.hidden).map((op) => ({ ...op, category: 'Configure Environment' })),
+    ...manageROSAClusters.filter(op => !op.hidden).map((op) => ({ ...op, category: 'Manage Clusters' })),
+    ...userFriendlyCategories.filter(op => !op.hidden).map((op) => ({ ...op, category: 'Getting Started' })),
   ];
 
   const filteredOperations = allOperations.filter(
@@ -1904,13 +2107,17 @@ export function WhatCanIHelp() {
   );
 
   const toggleCardExpansion = (cardId) => {
+    console.log('🔄 Toggling card expansion for:', cardId);
     setExpandedCards((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(cardId)) {
+        console.log('  ➖ Removing from expandedCards');
         newSet.delete(cardId);
       } else {
+        console.log('  ➕ Adding to expandedCards');
         newSet.add(cardId);
       }
+      console.log('  📦 New expandedCards:', [...newSet]);
       return newSet;
     });
   };
@@ -2632,7 +2839,7 @@ export function WhatCanIHelp() {
                               refreshAllStatus();
                               addNotification('Refreshing status...', 'info', 2000);
                             }}
-                            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium text-sm inline-flex items-center space-x-2"
+                            className="bg-cyan-600 text-white px-4 py-2 rounded-lg hover:bg-cyan-700 transition-colors font-medium text-sm inline-flex items-center space-x-2"
                           >
                             <svg
                               className="h-4 w-4"
@@ -2944,7 +3151,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           e.stopPropagation();
                           setShowMinikubeTerminalModal(true);
                         }}
-                        className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                        className="bg-slate-700 hover:bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
                         title="Open terminal for verified cluster"
                       >
                         <CommandLineIcon className="h-3 w-3" />
@@ -3023,7 +3230,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           }
                         }
                       }}
-                      className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
                       title="Verify Minikube cluster status"
                     >
                       <ArrowPathIcon className="h-3 w-3" />
@@ -3753,7 +3960,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   );
                                 }
                               }}
-                              className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                              className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
                             >
                               <svg
                                 className="h-3.5 w-3.5 mr-1.5"
@@ -3865,11 +4072,12 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                         success: true,
                                         result: {
                                           output: result.output,
-                                          timestamp: completionTime,
+                                          timestamp: new Date(), // Store as Date object for comparison
                                           playbook: 'provision-rosa-hcp-cluster.yml',
                                           type: 'ROSA HCP Provisioning',
                                           clusterFile: trimmedFile,
                                         },
+                                        timestamp: new Date(), // Also at top level for consistency
                                       },
                                     }));
 
@@ -3923,11 +4131,12 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                         result: {
                                           output: result.output,
                                           error: result.error,
-                                          timestamp: completionTime,
+                                          timestamp: new Date(), // Store as Date object for comparison
                                           playbook: 'provision-rosa-hcp-cluster.yml',
                                           type: 'ROSA HCP Provisioning',
                                           clusterFile: trimmedFile,
                                         },
+                                        timestamp: new Date(), // Also at top level for consistency
                                       },
                                     }));
                                   }
@@ -3949,10 +4158,10 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   alert(`Error provisioning ROSA HCP cluster: ${error.message}`);
                                 }
                               }}
-                              className="px-3 py-1 text-xs font-medium text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 rounded-md shadow-sm hover:shadow transition-all duration-200 flex items-center space-x-1"
+                              className="bg-violet-600 hover:bg-violet-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
                             >
                               <svg
-                                className="h-3 w-3"
+                                className="h-3.5 w-3.5 mr-1.5"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -4320,6 +4529,28 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   </div>
                   <span>MCE Test Environment</span>
                   <div className="flex items-center ml-auto space-x-2">
+                    {/* Terminal Button - Only show when MCE is configured */}
+                    {(() => {
+                      const checkResult = ansibleResults['check-components'];
+                      // Show Terminal button when check-components has been run successfully
+                      if (checkResult?.result?.success) {
+                        return (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowMCETerminalModal(true);
+                            }}
+                            className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                            title="Open terminal for MCE environment"
+                          >
+                            <CommandLineIcon className="h-3 w-3" />
+                            <span>Terminal</span>
+                          </button>
+                        );
+                      }
+                      return null;
+                    })()}
+
                     {/* Enable CAPI/CAPA Button - Only show when CAPI/CAPA are NOT enabled */}
                     {(() => {
                       const statusResult = ansibleResults['get-capi-capa-status'];
@@ -4335,16 +4566,44 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               onClick={async (e) => {
                                 e.stopPropagation();
 
+                                // Check if HyperShift is enabled - if so, warn user
+                                const statusResult = ansibleResults['get-capi-capa-status'];
+                                if (statusResult?.result?.output) {
+                                  const output = statusResult.result.output;
+                                  const hypershiftEnabled = output.includes('HyperShift is enabled');
+
+                                  if (hypershiftEnabled) {
+                                    // Show confirmation dialog
+                                    const confirmed = window.confirm(
+                                      '⚠️ HyperShift is currently enabled.\n\n' +
+                                        'CAPI/CAPA and HyperShift are mutually exclusive - you can only have one enabled at a time.\n\n' +
+                                        'Enabling CAPI/CAPA will automatically disable HyperShift.\n\n' +
+                                        'Do you want to proceed?'
+                                    );
+
+                                    if (!confirmed) {
+                                      // User cancelled
+                                      return;
+                                    }
+                                  }
+                                }
+
                                 // Create unique ID for this operation using timestamp
                                 const enableId = `enable-capi-capa-${Date.now()}`;
 
                                 // Add to recent operations with "Enabling..." status
                                 addToRecent({
                                   id: enableId,
-                                  title: 'Enable CAPI/CAPA',
+                                  title: 'MCE Enable CAPI/CAPA',
                                   color: 'bg-blue-600',
                                   status: '⏳ Enabling...',
                                 });
+
+                                // Set loading state in ansibleResults
+                                setAnsibleResults((prev) => ({
+                                  ...prev,
+                                  'enable-capi-capa': { loading: true, result: null, timestamp: new Date() },
+                                }));
 
                                 try {
                                   addNotification('🔧 Enabling CAPI/CAPA...', 'info', 3000);
@@ -4372,10 +4631,32 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   });
 
                                   if (!enableResponse.ok || !enableResult.success) {
+                                    // Store error result in ansibleResults
+                                    setAnsibleResults((prev) => ({
+                                      ...prev,
+                                      'enable-capi-capa': {
+                                        loading: false,
+                                        result: enableResult,
+                                        timestamp: new Date(),
+                                        success: false,
+                                      },
+                                    }));
+
                                     throw new Error(
                                       `CAPI/CAPA enablement failed: ${enableResult.error || enableResult.message || 'Unknown error'}`
                                     );
                                   }
+
+                                  // Store success result in ansibleResults
+                                  setAnsibleResults((prev) => ({
+                                    ...prev,
+                                    'enable-capi-capa': {
+                                      loading: false,
+                                      result: enableResult,
+                                      timestamp: new Date(),
+                                      success: true,
+                                    },
+                                  }));
 
                                   addNotification(
                                     '✅ CAPI/CAPA enabled successfully',
@@ -4408,6 +4689,23 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                     enableId,
                                     `❌ Failed at ${completionTime}`
                                   );
+
+                                  // Store error in ansibleResults if not already stored
+                                  setAnsibleResults((prev) => {
+                                    if (prev['enable-capi-capa']?.success === false) {
+                                      // Already stored from the error response above
+                                      return prev;
+                                    }
+                                    return {
+                                      ...prev,
+                                      'enable-capi-capa': {
+                                        loading: false,
+                                        result: { error: error.message },
+                                        timestamp: new Date(),
+                                        success: false,
+                                      },
+                                    };
+                                  });
                                 }
                               }}
                               className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
@@ -4455,7 +4753,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 // Add to recent operations with "Enabling..." status
                                 addToRecent({
                                   id: enableId,
-                                  title: 'Enable HyperShift',
+                                  title: 'MCE Enable HyperShift',
                                   color: 'bg-purple-600',
                                   status: '⏳ Enabling...',
                                 });
@@ -4898,7 +5196,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 </h2>
                 {!collapsedSections.has('configure-environment') && (
                   <div className="space-y-2">
-                    {configureEnvironment.map((operation, index) => {
+                    {configureEnvironment.filter(op => !op.hidden).map((operation, index) => {
                       const Icon = operation.icon;
                       const isVisible = visibleCards.has(`config-${index}`);
                       const isExpanded = expandedCards.has(operation.id);
@@ -4998,7 +5296,33 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 className="text-xs text-gray-500 truncate"
                                 title={operation.tooltip}
                               >
-                                {operation.subtitle}
+                                {operation.id === 'check-components'
+                                  ? (() => {
+                                      // Dynamically show CAPI/CAPA/Hypershift status for MCE Cluster Status
+                                      const statusResult = ansibleResults['get-capi-capa-status'];
+                                      if (statusResult?.result?.output) {
+                                        const output = statusResult.result.output;
+                                        const capiEnabled = output.includes('CAPI is enabled');
+                                        const capaEnabled = output.includes('CAPA is enabled');
+                                        const hypershiftEnabled = output.includes('HyperShift is enabled');
+
+                                        const statuses = [];
+                                        statuses.push(
+                                          capiEnabled ? '✅ CAPI' : '❌ CAPI'
+                                        );
+                                        statuses.push(
+                                          capaEnabled ? '✅ CAPA' : '❌ CAPA'
+                                        );
+                                        statuses.push(
+                                          hypershiftEnabled ? '✅ HyperShift' : '❌ HyperShift'
+                                        );
+
+                                        return statuses.join('  •  ');
+                                      }
+                                      // Show a default message when status not available
+                                      return 'Run Verify to check CAPI/CAPA/HyperShift status';
+                                    })()
+                                  : operation.subtitle}
                               </p>
                             </div>
                           </div>
@@ -5157,20 +5481,32 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                     Last Verified
                                                   </div>
                                                   <div className="text-xs text-emerald-900">
-                                                    {ansibleResults['check-components']?.timestamp
-                                                      ? new Date(
-                                                          ansibleResults[
-                                                            'check-components'
-                                                          ].timestamp
-                                                        ).toLocaleString('en-US', {
-                                                          month: 'short',
-                                                          day: 'numeric',
-                                                          year: 'numeric',
-                                                          hour: 'numeric',
-                                                          minute: '2-digit',
-                                                          hour12: true,
-                                                        })
-                                                      : 'Not verified'}
+                                                    {(() => {
+                                                      // Get the most recent validation timestamp
+                                                      const checkTimestamp = ansibleResults['check-components']?.timestamp;
+                                                      const refreshTimestamp = ansibleResults['refresh-check-components']?.timestamp;
+
+                                                      let mostRecentTimestamp = checkTimestamp;
+
+                                                      if (checkTimestamp && refreshTimestamp) {
+                                                        const checkTime = checkTimestamp?.getTime ? checkTimestamp.getTime() : new Date(checkTimestamp).getTime();
+                                                        const refreshTime = refreshTimestamp?.getTime ? refreshTimestamp.getTime() : new Date(refreshTimestamp).getTime();
+                                                        mostRecentTimestamp = refreshTime > checkTime ? refreshTimestamp : checkTimestamp;
+                                                      } else if (refreshTimestamp && !checkTimestamp) {
+                                                        mostRecentTimestamp = refreshTimestamp;
+                                                      }
+
+                                                      return mostRecentTimestamp
+                                                        ? new Date(mostRecentTimestamp).toLocaleString('en-US', {
+                                                            month: 'short',
+                                                            day: 'numeric',
+                                                            year: 'numeric',
+                                                            hour: 'numeric',
+                                                            minute: '2-digit',
+                                                            hour12: true,
+                                                          })
+                                                        : 'Not verified';
+                                                    })()}
                                                   </div>
                                                 </div>
                                               </div>
@@ -5451,7 +5787,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                         </div>
                                                         <div className="flex items-center">
                                                           <button
-                                                            onClick={() => {
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
                                                               fetchOcpResourceDetail(
                                                                 'Deployment',
                                                                 'capi-controller-manager',
@@ -5506,7 +5843,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                         </div>
                                                         <div className="flex items-center">
                                                           <button
-                                                            onClick={() => {
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
                                                               fetchOcpResourceDetail(
                                                                 'Deployment',
                                                                 'capa-controller-manager',
@@ -5557,7 +5895,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                         </div>
                                                         <div className="flex items-center">
                                                           <button
-                                                            onClick={() => {
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
                                                               fetchOcpResourceDetail('ClusterManager', 'cluster-manager', '');
                                                             }}
                                                             className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline cursor-pointer transition-colors"
@@ -5590,7 +5929,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                         </div>
                                                         <div className="flex items-center">
                                                           <button
-                                                            onClick={() => {
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
                                                               fetchOcpResourceDetail('ClusterRoleBinding', 'cluster-manager-registration-capi', '');
                                                             }}
                                                             className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline cursor-pointer transition-colors"
@@ -5623,7 +5963,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                         </div>
                                                         <div className="flex items-center">
                                                           <button
-                                                            onClick={() => {
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
                                                               fetchOcpResourceDetail('Secret', 'capa-manager-bootstrap-credentials', 'multicluster-engine');
                                                             }}
                                                             className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline cursor-pointer transition-colors"
@@ -5723,7 +6064,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                               <div className="flex items-center space-x-2">
                                                 {/* Export Button */}
                                                 <button
-                                                  onClick={async () => {
+                                                  onClick={async (e) => {
+                                                    e.stopPropagation(); // Prevent card collapse
                                                     const statusResult = ansibleResults['check-components'];
                                                     if (!statusResult?.result?.output) {
                                                       alert('No MCE component data to export.');
@@ -5770,7 +6112,7 @@ ${statusResult.result.output}
                                                       alert(`Error exporting: ${error.message}`);
                                                     }
                                                   }}
-                                                  className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                                                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
                                                 >
                                                   <svg
                                                     className="h-3.5 w-3.5 mr-1.5"
@@ -5790,7 +6132,8 @@ ${statusResult.result.output}
 
                                                 {/* Refresh Button */}
                                                 <button
-                                                  onClick={async () => {
+                                                  onClick={async (e) => {
+                                                    e.stopPropagation(); // Prevent card collapse
                                                     const operationId = `refresh-mce-resources-${Date.now()}`;
                                                     try {
                                                       addToRecent({
@@ -5800,23 +6143,47 @@ ${statusResult.result.output}
                                                         status: '🔄 Refreshing...',
                                                       });
 
-                                                      const checkOperation = configureEnvironment.find(
-                                                        (op) => op.id === 'check-components'
-                                                      );
-                                                      if (checkOperation) {
-                                                        await checkOperation.action();
-                                                      }
-
-                                                      const completionTime = new Date().toLocaleTimeString('en-US', {
-                                                        hour: 'numeric',
-                                                        minute: '2-digit',
-                                                        second: '2-digit',
-                                                        hour12: true,
+                                                      // Run the validation task directly without updating ansibleResults['check-components']
+                                                      // This prevents the refresh from displacing the View Full Output
+                                                      const response = await fetch('http://localhost:8000/api/ansible/run-task', {
+                                                        method: 'POST',
+                                                        headers: {
+                                                          'Content-Type': 'application/json',
+                                                        },
+                                                        body: JSON.stringify({
+                                                          task_file: 'tasks/validate-capa-environment.yml',
+                                                          description: 'Refresh MCE Active Resources',
+                                                        }),
                                                       });
-                                                      updateRecentOperationStatus(
-                                                        operationId,
-                                                        `✅ Refreshed at ${completionTime}`
-                                                      );
+
+                                                      const result = await response.json();
+
+                                                      if (response.ok && result.success) {
+                                                        // Store refresh results in a separate key (not 'check-components')
+                                                        // so it doesn't interfere with View Full Output
+                                                        setAnsibleResults((prev) => ({
+                                                          ...prev,
+                                                          'refresh-check-components': {
+                                                            loading: false,
+                                                            result: result,
+                                                            timestamp: new Date(),
+                                                            success: true,
+                                                          },
+                                                        }));
+
+                                                        const completionTime = new Date().toLocaleTimeString('en-US', {
+                                                          hour: 'numeric',
+                                                          minute: '2-digit',
+                                                          second: '2-digit',
+                                                          hour12: true,
+                                                        });
+                                                        updateRecentOperationStatus(
+                                                          operationId,
+                                                          `✅ Refreshed at ${completionTime}`
+                                                        );
+                                                      } else {
+                                                        throw new Error(result.error || 'Refresh failed');
+                                                      }
                                                     } catch (error) {
                                                       console.error('Error refreshing MCE resources:', error);
                                                       const completionTime = new Date().toLocaleTimeString('en-US', {
@@ -5851,7 +6218,8 @@ ${statusResult.result.output}
 
                                                 {/* Provision ROSA HCP Cluster Button */}
                                                 <button
-                                                  onClick={async () => {
+                                                  onClick={async (e) => {
+                                                    e.stopPropagation(); // Prevent card collapse
                                                     let operationId;
                                                     try {
                                                       const clusterFile = prompt(
@@ -5878,7 +6246,7 @@ ${statusResult.result.output}
 
                                                       addToRecent({
                                                         id: operationId,
-                                                        title: `Provision ROSA HCP: ${trimmedFile}`,
+                                                        title: `MCE Provision ROSA HCP: ${trimmedFile}`,
                                                         color: 'bg-rose-600',
                                                         status: '⏳ Provisioning...',
                                                       });
@@ -5921,6 +6289,23 @@ ${statusResult.result.output}
                                                           'success',
                                                           5000
                                                         );
+
+                                                        // Store result in ansibleResults so it appears in View Full Output
+                                                        setAnsibleResults((prev) => ({
+                                                          ...prev,
+                                                          [operationId]: {
+                                                            loading: false,
+                                                            success: true,
+                                                            result: {
+                                                              output: result.output,
+                                                              timestamp: new Date(),
+                                                              playbook: 'provision-rosa-hcp-cluster.yml',
+                                                              type: 'ROSA HCP Provisioning (MCE)',
+                                                              clusterFile: trimmedFile,
+                                                            },
+                                                            timestamp: new Date(),
+                                                          },
+                                                        }));
                                                       } else {
                                                         throw new Error(result.error || result.message || 'Provisioning failed');
                                                       }
@@ -5940,7 +6325,7 @@ ${statusResult.result.output}
                                                       addNotification(`❌ ${error.message}`, 'error', 5000);
                                                     }
                                                   }}
-                                                  className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                                                  className="bg-violet-600 hover:bg-violet-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
                                                 >
                                                   <svg className="h-3.5 w-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -5952,7 +6337,27 @@ ${statusResult.result.output}
 
                                             {/* Display MCE Component Status */}
                                             {(() => {
-                                              const statusResult = ansibleResults['check-components'];
+                                              // Get the most recent validation result (either original or refresh)
+                                              const checkComponentsResult = ansibleResults['check-components'];
+                                              const refreshCheckComponentsResult = ansibleResults['refresh-check-components'];
+
+                                              let statusResult = checkComponentsResult;
+
+                                              // Use refresh result if it's more recent
+                                              if (refreshCheckComponentsResult && checkComponentsResult) {
+                                                const checkTime = checkComponentsResult.timestamp?.getTime ?
+                                                                  checkComponentsResult.timestamp.getTime() :
+                                                                  new Date(checkComponentsResult.timestamp).getTime();
+                                                const refreshTime = refreshCheckComponentsResult.timestamp?.getTime ?
+                                                                    refreshCheckComponentsResult.timestamp.getTime() :
+                                                                    new Date(refreshCheckComponentsResult.timestamp).getTime();
+                                                if (refreshTime > checkTime) {
+                                                  statusResult = refreshCheckComponentsResult;
+                                                }
+                                              } else if (refreshCheckComponentsResult && !checkComponentsResult) {
+                                                statusResult = refreshCheckComponentsResult;
+                                              }
+
                                               const output = statusResult.result.output;
                                               // Check for deployment found messages
                                               const capiEnabled = output.includes('capi-controller-manager deployment found') &&
@@ -5986,7 +6391,8 @@ ${statusResult.result.output}
                                                       </div>
                                                       <div className="flex items-center">
                                                         <button
-                                                          onClick={() => {
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
                                                             fetchOcpResourceDetail('Secret', 'rosa-creds-secret', 'multicluster-engine');
                                                           }}
                                                           className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
@@ -6019,7 +6425,8 @@ ${statusResult.result.output}
                                                       </div>
                                                       <div className="flex items-center">
                                                         <button
-                                                          onClick={() => {
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
                                                             fetchOcpResourceDetail('AWSClusterControllerIdentity', 'default', '');
                                                           }}
                                                           className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
@@ -6040,7 +6447,7 @@ ${statusResult.result.output}
                                                     </div>
 
                                                     {/* Namespace ns-rosa-hcp */}
-                                                    {output.includes('"name":"ns-rosa-hcp"') && (
+                                                    {output.includes('✓ Namespace ns-rosa-hcp found') && (
                                                       <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
                                                         <div className="flex flex-col">
                                                           <div className="flex items-center">
@@ -6051,7 +6458,8 @@ ${statusResult.result.output}
                                                         </div>
                                                         <div className="flex items-center">
                                                           <button
-                                                            onClick={() => {
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
                                                               fetchOcpResourceDetail('Namespace', 'ns-rosa-hcp', '');
                                                             }}
                                                             className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
@@ -6062,7 +6470,7 @@ ${statusResult.result.output}
                                                         <span className="text-cyan-600 font-mono">-</span>
                                                         <span className="text-cyan-600 font-mono">
                                                           {(() => {
-                                                            const timestamp = extractMCEComponentTimestamp(output, 'Namespace ns-rosa-hcp details:');
+                                                            const timestamp = extractMCEComponentTimestamp(output, '✓ Namespace ns-rosa-hcp found');
                                                             return timestamp ? calculateAge(timestamp) : '-';
                                                           })()}
                                                         </span>
@@ -6071,7 +6479,7 @@ ${statusResult.result.output}
                                                     )}
 
                                                     {/* RosaControlPlane */}
-                                                    {output.includes('RosaControlPlane details:') && (
+                                                    {output.includes('✓ RosaControlPlane resources found') && (
                                                       <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
                                                         <div className="flex flex-col">
                                                           <div className="flex items-center">
@@ -6082,32 +6490,32 @@ ${statusResult.result.output}
                                                         </div>
                                                         <div className="flex items-center">
                                                           <button
-                                                            onClick={() => {
-                                                              const nameMatch = output.match(/RosaControlPlane details: \{[^}]*["']?name["']?\s*:\s*["']([^"']+)["']/);
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              // Extract the section with RosaControlPlane
+                                                              const section = output.substring(output.indexOf('✓ RosaControlPlane resources found'));
+                                                              console.log('RosaControlPlane section:', section.substring(0, 500));
+                                                              // JSON has escaped quotes in the output: {\"name\":\"value\",...}
+                                                              const nameMatch = section.match(/\\"name\\":\\"([^"\\]+)\\"/);
+                                                              console.log('Name match:', nameMatch);
                                                               const name = nameMatch ? nameMatch[1] : 'unknown';
                                                               fetchOcpResourceDetail('RosaControlPlane', name, 'ns-rosa-hcp');
                                                             }}
                                                             className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
                                                           >
                                                             {(() => {
-                                                              const match = output.match(/RosaControlPlane details: \{[^}]*["']?name["']?\s*:\s*["']([^"']+)["']/);
-                                                              return match ? match[1] : 'unknown';
+                                                              // Extract the section with RosaControlPlane
+                                                              const section = output.substring(output.indexOf('✓ RosaControlPlane resources found'));
+                                                              // JSON has escaped quotes in the output: {\"name\":\"value\",...}
+                                                              const nameMatch = section.match(/\\"name\\":\\"([^"\\]+)\\"/);
+                                                              return nameMatch ? nameMatch[1] : 'unknown';
                                                             })()}
                                                           </button>
                                                         </div>
+                                                        <span className="text-cyan-600 font-mono">-</span>
                                                         <span className="text-cyan-600 font-mono">
                                                           {(() => {
-                                                            try {
-                                                              const match = output.match(/RosaControlPlane details: \{[^}]*["']?version["']?\s*:\s*["']([^"']+)["']/);
-                                                              return match ? match[1] : '-';
-                                                            } catch (e) {
-                                                              return '-';
-                                                            }
-                                                          })()}
-                                                        </span>
-                                                        <span className="text-cyan-600 font-mono">
-                                                          {(() => {
-                                                            const timestamp = extractMCEComponentTimestamp(output, 'RosaControlPlane details:');
+                                                            const timestamp = extractMCEComponentTimestamp(output, '✓ RosaControlPlane resources found');
                                                             return timestamp ? calculateAge(timestamp) : '-';
                                                           })()}
                                                         </span>
@@ -6126,24 +6534,87 @@ ${statusResult.result.output}
                                         // Determine which operation to display (most recent)
                                         const checkComponentsResult = ansibleResults['check-components'];
                                         const configureEnvResult = ansibleResults['configure-environment'];
+                                        const enableCapiCapaResult = ansibleResults['enable-capi-capa'];
 
                                         let displayResult = checkComponentsResult;
                                         let operationName = 'Validate CAPA Environment';
 
-                                        // If both exist, show the most recent one
-                                        if (configureEnvResult && checkComponentsResult) {
-                                          const configTime = configureEnvResult.timestamp?.getTime() || 0;
-                                          const checkTime = checkComponentsResult.timestamp?.getTime() || 0;
-                                          if (configTime > checkTime) {
-                                            displayResult = configureEnvResult;
-                                            operationName = 'Configure CAPA Environment';
+                                        // Find the most recent Provision ROSA HCP operation (from both Minikube and MCE)
+                                        let provisionRosaHcpResult = null;
+                                        let provisionClusterFile = '';
+                                        for (const key in ansibleResults) {
+                                          // Check for both Minikube ('provision-rosa-hcp-') and MCE ('provision-rosa-hcp-mce-') provisions
+                                          if (key.startsWith('provision-rosa-hcp-')) {
+                                            const result = ansibleResults[key];
+                                            if (!provisionRosaHcpResult ||
+                                                (result.result?.timestamp && provisionRosaHcpResult.result?.timestamp &&
+                                                 new Date(result.result.timestamp).getTime() > new Date(provisionRosaHcpResult.result.timestamp).getTime())) {
+                                              provisionRosaHcpResult = result;
+                                              provisionClusterFile = result.result?.clusterFile || '';
+                                            }
                                           }
-                                        } else if (configureEnvResult) {
-                                          displayResult = configureEnvResult;
-                                          operationName = 'Configure CAPA Environment';
                                         }
 
+                                        // Find the most recent operation based on timestamp
+                                        const operations = [
+                                          { result: checkComponentsResult, name: 'Validate CAPA Environment' },
+                                          { result: configureEnvResult, name: 'Configure CAPA Environment' },
+                                          { result: enableCapiCapaResult, name: 'Enable CAPI/CAPA' },
+                                          { result: provisionRosaHcpResult, name: `Provision ROSA HCP${provisionClusterFile ? ': ' + provisionClusterFile : ''}` },
+                                        ];
+
+                                        // Debug: Log all operation timestamps before comparison
+                                        console.log('=== View Full Output - ALL Operation Timestamps ===');
+                                        operations.forEach((op) => {
+                                          if (op.result) {
+                                            console.log(`  ${op.name}:`, {
+                                              hasTimestamp: !!op.result.timestamp,
+                                              timestamp: op.result.timestamp,
+                                              timestampType: typeof op.result.timestamp,
+                                            });
+                                          } else {
+                                            console.log(`  ${op.name}: NO RESULT`);
+                                          }
+                                        });
+
+                                        let mostRecentTime = 0;
+                                        for (const op of operations) {
+                                          if (op.result && op.result.timestamp) {
+                                            // Handle both Date objects and string timestamps
+                                            let opTime = 0;
+                                            try {
+                                              if (typeof op.result.timestamp === 'object' && op.result.timestamp.getTime) {
+                                                // It's a Date object
+                                                opTime = op.result.timestamp.getTime();
+                                              } else if (typeof op.result.timestamp === 'string') {
+                                                // It's a string timestamp
+                                                opTime = new Date(op.result.timestamp).getTime();
+                                              } else if (typeof op.result.timestamp === 'number') {
+                                                // It's already a timestamp
+                                                opTime = op.result.timestamp;
+                                              }
+                                            } catch (e) {
+                                              console.error('Error parsing timestamp for operation:', op.name, e);
+                                              opTime = 0;
+                                            }
+
+                                            console.log(`  ${op.name} - Parsed time:`, opTime, new Date(opTime).toLocaleString());
+
+                                            if (opTime > mostRecentTime) {
+                                              mostRecentTime = opTime;
+                                              displayResult = op.result;
+                                              operationName = op.name;
+                                            }
+                                          }
+                                        }
+                                        console.log('=== End All Operation Timestamps ===');
+
                                         if (!displayResult?.result) return null;
+
+                                        // Debug logging to help diagnose timestamp issues
+                                        console.log('View Full Output - Selected operation:', operationName);
+                                        console.log('View Full Output - Display result timestamp:', displayResult.timestamp);
+                                        console.log('View Full Output - Most recent time:', mostRecentTime, new Date(mostRecentTime).toLocaleString());
 
                                         return (
                                           <details className="bg-white rounded border">
@@ -7842,6 +8313,12 @@ ${statusResult.result.output}
         isOpen={showMinikubeTerminalModal}
         onClose={() => setShowMinikubeTerminalModal(false)}
         clusterName={verifiedMinikubeClusterInfo?.cluster_name || verifiedMinikubeClusterInfo?.name}
+      />
+
+      {/* MCE Terminal Modal */}
+      <MCETerminalModal
+        isOpen={showMCETerminalModal}
+        onClose={() => setShowMCETerminalModal(false)}
       />
 
       {/* Resource Detail Modal */}
