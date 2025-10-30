@@ -116,6 +116,73 @@
   debug:
     msg: "CAPA controller version: {{ capa_version.stdout | default('unknown') }}"
 
+- name: Get ROSA-related namespaces
+  shell: |
+    kubectl get namespace -ojson | jq -c '.items[] | select(.metadata.name | test("rosa|capi|ns-")) | {name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
+  register: rosa_namespaces
+  failed_when: false
+  changed_when: false
+
+- name: Check for ROSA namespaces
+  debug:
+    msg: "✓ Namespace found - {{ item }}"
+  loop: "{{ rosa_namespaces.stdout_lines }}"
+  when: rosa_namespaces.stdout_lines | length > 0
+
+- name: Get ROSA cluster resources (all namespaces)
+  shell: |
+    kubectl get rosacluster --all-namespaces -ojson 2>/dev/null | jq -c '.items[] | {namespace: .metadata.namespace, name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
+  register: rosa_clusters
+  failed_when: false
+  changed_when: false
+
+- name: Check for ROSA clusters
+  debug:
+    msg: "✓ ROSACluster found - {{ item }}"
+  loop: "{{ rosa_clusters.stdout_lines }}"
+  when: rosa_clusters.stdout_lines | length > 0
+
+- name: Info if no ROSA clusters found
+  debug:
+    msg: "ℹ No ROSACluster resources found"
+  when: rosa_clusters.stdout_lines | length == 0
+
+- name: Get RosaControlPlane resources (all namespaces)
+  shell: |
+    kubectl get rosacontrolplane --all-namespaces -ojson 2>/dev/null | jq -c '.items[] | {namespace: .metadata.namespace, name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
+  register: rosa_control_planes
+  failed_when: false
+  changed_when: false
+
+- name: Check for RosaControlPlanes
+  debug:
+    msg: "✓ RosaControlPlane found - {{ item }}"
+  loop: "{{ rosa_control_planes.stdout_lines }}"
+  when: rosa_control_planes.stdout_lines | length > 0
+
+- name: Info if no RosaControlPlanes found
+  debug:
+    msg: "ℹ No RosaControlPlane resources found"
+  when: rosa_control_planes.stdout_lines | length == 0
+
+- name: Get RosaNetwork resources (all namespaces)
+  shell: |
+    kubectl get rosanetwork --all-namespaces -ojson 2>/dev/null | jq -c '.items[] | {namespace: .metadata.namespace, name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
+  register: rosa_networks
+  failed_when: false
+  changed_when: false
+
+- name: Check for RosaNetworks
+  debug:
+    msg: "✓ RosaNetwork found - {{ item }}"
+  loop: "{{ rosa_networks.stdout_lines }}"
+  when: rosa_networks.stdout_lines | length > 0
+
+- name: Info if no RosaNetworks found
+  debug:
+    msg: "ℹ No RosaNetwork resources found"
+  when: rosa_networks.stdout_lines | length == 0
+
 - name: Validation summary
   debug:
     msg: |
