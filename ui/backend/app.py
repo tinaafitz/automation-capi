@@ -2497,7 +2497,10 @@ async def run_ansible_role(request: dict):
                             "api_url": "{{ OCP_HUB_API_URL }}",
                         },
                     },
-                    {"name": "Login to OCP", "include_tasks": f"{project_root}/tasks/login_ocp.yml"},
+                    {
+                        "name": "Login to OCP",
+                        "include_tasks": f"{project_root}/tasks/login_ocp.yml",
+                    },
                 ]
             )
 
@@ -2878,7 +2881,15 @@ async def verify_minikube_cluster(request: dict):
 
                 # Get namespace timestamp (for Minikube Cluster)
                 namespace_timestamp = subprocess.run(
-                    ["kubectl", "get", "namespace", "ns-rosa-hcp", "-ojson", "--context", context_name],
+                    [
+                        "kubectl",
+                        "get",
+                        "namespace",
+                        "ns-rosa-hcp",
+                        "-ojson",
+                        "--context",
+                        context_name,
+                    ],
                     capture_output=True,
                     text=True,
                     timeout=10,
@@ -2886,14 +2897,27 @@ async def verify_minikube_cluster(request: dict):
                 if namespace_timestamp.returncode == 0:
                     try:
                         import json
+
                         ns_data = json.loads(namespace_timestamp.stdout)
-                        component_timestamps["namespace"] = ns_data.get("metadata", {}).get("creationTimestamp", "")
+                        component_timestamps["namespace"] = ns_data.get("metadata", {}).get(
+                            "creationTimestamp", ""
+                        )
                     except:
                         pass
 
                 # Get cert-manager deployment timestamp
                 cert_manager_timestamp = subprocess.run(
-                    ["kubectl", "get", "deployment", "cert-manager", "-n", "cert-manager", "-ojson", "--context", context_name],
+                    [
+                        "kubectl",
+                        "get",
+                        "deployment",
+                        "cert-manager",
+                        "-n",
+                        "cert-manager",
+                        "-ojson",
+                        "--context",
+                        context_name,
+                    ],
                     capture_output=True,
                     text=True,
                     timeout=10,
@@ -2901,14 +2925,27 @@ async def verify_minikube_cluster(request: dict):
                 if cert_manager_timestamp.returncode == 0:
                     try:
                         import json
+
                         cm_data = json.loads(cert_manager_timestamp.stdout)
-                        component_timestamps["cert-manager"] = cm_data.get("metadata", {}).get("creationTimestamp", "")
+                        component_timestamps["cert-manager"] = cm_data.get("metadata", {}).get(
+                            "creationTimestamp", ""
+                        )
                     except:
                         pass
 
                 # Get CAPI controller timestamp
                 capi_timestamp = subprocess.run(
-                    ["kubectl", "get", "deployment", "capi-controller-manager", "-n", "capi-system", "-ojson", "--context", context_name],
+                    [
+                        "kubectl",
+                        "get",
+                        "deployment",
+                        "capi-controller-manager",
+                        "-n",
+                        "capi-system",
+                        "-ojson",
+                        "--context",
+                        context_name,
+                    ],
                     capture_output=True,
                     text=True,
                     timeout=10,
@@ -2916,14 +2953,27 @@ async def verify_minikube_cluster(request: dict):
                 if capi_timestamp.returncode == 0:
                     try:
                         import json
+
                         capi_data = json.loads(capi_timestamp.stdout)
-                        component_timestamps["capi-controller"] = capi_data.get("metadata", {}).get("creationTimestamp", "")
+                        component_timestamps["capi-controller"] = capi_data.get("metadata", {}).get(
+                            "creationTimestamp", ""
+                        )
                     except:
                         pass
 
                 # Get CAPA controller timestamp
                 capa_timestamp = subprocess.run(
-                    ["kubectl", "get", "deployment", "capa-controller-manager", "-n", "capa-system", "-ojson", "--context", context_name],
+                    [
+                        "kubectl",
+                        "get",
+                        "deployment",
+                        "capa-controller-manager",
+                        "-n",
+                        "capa-system",
+                        "-ojson",
+                        "--context",
+                        context_name,
+                    ],
                     capture_output=True,
                     text=True,
                     timeout=10,
@@ -2931,14 +2981,25 @@ async def verify_minikube_cluster(request: dict):
                 if capa_timestamp.returncode == 0:
                     try:
                         import json
+
                         capa_data = json.loads(capa_timestamp.stdout)
-                        component_timestamps["capa-controller"] = capa_data.get("metadata", {}).get("creationTimestamp", "")
+                        component_timestamps["capa-controller"] = capa_data.get("metadata", {}).get(
+                            "creationTimestamp", ""
+                        )
                     except:
                         pass
 
                 # Get ROSA CRD timestamp
                 rosa_crd_timestamp = subprocess.run(
-                    ["kubectl", "get", "crd", "rosacontrolplanes.controlplane.cluster.x-k8s.io", "-ojson", "--context", context_name],
+                    [
+                        "kubectl",
+                        "get",
+                        "crd",
+                        "rosacontrolplanes.controlplane.cluster.x-k8s.io",
+                        "-ojson",
+                        "--context",
+                        context_name,
+                    ],
                     capture_output=True,
                     text=True,
                     timeout=10,
@@ -2946,8 +3007,11 @@ async def verify_minikube_cluster(request: dict):
                 if rosa_crd_timestamp.returncode == 0:
                     try:
                         import json
+
                         crd_data = json.loads(rosa_crd_timestamp.stdout)
-                        component_timestamps["rosa-crd"] = crd_data.get("metadata", {}).get("creationTimestamp", "")
+                        component_timestamps["rosa-crd"] = crd_data.get("metadata", {}).get(
+                            "creationTimestamp", ""
+                        )
                     except:
                         pass
 
@@ -3329,6 +3393,82 @@ async def execute_minikube_command(request: Request):
         }
 
 
+@app.post("/api/ocp/execute-command")
+async def execute_ocp_command(request: Request):
+    """Execute a command in the context of the OpenShift/MCE cluster"""
+    try:
+        body = await request.json()
+        command = body.get("command", "").strip()
+
+        if not command:
+            return {
+                "success": False,
+                "error": "Command is required",
+                "output": "",
+            }
+
+        # Security check: block dangerous commands
+        dangerous_patterns = [
+            r"\brm\s+-rf\s+/",
+            r"\bmkfs\b",
+            r"\bdd\b.*of=/dev",
+            r"\bshutdown\b",
+            r"\breboot\b",
+            r"\bkillall\b",
+            r":\(\)",
+        ]
+
+        import re
+
+        for pattern in dangerous_patterns:
+            if re.search(pattern, command, re.IGNORECASE):
+                return {
+                    "success": False,
+                    "error": "This command is not allowed for security reasons",
+                    "output": "",
+                }
+
+        # Use bash login shell with alias expansion
+        user_shell = os.environ.get("SHELL", "/bin/bash")
+
+        wrapper_command = f"""
+            # Source profile files silently
+            [ -f ~/.profile ] && source ~/.profile 2>/dev/null
+            [ -f ~/.bashrc ] && source ~/.bashrc 2>/dev/null
+            [ -f ~/.bash_profile ] && source ~/.bash_profile 2>/dev/null
+            # Enable alias expansion
+            shopt -s expand_aliases 2>/dev/null || true
+            # Run the actual command (oc commands use current cluster context)
+            {command}
+        """
+
+        result = subprocess.run(
+            [user_shell, "-c", wrapper_command],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+
+        return {
+            "success": result.returncode == 0,
+            "output": result.stdout if result.stdout else result.stderr,
+            "exit_code": result.returncode,
+        }
+
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "error": "Command execution timed out (60s limit)",
+            "output": "",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Error executing command: {str(e)}",
+            "output": "",
+        }
+
+
 # Re-use the same get-active-resources and get-resource-detail endpoints for Minikube
 # since they work with kubectl and are provider-agnostic
 @app.post("/api/minikube/get-active-resources")
@@ -3399,7 +3539,7 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
                     {
                         "type": "Namespace",
                         "name": metadata.get("name", "unknown"),
-                        "version": "N/A",
+                        "version": "",
                         "status": phase,
                         "age": calculate_age(metadata.get("creationTimestamp", "")),
                     }
@@ -3433,7 +3573,7 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
                         {
                             "type": "AWSClusterControllerIdentity",
                             "name": metadata.get("name", "unknown"),
-                            "version": "N/A",
+                            "version": "",
                             "status": "Configured",
                             "age": calculate_age(metadata.get("creationTimestamp", "")),
                         }
@@ -3469,7 +3609,7 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
                     {
                         "type": "Secret (ROSA Creds)",
                         "name": f"{metadata.get('name', 'unknown')} (capa-system)",
-                        "version": "N/A",
+                        "version": "",
                         "status": "Configured",
                         "age": calculate_age(metadata.get("creationTimestamp", "")),
                     }
@@ -3505,7 +3645,7 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
                     {
                         "type": "Secret (ROSA Creds)",
                         "name": f"{metadata.get('name', 'unknown')} ({namespace})",
-                        "version": "N/A",
+                        "version": "",
                         "status": "Configured",
                         "age": calculate_age(metadata.get("creationTimestamp", "")),
                     }
@@ -3541,7 +3681,7 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
                     {
                         "type": "Secret (AWS Creds)",
                         "name": f"{metadata.get('name', 'unknown')} (capa-system)",
-                        "version": "N/A",
+                        "version": "",
                         "status": "Configured",
                         "age": calculate_age(metadata.get("creationTimestamp", "")),
                     }
@@ -3591,8 +3731,231 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
         except Exception:
             pass
 
-        # Fetch other resource types (ROSACluster, RosaControlPlane, RosaNetwork, RosaRoleConfig)
-        # ... (same logic as the Kind version)
+        # Fetch ROSACluster
+        try:
+            result = subprocess.run(
+                [
+                    "kubectl",
+                    "get",
+                    "rosacluster",
+                    "-n",
+                    namespace,
+                    "--context",
+                    cluster_name,
+                    "-o",
+                    "json",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode == 0:
+                import json as json_module
+
+                data = json_module.loads(result.stdout)
+                for item in data.get("items", []):
+                    metadata = item.get("metadata", {})
+                    spec = item.get("spec", {})
+                    status = item.get("status", {})
+
+                    # Check for ready status - could be in status.ready field or in conditions
+                    is_ready = False
+
+                    # First check if there's a direct ready field
+                    if status.get("ready") == True or status.get("ready") == "true":
+                        is_ready = True
+                    else:
+                        # Check conditions for various ready condition types
+                        conditions = status.get("conditions", [])
+                        for condition in conditions:
+                            condition_type = condition.get("type", "")
+                            # Check for various possible ready condition types
+                            if condition.get("status") == "True" and (
+                                condition_type == "Ready"
+                                or condition_type == "ROSAClusterReady"
+                                or condition_type == "RosaClusterReady"
+                            ):
+                                is_ready = True
+                                break
+
+                    resources.append(
+                        {
+                            "type": "ROSACluster",
+                            "name": metadata.get("name", "unknown"),
+                            "version": spec.get("version", "v4.20"),
+                            "status": "Ready" if is_ready else "Provisioning",
+                            "age": calculate_age(metadata.get("creationTimestamp", "")),
+                        }
+                    )
+        except Exception:
+            pass
+
+        # Fetch RosaControlPlane
+        try:
+            result = subprocess.run(
+                [
+                    "kubectl",
+                    "get",
+                    "rosacontrolplane",
+                    "-n",
+                    namespace,
+                    "--context",
+                    cluster_name,
+                    "-o",
+                    "json",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode == 0:
+                import json as json_module
+
+                data = json_module.loads(result.stdout)
+                for item in data.get("items", []):
+                    metadata = item.get("metadata", {})
+                    spec = item.get("spec", {})
+                    status = item.get("status", {})
+
+                    # Check for ready status - could be in status.ready field or in conditions
+                    is_ready = False
+
+                    # First check if there's a direct ready field
+                    if status.get("ready") == True or status.get("ready") == "true":
+                        is_ready = True
+                    else:
+                        # Check conditions for various ready condition types
+                        conditions = status.get("conditions", [])
+                        for condition in conditions:
+                            condition_type = condition.get("type", "")
+                            # Check for various possible ready condition types
+                            if condition.get("status") == "True" and (
+                                condition_type == "Ready"
+                                or condition_type == "ROSAControlPlaneReady"
+                                or condition_type == "RosaControlPlaneReady"
+                            ):
+                                is_ready = True
+                                break
+
+                    resources.append(
+                        {
+                            "type": "RosaControlPlane",
+                            "name": metadata.get("name", "unknown"),
+                            "version": spec.get("version", "v4.20"),
+                            "status": "Ready" if is_ready else "Provisioning",
+                            "age": calculate_age(metadata.get("creationTimestamp", "")),
+                        }
+                    )
+        except Exception:
+            pass
+
+        # Fetch RosaNetwork
+        try:
+            result = subprocess.run(
+                [
+                    "kubectl",
+                    "get",
+                    "rosanetwork",
+                    "-n",
+                    namespace,
+                    "--context",
+                    cluster_name,
+                    "-o",
+                    "json",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode == 0:
+                import json as json_module
+
+                data = json_module.loads(result.stdout)
+                for item in data.get("items", []):
+                    metadata = item.get("metadata", {})
+                    spec = item.get("spec", {})
+                    status = item.get("status", {})
+
+                    # Check conditions for RosaNetwork ready state
+                    # Could be ROSANetworkReady, RosaNetworkReady, or just Ready
+                    is_ready = False
+                    conditions = status.get("conditions", [])
+                    for condition in conditions:
+                        condition_type = condition.get("type", "")
+                        # Check for various possible ready condition types
+                        if condition.get("status") == "True" and (
+                            condition_type == "ROSANetworkReady"
+                            or condition_type == "RosaNetworkReady"
+                            or condition_type == "Ready"
+                        ):
+                            is_ready = True
+                            break
+
+                    resources.append(
+                        {
+                            "type": "RosaNetwork",
+                            "name": metadata.get("name", "unknown"),
+                            "version": spec.get("version", "v4.20"),
+                            "status": "Ready" if is_ready else "Configuring",
+                            "age": calculate_age(metadata.get("creationTimestamp", "")),
+                        }
+                    )
+        except Exception:
+            pass
+
+        # Fetch RosaRoleConfig
+        try:
+            result = subprocess.run(
+                [
+                    "kubectl",
+                    "get",
+                    "rosaroleconfig",
+                    "-n",
+                    namespace,
+                    "--context",
+                    cluster_name,
+                    "-o",
+                    "json",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode == 0:
+                import json as json_module
+
+                data = json_module.loads(result.stdout)
+                for item in data.get("items", []):
+                    metadata = item.get("metadata", {})
+                    spec = item.get("spec", {})
+                    status = item.get("status", {})
+
+                    # Check conditions for RosaRoleConfig ready state
+                    # Could be ROSARoleConfigReady, RosaRoleConfigReady, or just Ready
+                    is_ready = False
+                    conditions = status.get("conditions", [])
+                    for condition in conditions:
+                        condition_type = condition.get("type", "")
+                        # Check for various possible ready condition types
+                        if condition.get("status") == "True" and (
+                            condition_type == "ROSARoleConfigReady"
+                            or condition_type == "RosaRoleConfigReady"
+                            or condition_type == "Ready"
+                        ):
+                            is_ready = True
+                            break
+
+                    resources.append(
+                        {
+                            "type": "RosaRoleConfig",
+                            "name": metadata.get("name", "unknown"),
+                            "version": spec.get("version", "v4.20"),
+                            "status": "Ready" if is_ready else "Configuring",
+                            "age": calculate_age(metadata.get("creationTimestamp", "")),
+                        }
+                    )
+        except Exception:
+            pass
 
         return {
             "success": True,

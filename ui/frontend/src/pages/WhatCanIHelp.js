@@ -30,10 +30,11 @@ import { KindClusterModal } from '../components/KindClusterModal';
 import { KindTerminalModal } from '../components/KindTerminalModal';
 import { MinikubeClusterModal } from '../components/MinikubeClusterModal';
 import { MinikubeTerminalModal } from '../components/MinikubeTerminalModal';
+import { MCETerminalModal } from '../components/MCETerminalModal';
 
 // Helper function to calculate age from ISO timestamp
 function calculateAge(isoTimestamp) {
-  if (!isoTimestamp) return '-';
+  if (!isoTimestamp) return '';
 
   try {
     const created = new Date(isoTimestamp);
@@ -50,7 +51,7 @@ function calculateAge(isoTimestamp) {
     if (minutes > 0) return `${minutes}m`;
     return `${seconds}s`;
   } catch (e) {
-    return '-';
+    return '';
   }
 }
 
@@ -258,7 +259,15 @@ export function WhatCanIHelp() {
   const [prefixInput, setPrefixInput] = useState('');
   const [prefixLoading, setPrefixLoading] = useState(false);
   const [savedPrefix, setSavedPrefix] = useState('');
-  const [verifiedKindClusterInfo, setVerifiedKindClusterInfo] = useState(null);
+  const [verifiedKindClusterInfo, setVerifiedKindClusterInfo] = useState(() => {
+    try {
+      const saved = localStorage.getItem('verifiedKindClusterInfo');
+      return saved ? JSON.parse(saved) : null;
+    } catch (error) {
+      console.error('Error loading verifiedKindClusterInfo from localStorage:', error);
+      return null;
+    }
+  });
   const [activeResources, setActiveResources] = useState([]);
   const [showKindConfigModal, setShowKindConfigModal] = useState(false);
   const [showKindTerminalModal, setShowKindTerminalModal] = useState(false);
@@ -270,7 +279,18 @@ export function WhatCanIHelp() {
   // Minikube cluster state
   const [showMinikubeConfigModal, setShowMinikubeConfigModal] = useState(false);
   const [showMinikubeTerminalModal, setShowMinikubeTerminalModal] = useState(false);
-  const [verifiedMinikubeClusterInfo, setVerifiedMinikubeClusterInfo] = useState(null);
+  const [verifiedMinikubeClusterInfo, setVerifiedMinikubeClusterInfo] = useState(() => {
+    try {
+      const saved = localStorage.getItem('verifiedMinikubeClusterInfo');
+      return saved ? JSON.parse(saved) : null;
+    } catch (error) {
+      console.error('Error loading verifiedMinikubeClusterInfo from localStorage:', error);
+      return null;
+    }
+  });
+
+  // MCE Terminal state
+  const [showMCETerminalModal, setShowMCETerminalModal] = useState(false);
 
   // Track if we've already shown initial notifications to prevent loops
   const hasShownInitialNotifications = useRef(false);
@@ -699,6 +719,23 @@ export function WhatCanIHelp() {
       console.error('❌ Error saving ansibleResults to localStorage:', error);
     }
   }, [ansibleResults]);
+
+  // Save verifiedKindClusterInfo to localStorage
+  useEffect(() => {
+    if (verifiedKindClusterInfo) {
+      localStorage.setItem('verifiedKindClusterInfo', JSON.stringify(verifiedKindClusterInfo));
+    }
+  }, [verifiedKindClusterInfo]);
+
+  // Save verifiedMinikubeClusterInfo to localStorage
+  useEffect(() => {
+    if (verifiedMinikubeClusterInfo) {
+      localStorage.setItem(
+        'verifiedMinikubeClusterInfo',
+        JSON.stringify(verifiedMinikubeClusterInfo)
+      );
+    }
+  }, [verifiedMinikubeClusterInfo]);
 
   // Auto-expand MCE card if validation results exist
   useEffect(() => {
@@ -3152,7 +3189,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           e.stopPropagation();
                           setShowMinikubeTerminalModal(true);
                         }}
-                        className="bg-slate-700 hover:bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                        className="bg-teal-600 hover:bg-teal-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
                         title="Open terminal for verified cluster"
                       >
                         <CommandLineIcon className="h-3 w-3" />
@@ -3412,7 +3449,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 }}
                                 className="text-purple-800 font-medium hover:text-purple-600 hover:underline text-left cursor-pointer transition-colors"
                               >
-                                {verifiedMinikubeClusterInfo?.name || 'N/A'}
+                                {verifiedMinikubeClusterInfo?.name || ''}
                               </button>
                             </div>
                             <span className="text-purple-600 font-mono">v1.32.0</span>
@@ -3421,9 +3458,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 try {
                                   const timestamp =
                                     verifiedMinikubeClusterInfo?.component_timestamps?.namespace;
-                                  return timestamp ? calculateAge(timestamp) : '-';
+                                  return timestamp ? calculateAge(timestamp) : '';
                                 } catch (e) {
-                                  return '-';
+                                  return '';
                                 }
                               })()}
                             </span>
@@ -3466,9 +3503,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                     verifiedMinikubeClusterInfo?.component_timestamps?.[
                                       'cert-manager'
                                     ];
-                                  return timestamp ? calculateAge(timestamp) : '-';
+                                  return timestamp ? calculateAge(timestamp) : '';
                                 } catch (e) {
-                                  return '-';
+                                  return '';
                                 }
                               })()}
                             </span>
@@ -3511,9 +3548,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                     verifiedMinikubeClusterInfo?.component_timestamps?.[
                                       'capi-controller'
                                     ];
-                                  return timestamp ? calculateAge(timestamp) : '-';
+                                  return timestamp ? calculateAge(timestamp) : '';
                                 } catch (e) {
-                                  return '-';
+                                  return '';
                                 }
                               })()}
                             </span>
@@ -3556,9 +3593,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                     verifiedMinikubeClusterInfo?.component_timestamps?.[
                                       'capa-controller'
                                     ];
-                                  return timestamp ? calculateAge(timestamp) : '-';
+                                  return timestamp ? calculateAge(timestamp) : '';
                                 } catch (e) {
-                                  return '-';
+                                  return '';
                                 }
                               })()}
                             </span>
@@ -3599,9 +3636,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 try {
                                   const timestamp =
                                     verifiedMinikubeClusterInfo?.component_timestamps?.['rosa-crd'];
-                                  return timestamp ? calculateAge(timestamp) : '-';
+                                  return timestamp ? calculateAge(timestamp) : '';
                                 } catch (e) {
-                                  return '-';
+                                  return '';
                                 }
                               })()}
                             </span>
@@ -3734,7 +3771,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                                   addToRecent({
                                     id: operationId,
-                                    title: 'Export Active Resources',
+                                    title: 'Export Minikube Active Resources',
                                     color: 'bg-indigo-600',
                                     status: '⏳ Exporting...',
                                   });
@@ -3920,7 +3957,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   // Add to recent operations with "Refreshing..." status
                                   addToRecent({
                                     id: operationId,
-                                    title: 'Refresh Active Resources',
+                                    title: 'Refresh Minikube Active Resources',
                                     color: 'bg-purple-600',
                                     status: '🔄 Refreshing...',
                                   });
@@ -4039,7 +4076,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   // Add to recent operations with "Provisioning..." status
                                   addToRecent({
                                     id: operationId,
-                                    title: `Provision ROSA HCP: ${trimmedFile}`,
+                                    title: `Minikube Provision ROSA HCP: ${trimmedFile}`,
                                     color: 'bg-rose-600',
                                     status: '⏳ Provisioning...',
                                   });
@@ -4428,10 +4465,10 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                       </button>
                                     </div>
                                     <span className="text-purple-600 font-mono text-xs">
-                                      {resource.version || 'N/A'}
+                                      {resource.version || ''}
                                     </span>
                                     <span className="text-purple-600 font-mono text-xs">
-                                      {resource.age || '-'}
+                                      {resource.age || ''}
                                     </span>
                                     <span
                                       className={`font-medium text-xs ${
@@ -4573,9 +4610,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              alert('MCE Terminal feature coming soon!');
+                              setShowMCETerminalModal(true);
                             }}
-                            className="bg-slate-700 hover:bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                            className="bg-teal-600 hover:bg-teal-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
                             title="Open terminal for MCE environment"
                           >
                             <CommandLineIcon className="h-3 w-3" />
@@ -5892,7 +5929,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                                 );
                                                               return timestamp
                                                                 ? calculateAge(timestamp)
-                                                                : '-';
+                                                                : '';
                                                             })()}
                                                           </span>
                                                           <span
@@ -5956,7 +5993,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                                 );
                                                               return timestamp
                                                                 ? calculateAge(timestamp)
-                                                                : '-';
+                                                                : '';
                                                             })()}
                                                           </span>
                                                           <span
@@ -6010,9 +6047,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                               cluster-manager
                                                             </button>
                                                           </div>
-                                                          <span className="text-cyan-600 font-mono">
-                                                            -
-                                                          </span>
+                                                          <span className="text-cyan-600 font-mono"></span>
                                                           <span className="text-cyan-700 font-mono text-xs">
                                                             {(() => {
                                                               const timestamp =
@@ -6022,7 +6057,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                                 );
                                                               return timestamp
                                                                 ? calculateAge(timestamp)
-                                                                : '-';
+                                                                : '';
                                                             })()}
                                                           </span>
                                                           <span
@@ -6070,9 +6105,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                               cluster-manager-registration-capi
                                                             </button>
                                                           </div>
-                                                          <span className="text-cyan-600 font-mono">
-                                                            -
-                                                          </span>
+                                                          <span className="text-cyan-600 font-mono"></span>
                                                           <span className="text-cyan-700 font-mono text-xs">
                                                             {(() => {
                                                               const timestamp =
@@ -6082,7 +6115,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                                 );
                                                               return timestamp
                                                                 ? calculateAge(timestamp)
-                                                                : '-';
+                                                                : '';
                                                             })()}
                                                           </span>
                                                           <span
@@ -6130,9 +6163,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                               capa-manager-bootstrap-credentials
                                                             </button>
                                                           </div>
-                                                          <span className="text-cyan-600 font-mono">
-                                                            -
-                                                          </span>
+                                                          <span className="text-cyan-600 font-mono"></span>
                                                           <span className="text-cyan-700 font-mono text-xs">
                                                             {(() => {
                                                               const timestamp =
@@ -6142,7 +6173,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                                 );
                                                               return timestamp
                                                                 ? calculateAge(timestamp)
-                                                                : '-';
+                                                                : '';
                                                             })()}
                                                           </span>
                                                           <span
@@ -6241,40 +6272,218 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                   <button
                                                     onClick={async (e) => {
                                                       e.stopPropagation(); // Prevent card collapse
+
                                                       const statusResult =
                                                         ansibleResults['check-components'];
                                                       if (!statusResult?.result?.output) {
-                                                        alert('No MCE component data to export.');
+                                                        alert(
+                                                          'No MCE component data available. Please run validation first.'
+                                                        );
                                                         return;
                                                       }
 
+                                                      const output = statusResult.result.output;
+
+                                                      // Check which resources actually exist based on validation output
+                                                      const mceResources = [];
+
+                                                      // Only add resources that were found
+                                                      if (
+                                                        !output.includes(
+                                                          'capi_controller_manager deployment was not found'
+                                                        )
+                                                      ) {
+                                                        mceResources.push({
+                                                          type: 'Deployment',
+                                                          name: 'capi-controller-manager',
+                                                          namespace: 'multicluster-engine',
+                                                        });
+                                                      }
+
+                                                      if (
+                                                        !output.includes(
+                                                          'capa_controller_manager deployment was not found'
+                                                        )
+                                                      ) {
+                                                        mceResources.push({
+                                                          type: 'Deployment',
+                                                          name: 'capa-controller-manager',
+                                                          namespace: 'multicluster-engine',
+                                                        });
+                                                      }
+
+                                                      if (
+                                                        !output.includes(
+                                                          'registration_configuration was not found'
+                                                        )
+                                                      ) {
+                                                        mceResources.push({
+                                                          type: 'ClusterManager',
+                                                          name: 'cluster-manager',
+                                                          namespace: '',
+                                                        });
+                                                      }
+
+                                                      if (
+                                                        !output.includes(
+                                                          'cluster-role-binding changes have not been applied'
+                                                        )
+                                                      ) {
+                                                        mceResources.push({
+                                                          type: 'ClusterRoleBinding',
+                                                          name: 'cluster-manager-registration-capi',
+                                                          namespace: '',
+                                                        });
+                                                      }
+
+                                                      if (
+                                                        !output.includes(
+                                                          'capa-manager-bootstrap-credentials secret does not exist'
+                                                        )
+                                                      ) {
+                                                        mceResources.push({
+                                                          type: 'Secret',
+                                                          name: 'capa-manager-bootstrap-credentials',
+                                                          namespace: 'multicluster-engine',
+                                                        });
+                                                      }
+
+                                                      if (
+                                                        !output.includes(
+                                                          'rosa-creds-secret secret does not exist'
+                                                        )
+                                                      ) {
+                                                        mceResources.push({
+                                                          type: 'Secret',
+                                                          name: 'rosa-creds-secret',
+                                                          namespace: 'multicluster-engine',
+                                                        });
+                                                      }
+
+                                                      if (
+                                                        !output.includes(
+                                                          'AWSClusterControllerIdentity does not exist'
+                                                        )
+                                                      ) {
+                                                        mceResources.push({
+                                                          type: 'AWSClusterControllerIdentity',
+                                                          name: 'default',
+                                                          namespace: '',
+                                                        });
+                                                      }
+
+                                                      if (mceResources.length === 0) {
+                                                        alert('No MCE resources found to export');
+                                                        return;
+                                                      }
+
+                                                      let operationId;
                                                       try {
-                                                        const operationId = `export-mce-resources-${Date.now()}`;
+                                                        operationId = `export-mce-resources-${Date.now()}`;
                                                         addToRecent({
                                                           id: operationId,
-                                                          title: 'Export MCE Resources',
+                                                          title: 'Export MCE Active Resources',
                                                           color: 'bg-cyan-600',
                                                           status: '⏳ Exporting...',
                                                         });
 
-                                                        const exportContent = `MCE Active Resources Export
-Generated: ${new Date().toLocaleString()}
+                                                        console.log(
+                                                          `Exporting ${mceResources.length} MCE resources...`
+                                                        );
 
-${statusResult.result.output}
-`;
+                                                        // Function to redact sensitive data from YAML
+                                                        const redactSensitiveData = (
+                                                          yamlContent
+                                                        ) => {
+                                                          // First, handle entire data/stringData blocks in secrets
+                                                          yamlContent = yamlContent.replace(
+                                                            /^(\s*)(data|stringData):\s*\n((?:\s+.+\n)*)/gm,
+                                                            (
+                                                              match,
+                                                              indent,
+                                                              fieldName,
+                                                              dataBlock
+                                                            ) => {
+                                                              return `${indent}${fieldName}:\n${indent}  # [SENSITIVE DATA REMOVED - All secret data redacted]\n`;
+                                                            }
+                                                          );
 
-                                                        const blob = new Blob([exportContent], {
-                                                          type: 'text/plain',
-                                                        });
-                                                        const url =
-                                                          window.URL.createObjectURL(blob);
-                                                        const a = document.createElement('a');
-                                                        a.href = url;
-                                                        a.download = `mce-resources-${Date.now()}.txt`;
-                                                        document.body.appendChild(a);
-                                                        a.click();
-                                                        document.body.removeChild(a);
-                                                        window.URL.revokeObjectURL(url);
+                                                          // Redact any remaining sensitive field values
+                                                          yamlContent = yamlContent.replace(
+                                                            /^(\s+)(password|token|apiKey|secretKey|accessKey|privateKey|certificate|clientSecret|clientID|ocmClientSecret|ocmClientID|ocmApiUrl|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|aws_access_key_id|aws_secret_access_key):\s+(.+)$/gim,
+                                                            (match, indent, key, value) => {
+                                                              return `${indent}${key}: "[SENSITIVE DATA REMOVED]"`;
+                                                            }
+                                                          );
+
+                                                          // Redact any field with "secret" or "password" or "token" in the key name
+                                                          yamlContent = yamlContent.replace(
+                                                            /^(\s+)([a-zA-Z0-9_-]*(?:secret|password|token|credential|key|api)[a-zA-Z0-9_-]*):\s+(.+)$/gim,
+                                                            (match, indent, key, value) => {
+                                                              // Skip metadata fields and non-sensitive fields
+                                                              if (
+                                                                key
+                                                                  .toLowerCase()
+                                                                  .includes('secretname') ||
+                                                                key
+                                                                  .toLowerCase()
+                                                                  .includes('secretref') ||
+                                                                key
+                                                                  .toLowerCase()
+                                                                  .includes('type') ||
+                                                                key.toLowerCase() === 'apiversion'
+                                                              ) {
+                                                                return match;
+                                                              }
+                                                              return `${indent}${key}: "[SENSITIVE DATA REMOVED]"`;
+                                                            }
+                                                          );
+
+                                                          return yamlContent;
+                                                        };
+
+                                                        // Fetch YAML for all MCE resources
+                                                        const yamls = [];
+                                                        for (const resource of mceResources) {
+                                                          try {
+                                                            const response = await fetch(
+                                                              'http://localhost:8000/api/ocp/get-resource-detail',
+                                                              {
+                                                                method: 'POST',
+                                                                headers: {
+                                                                  'Content-Type':
+                                                                    'application/json',
+                                                                },
+                                                                body: JSON.stringify({
+                                                                  resource_type: resource.type,
+                                                                  resource_name: resource.name,
+                                                                  namespace: resource.namespace,
+                                                                }),
+                                                              }
+                                                            );
+
+                                                            const result = await response.json();
+                                                            if (
+                                                              response.ok &&
+                                                              result.success &&
+                                                              result.data
+                                                            ) {
+                                                              // Redact sensitive data before adding to export
+                                                              const sanitizedContent =
+                                                                redactSensitiveData(result.data);
+
+                                                              yamls.push({
+                                                                name: `${resource.name.replace(/[^a-zA-Z0-9-]/g, '_')}_${resource.type.replace(/[^a-zA-Z0-9-]/g, '_')}.yaml`,
+                                                                content: sanitizedContent,
+                                                              });
+                                                            }
+                                                          } catch (error) {
+                                                            console.error(
+                                                              `Error fetching YAML for ${resource.name}:`,
+                                                              error
+                                                            );
+                                                          }
+                                                        }
 
                                                         const completionTime =
                                                           new Date().toLocaleTimeString('en-US', {
@@ -6283,16 +6492,65 @@ ${statusResult.result.output}
                                                             second: '2-digit',
                                                             hour12: true,
                                                           });
-                                                        updateRecentOperationStatus(
-                                                          operationId,
-                                                          `✅ Exported at ${completionTime}`
-                                                        );
+
+                                                        if (yamls.length > 0) {
+                                                          // Create a combined YAML file with document separators
+                                                          const combinedYaml = yamls
+                                                            .map(
+                                                              (y) =>
+                                                                `# ${y.name}\n---\n${y.content}`
+                                                            )
+                                                            .join('\n\n');
+
+                                                          // Create a download link
+                                                          const blob = new Blob([combinedYaml], {
+                                                            type: 'text/yaml',
+                                                          });
+                                                          const url =
+                                                            window.URL.createObjectURL(blob);
+                                                          const a = document.createElement('a');
+                                                          a.href = url;
+                                                          a.download = `mce-active-resources-${Date.now()}.yaml`;
+                                                          document.body.appendChild(a);
+                                                          a.click();
+                                                          document.body.removeChild(a);
+                                                          window.URL.revokeObjectURL(url);
+
+                                                          console.log(
+                                                            `Exported ${yamls.length} MCE resources successfully at ${completionTime}`
+                                                          );
+                                                          updateRecentOperationStatus(
+                                                            operationId,
+                                                            `✅ Exported ${yamls.length} resources at ${completionTime}`
+                                                          );
+                                                        } else {
+                                                          updateRecentOperationStatus(
+                                                            operationId,
+                                                            `❌ Export failed at ${completionTime}`
+                                                          );
+                                                          alert('Failed to export resources');
+                                                        }
                                                       } catch (error) {
                                                         console.error(
                                                           'Error exporting MCE resources:',
                                                           error
                                                         );
-                                                        alert(`Error exporting: ${error.message}`);
+                                                        const completionTime =
+                                                          new Date().toLocaleTimeString('en-US', {
+                                                            hour: 'numeric',
+                                                            minute: '2-digit',
+                                                            second: '2-digit',
+                                                            hour12: true,
+                                                          });
+                                                        if (operationId) {
+                                                          updateRecentOperationStatus(
+                                                            operationId,
+                                                            `❌ Export failed at ${completionTime}`
+                                                          );
+                                                        }
+                                                        alert(
+                                                          `Error exporting resources: ${error.message}`
+                                                        );
                                                       }
                                                     }}
                                                     className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
@@ -6321,7 +6579,7 @@ ${statusResult.result.output}
                                                       try {
                                                         addToRecent({
                                                           id: operationId,
-                                                          title: 'Refresh MCE Resources',
+                                                          title: 'Refresh MCE Active Resources',
                                                           color: 'bg-cyan-600',
                                                           status: '🔄 Refreshing...',
                                                         });
@@ -6664,9 +6922,7 @@ ${statusResult.result.output}
                                                             rosa-creds-secret
                                                           </button>
                                                         </div>
-                                                        <span className="text-cyan-600 font-mono">
-                                                          -
-                                                        </span>
+                                                        <span className="text-cyan-600 font-mono"></span>
                                                         <span className="text-cyan-600 font-mono">
                                                           {(() => {
                                                             const timestamp =
@@ -6676,7 +6932,7 @@ ${statusResult.result.output}
                                                               );
                                                             return timestamp
                                                               ? calculateAge(timestamp)
-                                                              : '-';
+                                                              : '';
                                                           })()}
                                                         </span>
                                                         <span
@@ -6724,9 +6980,7 @@ ${statusResult.result.output}
                                                             default
                                                           </button>
                                                         </div>
-                                                        <span className="text-cyan-600 font-mono">
-                                                          -
-                                                        </span>
+                                                        <span className="text-cyan-600 font-mono"></span>
                                                         <span className="text-cyan-600 font-mono">
                                                           {(() => {
                                                             const timestamp =
@@ -6736,7 +6990,7 @@ ${statusResult.result.output}
                                                               );
                                                             return timestamp
                                                               ? calculateAge(timestamp)
-                                                              : '-';
+                                                              : '';
                                                           })()}
                                                         </span>
                                                         <span
@@ -6781,9 +7035,7 @@ ${statusResult.result.output}
                                                               ns-rosa-hcp
                                                             </button>
                                                           </div>
-                                                          <span className="text-cyan-600 font-mono">
-                                                            -
-                                                          </span>
+                                                          <span className="text-cyan-600 font-mono"></span>
                                                           <span className="text-cyan-600 font-mono">
                                                             {(() => {
                                                               const timestamp =
@@ -6793,7 +7045,7 @@ ${statusResult.result.output}
                                                                 );
                                                               return timestamp
                                                                 ? calculateAge(timestamp)
-                                                                : '-';
+                                                                : '';
                                                             })()}
                                                           </span>
                                                           <span className="font-medium text-green-600">
@@ -6868,9 +7120,7 @@ ${statusResult.result.output}
                                                               })()}
                                                             </button>
                                                           </div>
-                                                          <span className="text-cyan-600 font-mono">
-                                                            -
-                                                          </span>
+                                                          <span className="text-cyan-600 font-mono"></span>
                                                           <span className="text-cyan-600 font-mono">
                                                             {(() => {
                                                               const timestamp =
@@ -6880,7 +7130,7 @@ ${statusResult.result.output}
                                                                 );
                                                               return timestamp
                                                                 ? calculateAge(timestamp)
-                                                                : '-';
+                                                                : '';
                                                             })()}
                                                           </span>
                                                           <span className="font-medium text-green-600">
@@ -8732,6 +8982,11 @@ ${statusResult.result.output}
       />
 
       {/* MCE Terminal Modal */}
+      <MCETerminalModal
+        isOpen={showMCETerminalModal}
+        onClose={() => setShowMCETerminalModal(false)}
+      />
+
       {/* Resource Detail Modal */}
       {showResourceDetailModal && selectedResourceDetail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
