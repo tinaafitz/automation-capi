@@ -6047,9 +6047,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                               cluster-manager
                                                             </button>
                                                           </div>
-                                                          <span className="text-cyan-600 font-mono">
-
-                                                          </span>
+                                                          <span className="text-cyan-600 font-mono"></span>
                                                           <span className="text-cyan-700 font-mono text-xs">
                                                             {(() => {
                                                               const timestamp =
@@ -6107,9 +6105,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                               cluster-manager-registration-capi
                                                             </button>
                                                           </div>
-                                                          <span className="text-cyan-600 font-mono">
-
-                                                          </span>
+                                                          <span className="text-cyan-600 font-mono"></span>
                                                           <span className="text-cyan-700 font-mono text-xs">
                                                             {(() => {
                                                               const timestamp =
@@ -6167,9 +6163,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                               capa-manager-bootstrap-credentials
                                                             </button>
                                                           </div>
-                                                          <span className="text-cyan-600 font-mono">
-
-                                                          </span>
+                                                          <span className="text-cyan-600 font-mono"></span>
                                                           <span className="text-cyan-700 font-mono text-xs">
                                                             {(() => {
                                                               const timestamp =
@@ -6279,9 +6273,12 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                     onClick={async (e) => {
                                                       e.stopPropagation(); // Prevent card collapse
 
-                                                      const statusResult = ansibleResults['check-components'];
+                                                      const statusResult =
+                                                        ansibleResults['check-components'];
                                                       if (!statusResult?.result?.output) {
-                                                        alert('No MCE component data available. Please run validation first.');
+                                                        alert(
+                                                          'No MCE component data available. Please run validation first.'
+                                                        );
                                                         return;
                                                       }
 
@@ -6291,32 +6288,88 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                       const mceResources = [];
 
                                                       // Only add resources that were found
-                                                      if (!output.includes('capi_controller_manager deployment was not found')) {
-                                                        mceResources.push({ type: 'Deployment', name: 'capi-controller-manager', namespace: 'multicluster-engine' });
+                                                      if (
+                                                        !output.includes(
+                                                          'capi_controller_manager deployment was not found'
+                                                        )
+                                                      ) {
+                                                        mceResources.push({
+                                                          type: 'Deployment',
+                                                          name: 'capi-controller-manager',
+                                                          namespace: 'multicluster-engine',
+                                                        });
                                                       }
 
-                                                      if (!output.includes('capa_controller_manager deployment was not found')) {
-                                                        mceResources.push({ type: 'Deployment', name: 'capa-controller-manager', namespace: 'multicluster-engine' });
+                                                      if (
+                                                        !output.includes(
+                                                          'capa_controller_manager deployment was not found'
+                                                        )
+                                                      ) {
+                                                        mceResources.push({
+                                                          type: 'Deployment',
+                                                          name: 'capa-controller-manager',
+                                                          namespace: 'multicluster-engine',
+                                                        });
                                                       }
 
-                                                      if (!output.includes('registration_configuration was not found')) {
-                                                        mceResources.push({ type: 'ClusterManager', name: 'cluster-manager', namespace: '' });
+                                                      if (
+                                                        !output.includes(
+                                                          'registration_configuration was not found'
+                                                        )
+                                                      ) {
+                                                        mceResources.push({
+                                                          type: 'ClusterManager',
+                                                          name: 'cluster-manager',
+                                                          namespace: '',
+                                                        });
                                                       }
 
-                                                      if (!output.includes('cluster-role-binding changes have not been applied')) {
-                                                        mceResources.push({ type: 'ClusterRoleBinding', name: 'cluster-manager-registration-capi', namespace: '' });
+                                                      if (
+                                                        !output.includes(
+                                                          'cluster-role-binding changes have not been applied'
+                                                        )
+                                                      ) {
+                                                        mceResources.push({
+                                                          type: 'ClusterRoleBinding',
+                                                          name: 'cluster-manager-registration-capi',
+                                                          namespace: '',
+                                                        });
                                                       }
 
-                                                      if (!output.includes('capa-manager-bootstrap-credentials secret does not exist')) {
-                                                        mceResources.push({ type: 'Secret', name: 'capa-manager-bootstrap-credentials', namespace: 'multicluster-engine' });
+                                                      if (
+                                                        !output.includes(
+                                                          'capa-manager-bootstrap-credentials secret does not exist'
+                                                        )
+                                                      ) {
+                                                        mceResources.push({
+                                                          type: 'Secret',
+                                                          name: 'capa-manager-bootstrap-credentials',
+                                                          namespace: 'multicluster-engine',
+                                                        });
                                                       }
 
-                                                      if (!output.includes('rosa-creds-secret secret does not exist')) {
-                                                        mceResources.push({ type: 'Secret', name: 'rosa-creds-secret', namespace: 'multicluster-engine' });
+                                                      if (
+                                                        !output.includes(
+                                                          'rosa-creds-secret secret does not exist'
+                                                        )
+                                                      ) {
+                                                        mceResources.push({
+                                                          type: 'Secret',
+                                                          name: 'rosa-creds-secret',
+                                                          namespace: 'multicluster-engine',
+                                                        });
                                                       }
 
-                                                      if (!output.includes('AWSClusterControllerIdentity does not exist')) {
-                                                        mceResources.push({ type: 'AWSClusterControllerIdentity', name: 'default', namespace: '' });
+                                                      if (
+                                                        !output.includes(
+                                                          'AWSClusterControllerIdentity does not exist'
+                                                        )
+                                                      ) {
+                                                        mceResources.push({
+                                                          type: 'AWSClusterControllerIdentity',
+                                                          name: 'default',
+                                                          namespace: '',
+                                                        });
                                                       }
 
                                                       if (mceResources.length === 0) {
@@ -6334,14 +6387,23 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                           status: '⏳ Exporting...',
                                                         });
 
-                                                        console.log(`Exporting ${mceResources.length} MCE resources...`);
+                                                        console.log(
+                                                          `Exporting ${mceResources.length} MCE resources...`
+                                                        );
 
                                                         // Function to redact sensitive data from YAML
-                                                        const redactSensitiveData = (yamlContent) => {
+                                                        const redactSensitiveData = (
+                                                          yamlContent
+                                                        ) => {
                                                           // First, handle entire data/stringData blocks in secrets
                                                           yamlContent = yamlContent.replace(
                                                             /^(\s*)(data|stringData):\s*\n((?:\s+.+\n)*)/gm,
-                                                            (match, indent, fieldName, dataBlock) => {
+                                                            (
+                                                              match,
+                                                              indent,
+                                                              fieldName,
+                                                              dataBlock
+                                                            ) => {
                                                               return `${indent}${fieldName}:\n${indent}  # [SENSITIVE DATA REMOVED - All secret data redacted]\n`;
                                                             }
                                                           );
@@ -6360,9 +6422,15 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             (match, indent, key, value) => {
                                                               // Skip metadata fields and non-sensitive fields
                                                               if (
-                                                                key.toLowerCase().includes('secretname') ||
-                                                                key.toLowerCase().includes('secretref') ||
-                                                                key.toLowerCase().includes('type') ||
+                                                                key
+                                                                  .toLowerCase()
+                                                                  .includes('secretname') ||
+                                                                key
+                                                                  .toLowerCase()
+                                                                  .includes('secretref') ||
+                                                                key
+                                                                  .toLowerCase()
+                                                                  .includes('type') ||
                                                                 key.toLowerCase() === 'apiversion'
                                                               ) {
                                                                 return match;
@@ -6382,7 +6450,10 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                               'http://localhost:8000/api/ocp/get-resource-detail',
                                                               {
                                                                 method: 'POST',
-                                                                headers: { 'Content-Type': 'application/json' },
+                                                                headers: {
+                                                                  'Content-Type':
+                                                                    'application/json',
+                                                                },
                                                                 body: JSON.stringify({
                                                                   resource_type: resource.type,
                                                                   resource_name: resource.name,
@@ -6392,9 +6463,14 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             );
 
                                                             const result = await response.json();
-                                                            if (response.ok && result.success && result.data) {
+                                                            if (
+                                                              response.ok &&
+                                                              result.success &&
+                                                              result.data
+                                                            ) {
                                                               // Redact sensitive data before adding to export
-                                                              const sanitizedContent = redactSensitiveData(result.data);
+                                                              const sanitizedContent =
+                                                                redactSensitiveData(result.data);
 
                                                               yamls.push({
                                                                 name: `${resource.name.replace(/[^a-zA-Z0-9-]/g, '_')}_${resource.type.replace(/[^a-zA-Z0-9-]/g, '_')}.yaml`,
@@ -6409,22 +6485,29 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                           }
                                                         }
 
-                                                        const completionTime = new Date().toLocaleTimeString('en-US', {
-                                                          hour: 'numeric',
-                                                          minute: '2-digit',
-                                                          second: '2-digit',
-                                                          hour12: true,
-                                                        });
+                                                        const completionTime =
+                                                          new Date().toLocaleTimeString('en-US', {
+                                                            hour: 'numeric',
+                                                            minute: '2-digit',
+                                                            second: '2-digit',
+                                                            hour12: true,
+                                                          });
 
                                                         if (yamls.length > 0) {
                                                           // Create a combined YAML file with document separators
                                                           const combinedYaml = yamls
-                                                            .map((y) => `# ${y.name}\n---\n${y.content}`)
+                                                            .map(
+                                                              (y) =>
+                                                                `# ${y.name}\n---\n${y.content}`
+                                                            )
                                                             .join('\n\n');
 
                                                           // Create a download link
-                                                          const blob = new Blob([combinedYaml], { type: 'text/yaml' });
-                                                          const url = window.URL.createObjectURL(blob);
+                                                          const blob = new Blob([combinedYaml], {
+                                                            type: 'text/yaml',
+                                                          });
+                                                          const url =
+                                                            window.URL.createObjectURL(blob);
                                                           const a = document.createElement('a');
                                                           a.href = url;
                                                           a.download = `mce-active-resources-${Date.now()}.yaml`;
@@ -6448,20 +6531,26 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                           alert('Failed to export resources');
                                                         }
                                                       } catch (error) {
-                                                        console.error('Error exporting MCE resources:', error);
-                                                        const completionTime = new Date().toLocaleTimeString('en-US', {
-                                                          hour: 'numeric',
-                                                          minute: '2-digit',
-                                                          second: '2-digit',
-                                                          hour12: true,
-                                                        });
+                                                        console.error(
+                                                          'Error exporting MCE resources:',
+                                                          error
+                                                        );
+                                                        const completionTime =
+                                                          new Date().toLocaleTimeString('en-US', {
+                                                            hour: 'numeric',
+                                                            minute: '2-digit',
+                                                            second: '2-digit',
+                                                            hour12: true,
+                                                          });
                                                         if (operationId) {
                                                           updateRecentOperationStatus(
                                                             operationId,
                                                             `❌ Export failed at ${completionTime}`
                                                           );
                                                         }
-                                                        alert(`Error exporting resources: ${error.message}`);
+                                                        alert(
+                                                          `Error exporting resources: ${error.message}`
+                                                        );
                                                       }
                                                     }}
                                                     className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
@@ -6833,9 +6922,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             rosa-creds-secret
                                                           </button>
                                                         </div>
-                                                        <span className="text-cyan-600 font-mono">
-
-                                                        </span>
+                                                        <span className="text-cyan-600 font-mono"></span>
                                                         <span className="text-cyan-600 font-mono">
                                                           {(() => {
                                                             const timestamp =
@@ -6893,9 +6980,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             default
                                                           </button>
                                                         </div>
-                                                        <span className="text-cyan-600 font-mono">
-
-                                                        </span>
+                                                        <span className="text-cyan-600 font-mono"></span>
                                                         <span className="text-cyan-600 font-mono">
                                                           {(() => {
                                                             const timestamp =
@@ -6950,9 +7035,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                               ns-rosa-hcp
                                                             </button>
                                                           </div>
-                                                          <span className="text-cyan-600 font-mono">
-
-                                                          </span>
+                                                          <span className="text-cyan-600 font-mono"></span>
                                                           <span className="text-cyan-600 font-mono">
                                                             {(() => {
                                                               const timestamp =
@@ -7037,9 +7120,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                               })()}
                                                             </button>
                                                           </div>
-                                                          <span className="text-cyan-600 font-mono">
-
-                                                          </span>
+                                                          <span className="text-cyan-600 font-mono"></span>
                                                           <span className="text-cyan-600 font-mono">
                                                             {(() => {
                                                               const timestamp =
