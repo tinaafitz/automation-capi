@@ -197,6 +197,10 @@ export function MCETerminalModal({ isOpen, onClose }) {
       { label: 'Get ROSA networks', cmd: 'oc get rosanetwork --all-namespaces' },
       { label: 'Get ROSA role configs', cmd: 'oc get rosaroleconfig --all-namespaces' },
       { label: 'Describe ROSA cluster', cmd: 'oc describe rosacluster --all-namespaces' },
+      {
+        label: 'Patch RosaControlPlane version gate',
+        cmd: 'oc patch rosacontrolplane <name> -n <namespace> --type=merge -p \'{"spec":{"versionGate":"Acknowledge"}}\'',
+      },
     ],
     'Secrets & Config': [
       {
@@ -264,7 +268,7 @@ export function MCETerminalModal({ isOpen, onClose }) {
 
         <div className="flex-1 flex overflow-hidden">
           {/* Command Templates Sidebar */}
-          <div className="w-80 bg-gray-50 border-r border-gray-200 overflow-y-auto p-4">
+          <div className="w-[500px] bg-gray-50 border-r border-gray-200 overflow-y-auto p-4 flex-shrink-0">
             <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
               <CommandLineIcon className="h-4 w-4 mr-2 text-cyan-600" />
               Command Templates
@@ -285,7 +289,7 @@ export function MCETerminalModal({ isOpen, onClose }) {
                         <p className="text-xs font-medium text-gray-900 group-hover:text-cyan-700">
                           {template.label}
                         </p>
-                        <p className="text-xs text-gray-500 font-mono mt-0.5 truncate group-hover:text-cyan-600">
+                        <p className="text-xs text-gray-500 font-mono mt-0.5 whitespace-pre-wrap break-words group-hover:text-cyan-600">
                           {template.cmd}
                         </p>
                       </button>

@@ -115,6 +115,68 @@ function extractMCEComponentTimestamp(output, debugPattern) {
   }
 }
 
+// Parse dynamic resources from ansible validation output
+function parseDynamicResources(output) {
+  const resources = [];
+
+  if (!output) return resources;
+
+  console.log('🔍 parseDynamicResources called, output length:', output?.length);
+
+  try {
+    // Pattern to match resource found messages with JSON data
+    // Format: "✓ [ResourceType] found - [JSON]" or "✓ [ResourceType] found - {"key":"value"}"
+    const pattern = /✓\s+(\w+)\s+found\s+-\s+(.+?)(?=\n|$)/g;
+    let match;
+    let matchCount = 0;
+
+    while ((match = pattern.exec(output)) !== null) {
+      matchCount++;
+      const resourceType = match[1];  // e.g., "ROSACluster", "RosaControlPlane", "RosaNetwork"
+      const jsonStr = match[2].trim().replace(/"+$/, '');  // Strip trailing quotes from ansible debug format
+
+      console.log(`  Match #${matchCount}: ${resourceType} - JSON:`, jsonStr.substring(0, 100));
+
+      try {
+        // Try to parse as JSON (could be object or array)
+        let resourceData;
+
+        // Handle stdout_lines format - may have escaped quotes
+        const cleanedJson = jsonStr.replace(/\\"/g, '"');
+
+        // Try parsing as array first (for stdout_lines)
+        if (cleanedJson.startsWith('[')) {
+          resourceData = JSON.parse(cleanedJson);
+        } else {
+          // Single object
+          resourceData = [JSON.parse(cleanedJson)];
+        }
+
+        // Extract resource info from each object
+        for (const item of resourceData) {
+          if (item.name) {
+            resources.push({
+              type: resourceType,
+              name: item.name,
+              namespace: item.namespace || '',
+              creationTimestamp: item.creationTimestamp || item.created || null,
+            });
+            console.log(`    ✅ Added resource: ${resourceType}/${item.name}`);
+          }
+        }
+      } catch (jsonError) {
+        console.warn(`Failed to parse JSON for ${resourceType}:`, jsonError, 'Raw:', jsonStr.substring(0, 200));
+      }
+    }
+
+    console.log(`🎯 Found ${resources.length} dynamic resources total`);
+  } catch (error) {
+    console.error('Error parsing dynamic resources:', error);
+  }
+
+  return resources;
+}
+
 // Format Ansible playbook output with eye-catchers for PLAY and TASK banners
 function formatPlaybookOutput(output) {
   if (!output) return 'No output available';
@@ -373,7 +435,7 @@ export function WhatCanIHelp() {
       // Add to recent operations immediately
       addToRecent({
         id: operationId,
-        title: 'Configure Kind Cluster',
+        title: 'Minikube Configure Cluster',
         color: 'bg-cyan-600',
         status: `⏳ Configuring ${cluster_name}...`,
       });
@@ -430,7 +492,7 @@ export function WhatCanIHelp() {
       // Add to recent operations immediately
       addToRecent({
         id: operationId,
-        title: 'Configure Minikube Cluster',
+        title: 'Minikube Configure Cluster',
         color: 'bg-purple-600',
         status: `⏳ Configuring ${cluster_name}...`,
       });
@@ -3210,7 +3272,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           // Add to recent operations with "Verifying..." status
                           addToRecent({
                             id: verifyId,
-                            title: 'Verify Minikube Cluster',
+                            title: 'Minikube Verify Cluster',
                             color: 'bg-purple-600',
                             status: '⏳ Verifying...',
                           });
@@ -3388,7 +3450,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         <div className="text-center py-4 text-purple-600 text-xs">
                           <div className="mb-2">No Minikube cluster verified</div>
                           <div className="text-purple-500">
-                            Click "Configure Minikube Cluster" to verify a cluster
+                            Click "Minikube Configure Cluster" to verify a cluster
                           </div>
                         </div>
                       )}
@@ -3771,7 +3833,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                                   addToRecent({
                                     id: operationId,
-                                    title: 'Export Minikube Active Resources',
+                                    title: 'Minikube Export Active Resources',
                                     color: 'bg-indigo-600',
                                     status: '⏳ Exporting...',
                                   });
@@ -3948,73 +4010,76 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                             {/* Refresh Active Resources Button */}
                             <button
-                              onClick={async () => {
-                                let operationId; // Declare outside try block for catch access
+                              onClick={async (e) => {
+                                e.stopPropagation(); // Prevent card collapse
+                                const operationId = `refresh-minikube-resources-${Date.now()}`;
                                 try {
-                                  // Create unique ID for this operation
-                                  operationId = `refresh-resources-${Date.now()}`;
-
-                                  // Add to recent operations with "Refreshing..." status
                                   addToRecent({
                                     id: operationId,
-                                    title: 'Refresh Minikube Active Resources',
-                                    color: 'bg-purple-600',
+                                    title: 'Minikube Refresh Active Resources',
+                                    color: 'bg-cyan-600',
                                     status: '🔄 Refreshing...',
                                   });
 
-                                  // Fetch updated active resources
+                                  // Run the validation task directly
                                   const response = await fetch(
-                                    'http://localhost:8000/api/minikube/get-active-resources',
+                                    'http://localhost:8000/api/ansible/run-task',
                                     {
                                       method: 'POST',
-                                      headers: { 'Content-Type': 'application/json' },
+                                      headers: {
+                                        'Content-Type': 'application/json',
+                                      },
                                       body: JSON.stringify({
-                                        cluster_name: verifiedMinikubeClusterInfo.name,
-                                        namespace: verifiedMinikubeClusterInfo.namespace,
+                                        task_file:
+                                          'tasks/validate-kind-capa-environment.yml',
+                                        description:
+                                          'Minikube Refresh Active Resources',
                                       }),
                                     }
                                   );
 
                                   const result = await response.json();
 
-                                  // Get completion time with seconds
-                                  const completionTime = new Date().toLocaleTimeString('en-US', {
-                                    hour: 'numeric',
-                                    minute: '2-digit',
-                                    second: '2-digit',
-                                    hour12: true,
-                                  });
-
                                   if (response.ok && result.success) {
-                                    console.log(
-                                      `Resources refreshed successfully at ${completionTime}`,
-                                      result
-                                    );
+                                    // Store refresh results in a separate key
+                                    setAnsibleResults((prev) => ({
+                                      ...prev,
+                                      'refresh-check-minikube-components': {
+                                        loading: false,
+                                        result: result,
+                                        timestamp: new Date(),
+                                        success: true,
+                                      },
+                                    }));
+
+                                    const completionTime =
+                                      new Date().toLocaleTimeString('en-US', {
+                                        hour: 'numeric',
+                                        minute: '2-digit',
+                                        second: '2-digit',
+                                        hour12: true,
+                                      });
                                     updateRecentOperationStatus(
                                       operationId,
                                       `✅ Refreshed at ${completionTime}`
                                     );
-
-                                    // Update the active resources state
-                                    setActiveResources(result.resources || []);
                                   } else {
-                                    console.log(
-                                      `Resources refresh failed at ${completionTime}. response.ok=${response.ok}, result.success=${result.success}`,
-                                      result
-                                    );
-                                    updateRecentOperationStatus(
-                                      operationId,
-                                      `❌ Refresh failed at ${completionTime}`
+                                    throw new Error(
+                                      result.error || 'Refresh failed'
                                     );
                                   }
                                 } catch (error) {
-                                  console.error('Error refreshing resources:', error);
-                                  const completionTime = new Date().toLocaleTimeString('en-US', {
-                                    hour: 'numeric',
-                                    minute: '2-digit',
-                                    second: '2-digit',
-                                    hour12: true,
-                                  });
+                                  console.error(
+                                    'Error refreshing Minikube resources:',
+                                    error
+                                  );
+                                  const completionTime =
+                                    new Date().toLocaleTimeString('en-US', {
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      second: '2-digit',
+                                      hour12: true,
+                                    });
                                   updateRecentOperationStatus(
                                     operationId,
                                     `❌ Refresh failed at ${completionTime}`
@@ -4238,19 +4303,61 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             </button>
 
                             {/* Configure AutoNode Button */}
-                            {activeResources.length > 0 && (
-                              <button
-                                onClick={async () => {
-                                  let operationId; // Declare outside try block for catch access
-                                  try {
-                                    // Find the ROSA cluster name from activeResources
-                                    const rosaCluster = activeResources.find(
-                                      (r) => r.type === 'RosaControlPlane'
-                                    );
-                                    if (!rosaCluster) {
-                                      alert('No ROSA cluster found in active resources');
-                                      return;
-                                    }
+                            {(() => {
+                              // Check if we have ansible results with dynamic resources
+                              const checkMinikubeResult =
+                                ansibleResults['check-minikube-components'];
+                              const refreshCheckMinikubeResult =
+                                ansibleResults['refresh-check-minikube-components'];
+
+                              let statusResult = checkMinikubeResult;
+
+                              if (
+                                refreshCheckMinikubeResult &&
+                                checkMinikubeResult
+                              ) {
+                                const checkTime = checkMinikubeResult.timestamp
+                                  ?.getTime
+                                  ? checkMinikubeResult.timestamp.getTime()
+                                  : new Date(
+                                      checkMinikubeResult.timestamp
+                                    ).getTime();
+                                const refreshTime = refreshCheckMinikubeResult
+                                  .timestamp?.getTime
+                                  ? refreshCheckMinikubeResult.timestamp.getTime()
+                                  : new Date(
+                                      refreshCheckMinikubeResult.timestamp
+                                    ).getTime();
+                                if (refreshTime > checkTime) {
+                                  statusResult = refreshCheckMinikubeResult;
+                                }
+                              } else if (
+                                refreshCheckMinikubeResult &&
+                                !checkMinikubeResult
+                              ) {
+                                statusResult = refreshCheckMinikubeResult;
+                              }
+
+                              const dynamicResources =
+                                statusResult && statusResult.result
+                                  ? parseDynamicResources(statusResult.result.output)
+                                  : [];
+
+                              if (dynamicResources.length === 0) return null;
+
+                              return (
+                                <button
+                                  onClick={async () => {
+                                    let operationId; // Declare outside try block for catch access
+                                    try {
+                                      // Find the ROSA cluster name from dynamicResources
+                                      const rosaCluster = dynamicResources.find(
+                                        (r) => r.type === 'RosaControlPlane'
+                                      );
+                                      if (!rosaCluster) {
+                                        alert('No ROSA cluster found in active resources');
+                                        return;
+                                      }
 
                                     const clusterName = rosaCluster.name;
 
@@ -4268,7 +4375,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                     // Add to recent operations with "Configuring..." status
                                     addToRecent({
                                       id: operationId,
-                                      title: `Configure AutoNode: ${clusterName}`,
+                                      title: `Minikube Configure AutoNode: ${clusterName}`,
                                       color: 'bg-purple-600',
                                       status: '⏳ Configuring...',
                                     });
@@ -4379,121 +4486,122 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 </svg>
                                 <span>Configure AutoNode</span>
                               </button>
-                            )}
+                              );
+                            })()}
                           </div>
                         </h4>
-                        {activeResources.length > 0 ? (
-                          <>
-                            {/* Table Header */}
-                            <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs font-semibold text-purple-700 bg-purple-50 px-3 py-2 rounded mb-2">
-                              <div>Type</div>
-                              <div>Name</div>
-                              <div>Version</div>
-                              <div>Age</div>
-                              <div>Status</div>
-                            </div>
-                            <div className="space-y-1.5">
-                              {activeResources.map((resource, idx) => {
-                                // Extract resource name and namespace
-                                let resourceName = resource.name;
-                                let namespace = verifiedMinikubeClusterInfo.namespace;
+                        {(() => {
+                          // Get the most recent validation result (either original or refresh)
+                          const checkMinikubeResult =
+                            ansibleResults['check-minikube-components'];
+                          const refreshCheckMinikubeResult =
+                            ansibleResults['refresh-check-minikube-components'];
 
-                                // Check if name contains namespace in parentheses
-                                if (resource.name.includes('(')) {
-                                  resourceName = resource.name.split('(')[0].trim();
-                                  const namespaceMatch = resource.name.match(/\(([^)]+)\)/);
-                                  if (namespaceMatch) {
-                                    namespace = namespaceMatch[1];
-                                  }
-                                }
+                          let statusResult = checkMinikubeResult;
 
-                                // Determine if cluster-scoped
-                                const isClusterScoped =
-                                  resource.type === 'Namespace' ||
-                                  resource.type === 'AWSClusterControllerIdentity' ||
-                                  resource.type === 'CustomResourceDefinition';
+                          // Use refresh result if it's more recent
+                          if (
+                            refreshCheckMinikubeResult &&
+                            checkMinikubeResult
+                          ) {
+                            const checkTime = checkMinikubeResult.timestamp
+                              ?.getTime
+                              ? checkMinikubeResult.timestamp.getTime()
+                              : new Date(
+                                  checkMinikubeResult.timestamp
+                                ).getTime();
+                            const refreshTime = refreshCheckMinikubeResult
+                              .timestamp?.getTime
+                              ? refreshCheckMinikubeResult.timestamp.getTime()
+                              : new Date(
+                                  refreshCheckMinikubeResult.timestamp
+                                ).getTime();
+                            if (refreshTime > checkTime) {
+                              statusResult = refreshCheckMinikubeResult;
+                            }
+                          } else if (
+                            refreshCheckMinikubeResult &&
+                            !checkMinikubeResult
+                          ) {
+                            statusResult = refreshCheckMinikubeResult;
+                          }
 
-                                return (
-                                  <div
-                                    key={idx}
-                                    className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-purple-50/50 transition-colors rounded"
-                                  >
-                                    <div className="flex flex-col">
-                                      <div className="flex items-center">
-                                        <svg
-                                          className="h-4 w-4 text-green-500 mr-2 flex-shrink-0"
-                                          fill="currentColor"
-                                          viewBox="0 0 20 20"
-                                        >
-                                          <path
-                                            fillRule="evenodd"
-                                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                            clipRule="evenodd"
-                                          />
-                                        </svg>
-                                        <span className="text-purple-800 font-medium">
-                                          {resource.type === 'Secret' &&
-                                          resourceName.includes('rosa-creds-secret')
-                                            ? 'ROSA Credentials'
-                                            : resource.type === 'Secret' &&
-                                                resourceName.includes('bootstrap-credentials')
-                                              ? 'Bootstrap Credentials'
-                                              : resource.type === 'AWSClusterControllerIdentity'
-                                                ? 'AWS Identity'
-                                                : resource.type === 'RosaControlPlane'
-                                                  ? 'RosaControlPlane'
-                                                  : resource.type}
+                          // If we have a validation result, parse and display dynamic resources
+                          if (statusResult && statusResult.result) {
+                            const output = statusResult.result.output;
+                            const dynamicResources = parseDynamicResources(output);
+
+                            if (dynamicResources.length > 0) {
+                              return (
+                                <>
+                                  {/* Table Header */}
+                                  <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs font-semibold text-purple-700 bg-purple-50 px-3 py-2 rounded mb-2">
+                                    <div>Type</div>
+                                    <div>Name</div>
+                                    <div>Version</div>
+                                    <div>Age</div>
+                                    <div>Status</div>
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    {dynamicResources.map((resource, index) => (
+                                      <div
+                                        key={`${resource.type}-${resource.namespace}-${resource.name}-${index}`}
+                                        className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-purple-50/50 transition-colors rounded"
+                                      >
+                                        <div className="flex flex-col">
+                                          <div className="flex items-center">
+                                            <span className="mr-2">✅</span>
+                                            <span className="text-purple-800 font-medium">
+                                              {resource.type}
+                                            </span>
+                                          </div>
+                                          <span className="text-purple-600/70 text-[10px] ml-6">
+                                            {resource.namespace || 'cluster-scoped'}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              fetchResourceDetail(
+                                                verifiedMinikubeClusterInfo.name,
+                                                resource.type,
+                                                resource.name,
+                                                resource.namespace
+                                              );
+                                            }}
+                                            className="text-purple-800 font-medium hover:text-purple-600 hover:underline text-left cursor-pointer transition-colors"
+                                          >
+                                            {resource.name}
+                                          </button>
+                                        </div>
+                                        <span className="text-purple-600 font-mono"></span>
+                                        <span className="text-purple-600 font-mono">
+                                          {resource.creationTimestamp
+                                            ? calculateAge(resource.creationTimestamp)
+                                            : ''}
+                                        </span>
+                                        <span className="font-medium text-green-600">
+                                          Active
                                         </span>
                                       </div>
-                                      <span className="text-purple-600/70 text-[10px] ml-6">
-                                        {isClusterScoped ? 'cluster-scoped' : namespace}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center">
-                                      <button
-                                        onClick={() =>
-                                          fetchResourceDetail(
-                                            verifiedMinikubeClusterInfo.name,
-                                            resource.type,
-                                            resourceName,
-                                            isClusterScoped ? '' : namespace
-                                          )
-                                        }
-                                        className="text-purple-800 font-medium hover:text-purple-600 hover:underline text-left cursor-pointer transition-colors"
-                                      >
-                                        {resourceName}
-                                      </button>
-                                    </div>
-                                    <span className="text-purple-600 font-mono text-xs">
-                                      {resource.version || ''}
-                                    </span>
-                                    <span className="text-purple-600 font-mono text-xs">
-                                      {resource.age || ''}
-                                    </span>
-                                    <span
-                                      className={`font-medium text-xs ${
-                                        resource.status?.toLowerCase().includes('active') ||
-                                        resource.status?.toLowerCase().includes('configured') ||
-                                        resource.status?.toLowerCase().includes('provisioning')
-                                          ? 'text-green-600'
-                                          : 'text-purple-700'
-                                      }`}
-                                    >
-                                      {resource.status || 'Unknown'}
-                                    </span>
+                                    ))}
                                   </div>
-                                );
-                              })}
+                                </>
+                              );
+                            }
+                          }
+
+                          // Fall back to showing "No active resources found" message
+                          return (
+                            <div className="text-center py-4 text-purple-600 text-xs">
+                              <div className="mb-2">No active resources found</div>
+                              <div className="text-purple-500">
+                                Resources will appear here after they are created in the cluster
+                              </div>
                             </div>
-                          </>
-                        ) : (
-                          <div className="text-center py-4 text-purple-600 text-xs">
-                            <div className="mb-2">No active resources found</div>
-                            <div className="text-purple-500">
-                              Resources will appear here after they are created in the cluster
-                            </div>
-                          </div>
-                        )}
+                          );
+                        })()}
                       </div>
 
                       {/* ROSA HCP Provisioning Output Section */}
@@ -4670,6 +4778,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   title: 'MCE Enable CAPI/CAPA',
                                   color: 'bg-blue-600',
                                   status: '⏳ Enabling...',
+                                  ansibleResultKey: 'enable-capi-capa', // Link to ansibleResults
                                 });
 
                                 // Set loading state in ansibleResults
@@ -4824,6 +4933,28 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               onClick={async (e) => {
                                 e.stopPropagation();
 
+                                // Check if CAPI/CAPA is enabled - if so, warn user
+                                const statusResult = ansibleResults['get-capi-capa-status'];
+                                if (statusResult?.result?.output) {
+                                  const output = statusResult.result.output;
+                                  const capiEnabled = output.includes('CAPI is enabled');
+                                  const capaEnabled = output.includes('CAPA is enabled');
+
+                                  if (capiEnabled || capaEnabled) {
+                                    // Show confirmation dialog
+                                    const confirmed = window.confirm(
+                                      '⚠️ CAPI/CAPA is currently enabled.\n\n' +
+                                        'HyperShift and CAPI/CAPA are mutually exclusive - you can only have one enabled at a time.\n\n' +
+                                        'Enabling HyperShift will automatically disable CAPI/CAPA.\n\n' +
+                                        'Do you want to proceed?'
+                                    );
+
+                                    if (!confirmed) {
+                                      return;
+                                    }
+                                  }
+                                }
+
                                 // Create unique ID for this operation using timestamp
                                 const enableId = `enable-hypershift-${Date.now()}`;
 
@@ -4946,7 +5077,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         // Add to recent operations with "Verifying..." status
                         addToRecent({
                           id: verifyId,
-                          title: 'Verify MCE Environment',
+                          title: 'MCE Verify Environment',
                           color: 'bg-emerald-600',
                           status: '⏳ Verifying...',
                           action: async () => {
@@ -5090,6 +5221,16 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 verifyId,
                                 `✅ Verification completed at ${completionTime}`
                               );
+
+                              // Auto-expand MCE Test Environment section after successful verification
+                              setExpandedCards((prev) => {
+                                const newSet = new Set(prev);
+                                newSet.add('mce-test-environment');
+                                const array = [...newSet];
+                                localStorage.setItem('expandedCards', JSON.stringify(array));
+                                console.log('✅ Auto-expanded MCE Test Environment after verification');
+                                return newSet;
+                              });
                             } else if (validationResult?.loading) {
                               // Still loading - operation might still be running
                               console.log('MCE verification still in progress at:', completionTime);
@@ -5145,7 +5286,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           // Add to Recent Operations
                           addToRecent({
                             id: operationId,
-                            title: 'Configure MCE Environment',
+                            title: 'MCE Configure Environment',
                             color: 'bg-indigo-600',
                             status: '⏳ Configuring...',
                           });
@@ -6284,10 +6425,10 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                                                       const output = statusResult.result.output;
 
-                                                      // Check which resources actually exist based on validation output
+                                                      // Build list of resources to export
                                                       const mceResources = [];
 
-                                                      // Only add resources that were found
+                                                      // Add static infrastructure resources that were found
                                                       if (
                                                         !output.includes(
                                                           'capi_controller_manager deployment was not found'
@@ -6372,6 +6513,10 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                         });
                                                       }
 
+                                                      // Add dynamically discovered resources (ROSA clusters, namespaces, etc.)
+                                                      const dynamicResources = parseDynamicResources(output);
+                                                      mceResources.push(...dynamicResources);
+
                                                       if (mceResources.length === 0) {
                                                         alert('No MCE resources found to export');
                                                         return;
@@ -6382,7 +6527,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                         operationId = `export-mce-resources-${Date.now()}`;
                                                         addToRecent({
                                                           id: operationId,
-                                                          title: 'Export MCE Active Resources',
+                                                          title: 'MCE Export Active Resources',
                                                           color: 'bg-cyan-600',
                                                           status: '⏳ Exporting...',
                                                         });
@@ -6579,7 +6724,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                       try {
                                                         addToRecent({
                                                           id: operationId,
-                                                          title: 'Refresh MCE Active Resources',
+                                                          title: 'MCE Refresh Active Resources',
                                                           color: 'bg-cyan-600',
                                                           status: '🔄 Refreshing...',
                                                         });
@@ -6597,7 +6742,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                               task_file:
                                                                 'tasks/validate-capa-environment.yml',
                                                               description:
-                                                                'Refresh MCE Active Resources',
+                                                                'MCE Refresh Active Resources',
                                                             }),
                                                           }
                                                         );
@@ -6724,9 +6869,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                               task_file:
                                                                 'tasks/provision-rosa-hcp-cluster.yml',
                                                               description: `Provision ROSA HCP Cluster: ${trimmedFile}`,
-                                                              kube_context:
-                                                                verifiedMinikubeClusterInfo?.contextName ||
-                                                                verifiedMinikubeClusterInfo?.name,
+                                                              // Don't pass kube_context for MCE - use current OCP context
                                                               extra_vars: {
                                                                 ROSA_HCP_CLUSTER_FILE: trimmedFile,
                                                               },
@@ -7004,140 +7147,57 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                         </span>
                                                       </div>
 
-                                                      {/* Namespace ns-rosa-hcp */}
-                                                      {output.includes(
-                                                        '✓ Namespace ns-rosa-hcp found'
-                                                      ) && (
-                                                        <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
-                                                          <div className="flex flex-col">
-                                                            <div className="flex items-center">
-                                                              <span className="mr-2">✅</span>
-                                                              <span className="text-cyan-800 font-medium">
-                                                                Namespace
-                                                              </span>
-                                                            </div>
-                                                            <span className="text-cyan-600/70 text-[10px] ml-6">
-                                                              cluster-scoped
-                                                            </span>
-                                                          </div>
-                                                          <div className="flex items-center">
-                                                            <button
-                                                              onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                fetchOcpResourceDetail(
-                                                                  'Namespace',
-                                                                  'ns-rosa-hcp',
-                                                                  ''
-                                                                );
-                                                              }}
-                                                              className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
-                                                            >
-                                                              ns-rosa-hcp
-                                                            </button>
-                                                          </div>
-                                                          <span className="text-cyan-600 font-mono"></span>
-                                                          <span className="text-cyan-600 font-mono">
-                                                            {(() => {
-                                                              const timestamp =
-                                                                extractMCEComponentTimestamp(
-                                                                  output,
-                                                                  '✓ Namespace ns-rosa-hcp found'
-                                                                );
-                                                              return timestamp
-                                                                ? calculateAge(timestamp)
-                                                                : '';
-                                                            })()}
-                                                          </span>
-                                                          <span className="font-medium text-green-600">
-                                                            Active
-                                                          </span>
-                                                        </div>
-                                                      )}
+                                                      {/* Dynamic Resources - Parse and display any resources found during provisioning */}
+                                                      {(() => {
+                                                        const dynamicResources = parseDynamicResources(output);
 
-                                                      {/* RosaControlPlane */}
-                                                      {output.includes(
-                                                        '✓ RosaControlPlane resources found'
-                                                      ) && (
-                                                        <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded">
-                                                          <div className="flex flex-col">
-                                                            <div className="flex items-center">
-                                                              <span className="mr-2">✅</span>
-                                                              <span className="text-cyan-800 font-medium">
-                                                                RosaControlPlane
+                                                        if (dynamicResources.length === 0) {
+                                                          return null;
+                                                        }
+
+                                                        return dynamicResources.map((resource, index) => (
+                                                          <div
+                                                            key={`${resource.type}-${resource.namespace}-${resource.name}-${index}`}
+                                                            className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded"
+                                                          >
+                                                            <div className="flex flex-col">
+                                                              <div className="flex items-center">
+                                                                <span className="mr-2">✅</span>
+                                                                <span className="text-cyan-800 font-medium">
+                                                                  {resource.type}
+                                                                </span>
+                                                              </div>
+                                                              <span className="text-cyan-600/70 text-[10px] ml-6">
+                                                                {resource.namespace || 'cluster-scoped'}
                                                               </span>
                                                             </div>
-                                                            <span className="text-cyan-600/70 text-[10px] ml-6">
-                                                              ns-rosa-hcp
+                                                            <div className="flex items-center">
+                                                              <button
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  fetchOcpResourceDetail(
+                                                                    resource.type,
+                                                                    resource.name,
+                                                                    resource.namespace
+                                                                  );
+                                                                }}
+                                                                className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                              >
+                                                                {resource.name}
+                                                              </button>
+                                                            </div>
+                                                            <span className="text-cyan-600 font-mono"></span>
+                                                            <span className="text-cyan-600 font-mono">
+                                                              {resource.creationTimestamp
+                                                                ? calculateAge(resource.creationTimestamp)
+                                                                : ''}
+                                                            </span>
+                                                            <span className="font-medium text-green-600">
+                                                              Active
                                                             </span>
                                                           </div>
-                                                          <div className="flex items-center">
-                                                            <button
-                                                              onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                // Extract the section with RosaControlPlane
-                                                                const section = output.substring(
-                                                                  output.indexOf(
-                                                                    '✓ RosaControlPlane resources found'
-                                                                  )
-                                                                );
-                                                                console.log(
-                                                                  'RosaControlPlane section:',
-                                                                  section.substring(0, 500)
-                                                                );
-                                                                // JSON has escaped quotes in the output: {\"name\":\"value\",...}
-                                                                const nameMatch = section.match(
-                                                                  /\\"name\\":\\"([^"\\]+)\\"/
-                                                                );
-                                                                console.log(
-                                                                  'Name match:',
-                                                                  nameMatch
-                                                                );
-                                                                const name = nameMatch
-                                                                  ? nameMatch[1]
-                                                                  : 'unknown';
-                                                                fetchOcpResourceDetail(
-                                                                  'RosaControlPlane',
-                                                                  name,
-                                                                  'ns-rosa-hcp'
-                                                                );
-                                                              }}
-                                                              className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
-                                                            >
-                                                              {(() => {
-                                                                // Extract the section with RosaControlPlane
-                                                                const section = output.substring(
-                                                                  output.indexOf(
-                                                                    '✓ RosaControlPlane resources found'
-                                                                  )
-                                                                );
-                                                                // JSON has escaped quotes in the output: {\"name\":\"value\",...}
-                                                                const nameMatch = section.match(
-                                                                  /\\"name\\":\\"([^"\\]+)\\"/
-                                                                );
-                                                                return nameMatch
-                                                                  ? nameMatch[1]
-                                                                  : 'unknown';
-                                                              })()}
-                                                            </button>
-                                                          </div>
-                                                          <span className="text-cyan-600 font-mono"></span>
-                                                          <span className="text-cyan-600 font-mono">
-                                                            {(() => {
-                                                              const timestamp =
-                                                                extractMCEComponentTimestamp(
-                                                                  output,
-                                                                  '✓ RosaControlPlane resources found'
-                                                                );
-                                                              return timestamp
-                                                                ? calculateAge(timestamp)
-                                                                : '';
-                                                            })()}
-                                                          </span>
-                                                          <span className="font-medium text-green-600">
-                                                            Provisioning
-                                                          </span>
-                                                        </div>
-                                                      )}
+                                                        ));
+                                                      })()}
                                                     </div>
                                                   </>
                                                 );
@@ -8368,7 +8428,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               </span>
                             </div>
                             {operation.status && (
-                              <div className="flex items-center gap-1 ml-3.5 mt-0.5">
+                              <div className="flex items-center justify-between gap-1 ml-3.5 mt-0.5">
                                 <span
                                   className={`text-xs font-medium ${
                                     operation.status.includes('✅') ||
@@ -8382,6 +8442,25 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 >
                                   {operation.status}
                                 </span>
+                                {/* Show "View Full Output" button for failed operations with ansible output */}
+                                {(operation.status.includes('❌') ||
+                                  operation.status.includes('Failed')) &&
+                                  operation.ansibleResultKey &&
+                                  ansibleResults[operation.ansibleResultKey]?.result && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setAnsibleOutput(
+                                          ansibleResults[operation.ansibleResultKey].result
+                                        );
+                                        setShowAnsibleModal(true);
+                                      }}
+                                      className="text-xs px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded border border-red-200 transition-colors duration-150"
+                                      title="View full playbook output"
+                                    >
+                                      View Full Output
+                                    </button>
+                                  )}
                               </div>
                             )}
                           </div>
