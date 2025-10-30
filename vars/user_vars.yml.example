@@ -1,0 +1,20 @@
+# User Configuration Template
+# Copy this file to user_vars.yml and fill in your actual credentials
+# WARNING: Never commit user_vars.yml with real credentials!
+
+# OpenShift Hub Cluster Configuration
+OCP_HUB_API_URL: "https://api.your-cluster.example.com:6443"
+OCP_HUB_CLUSTER_USER: "your-username"
+OCP_HUB_CLUSTER_PASSWORD: "your-password"
+
+# MCE Configuration
+MCE_NAMESPACE: "multiclusterengine"
+
+# AWS Configuration
+AWS_REGION: "us-west-2"
+AWS_ACCESS_KEY_ID: "YOUR_AWS_ACCESS_KEY_ID"
+AWS_SECRET_ACCESS_KEY: "YOUR_AWS_SECRET_ACCESS_KEY"
+
+# OCM (OpenShift Cluster Manager) Configuration
+OCM_CLIENT_ID: "your-ocm-client-id"
+OCM_CLIENT_SECRET: "your-ocm-client-secret"

@@ -1,24 +1,28 @@
+- name: Set automation path
+  set_fact:
+    automation_path: "{{ AUTOMATION_PATH | default(playbook_dir) }}"
+
 - name: Create output folder
-  include_tasks: tasks/create_output_folder.yml
+  include_tasks: "{{ automation_path }}/tasks/create_output_folder.yml"
 
 - name: Create {{ capi_namespace }} namespace
   shell: |
     oc create namespace {{ capi_namespace }} --dry-run=client -o yaml | oc apply -f -
 
 - name: Set ClusterManager registration_configuration
-  include_tasks: tasks/set_registration_configuration.yml
+  include_tasks: "{{ automation_path }}/tasks/set_registration_configuration.yml"
 
 - name: Set ClusterRoleBinding registration-capi
-  include_tasks: tasks/set_cluster_role_binding.yml
+  include_tasks: "{{ automation_path }}/tasks/set_cluster_role_binding.yml"
 
 - name: Create capa-manager-bootstrap-credentials with AWS Credentials
-  include_tasks: tasks/create_capa_manager_bootstrap_credentials.yml
+  include_tasks: "{{ automation_path }}/tasks/create_capa_manager_bootstrap_credentials.yml"
 
 - name: Create rosa-creds-secret in multicluster-engine ns.
-  include_tasks: tasks/create_rosa_creds_secret.yml
+  include_tasks: "{{ automation_path }}/tasks/create_rosa_creds_secret.yml"
 
 - name: Restart capa-controller-manager deployment.
-  include_tasks: tasks/restart_capa_controller_manager.yml
+  include_tasks: "{{ automation_path }}/tasks/restart_capa_controller_manager.yml"
 
 - name: Set the AWSClusterControllerIdentity
-  include_tasks: tasks/set_aws_identity.yml
+  include_tasks: "{{ automation_path }}/tasks/set_aws_identity.yml"

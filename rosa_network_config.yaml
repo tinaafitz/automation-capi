@@ -1,0 +1,15 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSANetwork
+metadata:
+  name: tfitzger-rosa-network
+  namespace: ns-rosa-hcp
+spec:
+  region: us-west-2
+  stackName: tfm-network-test-stack
+  availabilityZoneCount: 1
+#  availabilityZones:
+#    - us-west-2b # ex "us-west-2b"
+  cidrBlock: 10.0.0.0/16
+  identityRef:
+    kind: AWSClusterControllerIdentity
+    name: default

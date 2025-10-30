@@ -1,0 +1,49 @@
+# Python virtual environments
+venv/
+env/
+ENV/
+*.pyc
+__pycache__/
+
+# Node modules
+node_modules/
+
+# IDE files
+.idea/
+.vscode/
+.DS_Store
+
+# Local development
+.claude/
+
+# Environment files
+.env
+.env.local
+
+# User credentials (should use example file instead)
+vars/user_vars.yml
+vars/user_vars_*.yml
+!vars/user_vars_*example*.yml
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Cache directories
+.cache/
+**/.cache/
+**/*.pack
+
+# Log files
+*.log
+
+# Coverage reports
+.coverage
+htmlcov/
+coverage.xml
+*.cover
+
+# Backup directories (temporary)
+ui (original)/
+ui (original 2)/

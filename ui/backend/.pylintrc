@@ -1,0 +1,25 @@
+[MASTER]
+ignore=venv,build,dist,.git
+jobs=1
+
+[MESSAGES CONTROL]
+disable=
+    missing-module-docstring,
+    missing-class-docstring,
+    missing-function-docstring,
+    too-few-public-methods,
+    invalid-name
+
+[FORMAT]
+max-line-length=100
+indent-string='    '
+
+[BASIC]
+good-names=i,j,k,ex,_,id,app
+
+[DESIGN]
+max-args=7
+max-attributes=10
+max-bool-expr=5
+max-locals=15
+max-statements=50
