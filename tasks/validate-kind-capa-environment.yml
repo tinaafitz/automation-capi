@@ -131,7 +131,7 @@
 
 - name: Get ROSA cluster resources (all namespaces)
   shell: |
-    kubectl get rosacluster --all-namespaces -ojson 2>/dev/null | jq -c '.items[] | {namespace: .metadata.namespace, name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
+    kubectl get rosacluster --all-namespaces -ojson 2>/dev/null | jq -c '.items[] | {namespace: .metadata.namespace, name: .metadata.name, creationTimestamp: .metadata.creationTimestamp, status: (if .status.ready == true then "Ready" elif (.status.conditions[] | select(.type == "Ready" or .type == "ROSAClusterReady") | .status) == "True" then "Ready" else "Provisioning" end)}'
   register: rosa_clusters
   failed_when: false
   changed_when: false
@@ -149,7 +149,7 @@
 
 - name: Get RosaControlPlane resources (all namespaces)
   shell: |
-    kubectl get rosacontrolplane --all-namespaces -ojson 2>/dev/null | jq -c '.items[] | {namespace: .metadata.namespace, name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
+    kubectl get rosacontrolplane --all-namespaces -ojson 2>/dev/null | jq -c '.items[] | {namespace: .metadata.namespace, name: .metadata.name, creationTimestamp: .metadata.creationTimestamp, status: (if .status.ready == true then "Ready" elif (.status.conditions[] | select(.type == "ROSAControlPlaneReady") | .status) == "True" then "Ready" else "Provisioning" end)}'
   register: rosa_control_planes
   failed_when: false
   changed_when: false
@@ -167,7 +167,7 @@
 
 - name: Get RosaNetwork resources (all namespaces)
   shell: |
-    kubectl get rosanetwork --all-namespaces -ojson 2>/dev/null | jq -c '.items[] | {namespace: .metadata.namespace, name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
+    kubectl get rosanetwork --all-namespaces -ojson 2>/dev/null | jq -c '.items[] | {namespace: .metadata.namespace, name: .metadata.name, creationTimestamp: .metadata.creationTimestamp, status: (if (.status.conditions[] | select(.type == "Ready" or .type == "ROSANetworkReady") | .status) == "True" then "Ready" else "Configuring" end)}'
   register: rosa_networks
   failed_when: false
   changed_when: false

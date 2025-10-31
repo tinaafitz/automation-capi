@@ -160,8 +160,9 @@ function parseDynamicResources(output) {
               name: item.name,
               namespace: item.namespace || '',
               creationTimestamp: item.creationTimestamp || item.created || null,
+              status: item.status || 'Active', // Extract status, default to 'Active' if not present
             });
-            console.log(`    ✅ Added resource: ${resourceType}/${item.name}`);
+            console.log(`    ✅ Added resource: ${resourceType}/${item.name} (status: ${item.status || 'Active'})`);
           }
         }
       } catch (jsonError) {
@@ -353,6 +354,11 @@ export function WhatCanIHelp() {
 
   // MCE Terminal state
   const [showMCETerminalModal, setShowMCETerminalModal] = useState(false);
+
+  // MCE Features modal state
+  const [showMCEFeaturesModal, setShowMCEFeaturesModal] = useState(false);
+  const [mceFeatures, setMceFeatures] = useState(null);
+  const [mceFeaturesLoading, setMceFeaturesLoading] = useState(false);
 
   // Track if we've already shown initial notifications to prevent loops
   const hasShownInitialNotifications = useRef(false);
@@ -943,15 +949,17 @@ export function WhatCanIHelp() {
       hasErrors = true;
     }
 
-    // Return success status
+    // Log if there were any errors, but don't throw to avoid crashing the UI
     if (hasErrors) {
-      throw new Error('Some status checks failed');
+      console.warn('Some status checks failed - this is normal if backend is not running');
     }
   };
 
   // Check all status on startup
   useEffect(() => {
-    refreshAllStatus();
+    refreshAllStatus().catch(error => {
+      console.error('Error refreshing status on startup:', error);
+    });
   }, []);
 
   // Auto-run component validation on startup - DISABLED per user request
@@ -1927,6 +1935,12 @@ export function WhatCanIHelp() {
 
           const result = await response.json();
 
+          console.log('[check-components] Validation response:', {
+            ok: response.ok,
+            status: response.status,
+            result: result
+          });
+
           if (response.ok) {
             if (result.success) {
               // Store the result for display in the UI
@@ -1970,10 +1984,26 @@ export function WhatCanIHelp() {
                   success: false,
                 },
               }));
+
+              // Keep MCE Test Environment section expanded to show errors
+              setCollapsedSections((prev) => {
+                const newSet = new Set(prev);
+                newSet.delete('configure-environment');
+                return newSet;
+              });
+
+              // Auto-expand the check-components card to show the error details
+              setExpandedCards((prev) => {
+                const newSet = new Set(prev);
+                newSet.add('check-components');
+                console.log('⚠️ Auto-expanding MCE card to show issues');
+                return newSet;
+              });
             }
           } else {
+            const errorMsg = result.error || result.message || result.detail || JSON.stringify(result);
             addNotification(
-              `❌ Failed to run component validation: ${result.error || 'Unknown error'}`,
+              `❌ Failed to run component validation: ${errorMsg}`,
               'error',
               8000
             );
@@ -1982,11 +2012,31 @@ export function WhatCanIHelp() {
               ...prev,
               'check-components': {
                 loading: false,
-                result: { error: result.error || 'Unknown error' },
+                result: {
+                  error: errorMsg,
+                  output: result.output || '',
+                  return_code: result.return_code,
+                  fullResponse: result
+                },
                 timestamp: new Date(),
                 success: false,
               },
             }));
+
+            // Keep MCE Test Environment section expanded to show errors
+            setCollapsedSections((prev) => {
+              const newSet = new Set(prev);
+              newSet.delete('configure-environment');
+              return newSet;
+            });
+
+            // Auto-expand the check-components card to show the error details
+            setExpandedCards((prev) => {
+              const newSet = new Set(prev);
+              newSet.add('check-components');
+              console.log('❌ Auto-expanding MCE card to show validation error');
+              return newSet;
+            });
           }
         } catch (error) {
           console.error('Error running component validation:', error);
@@ -2015,6 +2065,21 @@ export function WhatCanIHelp() {
               success: false,
             },
           }));
+
+          // Keep MCE Test Environment section expanded to show errors
+          setCollapsedSections((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete('configure-environment');
+            return newSet;
+          });
+
+          // Auto-expand the check-components card to show the error details
+          setExpandedCards((prev) => {
+            const newSet = new Set(prev);
+            newSet.add('check-components');
+            console.log('❌ Auto-expanding MCE card to show exception error');
+            return newSet;
+          });
         }
       },
     },
@@ -2136,6 +2201,23 @@ export function WhatCanIHelp() {
             },
           }));
         }
+      },
+    },
+    {
+      id: 'enable-capi-capa',
+      title: 'Enable CAPI/CAPA Result',
+      subtitle: 'View the output from enabling CAPI/CAPA',
+      description: 'Displays the result of the last Enable CAPI/CAPA operation',
+      icon: CheckCircleIcon,
+      color: 'bg-blue-600',
+      textColor: 'text-blue-700',
+      bgColor: 'bg-blue-50 hover:bg-blue-100',
+      borderColor: 'border-blue-300',
+      duration: '',
+      tooltip: 'View Enable CAPI/CAPA operation result',
+      hidden: true, // Hidden by default, shown when there are results
+      action: async () => {
+        // This is a display-only operation, no action needed
       },
     },
   ];
@@ -2936,7 +3018,10 @@ export function WhatCanIHelp() {
                           <button
                             onClick={() => {
                               console.log('Manual refresh clicked');
-                              refreshAllStatus();
+                              refreshAllStatus().catch(error => {
+                                console.error('Error refreshing status:', error);
+                                addNotification('Failed to refresh status', 'error', 3000);
+                              });
                               addNotification('Refreshing status...', 'info', 2000);
                             }}
                             className="bg-cyan-600 text-white px-4 py-2 rounded-lg hover:bg-cyan-700 transition-colors font-medium text-sm inline-flex items-center space-x-2"
@@ -4183,11 +4268,11 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                                   if (response.ok && result.success) {
                                     console.log(
-                                      `ROSA HCP provisioning completed successfully at ${completionTime}`
+                                      `ROSA HCP provisioning initiated successfully at ${completionTime}`
                                     );
                                     updateRecentOperationStatus(
                                       operationId,
-                                      `✅ Provisioned at ${completionTime}`
+                                      `✅ Provisioning Initiated at ${completionTime}`
                                     );
 
                                     // Store result in ansibleResults for display in Local Test Environment
@@ -4581,8 +4666,14 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                             ? calculateAge(resource.creationTimestamp)
                                             : ''}
                                         </span>
-                                        <span className="font-medium text-green-600">
-                                          Active
+                                        <span className={`font-medium ${
+                                          resource.status === 'Ready' || resource.status === 'Active'
+                                            ? 'text-green-600'
+                                            : resource.status === 'Provisioning' || resource.status === 'Configuring'
+                                            ? 'text-amber-600'
+                                            : 'text-red-600'
+                                        }`}>
+                                          {resource.status || 'Active'}
                                         </span>
                                       </div>
                                     ))}
@@ -4709,6 +4800,35 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   </div>
                   <span>MCE Test Environment</span>
                   <div className="flex items-center ml-auto space-x-2">
+                    {/* Check MCE Features Button */}
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        setShowMCEFeaturesModal(true);
+                        // Auto-load features when modal opens
+                        if (!mceFeatures) {
+                          setMceFeaturesLoading(true);
+                          try {
+                            const response = await fetch('http://localhost:8000/api/mce/features');
+                            const data = await response.json();
+                            setMceFeatures(data.features || []);
+                          } catch (error) {
+                            console.error('Error fetching MCE features:', error);
+                            addNotification('❌ Failed to fetch MCE features', 'error', 3000);
+                          } finally {
+                            setMceFeaturesLoading(false);
+                          }
+                        }
+                      }}
+                      className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                      title="Check all MCE features and their status"
+                    >
+                      <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                      </svg>
+                      <span>Check MCE Features</span>
+                    </button>
+
                     {/* Terminal Button - Only show when MCE is configured */}
                     {(() => {
                       const checkResult = ansibleResults['check-components'];
@@ -4891,6 +5011,13 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                         success: false,
                                       },
                                     };
+                                  });
+
+                                  // Keep the MCE Test Environment section expanded to show the error
+                                  setCollapsedSections((prev) => {
+                                    const newSet = new Set(prev);
+                                    newSet.delete('configure-environment');
+                                    return newSet;
                                   });
                                 }
                               }}
@@ -5080,6 +5207,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           title: 'MCE Verify Environment',
                           color: 'bg-emerald-600',
                           status: '⏳ Verifying...',
+                          ansibleResultKey: 'get-capi-capa-status', // Link to ansibleResults for View Full Output
                           action: async () => {
                             const checkOperation = configureEnvironment.find(
                               (op) => op.id === 'check-components'
@@ -5101,17 +5229,27 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             await statusOperation.action();
                           }
 
-                          // Wait for status check to complete and state to update
-                          await new Promise((resolve) => setTimeout(resolve, 500));
+                          // Wait longer for status check to complete and state to update
+                          await new Promise((resolve) => setTimeout(resolve, 1500));
 
-                          // Check if CAPI/CAPA status check had errors (including timeout)
-                          const statusResult = ansibleResults['get-capi-capa-status'];
+                          // Use a callback to get the latest status result from state
+                          let statusResult;
+                          await new Promise((resolve) => {
+                            setAnsibleResults((currentResults) => {
+                              statusResult = currentResults['get-capi-capa-status'];
+                              resolve();
+                              return currentResults;
+                            });
+                          });
+
                           const completionTime = new Date().toLocaleTimeString('en-US', {
                             hour: 'numeric',
                             minute: '2-digit',
                             second: '2-digit',
                             hour12: true,
                           });
+
+                          console.log('Status check result:', statusResult);
 
                           if (statusResult?.result?.error) {
                             const errorMessage = statusResult.result.error;
@@ -5149,17 +5287,35 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 'check-components': null,
                               }));
 
+                              // Build specific error message
+                              let missingComponents = [];
+                              if (capiNotEnabled) missingComponents.push('CAPI');
+                              if (capaNotEnabled) missingComponents.push('CAPA');
+                              const componentsList = missingComponents.join(' and ');
+
                               updateRecentOperationStatus(
                                 verifyId,
-                                `⚠️ CAPI/CAPA not enabled at ${completionTime}`
+                                `⚠️ ${componentsList} not enabled at ${completionTime}`
                               );
                               addNotification(
-                                '⚠️ CAPI/CAPA must be enabled before verification',
+                                `⚠️ ${componentsList} must be enabled before verification. Use Configure to enable them.`,
                                 'warning',
-                                5000
+                                7000
                               );
                               return;
                             }
+                          } else {
+                            // No output from status check - something went wrong
+                            updateRecentOperationStatus(
+                              verifyId,
+                              `❌ Unable to verify CAPI/CAPA status at ${completionTime}`
+                            );
+                            addNotification(
+                              '❌ Failed to verify CAPI/CAPA status',
+                              'error',
+                              5000
+                            );
+                            return;
                           }
 
                           // Then run the check-components validation (only if CAPI/CAPA are enabled)
@@ -5208,12 +5364,45 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 verifyId,
                                 `⏱️ Verification timed out at ${completionTime}`
                               );
+
+                              // Keep MCE Test Environment section expanded to show timeout
+                              setCollapsedSections((prev) => {
+                                const newSet = new Set(prev);
+                                newSet.delete('configure-environment');
+                                return newSet;
+                              });
+
+                              // Auto-expand the check-components card to show the timeout details
+                              setExpandedCards((prev) => {
+                                const newSet = new Set(prev);
+                                newSet.add('check-components');
+                                const array = [...newSet];
+                                localStorage.setItem('expandedCards', JSON.stringify(array));
+                                return newSet;
+                              });
                             } else if (hasError) {
                               console.log('MCE verification failed at:', completionTime);
                               updateRecentOperationStatus(
                                 verifyId,
                                 `❌ Verification failed at ${completionTime}`
                               );
+
+                              // Keep MCE Test Environment section expanded to show error
+                              setCollapsedSections((prev) => {
+                                const newSet = new Set(prev);
+                                newSet.delete('configure-environment');
+                                return newSet;
+                              });
+
+                              // Auto-expand the check-components card to show the error details
+                              setExpandedCards((prev) => {
+                                const newSet = new Set(prev);
+                                newSet.add('check-components');
+                                const array = [...newSet];
+                                localStorage.setItem('expandedCards', JSON.stringify(array));
+                                console.log('❌ Auto-expanded check-components to show error');
+                                return newSet;
+                              });
                             } else if (validationResult?.success) {
                               console.log('MCE verification completed at:', completionTime);
                               // Update recent operation with success status
@@ -5430,7 +5619,13 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 {!collapsedSections.has('configure-environment') && (
                   <div className="space-y-2">
                     {configureEnvironment
-                      .filter((op) => !op.hidden)
+                      .filter((op) => {
+                        // Show enable-capi-capa operation only when there are results
+                        if (op.id === 'enable-capi-capa') {
+                          return ansibleResults['enable-capi-capa']?.result;
+                        }
+                        return !op.hidden;
+                      })
                       .map((operation, index) => {
                         const Icon = operation.icon;
                         const isVisible = visibleCards.has(`config-${index}`);
@@ -6820,6 +7015,21 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                       e.stopPropagation(); // Prevent card collapse
                                                       let operationId;
                                                       try {
+                                                        // Fetch last used YAML path
+                                                        let defaultFile = 'capi-rosahcp-test.yml';
+                                                        try {
+                                                          const lastPathResponse = await fetch(
+                                                            'http://localhost:8000/api/rosa/last-yaml-path'
+                                                          );
+                                                          const lastPathData = await lastPathResponse.json();
+                                                          if (lastPathData.success && lastPathData.path) {
+                                                            // Extract just the filename from the full path
+                                                            defaultFile = lastPathData.path.split('/').pop();
+                                                          }
+                                                        } catch (err) {
+                                                          console.log('Could not fetch last YAML path:', err);
+                                                        }
+
                                                         const clusterFile = prompt(
                                                           'Enter the ROSA HCP cluster definition file name:\n\n' +
                                                             'Examples:\n' +
@@ -6827,7 +7037,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             '- my-rosa-cluster.yaml\n' +
                                                             '- rosa-production.yml\n\n' +
                                                             'File should be in /Users/tinafitzgerald/acm_dev/automation-capi/',
-                                                          'capi-rosahcp-test.yml'
+                                                          defaultFile
                                                         );
 
                                                         if (
@@ -6837,6 +7047,24 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                           return;
 
                                                         const trimmedFile = clusterFile.trim();
+
+                                                        // Save the YAML path for next time
+                                                        try {
+                                                          await fetch(
+                                                            'http://localhost:8000/api/rosa/save-yaml-path',
+                                                            {
+                                                              method: 'POST',
+                                                              headers: {
+                                                                'Content-Type': 'application/json',
+                                                              },
+                                                              body: JSON.stringify({
+                                                                path: `/Users/tinafitzgerald/acm_dev/automation-capi/${trimmedFile}`,
+                                                              }),
+                                                            }
+                                                          );
+                                                        } catch (err) {
+                                                          console.log('Could not save YAML path:', err);
+                                                        }
 
                                                         if (
                                                           !confirm(
@@ -6889,10 +7117,10 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                         if (response.ok && result.success) {
                                                           updateRecentOperationStatus(
                                                             operationId,
-                                                            `✅ Provisioned at ${completionTime}`
+                                                            `✅ Provisioning Initiated at ${completionTime}`
                                                           );
                                                           addNotification(
-                                                            `✅ ROSA HCP cluster provisioning completed`,
+                                                            `✅ ROSA HCP cluster provisioning initiated - cluster is now being created in AWS`,
                                                             'success',
                                                             5000
                                                           );
@@ -7192,8 +7420,14 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                                 ? calculateAge(resource.creationTimestamp)
                                                                 : ''}
                                                             </span>
-                                                            <span className="font-medium text-green-600">
-                                                              Active
+                                                            <span className={`font-medium ${
+                                                              resource.status === 'Ready' || resource.status === 'Active'
+                                                                ? 'text-green-600'
+                                                                : resource.status === 'Provisioning' || resource.status === 'Configuring'
+                                                                ? 'text-amber-600'
+                                                                : 'text-red-600'
+                                                            }`}>
+                                                              {resource.status || 'Active'}
                                                             </span>
                                                           </div>
                                                         ));
@@ -7444,928 +7678,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           </div>
                         );
                       })}
-                  </div>
-                )}
-              </div>
-
-              {/* ROSA HCP Configuration */}
-              <div className="bg-gradient-to-br from-white to-purple-50 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 border border-purple-200 p-3 md:p-4 backdrop-blur-sm hover:-translate-y-1 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                <h2
-                  className="text-sm font-semibold text-purple-900 mb-3 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-2 -m-2 transition-colors"
-                  onClick={() => toggleSection('rosa-hcp-resources')}
-                >
-                  <div className="bg-purple-600 rounded-full p-1 mr-2">
-                    <svg
-                      className="h-3 w-3 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                      />
-                    </svg>
-                  </div>
-                  <span>ROSA HCP Configuration</span>
-                  <div className="flex items-center ml-auto gap-2">
-                    {rosaHcpResources.loading && (
-                      <svg
-                        className="animate-spin h-4 w-4 text-blue-600"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                    )}
-                    <div
-                      className={`text-xs px-3 py-1.5 rounded-full font-semibold border ${
-                        rosaHcpResources.loading
-                          ? 'bg-blue-100 text-blue-800 border-blue-300'
-                          : rosaHcpResources.error
-                            ? 'bg-red-100 text-red-800 border-red-300'
-                            : rosaHcpResources.lastChecked
-                              ? 'bg-green-100 text-green-800 border-green-300'
-                              : 'bg-gray-100 text-gray-800 border-gray-300'
-                      }`}
-                    >
-                      {rosaHcpResources.loading
-                        ? '⏳ Loading...'
-                        : rosaHcpResources.error
-                          ? '❌ Error'
-                          : rosaHcpResources.lastChecked
-                            ? '✓ Loaded'
-                            : 'Not Loaded'}
-                    </div>
-                    <svg
-                      className={`h-4 w-4 text-purple-600 transition-transform duration-200 ${collapsedSections.has('rosa-hcp-resources') ? 'rotate-180' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </div>
-                </h2>
-                {!collapsedSections.has('rosa-hcp-resources') && (
-                  <div className="space-y-4">
-                    {/* Load Resources Button */}
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs text-purple-700">
-                        View AWS account roles, operator roles, OIDC configuration, and subnet
-                        details for ROSA HCP clusters.
-                      </p>
-                      <button
-                        onClick={fetchRosaHcpResources}
-                        disabled={rosaHcpResources.loading}
-                        className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-1.5 rounded transition-colors duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {rosaHcpResources.loading ? (
-                          <div className="flex items-center space-x-1">
-                            <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
-                            <span>Loading...</span>
-                          </div>
-                        ) : (
-                          '🔄 Load Resources'
-                        )}
-                      </button>
-                    </div>
-
-                    {rosaHcpResources.error && (
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                        <p className="text-red-700 text-xs font-medium">{rosaHcpResources.error}</p>
-                      </div>
-                    )}
-
-                    {rosaHcpResources.lastChecked && !rosaHcpResources.loading && (
-                      <div className="space-y-2">
-                        {/* Prefix Configuration */}
-                        <div className="bg-white rounded-lg p-2 md:p-2.5 border border-purple-200">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4
-                              className="text-xs font-semibold text-purple-800 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-1 -m-1 transition-colors"
-                              onClick={() => toggleSection('prefix-configuration')}
-                            >
-                              <svg
-                                className="h-3 w-3 text-purple-600 mr-1"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z"
-                                />
-                              </svg>
-                              Prefix
-                              <div
-                                className="ml-1 cursor-help"
-                                title="Prefix Overview: Used to prefix all ROSA resource names; Account roles, operator roles, and cluster resources will use this prefix; Maximum 4 characters; Helps organize and identify resources"
-                              >
-                                <svg
-                                  className="h-3 w-3 text-purple-500 hover:text-purple-700"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                  />
-                                </svg>
-                              </div>
-                              <svg
-                                className={`h-3 w-3 text-purple-600 transition-transform duration-200 ml-1 ${collapsedSections.has('prefix-configuration') ? 'rotate-180' : ''}`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 9l-7 7-7-7"
-                                />
-                              </svg>
-                            </h4>
-                            <button
-                              onClick={() => setShowPrefixModal(true)}
-                              className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
-                              title={
-                                savedPrefix
-                                  ? 'Update prefix for ROSA resources'
-                                  : 'Enter prefix for ROSA resources'
-                              }
-                            >
-                              {savedPrefix ? '📝 Update Prefix' : '📝 Enter Prefix'}
-                            </button>
-                          </div>
-
-                          {!collapsedSections.has('prefix-configuration') && (
-                            <>
-                              {savedPrefix ? (
-                                <div className="bg-purple-50 rounded p-2">
-                                  <div className="text-sm text-purple-600 font-mono font-bold">
-                                    {savedPrefix}
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="text-center py-4 text-purple-600 text-xs">
-                                  <div className="mb-2">No prefix configured</div>
-                                  <div className="text-purple-500">
-                                    Click "Enter Prefix" to set a resource naming prefix
-                                  </div>
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </div>
-                        {/* Subnets */}
-                        <div className="bg-white rounded-lg p-3 border border-purple-200">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4
-                              className="text-xs font-semibold text-purple-800 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-1 -m-1 transition-colors"
-                              onClick={() => toggleSection('subnets')}
-                            >
-                              <svg
-                                className="h-3 w-3 text-purple-600 mr-1"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
-                                />
-                              </svg>
-                              Subnets ({rosaHcpResources.subnets.length})
-                              <div
-                                className="ml-1 cursor-help"
-                                title="Subnets Overview: Virtual network segments for ROSA HCP clusters; Private subnets host cluster nodes; Public subnets provide internet gateway access; Required for cluster networking and connectivity"
-                              >
-                                <svg
-                                  className="h-3 w-3 text-purple-500 hover:text-purple-700"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                  />
-                                </svg>
-                              </div>
-                              <svg
-                                className={`h-3 w-3 text-purple-600 transition-transform duration-200 ml-1 ${collapsedSections.has('subnets') ? 'rotate-180' : ''}`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 9l-7 7-7-7"
-                                />
-                              </svg>
-                            </h4>
-                            <div className="flex items-center space-x-2">
-                              <button
-                                onClick={() => setShowSubnetModal(true)}
-                                className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
-                                title={
-                                  rosaHcpResources.subnets &&
-                                  rosaHcpResources.subnets.length > 0 &&
-                                  rosaHcpResources.subnets[0].name !== 'Not configured'
-                                    ? 'Update existing subnet information'
-                                    : 'Enter existing subnet information'
-                                }
-                              >
-                                {rosaHcpResources.subnets &&
-                                rosaHcpResources.subnets.length > 0 &&
-                                rosaHcpResources.subnets[0].name !== 'Not configured'
-                                  ? '📝 Update Subnet Information'
-                                  : '📝 Enter Subnet Info'}
-                              </button>
-                              <button
-                                onClick={() => setShowCreateSubnetModal(true)}
-                                className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
-                                title="Create new subnets for ROSA HCP"
-                              >
-                                ➕ Create Subnets
-                              </button>
-                            </div>
-                          </div>
-                          {!collapsedSections.has('subnets') && (
-                            <div className="grid grid-cols-1 gap-1">
-                              {rosaHcpResources.subnets.map((subnet, index) => (
-                                <div
-                                  key={index}
-                                  className="flex items-center justify-between text-xs p-2 bg-purple-50 rounded"
-                                >
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center space-x-2">
-                                      <span className="font-medium text-purple-800">
-                                        {subnet.name}
-                                      </span>
-                                      <span
-                                        className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
-                                          subnet.type === 'Private'
-                                            ? 'bg-red-100 text-red-800'
-                                            : 'bg-blue-100 text-blue-800'
-                                        }`}
-                                      >
-                                        {subnet.type}
-                                      </span>
-                                    </div>
-                                    <div className="text-purple-600 font-mono text-xs">
-                                      {subnet.id} • {subnet.cidr} • {subnet.az}
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* OIDC Configuration */}
-                        <div className="bg-white rounded-lg p-3 border border-purple-200">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4
-                              className="text-xs font-semibold text-purple-800 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-1 -m-1 transition-colors"
-                              onClick={() => toggleSection('oidc-configuration')}
-                            >
-                              <svg
-                                className="h-3 w-3 text-purple-600 mr-1"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1721 9z"
-                                />
-                              </svg>
-                              OIDC Configuration
-                              <div
-                                className="ml-1 cursor-help"
-                                title="OIDC Provider Overview: OpenID Connect provider for secure authentication; Required for ROSA HCP cluster authentication; Manages identity and access tokens; Integrates with AWS IAM for role-based access"
-                              >
-                                <svg
-                                  className="h-3 w-3 text-purple-500 hover:text-purple-700"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                  />
-                                </svg>
-                              </div>
-                              <svg
-                                className={`h-3 w-3 text-purple-600 transition-transform duration-200 ml-1 ${collapsedSections.has('oidc-configuration') ? 'rotate-180' : ''}`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 9l-7 7-7-7"
-                                />
-                              </svg>
-                            </h4>
-                            <div className="flex items-center space-x-2">
-                              <button
-                                onClick={() => {
-                                  setOidcModalMode('enter');
-                                  setShowOidcModal(true);
-                                }}
-                                className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
-                                title={
-                                  rosaHcpResources.oidcId
-                                    ? 'Update existing OIDC information'
-                                    : 'Enter existing OIDC ID'
-                                }
-                              >
-                                {rosaHcpResources.oidcId
-                                  ? '📝 Update OIDC Information'
-                                  : '📝 Enter OIDC Info'}
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setOidcModalMode('create');
-                                  setShowOidcModal(true);
-                                }}
-                                className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
-                                title="Create new OIDC provider"
-                              >
-                                ➕ Create OIDC Provider
-                              </button>
-                            </div>
-                          </div>
-
-                          {!collapsedSections.has('oidc-configuration') && (
-                            <>
-                              {rosaHcpResources.oidcId ? (
-                                <div className="bg-purple-50 rounded p-2">
-                                  <div className="text-xs text-purple-800 font-medium mb-1">
-                                    OIDC Issuer URL:
-                                  </div>
-                                  <div className="text-xs text-purple-600 font-mono break-all">
-                                    {rosaHcpResources.oidcId}
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="text-center py-4 text-purple-600 text-xs">
-                                  <div className="mb-2">No OIDC provider configured</div>
-                                  <div className="text-purple-500">
-                                    Click "Create OIDC Provider" to set up authentication
-                                  </div>
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </div>
-
-                        <div className="bg-white rounded-lg p-3 border border-purple-200">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4
-                              className="text-xs font-semibold text-purple-800 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-1 -m-1 transition-colors"
-                              onClick={() => toggleSection('account-roles')}
-                            >
-                              <svg
-                                className="h-3 w-3 text-purple-600 mr-1"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                                />
-                              </svg>
-                              Account Roles (
-                              {savedPrefix
-                                ? rosaHcpResources.accountRoles.filter(
-                                    (role) =>
-                                      role.rolePrefix === savedPrefix ||
-                                      role.roleName?.startsWith(`${savedPrefix}-`)
-                                  ).length
-                                : rosaHcpResources.accountRoles.length}
-                              )
-                              <div
-                                className="ml-1 cursor-help"
-                                title="Account Roles Overview: Installer - Provisions cluster resources and infrastructure; Support - Grants Red Hat SRE access for support operations; Worker - Manages worker node permissions and operations; ControlPlane - Manages control plane permissions and operations"
-                              >
-                                <svg
-                                  className="h-3 w-3 text-purple-500 hover:text-purple-700"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                  />
-                                </svg>
-                              </div>
-                              <svg
-                                className={`h-3 w-3 text-purple-600 transition-transform duration-200 ml-1 ${collapsedSections.has('account-roles') ? 'rotate-180' : ''}`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 9l-7 7-7-7"
-                                />
-                              </svg>
-                            </h4>
-                            <button
-                              onClick={createAccountRoles}
-                              className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
-                              title="Create new ROSA account roles"
-                            >
-                              ➕ Create Account Roles
-                            </button>
-                          </div>
-
-                          {!collapsedSections.has('account-roles') && (
-                            <>
-                              {(() => {
-                                // Filter account roles by saved prefix
-                                const filteredRoles = savedPrefix
-                                  ? rosaHcpResources.accountRoles.filter((role) => {
-                                      // Match by rolePrefix or extract prefix from roleName
-                                      const hasMatchingPrefix = role.rolePrefix === savedPrefix;
-                                      const nameStartsWithPrefix = role.roleName?.startsWith(
-                                        `${savedPrefix}-`
-                                      );
-                                      return hasMatchingPrefix || nameStartsWithPrefix;
-                                    })
-                                  : rosaHcpResources.accountRoles;
-
-                                return filteredRoles.length === 0 ? (
-                                  <div className="text-center py-4 text-purple-600 text-xs">
-                                    <div className="mb-2">
-                                      {savedPrefix
-                                        ? `No account roles found with prefix "${savedPrefix}"`
-                                        : 'No account roles found'}
-                                    </div>
-                                    <div className="text-purple-500">
-                                      {savedPrefix
-                                        ? 'Click "Create Account Roles" to set up ROSA account roles with this prefix'
-                                        : 'Set a prefix first, then click "Create Account Roles" to set up ROSA account roles'}
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="space-y-2">
-                                    {/* Table Header */}
-                                    <div className="grid grid-cols-7 gap-2 text-xs font-semibold text-purple-700 bg-purple-100 p-2 rounded">
-                                      <div>Role Name</div>
-                                      <div>Prefix</div>
-                                      <div>Type</div>
-                                      <div>Version</div>
-                                      <div>Managed</div>
-                                      <div>Status</div>
-                                      <div>ARN</div>
-                                    </div>
-
-                                    {/* Table Rows - Scrollable Container */}
-                                    <div className="max-h-48 overflow-y-auto space-y-1">
-                                      {filteredRoles.map((role, index) => (
-                                        <div
-                                          key={index}
-                                          className="grid grid-cols-7 gap-2 text-xs p-2 bg-purple-50 rounded hover:bg-purple-100 transition-colors"
-                                        >
-                                          <div className="font-medium text-purple-800 break-words overflow-auto">
-                                            {role.roleName}
-                                          </div>
-                                          <div className="text-purple-700 overflow-auto">
-                                            <span className="bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded-full text-xs font-medium font-mono">
-                                              {role.rolePrefix}
-                                            </span>
-                                          </div>
-                                          <div className="text-purple-700 overflow-auto">
-                                            <span
-                                              className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
-                                                role.roleType === 'Installer'
-                                                  ? 'bg-blue-100 text-blue-800'
-                                                  : role.roleType === 'Support'
-                                                    ? 'bg-green-100 text-green-800'
-                                                    : role.roleType === 'Worker'
-                                                      ? 'bg-orange-100 text-orange-800'
-                                                      : role.roleType === 'ControlPlane'
-                                                        ? 'bg-red-100 text-red-800'
-                                                        : 'bg-gray-100 text-gray-800'
-                                              }`}
-                                            >
-                                              {role.roleType}
-                                            </span>
-                                          </div>
-                                          <div className="text-purple-600 font-mono overflow-auto">
-                                            {role.version}
-                                          </div>
-                                          <div className="text-purple-600 overflow-auto">
-                                            <span
-                                              className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
-                                                role.managed === 'Yes'
-                                                  ? 'bg-green-100 text-green-800'
-                                                  : 'bg-yellow-100 text-yellow-800'
-                                              }`}
-                                            >
-                                              {role.managed}
-                                            </span>
-                                          </div>
-                                          <div className="text-purple-600 overflow-auto">
-                                            <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full text-xs font-medium">
-                                              {role.status}
-                                            </span>
-                                          </div>
-                                          <div className="text-purple-600 font-mono text-xs break-all overflow-auto">
-                                            {role.arn}
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-                            </>
-                          )}
-                        </div>
-
-                        {/* Operator Roles */}
-                        <div className="bg-white rounded-lg p-3 border border-purple-200">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4
-                              className="text-xs font-semibold text-purple-800 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-1 -m-1 transition-colors"
-                              onClick={() => toggleSection('operator-roles')}
-                            >
-                              <svg
-                                className="h-3 w-3 text-purple-600 mr-1"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                                />
-                              </svg>
-                              Operator Roles (
-                              {savedPrefix
-                                ? rosaHcpResources.operatorRoles.filter(
-                                    (role) =>
-                                      role.clusterPrefix === savedPrefix ||
-                                      role.name?.startsWith(`${savedPrefix}-`)
-                                  ).length
-                                : rosaHcpResources.operatorRoles.length}
-                              )
-                              <div
-                                className="ml-1 cursor-help"
-                                title="Operator Roles Overview: Ingress - Manages OpenShift ingress routing and load balancing; Image Registry - Manages container image registry operations; Cloud Credential - Manages cloud provider credentials and permissions; EBS CSI Driver - Manages AWS EBS storage for persistent volumes"
-                              >
-                                <svg
-                                  className="h-3 w-3 text-purple-500 hover:text-purple-700"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                  />
-                                </svg>
-                              </div>
-                              <svg
-                                className={`h-3 w-3 text-purple-600 transition-transform duration-200 ml-1 ${collapsedSections.has('operator-roles') ? 'rotate-180' : ''}`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 9l-7 7-7-7"
-                                />
-                              </svg>
-                            </h4>
-                            <button
-                              onClick={createOperatorRoles}
-                              className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200 font-medium"
-                              title="Create new ROSA operator roles"
-                            >
-                              ➕ Create Operator Roles
-                            </button>
-                          </div>
-
-                          {!collapsedSections.has('operator-roles') && (
-                            <>
-                              {(() => {
-                                // Filter operator roles by saved prefix
-                                const filteredRoles = savedPrefix
-                                  ? rosaHcpResources.operatorRoles.filter((role) => {
-                                      // Match by clusterPrefix or extract prefix from role name
-                                      const hasMatchingPrefix = role.clusterPrefix === savedPrefix;
-                                      const nameStartsWithPrefix = role.name?.startsWith(
-                                        `${savedPrefix}-`
-                                      );
-                                      return hasMatchingPrefix || nameStartsWithPrefix;
-                                    })
-                                  : rosaHcpResources.operatorRoles;
-
-                                return filteredRoles.length === 0 ? (
-                                  <div className="text-center py-4 text-purple-600 text-xs">
-                                    <div className="mb-2">
-                                      {savedPrefix
-                                        ? `No operator roles found with prefix "${savedPrefix}"`
-                                        : 'No operator roles found'}
-                                    </div>
-                                    <div className="text-purple-500">
-                                      {savedPrefix
-                                        ? 'Click "Create Operator Roles" to set up ROSA operator roles with this prefix'
-                                        : 'Set a prefix first, then click "Create Operator Roles" to set up ROSA operator roles'}
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="space-y-2">
-                                    {/* Table Header */}
-                                    <div className="grid grid-cols-7 gap-2 text-xs font-semibold text-purple-700 bg-purple-100 p-2 rounded">
-                                      <div>Role Name</div>
-                                      <div>Prefix</div>
-                                      <div>Type</div>
-                                      <div>Version</div>
-                                      <div>Managed</div>
-                                      <div>Status</div>
-                                      <div>ARN</div>
-                                    </div>
-
-                                    {/* Table Rows - Scrollable Container */}
-                                    <div className="max-h-48 overflow-y-auto space-y-1">
-                                      {filteredRoles.map((role, index) => (
-                                        <div
-                                          key={index}
-                                          className="grid grid-cols-7 gap-2 text-xs p-2 bg-purple-50 rounded hover:bg-purple-100 transition-colors"
-                                        >
-                                          <div className="font-medium text-purple-800 break-words overflow-auto">
-                                            {role.name}
-                                          </div>
-                                          <div className="text-purple-700 overflow-auto">
-                                            <span className="bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded-full text-xs font-medium font-mono">
-                                              {role.clusterPrefix}
-                                            </span>
-                                          </div>
-                                          <div className="text-purple-700 overflow-auto">
-                                            <span
-                                              className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
-                                                role.operatorType === 'Ingress'
-                                                  ? 'bg-blue-100 text-blue-800'
-                                                  : role.operatorType === 'Image Registry'
-                                                    ? 'bg-green-100 text-green-800'
-                                                    : role.operatorType === 'Cloud Credential'
-                                                      ? 'bg-orange-100 text-orange-800'
-                                                      : role.operatorType === 'EBS CSI Driver'
-                                                        ? 'bg-red-100 text-red-800'
-                                                        : 'bg-gray-100 text-gray-800'
-                                              }`}
-                                            >
-                                              {role.operatorType}
-                                            </span>
-                                          </div>
-                                          <div className="text-purple-600 font-mono overflow-auto">
-                                            {role.version}
-                                          </div>
-                                          <div className="text-purple-600 overflow-auto">
-                                            <span
-                                              className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
-                                                role.managed === 'Yes'
-                                                  ? 'bg-green-100 text-green-800'
-                                                  : 'bg-yellow-100 text-yellow-800'
-                                              }`}
-                                            >
-                                              {role.managed}
-                                            </span>
-                                          </div>
-                                          <div className="text-purple-600 overflow-auto">
-                                            <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full text-xs font-medium">
-                                              {role.status}
-                                            </span>
-                                          </div>
-                                          <div className="text-purple-600 font-mono text-xs break-all overflow-auto">
-                                            {role.arn}
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-                            </>
-                          )}
-                        </div>
-
-                        {rosaHcpResources.lastChecked && (
-                          <div className="text-xs text-purple-600 text-center pt-2">
-                            Last updated: {rosaHcpResources.lastChecked.toLocaleTimeString()}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Manage ROSA HCP Clusters - Moved below ROSA HCP Configuration */}
-              <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-orange-200/50 p-6 backdrop-blur-sm hover:scale-[1.02] hover:-translate-y-1 animate-in fade-in-50 slide-in-from-bottom-4 duration-1000">
-                <h2
-                  className="text-sm font-semibold text-orange-900 mb-3 flex items-center cursor-pointer hover:bg-orange-100/50 rounded-lg p-2 -m-2 transition-colors"
-                  onClick={() => toggleSection('manage-clusters')}
-                >
-                  <div className="bg-orange-600 rounded-full p-1 mr-2">
-                    <svg
-                      className="h-3 w-3 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                      />
-                    </svg>
-                  </div>
-                  <span>Manage ROSA HCP Clusters</span>
-                  <div className="flex items-center ml-auto space-x-2">
-                    <div className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium animate-pulse">
-                      {systemStats.clustersActive} Active
-                    </div>
-                    <svg
-                      className={`h-4 w-4 text-orange-600 transition-transform duration-200 ${collapsedSections.has('manage-clusters') ? 'rotate-180' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </div>
-                </h2>
-                {!collapsedSections.has('manage-clusters') && (
-                  <div className="grid grid-cols-2 gap-2">
-                    {manageROSAClusters.map((operation, index) => {
-                      const Icon = operation.icon;
-                      const isVisible = visibleCards.has(`manage-${index}`);
-                      const isDisabled = isAutomationDisabled();
-                      const isExpanded = expandedCards.has(operation.id);
-                      return (
-                        <div
-                          key={operation.id}
-                          className={`rounded-lg transition-all duration-500 border ${
-                            isDisabled
-                              ? 'bg-gray-100 border-gray-200 opacity-60'
-                              : 'bg-white hover:bg-orange-50 hover:shadow-lg border-transparent hover:border-orange-300'
-                          } ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
-                          style={{
-                            transitionDelay: `${(index + configureEnvironment.length) * 100}ms`,
-                          }}
-                        >
-                          <div
-                            className="flex items-center space-x-2 p-3 cursor-pointer group"
-                            onClick={() => {
-                              const newExpanded = new Set(expandedCards);
-                              if (isExpanded) {
-                                newExpanded.delete(operation.id);
-                              } else {
-                                newExpanded.add(operation.id);
-                              }
-                              setExpandedCards(newExpanded);
-                            }}
-                            title={
-                              isDisabled
-                                ? `Disabled: ${getDisabledReason()}`
-                                : operation.tooltip || operation.title
-                            }
-                          >
-                            <div
-                              className={`${operation.color} rounded p-1 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 group-active:scale-95`}
-                            >
-                              <Icon className="h-3 w-3 text-white" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <h3
-                                  className={`text-xs font-medium ${operation.textColor} flex items-center gap-1`}
-                                  title={operation.tooltip}
-                                >
-                                  {operation.title}
-                                  <svg
-                                    className={`h-3 w-3 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M19 9l-7 7-7-7"
-                                    />
-                                  </svg>
-                                </h3>
-                                <span className="text-xs text-gray-400 font-mono bg-gray-100 px-1 rounded text-xs">
-                                  {operation.duration}
-                                </span>
-                              </div>
-                              <p
-                                className="text-xs text-gray-500 truncate"
-                                title={operation.tooltip}
-                              >
-                                {operation.subtitle}
-                              </p>
-                            </div>
-                          </div>
-
-                          {isExpanded && (
-                            <div className="px-3 pb-3 pt-1 border-t border-gray-100">
-                              <p className="text-xs text-gray-600 mb-2">{operation.description}</p>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (!isDisabled) {
-                                    operation.action();
-                                  }
-                                }}
-                                className={`text-xs px-3 py-1.5 rounded transition-colors duration-200 font-medium ${
-                                  isDisabled
-                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                    : 'bg-orange-600 hover:bg-orange-700 text-white'
-                                }`}
-                                title={
-                                  isDisabled
-                                    ? `Disabled: ${getDisabledReason()}`
-                                    : `Run ${operation.title}`
-                                }
-                                disabled={isDisabled}
-                              >
-                                Run {operation.title}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
                   </div>
                 )}
               </div>
@@ -9812,6 +9124,120 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MCE Features Modal */}
+      {showMCEFeaturesModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowMCEFeaturesModal(false)}
+          />
+          <div className="relative bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-3xl max-h-[80vh] overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
+                  <h3 className="text-lg font-semibold text-white">
+                    Multicluster Engine Features
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowMCEFeaturesModal(false)}
+                  className="text-white/80 hover:text-white transition-colors"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
+              {mceFeaturesLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-600 border-t-transparent"></div>
+                  <span className="ml-3 text-gray-600">Loading MCE features...</span>
+                </div>
+              ) : mceFeatures ? (
+                <div className="space-y-3">
+                  {mceFeatures.map((feature, index) => (
+                    <div
+                      key={index}
+                      className={`flex items-center justify-between p-4 rounded-lg border-2 transition-all ${
+                        feature.enabled
+                          ? 'bg-green-50 border-green-200 hover:border-green-300'
+                          : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        {feature.enabled ? (
+                          <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        ) : (
+                          <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        )}
+                        <div>
+                          <div className="font-medium text-gray-900">{feature.name}</div>
+                          {feature.description && (
+                            <div className="text-sm text-gray-500">{feature.description}</div>
+                          )}
+                        </div>
+                      </div>
+                      <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        feature.enabled
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {feature.enabled ? 'Enabled' : 'Disabled'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <svg className="h-12 w-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p className="text-gray-600">Click "Refresh Features" to load MCE feature status</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-between items-center">
+              <div className="text-sm text-gray-600">
+                {mceFeatures && `${mceFeatures.filter(f => f.enabled).length} of ${mceFeatures.length} features enabled`}
+              </div>
+              <button
+                onClick={async () => {
+                  setMceFeaturesLoading(true);
+                  try {
+                    const response = await fetch('http://localhost:8000/api/mce/features');
+                    const data = await response.json();
+                    setMceFeatures(data.features || []);
+                  } catch (error) {
+                    console.error('Error fetching MCE features:', error);
+                    addNotification('❌ Failed to fetch MCE features', 'error', 3000);
+                  } finally {
+                    setMceFeaturesLoading(false);
+                  }
+                }}
+                disabled={mceFeaturesLoading}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Refresh Features
+              </button>
             </div>
           </div>
         </div>

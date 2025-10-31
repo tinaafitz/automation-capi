@@ -49,6 +49,9 @@ ocp_status_cache = {
     "ttl": 60,  # Cache for 60 seconds (longer since connection tests are slower)
 }
 
+# Store last used YAML file path for ROSA HCP provisioning
+last_rosa_yaml_path = {"path": None}
+
 
 # Pydantic models
 class ClusterConfig(BaseModel):
@@ -63,6 +66,26 @@ class ClusterConfig(BaseModel):
     availability_zones: List[str] = ["us-west-2a", "us-west-2b"]
     cidr_block: str = "10.0.0.0/16"
     tags: Dict[str, str] = {}
+
+    # Manual network configuration (used when network_automation=False)
+    subnets: Optional[List[str]] = None
+    vpc_id: Optional[str] = None
+
+    # Manual IAM role configuration (used when role_automation=False)
+    installer_role_arn: Optional[str] = None
+    support_role_arn: Optional[str] = None
+    worker_role_arn: Optional[str] = None
+    oidc_id: Optional[str] = None
+
+    # Operator roles
+    ingress_arn: Optional[str] = None
+    image_registry_arn: Optional[str] = None
+    storage_arn: Optional[str] = None
+    network_arn: Optional[str] = None
+    kube_cloud_controller_arn: Optional[str] = None
+    node_pool_management_arn: Optional[str] = None
+    control_plane_operator_arn: Optional[str] = None
+    kms_provider_arn: Optional[str] = None
 
 
 class JobStatus(BaseModel):
@@ -97,13 +120,48 @@ def run_ansible_playbook(playbook: str, config: dict, job_id: str):
             "skip_ansible_runner=true",
         ]
 
-        # Add network automation flag
+        # Add network automation flag or manual network values
         if config.get("network_automation"):
             cmd.extend(["-e", "enable_network_automation=true"])
+        else:
+            # Pass manual network configuration
+            if config.get("subnets"):
+                subnets_str = ",".join(config["subnets"])
+                cmd.extend(["-e", f"manual_subnets={subnets_str}"])
+            if config.get("vpc_id"):
+                cmd.extend(["-e", f"manual_vpc_id={config['vpc_id']}"])
 
-        # Add role automation flag
+        # Add role automation flag or manual role values
         if config.get("role_automation"):
             cmd.extend(["-e", "enable_role_automation=true"])
+        else:
+            # Pass manual IAM role configuration
+            if config.get("installer_role_arn"):
+                cmd.extend(["-e", f"manual_installer_role_arn={config['installer_role_arn']}"])
+            if config.get("support_role_arn"):
+                cmd.extend(["-e", f"manual_support_role_arn={config['support_role_arn']}"])
+            if config.get("worker_role_arn"):
+                cmd.extend(["-e", f"manual_worker_role_arn={config['worker_role_arn']}"])
+            if config.get("oidc_id"):
+                cmd.extend(["-e", f"manual_oidc_id={config['oidc_id']}"])
+
+            # Pass operator role ARNs
+            if config.get("ingress_arn"):
+                cmd.extend(["-e", f"manual_ingress_arn={config['ingress_arn']}"])
+            if config.get("image_registry_arn"):
+                cmd.extend(["-e", f"manual_image_registry_arn={config['image_registry_arn']}"])
+            if config.get("storage_arn"):
+                cmd.extend(["-e", f"manual_storage_arn={config['storage_arn']}"])
+            if config.get("network_arn"):
+                cmd.extend(["-e", f"manual_network_arn={config['network_arn']}"])
+            if config.get("kube_cloud_controller_arn"):
+                cmd.extend(["-e", f"manual_kube_cloud_controller_arn={config['kube_cloud_controller_arn']}"])
+            if config.get("node_pool_management_arn"):
+                cmd.extend(["-e", f"manual_node_pool_management_arn={config['node_pool_management_arn']}"])
+            if config.get("control_plane_operator_arn"):
+                cmd.extend(["-e", f"manual_control_plane_operator_arn={config['control_plane_operator_arn']}"])
+            if config.get("kms_provider_arn"):
+                cmd.extend(["-e", f"manual_kms_provider_arn={config['kms_provider_arn']}"])
 
         jobs[job_id]["progress"] = 30
         jobs[job_id]["message"] = "Executing ansible playbook"
@@ -180,6 +238,123 @@ async def get_templates():
             },
         ]
     }
+
+
+@app.post("/api/analyze-yaml")
+async def analyze_yaml(request: Request):
+    """Analyze uploaded YAML to detect network and IAM configuration intent"""
+    try:
+        body = await request.json()
+        yaml_content = body.get("yaml_content")
+
+        if not yaml_content:
+            raise HTTPException(status_code=400, detail="No YAML content provided")
+
+        # Parse YAML documents
+        documents = list(yaml.safe_load_all(yaml_content))
+
+        # Initialize detection results
+        has_rosa_network = False
+        has_rosa_role_config = False
+        has_manual_subnets = False
+        has_manual_roles = False
+        has_availability_zones = False
+
+        rosa_control_plane = None
+
+        # Analyze each document
+        for doc in documents:
+            if not doc:
+                continue
+
+            kind = doc.get("kind", "")
+
+            # Check for ROSANetwork resource
+            if kind == "ROSANetwork":
+                has_rosa_network = True
+
+            # Check for RosaRoleConfig resource
+            if kind == "RosaRoleConfig":
+                has_rosa_role_config = True
+
+            # Check for ROSAControlPlane with manual configuration
+            if kind == "ROSAControlPlane":
+                rosa_control_plane = doc
+                spec = doc.get("spec", {})
+
+                # Check for manual network config
+                if spec.get("subnets"):
+                    has_manual_subnets = True
+                if spec.get("availabilityZones"):
+                    has_availability_zones = True
+
+                # Check for manual IAM roles
+                if spec.get("installerRoleARN") or spec.get("rolesRef"):
+                    has_manual_roles = True
+
+        # Determine intent
+        network_intent = None
+        role_intent = None
+
+        if has_rosa_network:
+            network_intent = "automated"
+        elif has_manual_subnets and has_availability_zones:
+            network_intent = "manual"
+
+        if has_rosa_role_config:
+            role_intent = "automated"
+        elif has_manual_roles:
+            role_intent = "manual"
+
+        # Generate user-friendly messages
+        messages = []
+
+        if network_intent == "manual":
+            messages.append("✓ Detected manual network configuration: You've specified subnets and availability zones. These will be used for your cluster.")
+        elif network_intent == "automated":
+            messages.append("✓ Detected ROSANetwork automation: VPC and subnets will be created automatically using CloudFormation.")
+
+        if role_intent == "manual":
+            messages.append("✓ Detected manual IAM roles: You've specified custom IAM roles. These will be used for your cluster.")
+        elif role_intent == "automated":
+            messages.append("✓ Detected RosaRoleConfig automation: IAM roles and OIDC provider will be created automatically.")
+
+        # Extract configuration values if manual
+        config_values = {}
+        if rosa_control_plane and network_intent == "manual":
+            spec = rosa_control_plane.get("spec", {})
+            config_values["subnets"] = spec.get("subnets", [])
+            config_values["availability_zones"] = spec.get("availabilityZones", [])
+
+        if rosa_control_plane and role_intent == "manual":
+            spec = rosa_control_plane.get("spec", {})
+            config_values["installer_role_arn"] = spec.get("installerRoleARN")
+            config_values["support_role_arn"] = spec.get("supportRoleARN")
+            config_values["worker_role_arn"] = spec.get("workerRoleARN")
+            config_values["oidc_id"] = spec.get("oidcID")
+
+            roles_ref = spec.get("rolesRef", {})
+            config_values["ingress_arn"] = roles_ref.get("ingressARN")
+            config_values["image_registry_arn"] = roles_ref.get("imageRegistryARN")
+            config_values["storage_arn"] = roles_ref.get("storageARN")
+            config_values["network_arn"] = roles_ref.get("networkARN")
+            config_values["kube_cloud_controller_arn"] = roles_ref.get("kubeCloudControllerARN")
+            config_values["node_pool_management_arn"] = roles_ref.get("nodePoolManagementARN")
+            config_values["control_plane_operator_arn"] = roles_ref.get("controlPlaneOperatorARN")
+            config_values["kms_provider_arn"] = roles_ref.get("kmsProviderARN")
+
+        return {
+            "network_intent": network_intent,
+            "role_intent": role_intent,
+            "messages": messages,
+            "config_values": config_values,
+            "has_rosa_control_plane": rosa_control_plane is not None
+        }
+
+    except yaml.YAMLError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid YAML: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error analyzing YAML: {str(e)}")
 
 
 @app.post("/api/clusters")
@@ -2337,6 +2512,14 @@ async def run_ansible_task(request: dict):
                 ]
             )
 
+        # Set AUTOMATION_PATH as a fact to ensure it's available to all included tasks
+        tasks.append(
+            {
+                "name": "Set AUTOMATION_PATH",
+                "set_fact": {"AUTOMATION_PATH": project_root},
+            }
+        )
+
         # Add the main task (use absolute path)
         tasks.append({"name": "Include task file", "include_tasks": f"{project_root}/{task_file}"})
 
@@ -2346,6 +2529,10 @@ async def run_ansible_task(request: dict):
                 "hosts": "localhost",
                 "connection": "local",
                 "gather_facts": False,
+                "vars": {
+                    "AUTOMATION_PATH": project_root,
+                    "playbook_dir": project_root,
+                },
                 "vars_files": [
                     f"{project_root}/vars/vars.yml",
                     f"{project_root}/vars/user_vars.yml",
@@ -2397,15 +2584,26 @@ async def run_ansible_task(request: dict):
             env = os_module.environ.copy()
             env["ANSIBLE_PLAYBOOK_DIR"] = project_root
 
-            # Run the command
-            result = subprocess.run(
+            # Run the command with Popen to avoid pipe buffer issues
+            process = subprocess.Popen(
                 cmd,
                 cwd=project_root,
                 env=env,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                timeout=300,  # 5 minutes timeout for tasks
             )
+
+            try:
+                stdout, stderr = process.communicate(timeout=300)  # 5 minutes timeout
+                result = type('obj', (object,), {
+                    'returncode': process.returncode,
+                    'stdout': stdout,
+                    'stderr': stderr
+                })()
+            except subprocess.TimeoutExpired:
+                process.kill()
+                raise
 
             # Parse the output
             stdout_lines = result.stdout.split("\n") if result.stdout else []
@@ -2459,6 +2657,67 @@ async def run_ansible_task(request: dict):
         raise HTTPException(status_code=500, detail=error_msg)
 
 
+@app.get("/api/mce/features")
+async def get_mce_features():
+    """Get all MCE features and their enablement status"""
+    try:
+        # Run oc command to get MCE resource
+        result = subprocess.run(
+            ["oc", "get", "mce", "-o", "json"],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        if result.returncode != 0:
+            raise HTTPException(status_code=500, detail=f"Failed to get MCE: {result.stderr}")
+
+        import json
+        mce_data = json.loads(result.stdout)
+
+        features = []
+
+        # Parse MCE components
+        if mce_data.get("items") and len(mce_data["items"]) > 0:
+            mce = mce_data["items"][0]
+            components = mce.get("spec", {}).get("overrides", {}).get("components", [])
+
+            # Feature descriptions
+            feature_descriptions = {
+                "cluster-api": "Core Cluster API for cluster lifecycle management",
+                "cluster-api-provider-aws": "AWS infrastructure provider for Cluster API",
+                "hypershift": "HyperShift operator for hosted control planes",
+                "hypershift-local-hosting": "Local hosting support for HyperShift",
+                "managedserviceaccount": "Managed service account addon",
+                "managedserviceaccount-preview": "Preview features for managed service accounts",
+                "console-mce": "Multicluster Engine console plugin",
+                "discovery": "Cluster discovery service",
+                "hive": "Hive operator for cluster provisioning",
+                "assisted-service": "Assisted installer service",
+                "cluster-lifecycle": "Cluster lifecycle management",
+                "cluster-manager": "Cluster manager service",
+                "clusterproxy-addon": "Cluster proxy addon",
+                "search-v2": "Search v2 service for cluster indexing",
+            }
+
+            for component in components:
+                name = component.get("name", "Unknown")
+                enabled = component.get("enabled", False)
+
+                features.append({
+                    "name": name,
+                    "enabled": enabled,
+                    "description": feature_descriptions.get(name, "")
+                })
+
+        return {"features": features, "count": len(features)}
+
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Request to OpenShift timed out")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching MCE features: {str(e)}")
+
+
 @app.post("/api/ansible/run-role")
 async def run_ansible_role(request: dict):
     """Run a specific ansible role"""
@@ -2504,6 +2763,14 @@ async def run_ansible_role(request: dict):
                 ]
             )
 
+        # Set AUTOMATION_PATH as a fact to ensure it's available to all included tasks
+        tasks.append(
+            {
+                "name": "Set AUTOMATION_PATH",
+                "set_fact": {"AUTOMATION_PATH": project_root},
+            }
+        )
+
         # Add the main role task
         tasks.append(
             {
@@ -2521,6 +2788,10 @@ async def run_ansible_role(request: dict):
             "hosts": "localhost",
             "connection": "local",
             "gather_facts": False,
+            "vars": {
+                "AUTOMATION_PATH": project_root,
+                "playbook_dir": project_root,
+            },
             "vars_files": [f"{project_root}/vars/vars.yml", f"{project_root}/vars/user_vars.yml"],
             "tasks": tasks,
         }
@@ -4181,6 +4452,41 @@ async def get_ocp_resource_detail(request: Request):
             "success": False,
             "message": f"Error fetching resource detail: {str(e)}",
             "data": None,
+        }
+
+
+@app.get("/api/rosa/last-yaml-path")
+async def get_last_rosa_yaml_path():
+    """Get the last used YAML file path for ROSA HCP provisioning"""
+    return {
+        "success": True,
+        "path": last_rosa_yaml_path.get("path"),
+    }
+
+
+@app.post("/api/rosa/save-yaml-path")
+async def save_rosa_yaml_path(request: Request):
+    """Save the YAML file path used for ROSA HCP provisioning"""
+    try:
+        body = await request.json()
+        path = body.get("path")
+
+        if path:
+            last_rosa_yaml_path["path"] = path
+            return {
+                "success": True,
+                "message": f"Saved YAML path: {path}",
+                "path": path,
+            }
+        else:
+            return {
+                "success": False,
+                "message": "No path provided",
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error saving YAML path: {str(e)}",
         }
 
 
