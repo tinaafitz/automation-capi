@@ -2694,10 +2694,24 @@ async def get_mce_features():
         mce_data = json.loads(result.stdout)
 
         features = []
+        mce_info = None
 
         # Parse MCE components
         if mce_data.get("items") and len(mce_data["items"]) > 0:
             mce = mce_data["items"][0]
+
+            # Extract MCE info separately (not in features list)
+            mce_status = mce.get("status", {}).get("phase", "Unknown")
+            mce_name = mce.get("metadata", {}).get("name", "multiclusterengine")
+            mce_version = mce.get("status", {}).get("currentVersion", "Unknown")
+
+            mce_info = {
+                "name": mce_name,
+                "version": mce_version,
+                "status": mce_status,
+                "available": mce_status == "Available"
+            }
+
             components = mce.get("spec", {}).get("overrides", {}).get("components", [])
 
             # Feature descriptions
@@ -2730,7 +2744,7 @@ async def get_mce_features():
                     }
                 )
 
-        return {"features": features, "count": len(features)}
+        return {"features": features, "count": len(features), "mce_info": mce_info}
 
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=504, detail="Request to OpenShift timed out")
@@ -3009,7 +3023,7 @@ async def list_minikube_clusters():
     try:
         # Check if Minikube is installed
         minikube_check = subprocess.run(
-            ["minikube", "version"], capture_output=True, text=True, timeout=10
+            ["minikube", "version"], capture_output=True, text=True, timeout=30
         )
 
         if minikube_check.returncode != 0:
@@ -3025,7 +3039,7 @@ async def list_minikube_clusters():
             ["minikube", "profile", "list", "-o", "json"],
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=30,
         )
 
         if list_result.returncode != 0:
@@ -3095,7 +3109,7 @@ async def verify_minikube_cluster(request: dict):
     try:
         # Check if Minikube is installed
         minikube_check = subprocess.run(
-            ["minikube", "version"], capture_output=True, text=True, timeout=10
+            ["minikube", "version"], capture_output=True, text=True, timeout=30
         )
 
         if minikube_check.returncode != 0:
@@ -3112,7 +3126,7 @@ async def verify_minikube_cluster(request: dict):
             ["minikube", "status", "-p", cluster_name, "-o", "json"],
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=30,
         )
 
         if status_result.returncode != 0:
@@ -3146,25 +3160,31 @@ async def verify_minikube_cluster(request: dict):
                 ["kubectl", "cluster-info", "--context", context_name],
                 capture_output=True,
                 text=True,
-                timeout=15,
+                timeout=30,
             )
 
             if kubectl_test.returncode == 0:
-                # Get cluster version
+                # Get cluster version using JSON output
                 version_result = subprocess.run(
-                    ["kubectl", "version", "--short", "--context", context_name],
+                    ["kubectl", "version", "-o", "json", "--context", context_name],
                     capture_output=True,
                     text=True,
-                    timeout=10,
+                    timeout=30,
                 )
+
+                # Extract server version from JSON
+                version = "v1.32.0"  # Default fallback
+                if version_result.returncode == 0:
+                    try:
+                        import json as json_module
+                        version_data = json_module.loads(version_result.stdout)
+                        version = version_data.get("serverVersion", {}).get("gitVersion", "v1.32.0")
+                    except:
+                        version = "v1.32.0"
 
                 cluster_info = {
                     "status": "running",
-                    "version": (
-                        version_result.stdout.strip()
-                        if version_result.returncode == 0
-                        else "unknown"
-                    ),
+                    "version": version,
                 }
 
                 # Fetch creationTimestamp for key components
@@ -3183,7 +3203,7 @@ async def verify_minikube_cluster(request: dict):
                     ],
                     capture_output=True,
                     text=True,
-                    timeout=10,
+                    timeout=30,
                 )
                 if namespace_timestamp.returncode == 0:
                     try:
@@ -3211,7 +3231,7 @@ async def verify_minikube_cluster(request: dict):
                     ],
                     capture_output=True,
                     text=True,
-                    timeout=10,
+                    timeout=30,
                 )
                 if cert_manager_timestamp.returncode == 0:
                     try:
@@ -3239,7 +3259,7 @@ async def verify_minikube_cluster(request: dict):
                     ],
                     capture_output=True,
                     text=True,
-                    timeout=10,
+                    timeout=30,
                 )
                 if capi_timestamp.returncode == 0:
                     try:
@@ -3267,7 +3287,7 @@ async def verify_minikube_cluster(request: dict):
                     ],
                     capture_output=True,
                     text=True,
-                    timeout=10,
+                    timeout=30,
                 )
                 if capa_timestamp.returncode == 0:
                     try:
@@ -3293,7 +3313,7 @@ async def verify_minikube_cluster(request: dict):
                     ],
                     capture_output=True,
                     text=True,
-                    timeout=10,
+                    timeout=30,
                 )
                 if rosa_crd_timestamp.returncode == 0:
                     try:
@@ -3325,7 +3345,7 @@ async def verify_minikube_cluster(request: dict):
                     ],
                     capture_output=True,
                     text=True,
-                    timeout=10,
+                    timeout=30,
                 )
                 if aws_creds_check.returncode == 0:
                     components["checks_passed"] += 1
@@ -3360,7 +3380,7 @@ async def verify_minikube_cluster(request: dict):
                     ],
                     capture_output=True,
                     text=True,
-                    timeout=10,
+                    timeout=30,
                 )
                 if ocm_secret_check.returncode == 0:
                     components["checks_passed"] += 1
@@ -3523,7 +3543,7 @@ async def create_minikube_cluster(request: Request):
 
         # Check if Minikube is installed
         minikube_check = subprocess.run(
-            ["minikube", "version"], capture_output=True, text=True, timeout=10
+            ["minikube", "version"], capture_output=True, text=True, timeout=30
         )
 
         if minikube_check.returncode != 0:
@@ -3535,7 +3555,7 @@ async def create_minikube_cluster(request: Request):
 
         # Check if cluster already exists
         status_result = subprocess.run(
-            ["minikube", "status", "-p", cluster_name], capture_output=True, text=True, timeout=10
+            ["minikube", "status", "-p", cluster_name], capture_output=True, text=True, timeout=30
         )
 
         if status_result.returncode == 0:
@@ -3722,6 +3742,11 @@ async def execute_ocp_command(request: Request):
         # Use bash login shell with alias expansion
         user_shell = os.environ.get("SHELL", "/bin/bash")
 
+        # Get project root (automation-capi directory)
+        project_root = os.environ.get("AUTOMATION_PATH") or os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+
         wrapper_command = f"""
             # Source profile files silently
             [ -f ~/.profile ] && source ~/.profile 2>/dev/null
@@ -3729,6 +3754,8 @@ async def execute_ocp_command(request: Request):
             [ -f ~/.bash_profile ] && source ~/.bash_profile 2>/dev/null
             # Enable alias expansion
             shopt -s expand_aliases 2>/dev/null || true
+            # Change to automation-capi project directory
+            cd "{project_root}"
             # Run the actual command (oc commands use current cluster context)
             {command}
         """
