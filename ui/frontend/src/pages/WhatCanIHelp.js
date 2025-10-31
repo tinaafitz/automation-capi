@@ -365,6 +365,7 @@ export function WhatCanIHelp() {
   // MCE Features modal state
   const [showMCEFeaturesModal, setShowMCEFeaturesModal] = useState(false);
   const [mceFeatures, setMceFeatures] = useState(null);
+  const [mceInfo, setMceInfo] = useState(null);
   const [mceFeaturesLoading, setMceFeaturesLoading] = useState(false);
 
   // Track if we've already shown initial notifications to prevent loops
@@ -528,6 +529,7 @@ export function WhatCanIHelp() {
         }),
         namespace: 'ns-rosa-hcp',
         status: verificationData.cluster_info?.status || 'ready',
+        version: verificationData.cluster_info?.version || 'v1.32.0',
         components: verificationData.cluster_info?.components || {},
         component_timestamps: verificationData.cluster_info?.component_timestamps || {},
       };
@@ -1912,7 +1914,7 @@ export function WhatCanIHelp() {
       textColor: 'text-emerald-700',
       bgColor: 'bg-emerald-50 hover:bg-emerald-100',
       borderColor: 'border-emerald-300',
-      duration: '~1m',
+      duration: '',
       tooltip: 'Verify all CAPI/CAPA components are properly installed and configured',
       action: async () => {
         try {
@@ -3356,20 +3358,21 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         // Verify Minikube cluster status
                         if (verifiedMinikubeClusterInfo?.name) {
                           // Create unique ID for this verification using timestamp
-                          const verifyId = `verify-minikube-cluster-${Date.now()}`;
+                          const verifyId = `validate-minikube-capa`;
 
                           // Add to recent operations with "Verifying..." status
                           addToRecent({
                             id: verifyId,
-                            title: 'Minikube Verify Cluster',
+                            title: 'Minikube Verify Environment',
                             color: 'bg-purple-600',
                             status: '⏳ Verifying...',
+                            ansibleResultKey: 'validate-minikube-capa', // Link to ansibleResults for View Full Output
                           });
 
-                          console.log('Starting verification...');
+                          console.log('Starting Minikube validation...');
                           try {
-                            // Call the verify cluster API endpoint
-                            const response = await fetch(
+                            // First, refresh cluster info to get updated version
+                            const verifyResponse = await fetch(
                               'http://localhost:8000/api/minikube/verify-cluster',
                               {
                                 method: 'POST',
@@ -3380,7 +3383,33 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               }
                             );
 
-                            const data = await response.json();
+                            const verifyData = await verifyResponse.json();
+
+                            // Update cluster info with fresh data including version
+                            if (verifyResponse.ok && verifyData.accessible) {
+                              setVerifiedMinikubeClusterInfo((prev) => ({
+                                ...prev,
+                                version: verifyData.cluster_info?.version || prev.version,
+                                status: verifyData.cluster_info?.status || prev.status,
+                                components: verifyData.cluster_info?.components || prev.components,
+                              }));
+                            }
+
+                            // Run the validation playbook
+                            const response = await fetch(
+                              'http://localhost:8000/api/ansible/run-task',
+                              {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  task_file: 'tasks/validate-kind-capa-environment.yml',
+                                  description: 'Validate CAPA environment components',
+                                  kube_context: verifiedMinikubeClusterInfo.name,
+                                }),
+                              }
+                            );
+
+                            const result = await response.json();
 
                             // Get completion time with seconds
                             const completionTime = new Date().toLocaleTimeString('en-US', {
@@ -3390,17 +3419,64 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               hour12: true,
                             });
 
-                            if (response.ok && data.exists && data.accessible) {
-                              console.log('Verification completed at:', completionTime);
+                            if (response.ok && result.success) {
+                              console.log('Validation completed at:', completionTime);
+
+                              // Store result in ansibleResults for View Full Output
+                              setAnsibleResults((prev) => ({
+                                ...prev,
+                                'validate-minikube-capa': {
+                                  loading: false,
+                                  success: true,
+                                  result: {
+                                    output: result.output,
+                                    timestamp: new Date(),
+                                    task_file: 'tasks/validate-kind-capa-environment.yml',
+                                    type: 'Minikube CAPI/CAPA Validation',
+                                  },
+                                  timestamp: new Date(),
+                                },
+                              }));
+
+                              // Update the verifiedDate to current time
+                              setVerifiedMinikubeClusterInfo((prev) => ({
+                                ...prev,
+                                verifiedDate: new Date().toLocaleString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                  hour12: true,
+                                }),
+                              }));
+
                               updateRecentOperationStatus(
                                 verifyId,
-                                `✅ Verification completed at ${completionTime}`
+                                `✅ Validation completed at ${completionTime}`
                               );
                             } else {
-                              console.log('Verification failed at:', completionTime);
+                              console.log('Validation failed at:', completionTime);
+
+                              // Store error in ansibleResults
+                              setAnsibleResults((prev) => ({
+                                ...prev,
+                                'validate-minikube-capa': {
+                                  loading: false,
+                                  success: false,
+                                  result: {
+                                    error: result.error || result.message || 'Validation failed',
+                                    timestamp: new Date(),
+                                    task_file: 'tasks/validate-kind-capa-environment.yml',
+                                    type: 'Minikube CAPI/CAPA Validation',
+                                  },
+                                  timestamp: new Date(),
+                                },
+                              }));
+
                               updateRecentOperationStatus(
                                 verifyId,
-                                `❌ Verification failed at ${completionTime}: ${data.message || 'Unknown error'}`
+                                `❌ Validation failed at ${completionTime}: ${result.message || 'Unknown error'}`
                               );
                             }
                           } catch (error) {
@@ -3411,16 +3487,33 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               second: '2-digit',
                               hour12: true,
                             });
-                            console.log('Verification failed at:', completionTime, error);
+                            console.log('Validation failed at:', completionTime, error);
+
+                            // Store error in ansibleResults
+                            setAnsibleResults((prev) => ({
+                              ...prev,
+                              'validate-minikube-capa': {
+                                loading: false,
+                                success: false,
+                                result: {
+                                  error: error.toString(),
+                                  timestamp: new Date(),
+                                  task_file: 'tasks/validate-kind-capa-environment.yml',
+                                  type: 'Minikube CAPI/CAPA Validation',
+                                },
+                                timestamp: new Date(),
+                              },
+                            }));
+
                             updateRecentOperationStatus(
                               verifyId,
-                              `❌ Verification failed at ${completionTime}`
+                              `❌ Validation failed at ${completionTime}`
                             );
                           }
                         }
                       }}
                       className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
-                      title="Verify Minikube cluster status"
+                      title="Verify Minikube cluster and CAPI/CAPA environment"
                     >
                       <ArrowPathIcon className="h-3 w-3" />
                       <span>Verify</span>
@@ -3454,8 +3547,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 {!collapsedSections.has('local-environment') && (
                   <div className="space-y-4">
                     <p className="text-sm text-purple-700 mb-4">
-                      Configure and verify your local test environment for ROSA HCP cluster
-                      automation.
+                      Configure and verify your local test environment for CAPI/CAPA Test Automation.
                     </p>
 
                     {/* Minikube Cluster Verification Status */}
@@ -3475,7 +3567,21 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                             />
                           </svg>
-                          Minikube Cluster Status
+                          {verifiedMinikubeClusterInfo ? (
+                            <>
+                              {verifiedMinikubeClusterInfo.name}
+                              {verifiedMinikubeClusterInfo.version && (
+                                <span className="text-purple-600 font-normal ml-2">
+                                  ({verifiedMinikubeClusterInfo.version})
+                                </span>
+                              )}
+                              <span className="ml-2">
+                                {verifiedMinikubeClusterInfo.status === 'running' ? '✅' : '❌'}
+                              </span>
+                            </>
+                          ) : (
+                            'Minikube Cluster Status'
+                          )}
                         </h3>
                         <div className="flex items-center space-x-2">
                           <div
@@ -3507,22 +3613,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               </div>
                               <div className="text-xs text-purple-900 font-mono">
                                 {verifiedMinikubeClusterInfo.apiUrl}
-                              </div>
-                            </div>
-                            <div className="bg-white rounded-lg p-2 border border-purple-100">
-                              <div className="text-xs text-purple-600 font-semibold mb-1">
-                                Cluster Name
-                              </div>
-                              <div className="text-xs text-purple-900 font-mono">
-                                {verifiedMinikubeClusterInfo.name}
-                              </div>
-                            </div>
-                            <div className="bg-white rounded-lg p-2 border border-purple-100">
-                              <div className="text-xs text-purple-600 font-semibold mb-1">
-                                Namespace
-                              </div>
-                              <div className="text-xs text-purple-900 font-mono">
-                                {verifiedMinikubeClusterInfo.namespace}
                               </div>
                             </div>
                             <div className="bg-white rounded-lg p-2 border border-purple-100">
@@ -3572,51 +3662,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         </div>
                         {/* Table Rows */}
                         <div className="space-y-2">
-                          <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
-                            <div className="flex flex-col">
-                              <div className="flex items-center">
-                                <span className="mr-2">✅</span>
-                                <span className="text-purple-800 font-medium">
-                                  Minikube Cluster
-                                </span>
-                              </div>
-                              <span className="text-purple-600/70 text-[10px] ml-6">
-                                cluster-scoped
-                              </span>
-                            </div>
-                            <div className="flex items-center">
-                              <button
-                                onClick={() => {
-                                  if (!verifiedMinikubeClusterInfo) {
-                                    alert('Please verify the Minikube cluster first');
-                                    return;
-                                  }
-                                  fetchResourceDetail(
-                                    verifiedMinikubeClusterInfo.name,
-                                    'Namespace',
-                                    verifiedMinikubeClusterInfo.namespace,
-                                    ''
-                                  );
-                                }}
-                                className="text-purple-800 font-medium hover:text-purple-600 hover:underline text-left cursor-pointer transition-colors"
-                              >
-                                {verifiedMinikubeClusterInfo?.name || ''}
-                              </button>
-                            </div>
-                            <span className="text-purple-600 font-mono">v1.32.0</span>
-                            <span className="text-purple-700 font-mono text-xs">
-                              {(() => {
-                                try {
-                                  const timestamp =
-                                    verifiedMinikubeClusterInfo?.component_timestamps?.namespace;
-                                  return timestamp ? calculateAge(timestamp) : '';
-                                } catch (e) {
-                                  return '';
-                                }
-                              })()}
-                            </span>
-                            <span className="text-green-600 font-medium">Running</span>
-                          </div>
                           <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
                             <div className="flex flex-col">
                               <div className="flex items-center">
@@ -3916,6 +3961,14 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   return;
                                 }
 
+                                // Ask if they want to include key component data
+                                const includeComponents = window.confirm(
+                                  'Export Active Resources\n\n' +
+                                  'Do you want to include Key Component information in the export?\n\n' +
+                                  '✓ Yes - Include component versions and status\n' +
+                                  '✗ No - Export only active resources'
+                                );
+
                                 let operationId;
                                 try {
                                   operationId = `export-resources-${Date.now()}`;
@@ -3928,7 +3981,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   });
 
                                   console.log(
-                                    `Exporting ${activeResources.length} active resources...`
+                                    `Exporting ${activeResources.length} active resources${includeComponents ? ' with key components' : ''}...`
                                   );
 
                                   // Function to redact sensitive data from YAML
@@ -4032,8 +4085,28 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   });
 
                                   if (yamls.length > 0) {
+                                    // Create header with key component information if requested
+                                    let headerInfo = '';
+                                    if (includeComponents && verifiedMinikubeClusterInfo?.components) {
+                                      const components = verifiedMinikubeClusterInfo.components.details || [];
+                                      headerInfo = '# ==============================================================================\n' +
+                                        '# Key Components Information\n' +
+                                        '# ==============================================================================\n' +
+                                        `# Cluster: ${verifiedMinikubeClusterInfo.name}\n` +
+                                        `# Version: ${verifiedMinikubeClusterInfo.version || 'Unknown'}\n` +
+                                        `# Exported: ${new Date().toLocaleString()}\n` +
+                                        '#\n' +
+                                        '# Component Status:\n';
+
+                                      components.forEach(comp => {
+                                        headerInfo += `#   - ${comp.name}: ${comp.status} ${comp.message ? `(${comp.message})` : ''}\n`;
+                                      });
+
+                                      headerInfo += '# ==============================================================================\n\n';
+                                    }
+
                                     // Create a combined YAML file with document separators
-                                    const combinedYaml = yamls
+                                    const combinedYaml = headerInfo + yamls
                                       .map((y) => `# ${y.name}\n---\n${y.content}`)
                                       .join('\n\n');
 
@@ -4675,6 +4748,49 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         })()}
                       </div>
 
+                      {/* View Full Output - Show validation playbook logs */}
+                      {ansibleResults['validate-minikube-capa'] && ansibleResults['validate-minikube-capa'].result && (
+                        <div className="mt-4">
+                          <details className="bg-white rounded border border-purple-200">
+                            <summary className="text-xs font-medium text-purple-700 p-2 cursor-pointer hover:bg-purple-50">
+                              View Full Output
+                            </summary>
+                            <div className="p-2 border-t bg-gray-50">
+                              {/* Header identifying the operation */}
+                              <div className="mb-2 pb-2 border-b border-gray-200">
+                                <span className="text-xs font-semibold text-purple-700">
+                                  Operation: Minikube CAPI/CAPA Validation
+                                </span>
+                              </div>
+                              <div className="max-h-40 overflow-y-auto">
+                                <pre className="text-xs whitespace-pre-wrap font-mono">
+                                  {formatPlaybookOutput(
+                                    ansibleResults['validate-minikube-capa'].result.output ||
+                                      ansibleResults['validate-minikube-capa'].result.error ||
+                                      ''
+                                  ).map((line, idx) => (
+                                    <div
+                                      key={idx}
+                                      className={
+                                        line.type === 'play'
+                                          ? 'text-green-700 font-bold'
+                                          : line.type === 'task'
+                                            ? 'text-blue-700 font-semibold'
+                                            : line.type === 'banner'
+                                              ? 'text-gray-400'
+                                              : 'text-gray-600'
+                                      }
+                                    >
+                                      {line.content}
+                                    </div>
+                                  ))}
+                                </pre>
+                              </div>
+                            </div>
+                          </details>
+                        </div>
+                      )}
+
                       {/* ROSA HCP Provisioning Output Section */}
                       {(() => {
                         // Find the most recent ROSA HCP provisioning operation
@@ -4792,6 +4908,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             const response = await fetch('http://localhost:8000/api/mce/features');
                             const data = await response.json();
                             setMceFeatures(data.features || []);
+                            setMceInfo(data.mce_info || null);
                           } catch (error) {
                             console.error('Error fetching MCE features:', error);
                             addNotification('❌ Failed to fetch MCE features', 'error', 3000);
@@ -4818,6 +4935,55 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       </svg>
                       <span>Check MCE Features</span>
                     </button>
+
+                    {/* Clear Button - Clear stuck loading states */}
+                    {(() => {
+                      // Show Clear button if any operation is stuck loading
+                      const hasStuckLoading = Object.values(ansibleResults).some(
+                        (result) => result?.loading === true
+                      );
+                      if (hasStuckLoading) {
+                        return (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Clear all loading states
+                              setAnsibleResults((prev) => {
+                                const updated = { ...prev };
+                                Object.keys(updated).forEach((key) => {
+                                  if (updated[key]?.loading === true) {
+                                    updated[key] = {
+                                      ...updated[key],
+                                      loading: false,
+                                    };
+                                  }
+                                });
+                                return updated;
+                              });
+                              addNotification('Cleared stuck loading states', 'success', 2000);
+                            }}
+                            className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                            title="Clear stuck loading states"
+                          >
+                            <svg
+                              className="h-3 w-3"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                            <span>Clear</span>
+                          </button>
+                        );
+                      }
+                      return null;
+                    })()}
 
                     {/* Terminal Button - Only show when MCE is configured */}
                     {(() => {
@@ -5211,13 +5377,24 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         console.log('Starting MCE verification...');
                         setMceLoading(true);
                         try {
-                          // First, check CAPI/CAPA status
+                          // First, check CAPI/CAPA status and fetch MCE info in parallel
                           const statusOperation = configureEnvironment.find(
                             (op) => op.id === 'get-capi-capa-status'
                           );
-                          if (statusOperation) {
-                            await statusOperation.action();
-                          }
+                          const statusPromise = statusOperation ? statusOperation.action() : Promise.resolve();
+
+                          // Fetch MCE features to get name and version
+                          const mcePromise = fetch('http://localhost:8000/api/mce/features')
+                            .then(response => response.json())
+                            .then(data => {
+                              setMceInfo(data.mce_info || null);
+                            })
+                            .catch(error => {
+                              console.log('Could not fetch MCE info:', error);
+                            });
+
+                          // Wait for both to complete
+                          await Promise.all([statusPromise, mcePromise]);
 
                           // Wait longer for status check to complete and state to update
                           await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -5716,7 +5893,16 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 >
                                   {operation.id === 'check-components'
                                     ? (() => {
-                                        // Dynamically show CAPI/CAPA/Hypershift status for MCE Cluster Status
+                                        // Dynamically show MCE info and CAPI/CAPA/Hypershift status
+                                        const parts = [];
+
+                                        // Add MCE name, version, and status if available
+                                        if (mceInfo) {
+                                          const mceStatusIcon = mceInfo.available ? '✅' : '❌';
+                                          parts.push(`${mceInfo.name} ${mceInfo.version} ${mceStatusIcon}`);
+                                        }
+
+                                        // Add component status
                                         const statusResult = ansibleResults['get-capi-capa-status'];
                                         if (statusResult?.result?.output) {
                                           const output = statusResult.result.output;
@@ -5732,10 +5918,13 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                             hypershiftEnabled ? '✅ HyperShift' : '❌ HyperShift'
                                           );
 
-                                          return statuses.join('  •  ');
+                                          parts.push(statuses.join('  •  '));
+                                        } else if (parts.length === 0) {
+                                          // Only show default message if no MCE info either
+                                          return 'Run Verify to check CAPI/CAPA/HyperShift status';
                                         }
-                                        // Show a default message when status not available
-                                        return 'Run Verify to check CAPI/CAPA/HyperShift status';
+
+                                        return parts.join('  •  ');
                                       })()
                                     : operation.subtitle}
                                 </p>
@@ -6606,6 +6795,14 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                         return;
                                                       }
 
+                                                      // Ask if they want to include key component data
+                                                      const includeComponents = window.confirm(
+                                                        'Export Active Resources\n\n' +
+                                                        'Do you want to include Key Component information in the export?\n\n' +
+                                                        '✓ Yes - Include MCE component status\n' +
+                                                        '✗ No - Export only active resources'
+                                                      );
+
                                                       const output = statusResult.result.output;
 
                                                       // Build list of resources to export
@@ -6823,8 +7020,29 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                           });
 
                                                         if (yamls.length > 0) {
+                                                          // Create header with MCE component information if requested
+                                                          let headerInfo = '';
+                                                          if (includeComponents) {
+                                                            // Parse component status from the validation output
+                                                            const capiEnabled = !output.includes('CAPI is NOT enabled');
+                                                            const capaEnabled = !output.includes('CAPA is NOT enabled');
+                                                            const hypershiftEnabled = output.includes('HyperShift is enabled');
+
+                                                            headerInfo = '# ==============================================================================\n' +
+                                                              '# MCE Environment - Key Components Information\n' +
+                                                              '# ==============================================================================\n' +
+                                                              `# Environment: MCE Test Environment\n` +
+                                                              `# Exported: ${new Date().toLocaleString()}\n` +
+                                                              '#\n' +
+                                                              '# Component Status:\n' +
+                                                              `#   - CAPI: ${capiEnabled ? 'Enabled ✓' : 'Not Enabled'}\n` +
+                                                              `#   - CAPA: ${capaEnabled ? 'Enabled ✓' : 'Not Enabled'}\n` +
+                                                              `#   - HyperShift: ${hypershiftEnabled ? 'Enabled ✓' : 'Not Enabled'}\n` +
+                                                              '# ==============================================================================\n\n';
+                                                          }
+
                                                           // Create a combined YAML file with document separators
-                                                          const combinedYaml = yamls
+                                                          const combinedYaml = headerInfo + yamls
                                                             .map(
                                                               (y) =>
                                                                 `# ${y.name}\n---\n${y.content}`
@@ -7733,10 +7951,34 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   <div className="space-y-1.5">
                     {recentOperations.map((operation, index) => {
                       const timeAgo = Math.floor((Date.now() - operation.timestamp) / 60000);
+
+                      // Determine if this is a Local Test Environment or MCE operation
+                      const isLocalOperation = operation.title.includes('Minikube') ||
+                                               operation.title.includes('Kind') ||
+                                               operation.title.includes('Local');
+                      const isMCEOperation = operation.title.includes('MCE');
+
+                      // Color scheme based on environment
+                      const bgColor = isLocalOperation
+                        ? 'bg-purple-50/80'
+                        : isMCEOperation
+                          ? 'bg-blue-50/80'
+                          : 'bg-white';
+                      const borderColor = isLocalOperation
+                        ? 'border-purple-200/60'
+                        : isMCEOperation
+                          ? 'border-blue-200/60'
+                          : 'border-gray-200/50';
+                      const textColor = isLocalOperation
+                        ? 'text-purple-900'
+                        : isMCEOperation
+                          ? 'text-blue-900'
+                          : 'text-gray-900';
+
                       return (
                         <div
                           key={`${operation.id}-${operation.timestamp}`}
-                          className="bg-white rounded p-2 border border-gray-200/50 transition-all duration-200 group"
+                          className={`${bgColor} rounded p-2 border ${borderColor} transition-all duration-200 group`}
                         >
                           <div className="flex flex-col gap-1">
                             <div className="flex items-center justify-between">
@@ -7744,7 +7986,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 <div
                                   className={`w-1.5 h-1.5 ${(operation.color || 'bg-gray-600').replace('bg-', 'bg-')} rounded-full`}
                                 ></div>
-                                <span className="text-xs font-medium text-gray-900 truncate">
+                                <span className={`text-xs font-medium ${textColor} truncate`}>
                                   {operation.title}
                                 </span>
                               </div>
@@ -9287,6 +9529,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                     const response = await fetch('http://localhost:8000/api/mce/features');
                     const data = await response.json();
                     setMceFeatures(data.features || []);
+                    setMceInfo(data.mce_info || null);
                   } catch (error) {
                     console.error('Error fetching MCE features:', error);
                     addNotification('❌ Failed to fetch MCE features', 'error', 3000);
