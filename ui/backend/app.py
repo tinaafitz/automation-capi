@@ -155,11 +155,23 @@ def run_ansible_playbook(playbook: str, config: dict, job_id: str):
             if config.get("network_arn"):
                 cmd.extend(["-e", f"manual_network_arn={config['network_arn']}"])
             if config.get("kube_cloud_controller_arn"):
-                cmd.extend(["-e", f"manual_kube_cloud_controller_arn={config['kube_cloud_controller_arn']}"])
+                cmd.extend(
+                    [
+                        "-e",
+                        f"manual_kube_cloud_controller_arn={config['kube_cloud_controller_arn']}",
+                    ]
+                )
             if config.get("node_pool_management_arn"):
-                cmd.extend(["-e", f"manual_node_pool_management_arn={config['node_pool_management_arn']}"])
+                cmd.extend(
+                    ["-e", f"manual_node_pool_management_arn={config['node_pool_management_arn']}"]
+                )
             if config.get("control_plane_operator_arn"):
-                cmd.extend(["-e", f"manual_control_plane_operator_arn={config['control_plane_operator_arn']}"])
+                cmd.extend(
+                    [
+                        "-e",
+                        f"manual_control_plane_operator_arn={config['control_plane_operator_arn']}",
+                    ]
+                )
             if config.get("kms_provider_arn"):
                 cmd.extend(["-e", f"manual_kms_provider_arn={config['kms_provider_arn']}"])
 
@@ -310,14 +322,22 @@ async def analyze_yaml(request: Request):
         messages = []
 
         if network_intent == "manual":
-            messages.append("✓ Detected manual network configuration: You've specified subnets and availability zones. These will be used for your cluster.")
+            messages.append(
+                "✓ Detected manual network configuration: You've specified subnets and availability zones. These will be used for your cluster."
+            )
         elif network_intent == "automated":
-            messages.append("✓ Detected ROSANetwork automation: VPC and subnets will be created automatically using CloudFormation.")
+            messages.append(
+                "✓ Detected ROSANetwork automation: VPC and subnets will be created automatically using CloudFormation."
+            )
 
         if role_intent == "manual":
-            messages.append("✓ Detected manual IAM roles: You've specified custom IAM roles. These will be used for your cluster.")
+            messages.append(
+                "✓ Detected manual IAM roles: You've specified custom IAM roles. These will be used for your cluster."
+            )
         elif role_intent == "automated":
-            messages.append("✓ Detected RosaRoleConfig automation: IAM roles and OIDC provider will be created automatically.")
+            messages.append(
+                "✓ Detected RosaRoleConfig automation: IAM roles and OIDC provider will be created automatically."
+            )
 
         # Extract configuration values if manual
         config_values = {}
@@ -348,7 +368,7 @@ async def analyze_yaml(request: Request):
             "role_intent": role_intent,
             "messages": messages,
             "config_values": config_values,
-            "has_rosa_control_plane": rosa_control_plane is not None
+            "has_rosa_control_plane": rosa_control_plane is not None,
         }
 
     except yaml.YAMLError as e:
@@ -2596,11 +2616,11 @@ async def run_ansible_task(request: dict):
 
             try:
                 stdout, stderr = process.communicate(timeout=300)  # 5 minutes timeout
-                result = type('obj', (object,), {
-                    'returncode': process.returncode,
-                    'stdout': stdout,
-                    'stderr': stderr
-                })()
+                result = type(
+                    "obj",
+                    (object,),
+                    {"returncode": process.returncode, "stdout": stdout, "stderr": stderr},
+                )()
             except subprocess.TimeoutExpired:
                 process.kill()
                 raise
@@ -2663,16 +2683,14 @@ async def get_mce_features():
     try:
         # Run oc command to get MCE resource
         result = subprocess.run(
-            ["oc", "get", "mce", "-o", "json"],
-            capture_output=True,
-            text=True,
-            timeout=30
+            ["oc", "get", "mce", "-o", "json"], capture_output=True, text=True, timeout=30
         )
 
         if result.returncode != 0:
             raise HTTPException(status_code=500, detail=f"Failed to get MCE: {result.stderr}")
 
         import json
+
         mce_data = json.loads(result.stdout)
 
         features = []
@@ -2704,11 +2722,13 @@ async def get_mce_features():
                 name = component.get("name", "Unknown")
                 enabled = component.get("enabled", False)
 
-                features.append({
-                    "name": name,
-                    "enabled": enabled,
-                    "description": feature_descriptions.get(name, "")
-                })
+                features.append(
+                    {
+                        "name": name,
+                        "enabled": enabled,
+                        "description": feature_descriptions.get(name, ""),
+                    }
+                )
 
         return {"features": features, "count": len(features)}
 

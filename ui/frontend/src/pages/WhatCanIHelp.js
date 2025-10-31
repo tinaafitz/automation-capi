@@ -132,8 +132,8 @@ function parseDynamicResources(output) {
 
     while ((match = pattern.exec(output)) !== null) {
       matchCount++;
-      const resourceType = match[1];  // e.g., "ROSACluster", "RosaControlPlane", "RosaNetwork"
-      const jsonStr = match[2].trim().replace(/"+$/, '');  // Strip trailing quotes from ansible debug format
+      const resourceType = match[1]; // e.g., "ROSACluster", "RosaControlPlane", "RosaNetwork"
+      const jsonStr = match[2].trim().replace(/"+$/, ''); // Strip trailing quotes from ansible debug format
 
       console.log(`  Match #${matchCount}: ${resourceType} - JSON:`, jsonStr.substring(0, 100));
 
@@ -162,11 +162,18 @@ function parseDynamicResources(output) {
               creationTimestamp: item.creationTimestamp || item.created || null,
               status: item.status || 'Active', // Extract status, default to 'Active' if not present
             });
-            console.log(`    ✅ Added resource: ${resourceType}/${item.name} (status: ${item.status || 'Active'})`);
+            console.log(
+              `    ✅ Added resource: ${resourceType}/${item.name} (status: ${item.status || 'Active'})`
+            );
           }
         }
       } catch (jsonError) {
-        console.warn(`Failed to parse JSON for ${resourceType}:`, jsonError, 'Raw:', jsonStr.substring(0, 200));
+        console.warn(
+          `Failed to parse JSON for ${resourceType}:`,
+          jsonError,
+          'Raw:',
+          jsonStr.substring(0, 200)
+        );
       }
     }
 
@@ -957,7 +964,7 @@ export function WhatCanIHelp() {
 
   // Check all status on startup
   useEffect(() => {
-    refreshAllStatus().catch(error => {
+    refreshAllStatus().catch((error) => {
       console.error('Error refreshing status on startup:', error);
     });
   }, []);
@@ -1938,7 +1945,7 @@ export function WhatCanIHelp() {
           console.log('[check-components] Validation response:', {
             ok: response.ok,
             status: response.status,
-            result: result
+            result: result,
           });
 
           if (response.ok) {
@@ -2001,12 +2008,9 @@ export function WhatCanIHelp() {
               });
             }
           } else {
-            const errorMsg = result.error || result.message || result.detail || JSON.stringify(result);
-            addNotification(
-              `❌ Failed to run component validation: ${errorMsg}`,
-              'error',
-              8000
-            );
+            const errorMsg =
+              result.error || result.message || result.detail || JSON.stringify(result);
+            addNotification(`❌ Failed to run component validation: ${errorMsg}`, 'error', 8000);
 
             setAnsibleResults((prev) => ({
               ...prev,
@@ -2016,7 +2020,7 @@ export function WhatCanIHelp() {
                   error: errorMsg,
                   output: result.output || '',
                   return_code: result.return_code,
-                  fullResponse: result
+                  fullResponse: result,
                 },
                 timestamp: new Date(),
                 success: false,
@@ -3018,7 +3022,7 @@ export function WhatCanIHelp() {
                           <button
                             onClick={() => {
                               console.log('Manual refresh clicked');
-                              refreshAllStatus().catch(error => {
+                              refreshAllStatus().catch((error) => {
                                 console.error('Error refreshing status:', error);
                                 addNotification('Failed to refresh status', 'error', 3000);
                               });
@@ -4115,10 +4119,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                         'Content-Type': 'application/json',
                                       },
                                       body: JSON.stringify({
-                                        task_file:
-                                          'tasks/validate-kind-capa-environment.yml',
-                                        description:
-                                          'Minikube Refresh Active Resources',
+                                        task_file: 'tasks/validate-kind-capa-environment.yml',
+                                        description: 'Minikube Refresh Active Resources',
                                       }),
                                     }
                                   );
@@ -4137,34 +4139,27 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                       },
                                     }));
 
-                                    const completionTime =
-                                      new Date().toLocaleTimeString('en-US', {
-                                        hour: 'numeric',
-                                        minute: '2-digit',
-                                        second: '2-digit',
-                                        hour12: true,
-                                      });
-                                    updateRecentOperationStatus(
-                                      operationId,
-                                      `✅ Refreshed at ${completionTime}`
-                                    );
-                                  } else {
-                                    throw new Error(
-                                      result.error || 'Refresh failed'
-                                    );
-                                  }
-                                } catch (error) {
-                                  console.error(
-                                    'Error refreshing Minikube resources:',
-                                    error
-                                  );
-                                  const completionTime =
-                                    new Date().toLocaleTimeString('en-US', {
+                                    const completionTime = new Date().toLocaleTimeString('en-US', {
                                       hour: 'numeric',
                                       minute: '2-digit',
                                       second: '2-digit',
                                       hour12: true,
                                     });
+                                    updateRecentOperationStatus(
+                                      operationId,
+                                      `✅ Refreshed at ${completionTime}`
+                                    );
+                                  } else {
+                                    throw new Error(result.error || 'Refresh failed');
+                                  }
+                                } catch (error) {
+                                  console.error('Error refreshing Minikube resources:', error);
+                                  const completionTime = new Date().toLocaleTimeString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    hour12: true,
+                                  });
                                   updateRecentOperationStatus(
                                     operationId,
                                     `❌ Refresh failed at ${completionTime}`
@@ -4397,29 +4392,17 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                               let statusResult = checkMinikubeResult;
 
-                              if (
-                                refreshCheckMinikubeResult &&
-                                checkMinikubeResult
-                              ) {
-                                const checkTime = checkMinikubeResult.timestamp
-                                  ?.getTime
+                              if (refreshCheckMinikubeResult && checkMinikubeResult) {
+                                const checkTime = checkMinikubeResult.timestamp?.getTime
                                   ? checkMinikubeResult.timestamp.getTime()
-                                  : new Date(
-                                      checkMinikubeResult.timestamp
-                                    ).getTime();
-                                const refreshTime = refreshCheckMinikubeResult
-                                  .timestamp?.getTime
+                                  : new Date(checkMinikubeResult.timestamp).getTime();
+                                const refreshTime = refreshCheckMinikubeResult.timestamp?.getTime
                                   ? refreshCheckMinikubeResult.timestamp.getTime()
-                                  : new Date(
-                                      refreshCheckMinikubeResult.timestamp
-                                    ).getTime();
+                                  : new Date(refreshCheckMinikubeResult.timestamp).getTime();
                                 if (refreshTime > checkTime) {
                                   statusResult = refreshCheckMinikubeResult;
                                 }
-                              } else if (
-                                refreshCheckMinikubeResult &&
-                                !checkMinikubeResult
-                              ) {
+                              } else if (refreshCheckMinikubeResult && !checkMinikubeResult) {
                                 statusResult = refreshCheckMinikubeResult;
                               }
 
@@ -4444,170 +4427,163 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                         return;
                                       }
 
-                                    const clusterName = rosaCluster.name;
+                                      const clusterName = rosaCluster.name;
 
-                                    if (
-                                      !confirm(
-                                        `Configure AutoNode for cluster "${clusterName}"?\n\nThis will:\n- Validate prerequisites\n- Create IAM policies and roles\n- Configure Karpenter\n- Run scaling tests`
-                                      )
-                                    ) {
-                                      return;
-                                    }
-
-                                    // Create unique ID for this operation
-                                    operationId = `configure-autonode-${Date.now()}`;
-
-                                    // Add to recent operations with "Configuring..." status
-                                    addToRecent({
-                                      id: operationId,
-                                      title: `Minikube Configure AutoNode: ${clusterName}`,
-                                      color: 'bg-purple-600',
-                                      status: '⏳ Configuring...',
-                                    });
-
-                                    console.log(
-                                      `Starting AutoNode configuration for ${clusterName}...`
-                                    );
-
-                                    const response = await fetch(
-                                      'http://localhost:8000/api/ansible/run-playbook',
-                                      {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                          playbook: 'test-autonode.yml',
-                                          description: `Configure AutoNode for ${clusterName}`,
-                                          extra_vars: {
-                                            cluster_name: clusterName,
-                                          },
-                                        }),
+                                      if (
+                                        !confirm(
+                                          `Configure AutoNode for cluster "${clusterName}"?\n\nThis will:\n- Validate prerequisites\n- Create IAM policies and roles\n- Configure Karpenter\n- Run scaling tests`
+                                        )
+                                      ) {
+                                        return;
                                       }
-                                    );
 
-                                    const result = await response.json();
+                                      // Create unique ID for this operation
+                                      operationId = `configure-autonode-${Date.now()}`;
 
-                                    // Get completion time with seconds
-                                    const completionTime = new Date().toLocaleTimeString('en-US', {
-                                      hour: 'numeric',
-                                      minute: '2-digit',
-                                      second: '2-digit',
-                                      hour12: true,
-                                    });
-
-                                    if (response.ok && result.success) {
-                                      console.log(
-                                        `AutoNode configuration completed successfully at ${completionTime}`
-                                      );
-                                      updateRecentOperationStatus(
-                                        operationId,
-                                        `✅ Configured successfully at ${completionTime}`
-                                      );
-
-                                      // Show Ansible execution summary
-                                      setAnsibleOutput({
-                                        title: `AutoNode Configuration: ${clusterName}`,
-                                        success: true,
-                                        output: result.output,
-                                        timestamp: completionTime,
+                                      // Add to recent operations with "Configuring..." status
+                                      addToRecent({
+                                        id: operationId,
+                                        title: `Minikube Configure AutoNode: ${clusterName}`,
+                                        color: 'bg-purple-600',
+                                        status: '⏳ Configuring...',
                                       });
-                                      setShowAnsibleModal(true);
-                                    } else {
+
                                       console.log(
-                                        `AutoNode configuration failed at ${completionTime}`
-                                      );
-                                      updateRecentOperationStatus(
-                                        operationId,
-                                        `❌ Configuration failed at ${completionTime}`
+                                        `Starting AutoNode configuration for ${clusterName}...`
                                       );
 
-                                      // Show Ansible execution summary with error
-                                      setAnsibleOutput({
-                                        title: `AutoNode Configuration: ${clusterName}`,
-                                        success: false,
-                                        output: result.output,
-                                        error: result.error,
-                                        timestamp: completionTime,
-                                      });
-                                      setShowAnsibleModal(true);
-                                    }
-                                  } catch (error) {
-                                    console.error('AutoNode configuration error:', error);
-                                    const completionTime = new Date().toLocaleTimeString('en-US', {
-                                      hour: 'numeric',
-                                      minute: '2-digit',
-                                      second: '2-digit',
-                                      hour12: true,
-                                    });
-                                    // Update status if we have the operationId
-                                    if (operationId) {
-                                      updateRecentOperationStatus(
-                                        operationId,
-                                        `❌ Error at ${completionTime}`
+                                      const response = await fetch(
+                                        'http://localhost:8000/api/ansible/run-playbook',
+                                        {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({
+                                            playbook: 'test-autonode.yml',
+                                            description: `Configure AutoNode for ${clusterName}`,
+                                            extra_vars: {
+                                              cluster_name: clusterName,
+                                            },
+                                          }),
+                                        }
                                       );
+
+                                      const result = await response.json();
+
+                                      // Get completion time with seconds
+                                      const completionTime = new Date().toLocaleTimeString(
+                                        'en-US',
+                                        {
+                                          hour: 'numeric',
+                                          minute: '2-digit',
+                                          second: '2-digit',
+                                          hour12: true,
+                                        }
+                                      );
+
+                                      if (response.ok && result.success) {
+                                        console.log(
+                                          `AutoNode configuration completed successfully at ${completionTime}`
+                                        );
+                                        updateRecentOperationStatus(
+                                          operationId,
+                                          `✅ Configured successfully at ${completionTime}`
+                                        );
+
+                                        // Show Ansible execution summary
+                                        setAnsibleOutput({
+                                          title: `AutoNode Configuration: ${clusterName}`,
+                                          success: true,
+                                          output: result.output,
+                                          timestamp: completionTime,
+                                        });
+                                        setShowAnsibleModal(true);
+                                      } else {
+                                        console.log(
+                                          `AutoNode configuration failed at ${completionTime}`
+                                        );
+                                        updateRecentOperationStatus(
+                                          operationId,
+                                          `❌ Configuration failed at ${completionTime}`
+                                        );
+
+                                        // Show Ansible execution summary with error
+                                        setAnsibleOutput({
+                                          title: `AutoNode Configuration: ${clusterName}`,
+                                          success: false,
+                                          output: result.output,
+                                          error: result.error,
+                                          timestamp: completionTime,
+                                        });
+                                        setShowAnsibleModal(true);
+                                      }
+                                    } catch (error) {
+                                      console.error('AutoNode configuration error:', error);
+                                      const completionTime = new Date().toLocaleTimeString(
+                                        'en-US',
+                                        {
+                                          hour: 'numeric',
+                                          minute: '2-digit',
+                                          second: '2-digit',
+                                          hour12: true,
+                                        }
+                                      );
+                                      // Update status if we have the operationId
+                                      if (operationId) {
+                                        updateRecentOperationStatus(
+                                          operationId,
+                                          `❌ Error at ${completionTime}`
+                                        );
+                                      }
+                                      alert(`Error configuring AutoNode: ${error.message}`);
                                     }
-                                    alert(`Error configuring AutoNode: ${error.message}`);
-                                  }
-                                }}
-                                className="px-3 py-1 text-xs font-medium text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-md shadow-sm hover:shadow transition-all duration-200 flex items-center space-x-1"
-                              >
-                                <svg
-                                  className="h-3 w-3"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
+                                  }}
+                                  className="px-3 py-1 text-xs font-medium text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-md shadow-sm hover:shadow transition-all duration-200 flex items-center space-x-1"
                                 >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                                  />
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                  />
-                                </svg>
-                                <span>Configure AutoNode</span>
-                              </button>
+                                  <svg
+                                    className="h-3 w-3"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                                    />
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                    />
+                                  </svg>
+                                  <span>Configure AutoNode</span>
+                                </button>
                               );
                             })()}
                           </div>
                         </h4>
                         {(() => {
                           // Get the most recent validation result (either original or refresh)
-                          const checkMinikubeResult =
-                            ansibleResults['check-minikube-components'];
+                          const checkMinikubeResult = ansibleResults['check-minikube-components'];
                           const refreshCheckMinikubeResult =
                             ansibleResults['refresh-check-minikube-components'];
 
                           let statusResult = checkMinikubeResult;
 
                           // Use refresh result if it's more recent
-                          if (
-                            refreshCheckMinikubeResult &&
-                            checkMinikubeResult
-                          ) {
-                            const checkTime = checkMinikubeResult.timestamp
-                              ?.getTime
+                          if (refreshCheckMinikubeResult && checkMinikubeResult) {
+                            const checkTime = checkMinikubeResult.timestamp?.getTime
                               ? checkMinikubeResult.timestamp.getTime()
-                              : new Date(
-                                  checkMinikubeResult.timestamp
-                                ).getTime();
-                            const refreshTime = refreshCheckMinikubeResult
-                              .timestamp?.getTime
+                              : new Date(checkMinikubeResult.timestamp).getTime();
+                            const refreshTime = refreshCheckMinikubeResult.timestamp?.getTime
                               ? refreshCheckMinikubeResult.timestamp.getTime()
-                              : new Date(
-                                  refreshCheckMinikubeResult.timestamp
-                                ).getTime();
+                              : new Date(refreshCheckMinikubeResult.timestamp).getTime();
                             if (refreshTime > checkTime) {
                               statusResult = refreshCheckMinikubeResult;
                             }
-                          } else if (
-                            refreshCheckMinikubeResult &&
-                            !checkMinikubeResult
-                          ) {
+                          } else if (refreshCheckMinikubeResult && !checkMinikubeResult) {
                             statusResult = refreshCheckMinikubeResult;
                           }
 
@@ -4666,13 +4642,17 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                             ? calculateAge(resource.creationTimestamp)
                                             : ''}
                                         </span>
-                                        <span className={`font-medium ${
-                                          resource.status === 'Ready' || resource.status === 'Active'
-                                            ? 'text-green-600'
-                                            : resource.status === 'Provisioning' || resource.status === 'Configuring'
-                                            ? 'text-amber-600'
-                                            : 'text-red-600'
-                                        }`}>
+                                        <span
+                                          className={`font-medium ${
+                                            resource.status === 'Ready' ||
+                                            resource.status === 'Active'
+                                              ? 'text-green-600'
+                                              : resource.status === 'Provisioning' ||
+                                                  resource.status === 'Configuring'
+                                                ? 'text-amber-600'
+                                                : 'text-red-600'
+                                          }`}
+                                        >
                                           {resource.status || 'Active'}
                                         </span>
                                       </div>
@@ -4823,8 +4803,18 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
                       title="Check all MCE features and their status"
                     >
-                      <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                      <svg
+                        className="h-3 w-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                        />
                       </svg>
                       <span>Check MCE Features</span>
                     </button>
@@ -5310,11 +5300,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               verifyId,
                               `❌ Unable to verify CAPI/CAPA status at ${completionTime}`
                             );
-                            addNotification(
-                              '❌ Failed to verify CAPI/CAPA status',
-                              'error',
-                              5000
-                            );
+                            addNotification('❌ Failed to verify CAPI/CAPA status', 'error', 5000);
                             return;
                           }
 
@@ -5417,7 +5403,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 newSet.add('mce-test-environment');
                                 const array = [...newSet];
                                 localStorage.setItem('expandedCards', JSON.stringify(array));
-                                console.log('✅ Auto-expanded MCE Test Environment after verification');
+                                console.log(
+                                  '✅ Auto-expanded MCE Test Environment after verification'
+                                );
                                 return newSet;
                               });
                             } else if (validationResult?.loading) {
@@ -6709,7 +6697,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                       }
 
                                                       // Add dynamically discovered resources (ROSA clusters, namespaces, etc.)
-                                                      const dynamicResources = parseDynamicResources(output);
+                                                      const dynamicResources =
+                                                        parseDynamicResources(output);
                                                       mceResources.push(...dynamicResources);
 
                                                       if (mceResources.length === 0) {
@@ -7021,13 +7010,22 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                           const lastPathResponse = await fetch(
                                                             'http://localhost:8000/api/rosa/last-yaml-path'
                                                           );
-                                                          const lastPathData = await lastPathResponse.json();
-                                                          if (lastPathData.success && lastPathData.path) {
+                                                          const lastPathData =
+                                                            await lastPathResponse.json();
+                                                          if (
+                                                            lastPathData.success &&
+                                                            lastPathData.path
+                                                          ) {
                                                             // Extract just the filename from the full path
-                                                            defaultFile = lastPathData.path.split('/').pop();
+                                                            defaultFile = lastPathData.path
+                                                              .split('/')
+                                                              .pop();
                                                           }
                                                         } catch (err) {
-                                                          console.log('Could not fetch last YAML path:', err);
+                                                          console.log(
+                                                            'Could not fetch last YAML path:',
+                                                            err
+                                                          );
                                                         }
 
                                                         const clusterFile = prompt(
@@ -7063,7 +7061,10 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             }
                                                           );
                                                         } catch (err) {
-                                                          console.log('Could not save YAML path:', err);
+                                                          console.log(
+                                                            'Could not save YAML path:',
+                                                            err
+                                                          );
                                                         }
 
                                                         if (
@@ -7377,60 +7378,72 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                                                       {/* Dynamic Resources - Parse and display any resources found during provisioning */}
                                                       {(() => {
-                                                        const dynamicResources = parseDynamicResources(output);
+                                                        const dynamicResources =
+                                                          parseDynamicResources(output);
 
                                                         if (dynamicResources.length === 0) {
                                                           return null;
                                                         }
 
-                                                        return dynamicResources.map((resource, index) => (
-                                                          <div
-                                                            key={`${resource.type}-${resource.namespace}-${resource.name}-${index}`}
-                                                            className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded"
-                                                          >
-                                                            <div className="flex flex-col">
-                                                              <div className="flex items-center">
-                                                                <span className="mr-2">✅</span>
-                                                                <span className="text-cyan-800 font-medium">
-                                                                  {resource.type}
+                                                        return dynamicResources.map(
+                                                          (resource, index) => (
+                                                            <div
+                                                              key={`${resource.type}-${resource.namespace}-${resource.name}-${index}`}
+                                                              className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-cyan-50/50 transition-colors rounded"
+                                                            >
+                                                              <div className="flex flex-col">
+                                                                <div className="flex items-center">
+                                                                  <span className="mr-2">✅</span>
+                                                                  <span className="text-cyan-800 font-medium">
+                                                                    {resource.type}
+                                                                  </span>
+                                                                </div>
+                                                                <span className="text-cyan-600/70 text-[10px] ml-6">
+                                                                  {resource.namespace ||
+                                                                    'cluster-scoped'}
                                                                 </span>
                                                               </div>
-                                                              <span className="text-cyan-600/70 text-[10px] ml-6">
-                                                                {resource.namespace || 'cluster-scoped'}
+                                                              <div className="flex items-center">
+                                                                <button
+                                                                  onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    fetchOcpResourceDetail(
+                                                                      resource.type,
+                                                                      resource.name,
+                                                                      resource.namespace
+                                                                    );
+                                                                  }}
+                                                                  className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
+                                                                >
+                                                                  {resource.name}
+                                                                </button>
+                                                              </div>
+                                                              <span className="text-cyan-600 font-mono"></span>
+                                                              <span className="text-cyan-600 font-mono">
+                                                                {resource.creationTimestamp
+                                                                  ? calculateAge(
+                                                                      resource.creationTimestamp
+                                                                    )
+                                                                  : ''}
+                                                              </span>
+                                                              <span
+                                                                className={`font-medium ${
+                                                                  resource.status === 'Ready' ||
+                                                                  resource.status === 'Active'
+                                                                    ? 'text-green-600'
+                                                                    : resource.status ===
+                                                                          'Provisioning' ||
+                                                                        resource.status ===
+                                                                          'Configuring'
+                                                                      ? 'text-amber-600'
+                                                                      : 'text-red-600'
+                                                                }`}
+                                                              >
+                                                                {resource.status || 'Active'}
                                                               </span>
                                                             </div>
-                                                            <div className="flex items-center">
-                                                              <button
-                                                                onClick={(e) => {
-                                                                  e.stopPropagation();
-                                                                  fetchOcpResourceDetail(
-                                                                    resource.type,
-                                                                    resource.name,
-                                                                    resource.namespace
-                                                                  );
-                                                                }}
-                                                                className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline text-left cursor-pointer transition-colors"
-                                                              >
-                                                                {resource.name}
-                                                              </button>
-                                                            </div>
-                                                            <span className="text-cyan-600 font-mono"></span>
-                                                            <span className="text-cyan-600 font-mono">
-                                                              {resource.creationTimestamp
-                                                                ? calculateAge(resource.creationTimestamp)
-                                                                : ''}
-                                                            </span>
-                                                            <span className={`font-medium ${
-                                                              resource.status === 'Ready' || resource.status === 'Active'
-                                                                ? 'text-green-600'
-                                                                : resource.status === 'Provisioning' || resource.status === 'Configuring'
-                                                                ? 'text-amber-600'
-                                                                : 'text-red-600'
-                                                            }`}>
-                                                              {resource.status || 'Active'}
-                                                            </span>
-                                                          </div>
-                                                        ));
+                                                          )
+                                                        );
                                                       })()}
                                                     </div>
                                                   </>
@@ -9141,19 +9154,32 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
             <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  <svg
+                    className="h-6 w-6 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                    />
                   </svg>
-                  <h3 className="text-lg font-semibold text-white">
-                    Multicluster Engine Features
-                  </h3>
+                  <h3 className="text-lg font-semibold text-white">Multicluster Engine Features</h3>
                 </div>
                 <button
                   onClick={() => setShowMCEFeaturesModal(false)}
                   className="text-white/80 hover:text-white transition-colors"
                 >
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               </div>
@@ -9179,12 +9205,32 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                     >
                       <div className="flex items-center space-x-3">
                         {feature.enabled ? (
-                          <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <svg
+                            className="h-6 w-6 text-green-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
                           </svg>
                         ) : (
-                          <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <svg
+                            className="h-6 w-6 text-gray-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
                           </svg>
                         )}
                         <div>
@@ -9194,11 +9240,13 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           )}
                         </div>
                       </div>
-                      <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        feature.enabled
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-600'
-                      }`}>
+                      <div
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          feature.enabled
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
                         {feature.enabled ? 'Enabled' : 'Disabled'}
                       </div>
                     </div>
@@ -9206,10 +9254,22 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 </div>
               ) : (
                 <div className="text-center py-12">
-                  <svg className="h-12 w-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  <svg
+                    className="h-12 w-12 text-gray-400 mx-auto mb-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
                   </svg>
-                  <p className="text-gray-600">Click "Refresh Features" to load MCE feature status</p>
+                  <p className="text-gray-600">
+                    Click "Refresh Features" to load MCE feature status
+                  </p>
                 </div>
               )}
             </div>
@@ -9217,7 +9277,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
             {/* Footer */}
             <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-between items-center">
               <div className="text-sm text-gray-600">
-                {mceFeatures && `${mceFeatures.filter(f => f.enabled).length} of ${mceFeatures.length} features enabled`}
+                {mceFeatures &&
+                  `${mceFeatures.filter((f) => f.enabled).length} of ${mceFeatures.length} features enabled`}
               </div>
               <button
                 onClick={async () => {
