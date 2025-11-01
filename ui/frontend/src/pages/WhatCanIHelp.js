@@ -185,12 +185,12 @@ function parseDynamicResources(output) {
 
   // Remove duplicates based on type + namespace + name combination
   const uniqueResources = Array.from(
-    new Map(
-      resources.map((r) => [`${r.type}|${r.namespace}|${r.name}`, r])
-    ).values()
+    new Map(resources.map((r) => [`${r.type}|${r.namespace}|${r.name}`, r])).values()
   );
 
-  console.log(`🎯 Returning ${uniqueResources.length} unique resources (removed ${resources.length - uniqueResources.length} duplicates)`);
+  console.log(
+    `🎯 Returning ${uniqueResources.length} unique resources (removed ${resources.length - uniqueResources.length} duplicates)`
+  );
 
   return uniqueResources;
 }
@@ -313,7 +313,7 @@ export function WhatCanIHelp() {
   const [mceComponentSortField, setMceComponentSortField] = useState('component');
   const [mceComponentSortDirection, setMceComponentSortDirection] = useState('asc');
   const [ansibleResults, setAnsibleResults] = useState(() => {
-    try{
+    try {
       const saved = localStorage.getItem('ansibleResults');
       console.log('💾 Loading ansibleResults from localStorage');
       if (saved) {
@@ -884,17 +884,21 @@ export function WhatCanIHelp() {
         if (data.status === 'placeholder_credentials' || data.status === 'missing_credentials') {
           setCredentialWarning({
             type: 'placeholder',
-            message: 'OpenShift Hub credentials not configured. Configure vars/user_vars.yml before running MCE operations.'
+            message:
+              'OpenShift Hub credentials not configured. Configure vars/user_vars.yml before running MCE operations.',
           });
         } else if (data.status === 'invalid_credentials' || !data.connected) {
           // Only show warning for credential errors, not for other connection issues
-          if (data.error_details &&
-              (data.error_details.includes('401') ||
-               data.error_details.includes('Unauthorized') ||
-               data.error_details.includes('Login failed'))) {
+          if (
+            data.error_details &&
+            (data.error_details.includes('401') ||
+              data.error_details.includes('Unauthorized') ||
+              data.error_details.includes('Login failed'))
+          ) {
             setCredentialWarning({
               type: 'invalid',
-              message: 'OpenShift Hub credentials may be invalid. Check vars/user_vars.yml or get fresh credentials from your cluster.'
+              message:
+                'OpenShift Hub credentials may be invalid. Check vars/user_vars.yml or get fresh credentials from your cluster.',
             });
           }
         } else {
@@ -2442,9 +2446,7 @@ export function WhatCanIHelp() {
       const updated = prev.map((op) => {
         if (op.id === operationId) {
           // If ansibleResultKey is provided, update it; otherwise keep existing
-          return ansibleResultKey
-            ? { ...op, status, ansibleResultKey }
-            : { ...op, status };
+          return ansibleResultKey ? { ...op, status, ansibleResultKey } : { ...op, status };
         }
         return op;
       });
@@ -3636,7 +3638,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 {!collapsedSections.has('local-environment') && (
                   <div className="space-y-4">
                     <p className="text-sm text-purple-700 mb-4">
-                      Configure and verify your local test environment for CAPI/CAPA Test Automation.
+                      Configure and verify your local test environment for CAPI/CAPA Test
+                      Automation.
                     </p>
 
                     {/* Minikube Cluster Verification Status */}
@@ -3804,7 +3807,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               },
                             };
 
-                            const timestamps = verifiedMinikubeClusterInfo?.component_timestamps || {};
+                            const timestamps =
+                              verifiedMinikubeClusterInfo?.component_timestamps || {};
                             const components = Object.keys(timestamps);
 
                             if (components.length === 0) {
@@ -3820,11 +3824,16 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               if (!meta) return null; // Skip unknown components
 
                               return (
-                                <div key={key} className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded">
+                                <div
+                                  key={key}
+                                  className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded"
+                                >
                                   <div className="flex flex-col">
                                     <div className="flex items-center">
                                       <span className="mr-2">✅</span>
-                                      <span className="text-purple-800 font-medium">{meta.label}</span>
+                                      <span className="text-purple-800 font-medium">
+                                        {meta.label}
+                                      </span>
                                     </div>
                                     <span className="text-purple-600/70 text-[10px] ml-6">
                                       {meta.namespace}
@@ -3841,12 +3850,16 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                           verifiedMinikubeClusterInfo.name,
                                           meta.type,
                                           meta.deployment,
-                                          meta.type === 'CustomResourceDefinition' ? '' : meta.namespace
+                                          meta.type === 'CustomResourceDefinition'
+                                            ? ''
+                                            : meta.namespace
                                         );
                                       }}
                                       className="text-purple-800 font-medium hover:text-purple-600 hover:underline text-left cursor-pointer transition-colors"
                                     >
-                                      {meta.deployment.length > 25 ? meta.deployment.substring(0, 22) + '...' : meta.deployment}
+                                      {meta.deployment.length > 25
+                                        ? meta.deployment.substring(0, 22) + '...'
+                                        : meta.deployment}
                                     </button>
                                   </div>
                                   <span className="text-purple-600 font-mono">{meta.version}</span>
@@ -3861,40 +3874,17 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         </div>
                       </div>
 
-                        {/* Create Secrets Button - Show if any secrets are missing */}
-                        {verifiedMinikubeClusterInfo?.components?.details?.some(
-                          (c) => c.status === 'missing' || c.status === 'not_configured'
-                        ) && (
-                          <div className="mt-3">
-                            <button
-                              onClick={createOCMSecret}
-                              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-2 rounded-lg transition-colors duration-200 font-medium flex items-center justify-center gap-1.5"
-                            >
-                              <svg
-                                className="h-3 w-3"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                                />
-                              </svg>
-                              <span>Create Missing Secrets</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Active Resources */}
-                      <div className="bg-white rounded-lg p-4 border border-purple-100">
-                        <h4 className="text-sm font-semibold text-purple-800 mb-3 flex items-center justify-between">
-                          <div className="flex items-center">
+                      {/* Create Secrets Button - Show if any secrets are missing */}
+                      {verifiedMinikubeClusterInfo?.components?.details?.some(
+                        (c) => c.status === 'missing' || c.status === 'not_configured'
+                      ) && (
+                        <div className="mt-3">
+                          <button
+                            onClick={createOCMSecret}
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-2 rounded-lg transition-colors duration-200 font-medium flex items-center justify-center gap-1.5"
+                          >
                             <svg
-                              className="h-4 w-4 text-purple-600 mr-2"
+                              className="h-3 w-3"
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -3903,286 +3893,300 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                                 strokeWidth={2}
-                                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
                               />
                             </svg>
-                            Active Resources
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            {/* Export Active Resources Button */}
-                            <button
-                              onClick={async () => {
-                                if (!activeResources || activeResources.length === 0) {
-                                  alert('No active resources to export');
-                                  return;
-                                }
+                            <span>Create Missing Secrets</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
 
-                                // Ask if they want to include key component data
-                                const includeComponents = window.confirm(
-                                  'Export Active Resources\n\n' +
+                    {/* Active Resources */}
+                    <div className="bg-white rounded-lg p-4 border border-purple-100">
+                      <h4 className="text-sm font-semibold text-purple-800 mb-3 flex items-center justify-between">
+                        <div className="flex items-center">
+                          <svg
+                            className="h-4 w-4 text-purple-600 mr-2"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                            />
+                          </svg>
+                          Active Resources
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {/* Export Active Resources Button */}
+                          <button
+                            onClick={async () => {
+                              if (!activeResources || activeResources.length === 0) {
+                                alert('No active resources to export');
+                                return;
+                              }
+
+                              // Ask if they want to include key component data
+                              const includeComponents = window.confirm(
+                                'Export Active Resources\n\n' +
                                   'Do you want to include Key Component information in the export?\n\n' +
                                   '✓ Yes - Include component versions and status\n' +
                                   '✗ No - Export only active resources'
+                              );
+
+                              let operationId;
+                              try {
+                                operationId = `export-resources-${Date.now()}`;
+
+                                addToRecent({
+                                  id: operationId,
+                                  title: 'Minikube Export Active Resources',
+                                  color: 'bg-indigo-600',
+                                  status: '⏳ Exporting...',
+                                });
+
+                                console.log(
+                                  `Exporting ${activeResources.length} active resources${includeComponents ? ' with key components' : ''}...`
                                 );
 
-                                let operationId;
-                                try {
-                                  operationId = `export-resources-${Date.now()}`;
+                                // Function to redact sensitive data from YAML
+                                const redactSensitiveData = (yamlContent) => {
+                                  // First, handle entire data/stringData blocks in secrets
+                                  yamlContent = yamlContent.replace(
+                                    /^(\s*)(data|stringData):\s*\n((?:\s+.+\n)*)/gm,
+                                    (match, indent, fieldName, dataBlock) => {
+                                      return `${indent}${fieldName}:\n${indent}  # [SENSITIVE DATA REMOVED - All secret data redacted]\n`;
+                                    }
+                                  );
 
-                                  addToRecent({
-                                    id: operationId,
-                                    title: 'Minikube Export Active Resources',
-                                    color: 'bg-indigo-600',
-                                    status: '⏳ Exporting...',
-                                  });
+                                  // Redact any remaining sensitive field values (in case they're not in data blocks)
+                                  yamlContent = yamlContent.replace(
+                                    /^(\s+)(password|token|apiKey|secretKey|accessKey|privateKey|certificate|clientSecret|clientID|ocmClientSecret|ocmClientID|ocmApiUrl|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|aws_access_key_id|aws_secret_access_key):\s+(.+)$/gim,
+                                    (match, indent, key, value) => {
+                                      return `${indent}${key}: "[SENSITIVE DATA REMOVED]"`;
+                                    }
+                                  );
+
+                                  // Redact any field with "secret" or "password" or "token" in the key name
+                                  yamlContent = yamlContent.replace(
+                                    /^(\s+)([a-zA-Z0-9_-]*(?:secret|password|token|credential|key|api)[a-zA-Z0-9_-]*):\s+(.+)$/gim,
+                                    (match, indent, key, value) => {
+                                      // Skip metadata fields and non-sensitive fields
+                                      if (
+                                        key.toLowerCase().includes('secretname') ||
+                                        key.toLowerCase().includes('secretref') ||
+                                        key.toLowerCase().includes('type') ||
+                                        key.toLowerCase() === 'apiversion'
+                                      ) {
+                                        return match;
+                                      }
+                                      return `${indent}${key}: "[SENSITIVE DATA REMOVED]"`;
+                                    }
+                                  );
+
+                                  return yamlContent;
+                                };
+
+                                // Fetch YAML for all resources
+                                const yamls = [];
+                                for (const resource of activeResources) {
+                                  try {
+                                    // Determine the namespace - some resources are cluster-scoped
+                                    let namespace = verifiedMinikubeClusterInfo.namespace;
+                                    if (
+                                      resource.type === 'Namespace' ||
+                                      resource.type === 'AWSClusterControllerIdentity'
+                                    ) {
+                                      namespace = '';
+                                    }
+                                    // Extract actual resource name if it contains namespace info in parentheses
+                                    let resourceName = resource.name;
+                                    if (resource.name.includes('(')) {
+                                      resourceName = resource.name.split('(')[0].trim();
+                                      // Extract namespace from the name if present
+                                      const namespaceMatch = resource.name.match(/\(([^)]+)\)/);
+                                      if (namespaceMatch) {
+                                        namespace = namespaceMatch[1];
+                                      }
+                                    }
+
+                                    const response = await fetch(
+                                      'http://localhost:8000/api/minikube/get-resource-detail',
+                                      {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                          cluster_name: verifiedMinikubeClusterInfo.name,
+                                          resource_type: resource.type,
+                                          resource_name: resourceName,
+                                          namespace: namespace,
+                                        }),
+                                      }
+                                    );
+
+                                    const result = await response.json();
+                                    if (response.ok && result.success && result.data) {
+                                      // Redact sensitive data before adding to export
+                                      const sanitizedContent = redactSensitiveData(result.data);
+
+                                      yamls.push({
+                                        name: `${resourceName.replace(/[^a-zA-Z0-9-]/g, '_')}_${resource.type.replace(/[^a-zA-Z0-9-]/g, '_')}.yaml`,
+                                        content: sanitizedContent,
+                                      });
+                                    }
+                                  } catch (error) {
+                                    console.error(
+                                      `Error fetching YAML for ${resource.name}:`,
+                                      error
+                                    );
+                                  }
+                                }
+
+                                const completionTime = new Date().toLocaleTimeString('en-US', {
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                  hour12: true,
+                                });
+
+                                if (yamls.length > 0) {
+                                  // Create header with key component information if requested
+                                  let headerInfo = '';
+                                  if (
+                                    includeComponents &&
+                                    verifiedMinikubeClusterInfo?.components
+                                  ) {
+                                    const components =
+                                      verifiedMinikubeClusterInfo.components.details || [];
+                                    headerInfo =
+                                      '# ==============================================================================\n' +
+                                      '# Key Components Information\n' +
+                                      '# ==============================================================================\n' +
+                                      `# Cluster: ${verifiedMinikubeClusterInfo.name}\n` +
+                                      `# Version: ${verifiedMinikubeClusterInfo.version || 'Unknown'}\n` +
+                                      `# Exported: ${new Date().toLocaleString()}\n` +
+                                      '#\n' +
+                                      '# Component Status:\n';
+
+                                    components.forEach((comp) => {
+                                      headerInfo += `#   - ${comp.name}: ${comp.status} ${comp.message ? `(${comp.message})` : ''}\n`;
+                                    });
+
+                                    headerInfo +=
+                                      '# ==============================================================================\n\n';
+                                  }
+
+                                  // Create a combined YAML file with document separators
+                                  const combinedYaml =
+                                    headerInfo +
+                                    yamls.map((y) => `# ${y.name}\n---\n${y.content}`).join('\n\n');
+
+                                  // Create a download link
+                                  const blob = new Blob([combinedYaml], { type: 'text/yaml' });
+                                  const url = window.URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.href = url;
+                                  a.download = `active-resources-${verifiedMinikubeClusterInfo.name}-${Date.now()}.yaml`;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  document.body.removeChild(a);
+                                  window.URL.revokeObjectURL(url);
 
                                   console.log(
-                                    `Exporting ${activeResources.length} active resources${includeComponents ? ' with key components' : ''}...`
+                                    `Exported ${yamls.length} resources successfully at ${completionTime}`
                                   );
-
-                                  // Function to redact sensitive data from YAML
-                                  const redactSensitiveData = (yamlContent) => {
-                                    // First, handle entire data/stringData blocks in secrets
-                                    yamlContent = yamlContent.replace(
-                                      /^(\s*)(data|stringData):\s*\n((?:\s+.+\n)*)/gm,
-                                      (match, indent, fieldName, dataBlock) => {
-                                        return `${indent}${fieldName}:\n${indent}  # [SENSITIVE DATA REMOVED - All secret data redacted]\n`;
-                                      }
-                                    );
-
-                                    // Redact any remaining sensitive field values (in case they're not in data blocks)
-                                    yamlContent = yamlContent.replace(
-                                      /^(\s+)(password|token|apiKey|secretKey|accessKey|privateKey|certificate|clientSecret|clientID|ocmClientSecret|ocmClientID|ocmApiUrl|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|aws_access_key_id|aws_secret_access_key):\s+(.+)$/gim,
-                                      (match, indent, key, value) => {
-                                        return `${indent}${key}: "[SENSITIVE DATA REMOVED]"`;
-                                      }
-                                    );
-
-                                    // Redact any field with "secret" or "password" or "token" in the key name
-                                    yamlContent = yamlContent.replace(
-                                      /^(\s+)([a-zA-Z0-9_-]*(?:secret|password|token|credential|key|api)[a-zA-Z0-9_-]*):\s+(.+)$/gim,
-                                      (match, indent, key, value) => {
-                                        // Skip metadata fields and non-sensitive fields
-                                        if (
-                                          key.toLowerCase().includes('secretname') ||
-                                          key.toLowerCase().includes('secretref') ||
-                                          key.toLowerCase().includes('type') ||
-                                          key.toLowerCase() === 'apiversion'
-                                        ) {
-                                          return match;
-                                        }
-                                        return `${indent}${key}: "[SENSITIVE DATA REMOVED]"`;
-                                      }
-                                    );
-
-                                    return yamlContent;
-                                  };
-
-                                  // Fetch YAML for all resources
-                                  const yamls = [];
-                                  for (const resource of activeResources) {
-                                    try {
-                                      // Determine the namespace - some resources are cluster-scoped
-                                      let namespace = verifiedMinikubeClusterInfo.namespace;
-                                      if (
-                                        resource.type === 'Namespace' ||
-                                        resource.type === 'AWSClusterControllerIdentity'
-                                      ) {
-                                        namespace = '';
-                                      }
-                                      // Extract actual resource name if it contains namespace info in parentheses
-                                      let resourceName = resource.name;
-                                      if (resource.name.includes('(')) {
-                                        resourceName = resource.name.split('(')[0].trim();
-                                        // Extract namespace from the name if present
-                                        const namespaceMatch = resource.name.match(/\(([^)]+)\)/);
-                                        if (namespaceMatch) {
-                                          namespace = namespaceMatch[1];
-                                        }
-                                      }
-
-                                      const response = await fetch(
-                                        'http://localhost:8000/api/minikube/get-resource-detail',
-                                        {
-                                          method: 'POST',
-                                          headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({
-                                            cluster_name: verifiedMinikubeClusterInfo.name,
-                                            resource_type: resource.type,
-                                            resource_name: resourceName,
-                                            namespace: namespace,
-                                          }),
-                                        }
-                                      );
-
-                                      const result = await response.json();
-                                      if (response.ok && result.success && result.data) {
-                                        // Redact sensitive data before adding to export
-                                        const sanitizedContent = redactSensitiveData(result.data);
-
-                                        yamls.push({
-                                          name: `${resourceName.replace(/[^a-zA-Z0-9-]/g, '_')}_${resource.type.replace(/[^a-zA-Z0-9-]/g, '_')}.yaml`,
-                                          content: sanitizedContent,
-                                        });
-                                      }
-                                    } catch (error) {
-                                      console.error(
-                                        `Error fetching YAML for ${resource.name}:`,
-                                        error
-                                      );
-                                    }
-                                  }
-
-                                  const completionTime = new Date().toLocaleTimeString('en-US', {
-                                    hour: 'numeric',
-                                    minute: '2-digit',
-                                    second: '2-digit',
-                                    hour12: true,
-                                  });
-
-                                  if (yamls.length > 0) {
-                                    // Create header with key component information if requested
-                                    let headerInfo = '';
-                                    if (includeComponents && verifiedMinikubeClusterInfo?.components) {
-                                      const components = verifiedMinikubeClusterInfo.components.details || [];
-                                      headerInfo = '# ==============================================================================\n' +
-                                        '# Key Components Information\n' +
-                                        '# ==============================================================================\n' +
-                                        `# Cluster: ${verifiedMinikubeClusterInfo.name}\n` +
-                                        `# Version: ${verifiedMinikubeClusterInfo.version || 'Unknown'}\n` +
-                                        `# Exported: ${new Date().toLocaleString()}\n` +
-                                        '#\n' +
-                                        '# Component Status:\n';
-
-                                      components.forEach(comp => {
-                                        headerInfo += `#   - ${comp.name}: ${comp.status} ${comp.message ? `(${comp.message})` : ''}\n`;
-                                      });
-
-                                      headerInfo += '# ==============================================================================\n\n';
-                                    }
-
-                                    // Create a combined YAML file with document separators
-                                    const combinedYaml = headerInfo + yamls
-                                      .map((y) => `# ${y.name}\n---\n${y.content}`)
-                                      .join('\n\n');
-
-                                    // Create a download link
-                                    const blob = new Blob([combinedYaml], { type: 'text/yaml' });
-                                    const url = window.URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = `active-resources-${verifiedMinikubeClusterInfo.name}-${Date.now()}.yaml`;
-                                    document.body.appendChild(a);
-                                    a.click();
-                                    document.body.removeChild(a);
-                                    window.URL.revokeObjectURL(url);
-
-                                    console.log(
-                                      `Exported ${yamls.length} resources successfully at ${completionTime}`
-                                    );
-                                    updateRecentOperationStatus(
-                                      operationId,
-                                      `✅ Exported ${yamls.length} resources at ${completionTime}`
-                                    );
-                                  } else {
-                                    updateRecentOperationStatus(
-                                      operationId,
-                                      `❌ Export failed at ${completionTime}`
-                                    );
-                                    alert('Failed to export resources');
-                                  }
-                                } catch (error) {
-                                  console.error('Error exporting resources:', error);
-                                  const completionTime = new Date().toLocaleTimeString('en-US', {
-                                    hour: 'numeric',
-                                    minute: '2-digit',
-                                    second: '2-digit',
-                                    hour12: true,
-                                  });
-                                  if (operationId) {
-                                    updateRecentOperationStatus(
-                                      operationId,
-                                      `❌ Export failed at ${completionTime}`
-                                    );
-                                  }
-                                  alert(`Error exporting resources: ${error.message}`);
+                                  updateRecentOperationStatus(
+                                    operationId,
+                                    `✅ Exported ${yamls.length} resources at ${completionTime}`
+                                  );
+                                } else {
+                                  updateRecentOperationStatus(
+                                    operationId,
+                                    `❌ Export failed at ${completionTime}`
+                                  );
+                                  alert('Failed to export resources');
                                 }
-                              }}
-                              className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
-                            >
-                              <svg
-                                className="h-3.5 w-3.5 mr-1.5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                />
-                              </svg>
-                              <span>Export</span>
-                            </button>
-
-                            {/* Refresh Active Resources Button */}
-                            <button
-                              onClick={async (e) => {
-                                e.stopPropagation(); // Prevent card collapse
-                                const operationId = `refresh-minikube-resources-${Date.now()}`;
-                                try {
-                                  addToRecent({
-                                    id: operationId,
-                                    title: 'Minikube Refresh Active Resources',
-                                    color: 'bg-cyan-600',
-                                    status: '🔄 Refreshing...',
-                                  });
-
-                                  // Run the validation task directly
-                                  const response = await fetch(
-                                    'http://localhost:8000/api/ansible/run-task',
-                                    {
-                                      method: 'POST',
-                                      headers: {
-                                        'Content-Type': 'application/json',
-                                      },
-                                      body: JSON.stringify({
-                                        task_file: 'tasks/validate-kind-capa-environment.yml',
-                                        description: 'Minikube Refresh Active Resources',
-                                      }),
-                                    }
+                              } catch (error) {
+                                console.error('Error exporting resources:', error);
+                                const completionTime = new Date().toLocaleTimeString('en-US', {
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                  hour12: true,
+                                });
+                                if (operationId) {
+                                  updateRecentOperationStatus(
+                                    operationId,
+                                    `❌ Export failed at ${completionTime}`
                                   );
+                                }
+                                alert(`Error exporting resources: ${error.message}`);
+                              }
+                            }}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                          >
+                            <svg
+                              className="h-3.5 w-3.5 mr-1.5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                              />
+                            </svg>
+                            <span>Export</span>
+                          </button>
 
-                                  const result = await response.json();
+                          {/* Refresh Active Resources Button */}
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation(); // Prevent card collapse
+                              const operationId = `refresh-minikube-resources-${Date.now()}`;
+                              try {
+                                addToRecent({
+                                  id: operationId,
+                                  title: 'Minikube Refresh Active Resources',
+                                  color: 'bg-cyan-600',
+                                  status: '🔄 Refreshing...',
+                                });
 
-                                  if (response.ok && result.success) {
-                                    // Store refresh results in a separate key
-                                    setAnsibleResults((prev) => ({
-                                      ...prev,
-                                      'refresh-check-minikube-components': {
-                                        loading: false,
-                                        result: result,
-                                        timestamp: new Date(),
-                                        success: true,
-                                      },
-                                    }));
-
-                                    const completionTime = new Date().toLocaleTimeString('en-US', {
-                                      hour: 'numeric',
-                                      minute: '2-digit',
-                                      second: '2-digit',
-                                      hour12: true,
-                                    });
-                                    updateRecentOperationStatus(
-                                      operationId,
-                                      `✅ Refreshed at ${completionTime}`
-                                    );
-                                  } else {
-                                    throw new Error(result.error || 'Refresh failed');
+                                // Run the validation task directly
+                                const response = await fetch(
+                                  'http://localhost:8000/api/ansible/run-task',
+                                  {
+                                    method: 'POST',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                      task_file: 'tasks/validate-kind-capa-environment.yml',
+                                      description: 'Minikube Refresh Active Resources',
+                                    }),
                                   }
-                                } catch (error) {
-                                  console.error('Error refreshing Minikube resources:', error);
+                                );
+
+                                const result = await response.json();
+
+                                if (response.ok && result.success) {
+                                  // Store refresh results in a separate key
+                                  setAnsibleResults((prev) => ({
+                                    ...prev,
+                                    'refresh-check-minikube-components': {
+                                      loading: false,
+                                      result: result,
+                                      timestamp: new Date(),
+                                      success: true,
+                                    },
+                                  }));
+
                                   const completionTime = new Date().toLocaleTimeString('en-US', {
                                     hour: 'numeric',
                                     minute: '2-digit',
@@ -4191,613 +4195,624 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   });
                                   updateRecentOperationStatus(
                                     operationId,
-                                    `❌ Refresh failed at ${completionTime}`
-                                  );
-                                }
-                              }}
-                              className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
-                            >
-                              <svg
-                                className="h-3.5 w-3.5 mr-1.5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                                />
-                              </svg>
-                              <span>Refresh</span>
-                            </button>
-
-                            {/* Provision ROSA HCP Cluster Button */}
-                            <button
-                              onClick={async () => {
-                                let operationId; // Declare outside try block for catch access
-                                try {
-                                  // Prompt user for cluster definition file name
-                                  const clusterFile = prompt(
-                                    'Enter the ROSA HCP cluster definition file name:\n\n' +
-                                      'Examples:\n' +
-                                      '- capi-rosahcp-test.yml (default)\n' +
-                                      '- my-rosa-cluster.yaml\n' +
-                                      '- rosa-production.yml\n\n' +
-                                      'File should be in /Users/tinafitzgerald/acm_dev/automation-capi/',
-                                    'capi-rosahcp-test.yml'
-                                  );
-
-                                  // If user cancels or provides empty string, exit
-                                  if (!clusterFile || clusterFile.trim() === '') {
-                                    return;
-                                  }
-
-                                  const trimmedFile = clusterFile.trim();
-
-                                  if (
-                                    !confirm(
-                                      `Provision ROSA HCP Cluster using "${trimmedFile}"?\n\nThis will:\n- Create namespace ns-rosa-hcp\n- Apply AWS Identity configuration\n- Create OCM client secret\n- Apply ROSA HCP cluster definition from ${trimmedFile}`
-                                    )
-                                  ) {
-                                    return;
-                                  }
-
-                                  // Create unique ID for this operation
-                                  operationId = `provision-rosa-hcp-${Date.now()}`;
-
-                                  // Add to recent operations with "Provisioning..." status
-                                  addToRecent({
-                                    id: operationId,
-                                    title: `Minikube Provision ROSA HCP: ${trimmedFile}`,
-                                    color: 'bg-rose-600',
-                                    status: '⏳ Provisioning...',
-                                  });
-
-                                  // Small delay to show the "Provisioning..." status
-                                  await new Promise((resolve) => setTimeout(resolve, 1000));
-
-                                  console.log(
-                                    `Starting ROSA HCP cluster provisioning with file: ${trimmedFile}`
-                                  );
-
-                                  const response = await fetch(
-                                    'http://localhost:8000/api/ansible/run-task',
-                                    {
-                                      method: 'POST',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({
-                                        task_file: 'tasks/provision-rosa-hcp-cluster.yml',
-                                        description: `Provision ROSA HCP Cluster: ${trimmedFile}`,
-                                        kube_context:
-                                          verifiedMinikubeClusterInfo?.contextName ||
-                                          verifiedMinikubeClusterInfo?.name,
-                                        extra_vars: {
-                                          ROSA_HCP_CLUSTER_FILE: trimmedFile,
-                                        },
-                                      }),
-                                    }
-                                  );
-
-                                  const result = await response.json();
-
-                                  // Get completion time with seconds
-                                  const completionTime = new Date().toLocaleTimeString('en-US', {
-                                    hour: 'numeric',
-                                    minute: '2-digit',
-                                    second: '2-digit',
-                                    hour12: true,
-                                  });
-
-                                  console.log('[Minikube Provision ROSA HCP] Response:', {
-                                    ok: response.ok,
-                                    success: result.success,
-                                    result: result
-                                  });
-
-                                  if (response.ok && result.success) {
-                                    console.log(
-                                      `ROSA HCP provisioning initiated successfully at ${completionTime}`
-                                    );
-
-                                    // Store result in ansibleResults for display in Local Test Environment
-                                    setAnsibleResults((prev) => ({
-                                      ...prev,
-                                      [operationId]: {
-                                        loading: false,
-                                        success: true,
-                                        result: {
-                                          output: result.output,
-                                          timestamp: new Date(), // Store as Date object for comparison
-                                          playbook: 'provision-rosa-hcp-cluster.yml',
-                                          type: 'ROSA HCP Provisioning',
-                                          clusterFile: trimmedFile,
-                                        },
-                                        timestamp: new Date(), // Also at top level for consistency
-                                      },
-                                    }));
-
-                                    updateRecentOperationStatus(
-                                      operationId,
-                                      `✅ Provisioning Initiated at ${completionTime}`,
-                                      operationId // Pass as ansibleResultKey
-                                    );
-
-                                    // Automatically refresh active resources after successful provisioning
-                                    try {
-                                      console.log(
-                                        'Auto-refreshing active resources after provisioning...'
-                                      );
-                                      const refreshResponse = await fetch(
-                                        'http://localhost:8000/api/minikube/get-active-resources',
-                                        {
-                                          method: 'POST',
-                                          headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({
-                                            cluster_name: verifiedMinikubeClusterInfo.name,
-                                            namespace: verifiedMinikubeClusterInfo.namespace,
-                                          }),
-                                        }
-                                      );
-
-                                      const refreshResult = await refreshResponse.json();
-
-                                      if (refreshResponse.ok && refreshResult.success) {
-                                        console.log(
-                                          'Active resources refreshed automatically',
-                                          refreshResult
-                                        );
-                                        setActiveResources(refreshResult.resources || []);
-                                      }
-                                    } catch (refreshError) {
-                                      console.error(
-                                        'Error auto-refreshing resources:',
-                                        refreshError
-                                      );
-                                    }
-                                  } else {
-                                    console.log(
-                                      `ROSA HCP provisioning failed at ${completionTime}`
-                                    );
-
-                                    // Store failed result with error details
-                                    const errorDetails = {
-                                      error: result.error || result.message || result.detail || 'Provisioning failed',
-                                      output: result.output || result.error || result.message || '',
-                                      timestamp: new Date(),
-                                      playbook: 'provision-rosa-hcp-cluster.yml',
-                                      type: 'ROSA HCP Provisioning',
-                                      clusterFile: trimmedFile,
-                                      return_code: result.return_code,
-                                      fullResponse: result,
-                                    };
-
-                                    console.log('[Minikube Provision ROSA HCP] Error details:', errorDetails);
-
-                                    setAnsibleResults((prev) => ({
-                                      ...prev,
-                                      [operationId]: {
-                                        loading: false,
-                                        success: false,
-                                        result: errorDetails,
-                                        timestamp: new Date(),
-                                      },
-                                    }));
-
-                                    updateRecentOperationStatus(
-                                      operationId,
-                                      `❌ Provisioning failed at ${completionTime}`,
-                                      operationId // Pass as ansibleResultKey
-                                    );
-                                  }
-                                } catch (error) {
-                                  console.error('ROSA HCP provisioning error:', error);
-                                  const completionTime = new Date().toLocaleTimeString('en-US', {
-                                    hour: 'numeric',
-                                    minute: '2-digit',
-                                    second: '2-digit',
-                                    hour12: true,
-                                  });
-                                  // Update status if we have the operationId
-                                  if (operationId) {
-                                    // Store error for inline display
-                                    setAnsibleResults((prev) => ({
-                                      ...prev,
-                                      [operationId]: {
-                                        loading: false,
-                                        success: false,
-                                        result: {
-                                          error: error.message,
-                                          output: error.message,
-                                        },
-                                        timestamp: new Date(),
-                                      },
-                                    }));
-
-                                    updateRecentOperationStatus(
-                                      operationId,
-                                      `❌ Error at ${completionTime}`,
-                                      operationId // Pass as ansibleResultKey
-                                    );
-                                  }
-                                  alert(`Error provisioning ROSA HCP cluster: ${error.message}`);
-                                }
-                              }}
-                              className="bg-violet-600 hover:bg-violet-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
-                            >
-                              <svg
-                                className="h-3.5 w-3.5 mr-1.5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                                />
-                              </svg>
-                              <span>Provision ROSA HCP</span>
-                            </button>
-
-                            {/* Configure AutoNode Button */}
-                            {(() => {
-                              // Check if we have ansible results with dynamic resources
-                              const checkMinikubeResult =
-                                ansibleResults['check-minikube-components'];
-                              const refreshCheckMinikubeResult =
-                                ansibleResults['refresh-check-minikube-components'];
-
-                              let statusResult = checkMinikubeResult;
-
-                              if (refreshCheckMinikubeResult && checkMinikubeResult) {
-                                const checkTime = checkMinikubeResult.timestamp?.getTime
-                                  ? checkMinikubeResult.timestamp.getTime()
-                                  : new Date(checkMinikubeResult.timestamp).getTime();
-                                const refreshTime = refreshCheckMinikubeResult.timestamp?.getTime
-                                  ? refreshCheckMinikubeResult.timestamp.getTime()
-                                  : new Date(refreshCheckMinikubeResult.timestamp).getTime();
-                                if (refreshTime > checkTime) {
-                                  statusResult = refreshCheckMinikubeResult;
-                                }
-                              } else if (refreshCheckMinikubeResult && !checkMinikubeResult) {
-                                statusResult = refreshCheckMinikubeResult;
-                              }
-
-                              const dynamicResources =
-                                statusResult && statusResult.result
-                                  ? parseDynamicResources(statusResult.result.output)
-                                  : [];
-
-                              if (dynamicResources.length === 0) return null;
-
-                              return (
-                                <button
-                                  onClick={async () => {
-                                    let operationId; // Declare outside try block for catch access
-                                    try {
-                                      // Find the ROSA cluster name from dynamicResources
-                                      const rosaCluster = dynamicResources.find(
-                                        (r) => r.type === 'RosaControlPlane'
-                                      );
-                                      if (!rosaCluster) {
-                                        alert('No ROSA cluster found in active resources');
-                                        return;
-                                      }
-
-                                      const clusterName = rosaCluster.name;
-
-                                      if (
-                                        !confirm(
-                                          `Configure AutoNode for cluster "${clusterName}"?\n\nThis will:\n- Validate prerequisites\n- Create IAM policies and roles\n- Configure Karpenter\n- Run scaling tests`
-                                        )
-                                      ) {
-                                        return;
-                                      }
-
-                                      // Create unique ID for this operation
-                                      operationId = `configure-autonode-${Date.now()}`;
-
-                                      // Add to recent operations with "Configuring..." status
-                                      addToRecent({
-                                        id: operationId,
-                                        title: `Minikube Configure AutoNode: ${clusterName}`,
-                                        color: 'bg-purple-600',
-                                        status: '⏳ Configuring...',
-                                      });
-
-                                      console.log(
-                                        `Starting AutoNode configuration for ${clusterName}...`
-                                      );
-
-                                      const response = await fetch(
-                                        'http://localhost:8000/api/ansible/run-playbook',
-                                        {
-                                          method: 'POST',
-                                          headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({
-                                            playbook: 'test-autonode.yml',
-                                            description: `Configure AutoNode for ${clusterName}`,
-                                            extra_vars: {
-                                              cluster_name: clusterName,
-                                            },
-                                          }),
-                                        }
-                                      );
-
-                                      const result = await response.json();
-
-                                      // Get completion time with seconds
-                                      const completionTime = new Date().toLocaleTimeString(
-                                        'en-US',
-                                        {
-                                          hour: 'numeric',
-                                          minute: '2-digit',
-                                          second: '2-digit',
-                                          hour12: true,
-                                        }
-                                      );
-
-                                      if (response.ok && result.success) {
-                                        console.log(
-                                          `AutoNode configuration completed successfully at ${completionTime}`
-                                        );
-                                        updateRecentOperationStatus(
-                                          operationId,
-                                          `✅ Configured successfully at ${completionTime}`
-                                        );
-
-                                        // Show Ansible execution summary
-                                        setAnsibleOutput({
-                                          title: `AutoNode Configuration: ${clusterName}`,
-                                          success: true,
-                                          output: result.output,
-                                          timestamp: completionTime,
-                                        });
-                                        setShowAnsibleModal(true);
-                                      } else {
-                                        console.log(
-                                          `AutoNode configuration failed at ${completionTime}`
-                                        );
-                                        updateRecentOperationStatus(
-                                          operationId,
-                                          `❌ Configuration failed at ${completionTime}`
-                                        );
-
-                                        // Show Ansible execution summary with error
-                                        setAnsibleOutput({
-                                          title: `AutoNode Configuration: ${clusterName}`,
-                                          success: false,
-                                          output: result.output,
-                                          error: result.error,
-                                          timestamp: completionTime,
-                                        });
-                                        setShowAnsibleModal(true);
-                                      }
-                                    } catch (error) {
-                                      console.error('AutoNode configuration error:', error);
-                                      const completionTime = new Date().toLocaleTimeString(
-                                        'en-US',
-                                        {
-                                          hour: 'numeric',
-                                          minute: '2-digit',
-                                          second: '2-digit',
-                                          hour12: true,
-                                        }
-                                      );
-                                      // Update status if we have the operationId
-                                      if (operationId) {
-                                        updateRecentOperationStatus(
-                                          operationId,
-                                          `❌ Error at ${completionTime}`
-                                        );
-                                      }
-                                      alert(`Error configuring AutoNode: ${error.message}`);
-                                    }
-                                  }}
-                                  className="px-3 py-1 text-xs font-medium text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-md shadow-sm hover:shadow transition-all duration-200 flex items-center space-x-1"
-                                >
-                                  <svg
-                                    className="h-3 w-3"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                                    />
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                    />
-                                  </svg>
-                                  <span>Configure AutoNode</span>
-                                </button>
-                              );
-                            })()}
-                          </div>
-                        </h4>
-                        {(() => {
-                          // Get the most recent validation result (either original or refresh)
-                          const checkMinikubeResult = ansibleResults['check-minikube-components'];
-                          const refreshCheckMinikubeResult =
-                            ansibleResults['refresh-check-minikube-components'];
-
-                          let statusResult = checkMinikubeResult;
-
-                          // Use refresh result if it's more recent
-                          if (refreshCheckMinikubeResult && checkMinikubeResult) {
-                            const checkTime = checkMinikubeResult.timestamp?.getTime
-                              ? checkMinikubeResult.timestamp.getTime()
-                              : new Date(checkMinikubeResult.timestamp).getTime();
-                            const refreshTime = refreshCheckMinikubeResult.timestamp?.getTime
-                              ? refreshCheckMinikubeResult.timestamp.getTime()
-                              : new Date(refreshCheckMinikubeResult.timestamp).getTime();
-                            if (refreshTime > checkTime) {
-                              statusResult = refreshCheckMinikubeResult;
-                            }
-                          } else if (refreshCheckMinikubeResult && !checkMinikubeResult) {
-                            statusResult = refreshCheckMinikubeResult;
-                          }
-
-                          // If we have a validation result, parse and display dynamic resources
-                          if (statusResult && statusResult.result) {
-                            const output = statusResult.result.output;
-                            const dynamicResources = parseDynamicResources(output);
-
-                            if (dynamicResources.length > 0) {
-                              // Sort resources
-                              const sortedResources = sortResources(
-                                dynamicResources,
-                                minikubeSortField,
-                                minikubeSortDirection
-                              );
-
-                              // Helper function to handle column header clicks
-                              const handleMinikubeSort = (field) => {
-                                if (minikubeSortField === field) {
-                                  // Toggle direction
-                                  setMinikubeSortDirection(
-                                    minikubeSortDirection === 'asc' ? 'desc' : 'asc'
+                                    `✅ Refreshed at ${completionTime}`
                                   );
                                 } else {
-                                  // New field, default to ascending
-                                  setMinikubeSortField(field);
-                                  setMinikubeSortDirection('asc');
+                                  throw new Error(result.error || 'Refresh failed');
                                 }
-                              };
+                              } catch (error) {
+                                console.error('Error refreshing Minikube resources:', error);
+                                const completionTime = new Date().toLocaleTimeString('en-US', {
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                  hour12: true,
+                                });
+                                updateRecentOperationStatus(
+                                  operationId,
+                                  `❌ Refresh failed at ${completionTime}`
+                                );
+                              }
+                            }}
+                            className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                          >
+                            <svg
+                              className="h-3.5 w-3.5 mr-1.5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                              />
+                            </svg>
+                            <span>Refresh</span>
+                          </button>
 
-                              return (
-                                <>
-                                  {/* Table Header */}
-                                  <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs font-semibold text-purple-700 bg-purple-50 px-3 py-2 rounded mb-2">
-                                    <div
-                                      className="cursor-pointer hover:text-purple-900 transition-colors flex items-center"
-                                      onClick={() => handleMinikubeSort('type')}
-                                    >
-                                      Type
-                                      {minikubeSortField === 'type' && (
-                                        <span className="ml-1">
-                                          {minikubeSortDirection === 'asc' ? '↑' : '↓'}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div
-                                      className="cursor-pointer hover:text-purple-900 transition-colors flex items-center"
-                                      onClick={() => handleMinikubeSort('name')}
-                                    >
-                                      Name
-                                      {minikubeSortField === 'name' && (
-                                        <span className="ml-1">
-                                          {minikubeSortDirection === 'asc' ? '↑' : '↓'}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div>Version</div>
-                                    <div
-                                      className="cursor-pointer hover:text-purple-900 transition-colors flex items-center"
-                                      onClick={() => handleMinikubeSort('age')}
-                                    >
-                                      Age
-                                      {minikubeSortField === 'age' && (
-                                        <span className="ml-1">
-                                          {minikubeSortDirection === 'asc' ? '↑' : '↓'}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div
-                                      className="cursor-pointer hover:text-purple-900 transition-colors flex items-center"
-                                      onClick={() => handleMinikubeSort('status')}
-                                    >
-                                      Status
-                                      {minikubeSortField === 'status' && (
-                                        <span className="ml-1">
-                                          {minikubeSortDirection === 'asc' ? '↑' : '↓'}
-                                        </span>
-                                      )}
-                                    </div>
+                          {/* Provision ROSA HCP Cluster Button */}
+                          <button
+                            onClick={async () => {
+                              let operationId; // Declare outside try block for catch access
+                              try {
+                                // Prompt user for cluster definition file name
+                                const clusterFile = prompt(
+                                  'Enter the ROSA HCP cluster definition file name:\n\n' +
+                                    'Examples:\n' +
+                                    '- capi-rosahcp-test.yml (default)\n' +
+                                    '- my-rosa-cluster.yaml\n' +
+                                    '- rosa-production.yml\n\n' +
+                                    'File should be in /Users/tinafitzgerald/acm_dev/automation-capi/',
+                                  'capi-rosahcp-test.yml'
+                                );
+
+                                // If user cancels or provides empty string, exit
+                                if (!clusterFile || clusterFile.trim() === '') {
+                                  return;
+                                }
+
+                                const trimmedFile = clusterFile.trim();
+
+                                if (
+                                  !confirm(
+                                    `Provision ROSA HCP Cluster using "${trimmedFile}"?\n\nThis will:\n- Create namespace ns-rosa-hcp\n- Apply AWS Identity configuration\n- Create OCM client secret\n- Apply ROSA HCP cluster definition from ${trimmedFile}`
+                                  )
+                                ) {
+                                  return;
+                                }
+
+                                // Create unique ID for this operation
+                                operationId = `provision-rosa-hcp-${Date.now()}`;
+
+                                // Add to recent operations with "Provisioning..." status
+                                addToRecent({
+                                  id: operationId,
+                                  title: `Minikube Provision ROSA HCP: ${trimmedFile}`,
+                                  color: 'bg-rose-600',
+                                  status: '⏳ Provisioning...',
+                                });
+
+                                // Small delay to show the "Provisioning..." status
+                                await new Promise((resolve) => setTimeout(resolve, 1000));
+
+                                console.log(
+                                  `Starting ROSA HCP cluster provisioning with file: ${trimmedFile}`
+                                );
+
+                                const response = await fetch(
+                                  'http://localhost:8000/api/ansible/run-task',
+                                  {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      task_file: 'tasks/provision-rosa-hcp-cluster.yml',
+                                      description: `Provision ROSA HCP Cluster: ${trimmedFile}`,
+                                      kube_context:
+                                        verifiedMinikubeClusterInfo?.contextName ||
+                                        verifiedMinikubeClusterInfo?.name,
+                                      extra_vars: {
+                                        ROSA_HCP_CLUSTER_FILE: trimmedFile,
+                                      },
+                                    }),
+                                  }
+                                );
+
+                                const result = await response.json();
+
+                                // Get completion time with seconds
+                                const completionTime = new Date().toLocaleTimeString('en-US', {
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                  hour12: true,
+                                });
+
+                                console.log('[Minikube Provision ROSA HCP] Response:', {
+                                  ok: response.ok,
+                                  success: result.success,
+                                  result: result,
+                                });
+
+                                if (response.ok && result.success) {
+                                  console.log(
+                                    `ROSA HCP provisioning initiated successfully at ${completionTime}`
+                                  );
+
+                                  // Store result in ansibleResults for display in Local Test Environment
+                                  setAnsibleResults((prev) => ({
+                                    ...prev,
+                                    [operationId]: {
+                                      loading: false,
+                                      success: true,
+                                      result: {
+                                        output: result.output,
+                                        timestamp: new Date(), // Store as Date object for comparison
+                                        playbook: 'provision-rosa-hcp-cluster.yml',
+                                        type: 'ROSA HCP Provisioning',
+                                        clusterFile: trimmedFile,
+                                      },
+                                      timestamp: new Date(), // Also at top level for consistency
+                                    },
+                                  }));
+
+                                  updateRecentOperationStatus(
+                                    operationId,
+                                    `✅ Provisioning Initiated at ${completionTime}`,
+                                    operationId // Pass as ansibleResultKey
+                                  );
+
+                                  // Automatically refresh active resources after successful provisioning
+                                  try {
+                                    console.log(
+                                      'Auto-refreshing active resources after provisioning...'
+                                    );
+                                    const refreshResponse = await fetch(
+                                      'http://localhost:8000/api/minikube/get-active-resources',
+                                      {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                          cluster_name: verifiedMinikubeClusterInfo.name,
+                                          namespace: verifiedMinikubeClusterInfo.namespace,
+                                        }),
+                                      }
+                                    );
+
+                                    const refreshResult = await refreshResponse.json();
+
+                                    if (refreshResponse.ok && refreshResult.success) {
+                                      console.log(
+                                        'Active resources refreshed automatically',
+                                        refreshResult
+                                      );
+                                      setActiveResources(refreshResult.resources || []);
+                                    }
+                                  } catch (refreshError) {
+                                    console.error('Error auto-refreshing resources:', refreshError);
+                                  }
+                                } else {
+                                  console.log(`ROSA HCP provisioning failed at ${completionTime}`);
+
+                                  // Store failed result with error details
+                                  const errorDetails = {
+                                    error:
+                                      result.error ||
+                                      result.message ||
+                                      result.detail ||
+                                      'Provisioning failed',
+                                    output: result.output || result.error || result.message || '',
+                                    timestamp: new Date(),
+                                    playbook: 'provision-rosa-hcp-cluster.yml',
+                                    type: 'ROSA HCP Provisioning',
+                                    clusterFile: trimmedFile,
+                                    return_code: result.return_code,
+                                    fullResponse: result,
+                                  };
+
+                                  console.log(
+                                    '[Minikube Provision ROSA HCP] Error details:',
+                                    errorDetails
+                                  );
+
+                                  setAnsibleResults((prev) => ({
+                                    ...prev,
+                                    [operationId]: {
+                                      loading: false,
+                                      success: false,
+                                      result: errorDetails,
+                                      timestamp: new Date(),
+                                    },
+                                  }));
+
+                                  updateRecentOperationStatus(
+                                    operationId,
+                                    `❌ Provisioning failed at ${completionTime}`,
+                                    operationId // Pass as ansibleResultKey
+                                  );
+                                }
+                              } catch (error) {
+                                console.error('ROSA HCP provisioning error:', error);
+                                const completionTime = new Date().toLocaleTimeString('en-US', {
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                  hour12: true,
+                                });
+                                // Update status if we have the operationId
+                                if (operationId) {
+                                  // Store error for inline display
+                                  setAnsibleResults((prev) => ({
+                                    ...prev,
+                                    [operationId]: {
+                                      loading: false,
+                                      success: false,
+                                      result: {
+                                        error: error.message,
+                                        output: error.message,
+                                      },
+                                      timestamp: new Date(),
+                                    },
+                                  }));
+
+                                  updateRecentOperationStatus(
+                                    operationId,
+                                    `❌ Error at ${completionTime}`,
+                                    operationId // Pass as ansibleResultKey
+                                  );
+                                }
+                                alert(`Error provisioning ROSA HCP cluster: ${error.message}`);
+                              }
+                            }}
+                            className="bg-violet-600 hover:bg-violet-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                          >
+                            <svg
+                              className="h-3.5 w-3.5 mr-1.5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                              />
+                            </svg>
+                            <span>Provision ROSA HCP</span>
+                          </button>
+
+                          {/* Configure AutoNode Button */}
+                          {(() => {
+                            // Check if we have ansible results with dynamic resources
+                            const checkMinikubeResult = ansibleResults['check-minikube-components'];
+                            const refreshCheckMinikubeResult =
+                              ansibleResults['refresh-check-minikube-components'];
+
+                            let statusResult = checkMinikubeResult;
+
+                            if (refreshCheckMinikubeResult && checkMinikubeResult) {
+                              const checkTime = checkMinikubeResult.timestamp?.getTime
+                                ? checkMinikubeResult.timestamp.getTime()
+                                : new Date(checkMinikubeResult.timestamp).getTime();
+                              const refreshTime = refreshCheckMinikubeResult.timestamp?.getTime
+                                ? refreshCheckMinikubeResult.timestamp.getTime()
+                                : new Date(refreshCheckMinikubeResult.timestamp).getTime();
+                              if (refreshTime > checkTime) {
+                                statusResult = refreshCheckMinikubeResult;
+                              }
+                            } else if (refreshCheckMinikubeResult && !checkMinikubeResult) {
+                              statusResult = refreshCheckMinikubeResult;
+                            }
+
+                            const dynamicResources =
+                              statusResult && statusResult.result
+                                ? parseDynamicResources(statusResult.result.output)
+                                : [];
+
+                            if (dynamicResources.length === 0) return null;
+
+                            return (
+                              <button
+                                onClick={async () => {
+                                  let operationId; // Declare outside try block for catch access
+                                  try {
+                                    // Find the ROSA cluster name from dynamicResources
+                                    const rosaCluster = dynamicResources.find(
+                                      (r) => r.type === 'RosaControlPlane'
+                                    );
+                                    if (!rosaCluster) {
+                                      alert('No ROSA cluster found in active resources');
+                                      return;
+                                    }
+
+                                    const clusterName = rosaCluster.name;
+
+                                    if (
+                                      !confirm(
+                                        `Configure AutoNode for cluster "${clusterName}"?\n\nThis will:\n- Validate prerequisites\n- Create IAM policies and roles\n- Configure Karpenter\n- Run scaling tests`
+                                      )
+                                    ) {
+                                      return;
+                                    }
+
+                                    // Create unique ID for this operation
+                                    operationId = `configure-autonode-${Date.now()}`;
+
+                                    // Add to recent operations with "Configuring..." status
+                                    addToRecent({
+                                      id: operationId,
+                                      title: `Minikube Configure AutoNode: ${clusterName}`,
+                                      color: 'bg-purple-600',
+                                      status: '⏳ Configuring...',
+                                    });
+
+                                    console.log(
+                                      `Starting AutoNode configuration for ${clusterName}...`
+                                    );
+
+                                    const response = await fetch(
+                                      'http://localhost:8000/api/ansible/run-playbook',
+                                      {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                          playbook: 'test-autonode.yml',
+                                          description: `Configure AutoNode for ${clusterName}`,
+                                          extra_vars: {
+                                            cluster_name: clusterName,
+                                          },
+                                        }),
+                                      }
+                                    );
+
+                                    const result = await response.json();
+
+                                    // Get completion time with seconds
+                                    const completionTime = new Date().toLocaleTimeString('en-US', {
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      second: '2-digit',
+                                      hour12: true,
+                                    });
+
+                                    if (response.ok && result.success) {
+                                      console.log(
+                                        `AutoNode configuration completed successfully at ${completionTime}`
+                                      );
+                                      updateRecentOperationStatus(
+                                        operationId,
+                                        `✅ Configured successfully at ${completionTime}`
+                                      );
+
+                                      // Show Ansible execution summary
+                                      setAnsibleOutput({
+                                        title: `AutoNode Configuration: ${clusterName}`,
+                                        success: true,
+                                        output: result.output,
+                                        timestamp: completionTime,
+                                      });
+                                      setShowAnsibleModal(true);
+                                    } else {
+                                      console.log(
+                                        `AutoNode configuration failed at ${completionTime}`
+                                      );
+                                      updateRecentOperationStatus(
+                                        operationId,
+                                        `❌ Configuration failed at ${completionTime}`
+                                      );
+
+                                      // Show Ansible execution summary with error
+                                      setAnsibleOutput({
+                                        title: `AutoNode Configuration: ${clusterName}`,
+                                        success: false,
+                                        output: result.output,
+                                        error: result.error,
+                                        timestamp: completionTime,
+                                      });
+                                      setShowAnsibleModal(true);
+                                    }
+                                  } catch (error) {
+                                    console.error('AutoNode configuration error:', error);
+                                    const completionTime = new Date().toLocaleTimeString('en-US', {
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      second: '2-digit',
+                                      hour12: true,
+                                    });
+                                    // Update status if we have the operationId
+                                    if (operationId) {
+                                      updateRecentOperationStatus(
+                                        operationId,
+                                        `❌ Error at ${completionTime}`
+                                      );
+                                    }
+                                    alert(`Error configuring AutoNode: ${error.message}`);
+                                  }
+                                }}
+                                className="px-3 py-1 text-xs font-medium text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-md shadow-sm hover:shadow transition-all duration-200 flex items-center space-x-1"
+                              >
+                                <svg
+                                  className="h-3 w-3"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                                  />
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                  />
+                                </svg>
+                                <span>Configure AutoNode</span>
+                              </button>
+                            );
+                          })()}
+                        </div>
+                      </h4>
+                      {(() => {
+                        // Get the most recent validation result (either original or refresh)
+                        const checkMinikubeResult = ansibleResults['check-minikube-components'];
+                        const refreshCheckMinikubeResult =
+                          ansibleResults['refresh-check-minikube-components'];
+
+                        let statusResult = checkMinikubeResult;
+
+                        // Use refresh result if it's more recent
+                        if (refreshCheckMinikubeResult && checkMinikubeResult) {
+                          const checkTime = checkMinikubeResult.timestamp?.getTime
+                            ? checkMinikubeResult.timestamp.getTime()
+                            : new Date(checkMinikubeResult.timestamp).getTime();
+                          const refreshTime = refreshCheckMinikubeResult.timestamp?.getTime
+                            ? refreshCheckMinikubeResult.timestamp.getTime()
+                            : new Date(refreshCheckMinikubeResult.timestamp).getTime();
+                          if (refreshTime > checkTime) {
+                            statusResult = refreshCheckMinikubeResult;
+                          }
+                        } else if (refreshCheckMinikubeResult && !checkMinikubeResult) {
+                          statusResult = refreshCheckMinikubeResult;
+                        }
+
+                        // If we have a validation result, parse and display dynamic resources
+                        if (statusResult && statusResult.result) {
+                          const output = statusResult.result.output;
+                          const dynamicResources = parseDynamicResources(output);
+
+                          if (dynamicResources.length > 0) {
+                            // Sort resources
+                            const sortedResources = sortResources(
+                              dynamicResources,
+                              minikubeSortField,
+                              minikubeSortDirection
+                            );
+
+                            // Helper function to handle column header clicks
+                            const handleMinikubeSort = (field) => {
+                              if (minikubeSortField === field) {
+                                // Toggle direction
+                                setMinikubeSortDirection(
+                                  minikubeSortDirection === 'asc' ? 'desc' : 'asc'
+                                );
+                              } else {
+                                // New field, default to ascending
+                                setMinikubeSortField(field);
+                                setMinikubeSortDirection('asc');
+                              }
+                            };
+
+                            return (
+                              <>
+                                {/* Table Header */}
+                                <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs font-semibold text-purple-700 bg-purple-50 px-3 py-2 rounded mb-2">
+                                  <div
+                                    className="cursor-pointer hover:text-purple-900 transition-colors flex items-center"
+                                    onClick={() => handleMinikubeSort('type')}
+                                  >
+                                    Type
+                                    {minikubeSortField === 'type' && (
+                                      <span className="ml-1">
+                                        {minikubeSortDirection === 'asc' ? '↑' : '↓'}
+                                      </span>
+                                    )}
                                   </div>
-                                  <div className="space-y-1.5">
-                                    {sortedResources.map((resource, index) => (
-                                      <div
-                                        key={`${resource.type}-${resource.namespace}-${resource.name}-${index}`}
-                                        className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-purple-50/50 transition-colors rounded"
-                                      >
-                                        <div className="flex flex-col">
-                                          <div className="flex items-center">
-                                            <span className="mr-2">✅</span>
-                                            <span className="text-purple-800 font-medium">
-                                              {resource.type}
-                                            </span>
-                                          </div>
-                                          <span className="text-purple-600/70 text-[10px] ml-6">
-                                            {resource.namespace || 'cluster-scoped'}
+                                  <div
+                                    className="cursor-pointer hover:text-purple-900 transition-colors flex items-center"
+                                    onClick={() => handleMinikubeSort('name')}
+                                  >
+                                    Name
+                                    {minikubeSortField === 'name' && (
+                                      <span className="ml-1">
+                                        {minikubeSortDirection === 'asc' ? '↑' : '↓'}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div>Version</div>
+                                  <div
+                                    className="cursor-pointer hover:text-purple-900 transition-colors flex items-center"
+                                    onClick={() => handleMinikubeSort('age')}
+                                  >
+                                    Age
+                                    {minikubeSortField === 'age' && (
+                                      <span className="ml-1">
+                                        {minikubeSortDirection === 'asc' ? '↑' : '↓'}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div
+                                    className="cursor-pointer hover:text-purple-900 transition-colors flex items-center"
+                                    onClick={() => handleMinikubeSort('status')}
+                                  >
+                                    Status
+                                    {minikubeSortField === 'status' && (
+                                      <span className="ml-1">
+                                        {minikubeSortDirection === 'asc' ? '↑' : '↓'}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                  {sortedResources.map((resource, index) => (
+                                    <div
+                                      key={`${resource.type}-${resource.namespace}-${resource.name}-${index}`}
+                                      className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2 hover:bg-purple-50/50 transition-colors rounded"
+                                    >
+                                      <div className="flex flex-col">
+                                        <div className="flex items-center">
+                                          <span className="mr-2">✅</span>
+                                          <span className="text-purple-800 font-medium">
+                                            {resource.type}
                                           </span>
                                         </div>
-                                        <div className="flex items-center">
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              fetchResourceDetail(
-                                                verifiedMinikubeClusterInfo.name,
-                                                resource.type,
-                                                resource.name,
-                                                resource.namespace
-                                              );
-                                            }}
-                                            className="text-purple-800 font-medium hover:text-purple-600 hover:underline text-left cursor-pointer transition-colors"
-                                          >
-                                            {resource.name}
-                                          </button>
-                                        </div>
-                                        <span className="text-purple-600 font-mono"></span>
-                                        <span className="text-purple-600 font-mono">
-                                          {resource.creationTimestamp
-                                            ? calculateAge(resource.creationTimestamp)
-                                            : ''}
-                                        </span>
-                                        <span
-                                          className={`font-medium ${
-                                            resource.status === 'Ready' ||
-                                            resource.status === 'Active'
-                                              ? 'text-green-600'
-                                              : resource.status === 'Provisioning' ||
-                                                  resource.status === 'Configuring'
-                                                ? 'text-amber-600'
-                                                : 'text-red-600'
-                                          }`}
-                                        >
-                                          {resource.status || 'Active'}
+                                        <span className="text-purple-600/70 text-[10px] ml-6">
+                                          {resource.namespace || 'cluster-scoped'}
                                         </span>
                                       </div>
-                                    ))}
-                                  </div>
-                                </>
-                              );
-                            }
+                                      <div className="flex items-center">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            fetchResourceDetail(
+                                              verifiedMinikubeClusterInfo.name,
+                                              resource.type,
+                                              resource.name,
+                                              resource.namespace
+                                            );
+                                          }}
+                                          className="text-purple-800 font-medium hover:text-purple-600 hover:underline text-left cursor-pointer transition-colors"
+                                        >
+                                          {resource.name}
+                                        </button>
+                                      </div>
+                                      <span className="text-purple-600 font-mono"></span>
+                                      <span className="text-purple-600 font-mono">
+                                        {resource.creationTimestamp
+                                          ? calculateAge(resource.creationTimestamp)
+                                          : ''}
+                                      </span>
+                                      <span
+                                        className={`font-medium ${
+                                          resource.status === 'Ready' ||
+                                          resource.status === 'Active'
+                                            ? 'text-green-600'
+                                            : resource.status === 'Provisioning' ||
+                                                resource.status === 'Configuring'
+                                              ? 'text-amber-600'
+                                              : 'text-red-600'
+                                        }`}
+                                      >
+                                        {resource.status || 'Active'}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </>
+                            );
                           }
+                        }
 
-                          // Fall back to showing "No active resources found" message
-                          return (
-                            <div className="text-center py-4 text-purple-600 text-xs">
-                              <div className="mb-2">No active resources found</div>
-                              <div className="text-purple-500">
-                                Resources will appear here after they are created in the cluster
-                              </div>
+                        // Fall back to showing "No active resources found" message
+                        return (
+                          <div className="text-center py-4 text-purple-600 text-xs">
+                            <div className="mb-2">No active resources found</div>
+                            <div className="text-purple-500">
+                              Resources will appear here after they are created in the cluster
                             </div>
-                          );
-                        })()}
-                      </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
 
-                      {/* View Full Output - Show validation playbook logs */}
-                      {ansibleResults['validate-minikube-capa'] && ansibleResults['validate-minikube-capa'].result && (
+                    {/* View Full Output - Show validation playbook logs */}
+                    {ansibleResults['validate-minikube-capa'] &&
+                      ansibleResults['validate-minikube-capa'].result && (
                         <div className="mt-4">
                           <details className="bg-white rounded border border-purple-200">
                             <summary className="text-xs font-medium text-purple-700 p-2 cursor-pointer hover:bg-purple-50">
@@ -4838,8 +4853,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           </details>
                         </div>
                       )}
-
-                    </div>
+                  </div>
                 )}
               </div>
 
@@ -5000,18 +5014,22 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                                 // Fetch current status to check if HyperShift is enabled
                                 try {
-                                  const statusResponse = await fetch('http://localhost:8000/api/ansible/run-task', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                      task_file: 'tasks/get_capi_capa_status.yml',
-                                      description: 'Check current CAPI/CAPA/HyperShift status',
-                                    }),
-                                  });
+                                  const statusResponse = await fetch(
+                                    'http://localhost:8000/api/ansible/run-task',
+                                    {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({
+                                        task_file: 'tasks/get_capi_capa_status.yml',
+                                        description: 'Check current CAPI/CAPA/HyperShift status',
+                                      }),
+                                    }
+                                  );
 
                                   const statusData = await statusResponse.json();
                                   if (statusData.stdout) {
-                                    const hypershiftEnabled = statusData.stdout.includes('HyperShift is enabled');
+                                    const hypershiftEnabled =
+                                      statusData.stdout.includes('HyperShift is enabled');
 
                                     if (hypershiftEnabled) {
                                       // Show confirmation dialog
@@ -5369,15 +5387,17 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           const statusOperation = configureEnvironment.find(
                             (op) => op.id === 'get-capi-capa-status'
                           );
-                          const statusPromise = statusOperation ? statusOperation.action() : Promise.resolve();
+                          const statusPromise = statusOperation
+                            ? statusOperation.action()
+                            : Promise.resolve();
 
                           // Fetch MCE features to get name and version
                           const mcePromise = fetch('http://localhost:8000/api/mce/features')
-                            .then(response => response.json())
-                            .then(data => {
+                            .then((response) => response.json())
+                            .then((data) => {
                               setMceInfo(data.mce_info || null);
                             })
-                            .catch(error => {
+                            .catch((error) => {
                               console.log('Could not fetch MCE info:', error);
                             });
 
@@ -5677,7 +5697,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           console.log('[MCE Configure] Response:', {
                             ok: configureResponse.ok,
                             success: configureResult.success,
-                            result: configureResult
+                            result: configureResult,
                           });
 
                           if (configureResponse.ok && configureResult.success) {
@@ -5709,8 +5729,16 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           } else {
                             // Store failed result with error details
                             const errorDetails = {
-                              error: configureResult.error || configureResult.message || configureResult.detail || 'Unknown error',
-                              output: configureResult.output || configureResult.error || configureResult.message || '',
+                              error:
+                                configureResult.error ||
+                                configureResult.message ||
+                                configureResult.detail ||
+                                'Unknown error',
+                              output:
+                                configureResult.output ||
+                                configureResult.error ||
+                                configureResult.message ||
+                                '',
                               return_code: configureResult.return_code,
                               fullResponse: configureResult,
                             };
@@ -5822,7 +5850,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   <div className="space-y-2">
                     {/* Credential Warning Banner */}
                     {credentialWarning && (
-                      <div className={`${credentialWarning.type === 'placeholder' ? 'bg-amber-50 border-amber-300' : 'bg-red-50 border-red-300'} border rounded-lg p-3 flex items-start space-x-3`}>
+                      <div
+                        className={`${credentialWarning.type === 'placeholder' ? 'bg-amber-50 border-amber-300' : 'bg-red-50 border-red-300'} border rounded-lg p-3 flex items-start space-x-3`}
+                      >
                         <svg
                           className={`h-5 w-5 ${credentialWarning.type === 'placeholder' ? 'text-amber-600' : 'text-red-600'} flex-shrink-0 mt-0.5`}
                           fill="none"
@@ -5837,10 +5867,16 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           />
                         </svg>
                         <div className="flex-1">
-                          <h4 className={`text-sm font-semibold ${credentialWarning.type === 'placeholder' ? 'text-amber-800' : 'text-red-800'} mb-1`}>
-                            {credentialWarning.type === 'placeholder' ? 'Credentials Not Configured' : 'Credential Issue Detected'}
+                          <h4
+                            className={`text-sm font-semibold ${credentialWarning.type === 'placeholder' ? 'text-amber-800' : 'text-red-800'} mb-1`}
+                          >
+                            {credentialWarning.type === 'placeholder'
+                              ? 'Credentials Not Configured'
+                              : 'Credential Issue Detected'}
                           </h4>
-                          <p className={`text-xs ${credentialWarning.type === 'placeholder' ? 'text-amber-700' : 'text-red-700'}`}>
+                          <p
+                            className={`text-xs ${credentialWarning.type === 'placeholder' ? 'text-amber-700' : 'text-red-700'}`}
+                          >
                             {credentialWarning.message}
                           </p>
                           <a
@@ -5857,8 +5893,18 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           className={`${credentialWarning.type === 'placeholder' ? 'text-amber-600 hover:text-amber-800' : 'text-red-600 hover:text-red-800'} flex-shrink-0`}
                           title="Dismiss"
                         >
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
                           </svg>
                         </button>
                       </div>
@@ -5928,7 +5974,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                               : 'text-gray-400 hover:text-yellow-500'
                                           }`}
                                           title={
-                                            isFavorite ? 'Remove from favorites' : 'Add to favorites'
+                                            isFavorite
+                                              ? 'Remove from favorites'
+                                              : 'Add to favorites'
                                           }
                                         >
                                           <svg
@@ -5983,26 +6031,42 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                         const validationResult = ansibleResults['check-components'];
 
                                         // If validation explicitly failed, show error message
-                                        if (validationResult && validationResult.success === false) {
-                                          const errorOutput = validationResult.result?.error ||
-                                                             validationResult.result?.output || '';
+                                        if (
+                                          validationResult &&
+                                          validationResult.success === false
+                                        ) {
+                                          const errorOutput =
+                                            validationResult.result?.error ||
+                                            validationResult.result?.output ||
+                                            '';
 
-                                          console.log('[MCE Cluster Status] Validation failed with output:', errorOutput);
+                                          console.log(
+                                            '[MCE Cluster Status] Validation failed with output:',
+                                            errorOutput
+                                          );
 
                                           // Check for credential-related errors
-                                          if (errorOutput.includes('CREDENTIAL CONFIGURATION ERROR') ||
-                                              errorOutput.includes('placeholder values')) {
+                                          if (
+                                            errorOutput.includes(
+                                              'CREDENTIAL CONFIGURATION ERROR'
+                                            ) ||
+                                            errorOutput.includes('placeholder values')
+                                          ) {
                                             return 'Placeholder credentials detected';
                                           }
-                                          if (errorOutput.includes('AUTHENTICATION FAILED') ||
-                                              errorOutput.includes('401 Unauthorized') ||
-                                              errorOutput.includes('Login failed')) {
+                                          if (
+                                            errorOutput.includes('AUTHENTICATION FAILED') ||
+                                            errorOutput.includes('401 Unauthorized') ||
+                                            errorOutput.includes('Login failed')
+                                          ) {
                                             return 'Invalid credentials';
                                           }
-                                          if (errorOutput.includes('network') ||
-                                              errorOutput.includes('connection') ||
-                                              errorOutput.includes('timeout') ||
-                                              errorOutput.includes('timed out')) {
+                                          if (
+                                            errorOutput.includes('network') ||
+                                            errorOutput.includes('connection') ||
+                                            errorOutput.includes('timeout') ||
+                                            errorOutput.includes('timed out')
+                                          ) {
                                             return 'Connection issue';
                                           }
                                           // Generic error message
@@ -6016,11 +6080,14 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                           // Add MCE name, version, and status if available
                                           if (mceInfo) {
                                             const mceStatusIcon = mceInfo.available ? '✅' : '❌';
-                                            parts.push(`${mceInfo.name} ${mceInfo.version} ${mceStatusIcon}`);
+                                            parts.push(
+                                              `${mceInfo.name} ${mceInfo.version} ${mceStatusIcon}`
+                                            );
                                           }
 
                                           // Add component status
-                                          const statusResult = ansibleResults['get-capi-capa-status'];
+                                          const statusResult =
+                                            ansibleResults['get-capi-capa-status'];
                                           if (statusResult?.result?.output) {
                                             const output = statusResult.result.output;
                                             const capiEnabled = output.includes('CAPI is enabled');
@@ -6509,7 +6576,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                   const handleComponentSort = (field) => {
                                                     if (mceComponentSortField === field) {
                                                       setMceComponentSortDirection(
-                                                        mceComponentSortDirection === 'asc' ? 'desc' : 'asc'
+                                                        mceComponentSortDirection === 'asc'
+                                                          ? 'desc'
+                                                          : 'asc'
                                                       );
                                                     } else {
                                                       setMceComponentSortField(field);
@@ -6523,34 +6592,47 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                       <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs font-semibold text-cyan-700 bg-cyan-50 px-3 py-2 rounded mb-2">
                                                         <div
                                                           className="cursor-pointer hover:text-cyan-900 transition-colors flex items-center"
-                                                          onClick={() => handleComponentSort('component')}
+                                                          onClick={() =>
+                                                            handleComponentSort('component')
+                                                          }
                                                         >
                                                           Component
-                                                          {mceComponentSortField === 'component' && (
+                                                          {mceComponentSortField ===
+                                                            'component' && (
                                                             <span className="ml-1">
-                                                              {mceComponentSortDirection === 'asc' ? '↑' : '↓'}
+                                                              {mceComponentSortDirection === 'asc'
+                                                                ? '↑'
+                                                                : '↓'}
                                                             </span>
                                                           )}
                                                         </div>
                                                         <div
                                                           className="cursor-pointer hover:text-cyan-900 transition-colors flex items-center"
-                                                          onClick={() => handleComponentSort('name')}
+                                                          onClick={() =>
+                                                            handleComponentSort('name')
+                                                          }
                                                         >
                                                           Name
                                                           {mceComponentSortField === 'name' && (
                                                             <span className="ml-1">
-                                                              {mceComponentSortDirection === 'asc' ? '↑' : '↓'}
+                                                              {mceComponentSortDirection === 'asc'
+                                                                ? '↑'
+                                                                : '↓'}
                                                             </span>
                                                           )}
                                                         </div>
                                                         <div
                                                           className="cursor-pointer hover:text-cyan-900 transition-colors flex items-center"
-                                                          onClick={() => handleComponentSort('version')}
+                                                          onClick={() =>
+                                                            handleComponentSort('version')
+                                                          }
                                                         >
                                                           Version
                                                           {mceComponentSortField === 'version' && (
                                                             <span className="ml-1">
-                                                              {mceComponentSortDirection === 'asc' ? '↑' : '↓'}
+                                                              {mceComponentSortDirection === 'asc'
+                                                                ? '↑'
+                                                                : '↓'}
                                                             </span>
                                                           )}
                                                         </div>
@@ -6561,18 +6643,24 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                           Age
                                                           {mceComponentSortField === 'age' && (
                                                             <span className="ml-1">
-                                                              {mceComponentSortDirection === 'asc' ? '↑' : '↓'}
+                                                              {mceComponentSortDirection === 'asc'
+                                                                ? '↑'
+                                                                : '↓'}
                                                             </span>
                                                           )}
                                                         </div>
                                                         <div
                                                           className="cursor-pointer hover:text-cyan-900 transition-colors flex items-center"
-                                                          onClick={() => handleComponentSort('status')}
+                                                          onClick={() =>
+                                                            handleComponentSort('status')
+                                                          }
                                                         >
                                                           Status
                                                           {mceComponentSortField === 'status' && (
                                                             <span className="ml-1">
-                                                              {mceComponentSortDirection === 'asc' ? '↑' : '↓'}
+                                                              {mceComponentSortDirection === 'asc'
+                                                                ? '↑'
+                                                                : '↓'}
                                                             </span>
                                                           )}
                                                         </div>
@@ -6586,95 +6674,146 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             name: 'capi-controller-manager',
                                                             version: 'v1.5.3',
                                                             namespace: 'multicluster-engine',
-                                                            agePattern: '✓ capi-controller-manager deployment found',
-                                                            notFoundText: 'capi_controller_manager deployment was not found',
+                                                            agePattern:
+                                                              '✓ capi-controller-manager deployment found',
+                                                            notFoundText:
+                                                              'capi_controller_manager deployment was not found',
                                                             resourceType: 'Deployment',
                                                             foundStatus: '1/1 ready',
-                                                            notFoundStatus: 'Not Found'
+                                                            notFoundStatus: 'Not Found',
                                                           },
                                                           {
                                                             component: 'CAPA Controller',
                                                             name: 'capa-controller-manager',
                                                             version: 'v2.3.0',
                                                             namespace: 'multicluster-engine',
-                                                            agePattern: '✓ capa-controller-manager deployment found',
-                                                            notFoundText: 'capa_controller_manager deployment was not found',
+                                                            agePattern:
+                                                              '✓ capa-controller-manager deployment found',
+                                                            notFoundText:
+                                                              'capa_controller_manager deployment was not found',
                                                             resourceType: 'Deployment',
                                                             foundStatus: '1/1 ready',
-                                                            notFoundStatus: 'Not Found'
+                                                            notFoundStatus: 'Not Found',
                                                           },
                                                           {
                                                             component: 'Registration Config',
                                                             name: 'cluster-manager',
                                                             version: '',
                                                             namespace: 'cluster-scoped',
-                                                            agePattern: '✓ ClusterManager registration configuration found',
-                                                            notFoundText: 'registration_configuration was not found',
+                                                            agePattern:
+                                                              '✓ ClusterManager registration configuration found',
+                                                            notFoundText:
+                                                              'registration_configuration was not found',
                                                             resourceType: 'ClusterManager',
                                                             foundStatus: 'Configured',
-                                                            notFoundStatus: 'Not Found'
+                                                            notFoundStatus: 'Not Found',
                                                           },
                                                           {
                                                             component: 'Cluster Role Binding',
                                                             name: 'cluster-manager-registration-capi',
                                                             version: '',
                                                             namespace: 'cluster-scoped',
-                                                            agePattern: '✓ ClusterRoleBinding cluster-manager-registration-capi found',
-                                                            notFoundText: 'cluster-role-binding changes have not been applied',
+                                                            agePattern:
+                                                              '✓ ClusterRoleBinding cluster-manager-registration-capi found',
+                                                            notFoundText:
+                                                              'cluster-role-binding changes have not been applied',
                                                             resourceType: 'ClusterRoleBinding',
                                                             foundStatus: 'Applied',
-                                                            notFoundStatus: 'Not Applied'
+                                                            notFoundStatus: 'Not Applied',
                                                           },
                                                           {
                                                             component: 'Bootstrap Credentials',
                                                             name: 'capa-manager-bootstrap-credentials',
                                                             version: '',
                                                             namespace: 'multicluster-engine',
-                                                            agePattern: '✓ Secret capa-manager-bootstrap-credentials found',
-                                                            notFoundText: 'capa-manager-bootstrap-credentials secret does not exist',
+                                                            agePattern:
+                                                              '✓ Secret capa-manager-bootstrap-credentials found',
+                                                            notFoundText:
+                                                              'capa-manager-bootstrap-credentials secret does not exist',
                                                             resourceType: 'Secret',
                                                             foundStatus: 'Configured',
-                                                            notFoundStatus: 'Missing'
-                                                          }
+                                                            notFoundStatus: 'Missing',
+                                                          },
                                                         ];
 
                                                         // Sort components
-                                                        const sortedComponents = [...components].sort((a, b) => {
-                                                          let aValue = a[mceComponentSortField] || '';
-                                                          let bValue = b[mceComponentSortField] || '';
+                                                        const sortedComponents = [
+                                                          ...components,
+                                                        ].sort((a, b) => {
+                                                          let aValue =
+                                                            a[mceComponentSortField] || '';
+                                                          let bValue =
+                                                            b[mceComponentSortField] || '';
 
                                                           // Special handling for age - sort by timestamp
                                                           if (mceComponentSortField === 'age') {
-                                                            const aTimestamp = extractMCEComponentTimestamp(output, a.agePattern);
-                                                            const bTimestamp = extractMCEComponentTimestamp(output, b.agePattern);
+                                                            const aTimestamp =
+                                                              extractMCEComponentTimestamp(
+                                                                output,
+                                                                a.agePattern
+                                                              );
+                                                            const bTimestamp =
+                                                              extractMCEComponentTimestamp(
+                                                                output,
+                                                                b.agePattern
+                                                              );
                                                             aValue = aTimestamp || '';
                                                             bValue = bTimestamp || '';
                                                           }
 
                                                           // For status, check if component is found
                                                           if (mceComponentSortField === 'status') {
-                                                            aValue = !output.includes(a.notFoundText) ? a.foundStatus : a.notFoundStatus;
-                                                            bValue = !output.includes(b.notFoundText) ? b.foundStatus : b.notFoundStatus;
+                                                            aValue = !output.includes(
+                                                              a.notFoundText
+                                                            )
+                                                              ? a.foundStatus
+                                                              : a.notFoundStatus;
+                                                            bValue = !output.includes(
+                                                              b.notFoundText
+                                                            )
+                                                              ? b.foundStatus
+                                                              : b.notFoundStatus;
                                                           }
 
                                                           // Convert to lowercase for case-insensitive string comparison
-                                                          if (typeof aValue === 'string') aValue = aValue.toLowerCase();
-                                                          if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+                                                          if (typeof aValue === 'string')
+                                                            aValue = aValue.toLowerCase();
+                                                          if (typeof bValue === 'string')
+                                                            bValue = bValue.toLowerCase();
 
-                                                          if (aValue < bValue) return mceComponentSortDirection === 'asc' ? -1 : 1;
-                                                          if (aValue > bValue) return mceComponentSortDirection === 'asc' ? 1 : -1;
+                                                          if (aValue < bValue)
+                                                            return mceComponentSortDirection ===
+                                                              'asc'
+                                                              ? -1
+                                                              : 1;
+                                                          if (aValue > bValue)
+                                                            return mceComponentSortDirection ===
+                                                              'asc'
+                                                              ? 1
+                                                              : -1;
                                                           return 0;
                                                         });
 
                                                         return (
                                                           <div className="space-y-1.5">
                                                             {sortedComponents.map((comp, idx) => {
-                                                              const isFound = !output.includes(comp.notFoundText);
-                                                              const timestamp = extractMCEComponentTimestamp(output, comp.agePattern);
-                                                              const age = timestamp ? calculateAge(timestamp) : '';
+                                                              const isFound = !output.includes(
+                                                                comp.notFoundText
+                                                              );
+                                                              const timestamp =
+                                                                extractMCEComponentTimestamp(
+                                                                  output,
+                                                                  comp.agePattern
+                                                                );
+                                                              const age = timestamp
+                                                                ? calculateAge(timestamp)
+                                                                : '';
 
                                                               return (
-                                                                <div key={idx} className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/50 rounded">
+                                                                <div
+                                                                  key={idx}
+                                                                  className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-cyan-50/50 rounded"
+                                                                >
                                                                   <div className="flex flex-col">
                                                                     <div className="flex items-center">
                                                                       <span className="mr-2">
@@ -6695,7 +6834,10 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                                         fetchOcpResourceDetail(
                                                                           comp.resourceType,
                                                                           comp.name,
-                                                                          comp.namespace === 'cluster-scoped' ? '' : comp.namespace
+                                                                          comp.namespace ===
+                                                                            'cluster-scoped'
+                                                                            ? ''
+                                                                            : comp.namespace
                                                                         );
                                                                       }}
                                                                       className="text-cyan-800 font-medium hover:text-cyan-600 hover:underline cursor-pointer transition-colors"
@@ -6709,8 +6851,12 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                                   <span className="text-cyan-700 font-mono text-xs">
                                                                     {age}
                                                                   </span>
-                                                                  <span className={`font-medium ${isFound ? 'text-green-600' : 'text-red-600'}`}>
-                                                                    {isFound ? comp.foundStatus : comp.notFoundStatus}
+                                                                  <span
+                                                                    className={`font-medium ${isFound ? 'text-green-600' : 'text-red-600'}`}
+                                                                  >
+                                                                    {isFound
+                                                                      ? comp.foundStatus
+                                                                      : comp.notFoundStatus}
                                                                   </span>
                                                                 </div>
                                                               );
@@ -6815,22 +6961,40 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                                                       // Check if validation succeeded
                                                       if (!statusResult.success) {
-                                                        const errorOutput = statusResult.result?.error ||
-                                                                           statusResult.result?.output || '';
+                                                        const errorOutput =
+                                                          statusResult.result?.error ||
+                                                          statusResult.result?.output ||
+                                                          '';
 
                                                         // Check for credential errors
-                                                        let errorMessage = 'Validation failed. Please fix the issues and run validation again before exporting.';
-                                                        if (errorOutput.includes('CREDENTIAL CONFIGURATION ERROR') ||
-                                                            errorOutput.includes('placeholder values')) {
-                                                          errorMessage = 'Cannot export: Placeholder credentials detected.\n\nPlease configure actual credentials in vars/user_vars.yml and run validation again.';
-                                                        } else if (errorOutput.includes('AUTHENTICATION FAILED') ||
-                                                                   errorOutput.includes('401 Unauthorized') ||
-                                                                   errorOutput.includes('Login failed')) {
-                                                          errorMessage = 'Cannot export: Invalid credentials.\n\nPlease update your credentials in vars/user_vars.yml and run validation again.';
-                                                        } else if (errorOutput.includes('network') ||
-                                                                   errorOutput.includes('connection') ||
-                                                                   errorOutput.includes('timeout')) {
-                                                          errorMessage = 'Cannot export: Connection issue.\n\nPlease check network connectivity and run validation again.';
+                                                        let errorMessage =
+                                                          'Validation failed. Please fix the issues and run validation again before exporting.';
+                                                        if (
+                                                          errorOutput.includes(
+                                                            'CREDENTIAL CONFIGURATION ERROR'
+                                                          ) ||
+                                                          errorOutput.includes('placeholder values')
+                                                        ) {
+                                                          errorMessage =
+                                                            'Cannot export: Placeholder credentials detected.\n\nPlease configure actual credentials in vars/user_vars.yml and run validation again.';
+                                                        } else if (
+                                                          errorOutput.includes(
+                                                            'AUTHENTICATION FAILED'
+                                                          ) ||
+                                                          errorOutput.includes(
+                                                            '401 Unauthorized'
+                                                          ) ||
+                                                          errorOutput.includes('Login failed')
+                                                        ) {
+                                                          errorMessage =
+                                                            'Cannot export: Invalid credentials.\n\nPlease update your credentials in vars/user_vars.yml and run validation again.';
+                                                        } else if (
+                                                          errorOutput.includes('network') ||
+                                                          errorOutput.includes('connection') ||
+                                                          errorOutput.includes('timeout')
+                                                        ) {
+                                                          errorMessage =
+                                                            'Cannot export: Connection issue.\n\nPlease check network connectivity and run validation again.';
                                                         }
 
                                                         alert(errorMessage);
@@ -6840,9 +7004,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                       // Ask if they want to include key component data
                                                       const includeComponents = window.confirm(
                                                         'Export Active Resources\n\n' +
-                                                        'Do you want to include Key Component information in the export?\n\n' +
-                                                        '✓ Yes - Include MCE component status\n' +
-                                                        '✗ No - Export only active resources'
+                                                          'Do you want to include Key Component information in the export?\n\n' +
+                                                          '✓ Yes - Include MCE component status\n' +
+                                                          '✗ No - Export only active resources'
                                                       );
 
                                                       const output = statusResult.result.output;
@@ -7066,11 +7230,21 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                           let headerInfo = '';
                                                           if (includeComponents) {
                                                             // Parse component status from the validation output
-                                                            const capiEnabled = !output.includes('CAPI is NOT enabled');
-                                                            const capaEnabled = !output.includes('CAPA is NOT enabled');
-                                                            const hypershiftEnabled = output.includes('HyperShift is enabled');
+                                                            const capiEnabled =
+                                                              !output.includes(
+                                                                'CAPI is NOT enabled'
+                                                              );
+                                                            const capaEnabled =
+                                                              !output.includes(
+                                                                'CAPA is NOT enabled'
+                                                              );
+                                                            const hypershiftEnabled =
+                                                              output.includes(
+                                                                'HyperShift is enabled'
+                                                              );
 
-                                                            headerInfo = '# ==============================================================================\n' +
+                                                            headerInfo =
+                                                              '# ==============================================================================\n' +
                                                               '# MCE Environment - Key Components Information\n' +
                                                               '# ==============================================================================\n' +
                                                               `# Environment: MCE Test Environment\n` +
@@ -7084,12 +7258,14 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                           }
 
                                                           // Create a combined YAML file with document separators
-                                                          const combinedYaml = headerInfo + yamls
-                                                            .map(
-                                                              (y) =>
-                                                                `# ${y.name}\n---\n${y.content}`
-                                                            )
-                                                            .join('\n\n');
+                                                          const combinedYaml =
+                                                            headerInfo +
+                                                            yamls
+                                                              .map(
+                                                                (y) =>
+                                                                  `# ${y.name}\n---\n${y.content}`
+                                                              )
+                                                              .join('\n\n');
 
                                                           // Create a download link
                                                           const blob = new Blob([combinedYaml], {
@@ -7197,7 +7373,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                         console.log('[MCE Refresh] Response:', {
                                                           ok: response.ok,
                                                           success: result.success,
-                                                          result: result
+                                                          result: result,
                                                         });
 
                                                         if (response.ok && result.success) {
@@ -7229,13 +7405,24 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                           // Store failed result with error details
                                                           // Ensure error/output fields are accessible for inline error parsing
                                                           const errorDetails = {
-                                                            error: result.error || result.message || result.detail || 'Unknown error',
-                                                            output: result.output || result.error || result.message || '',
+                                                            error:
+                                                              result.error ||
+                                                              result.message ||
+                                                              result.detail ||
+                                                              'Unknown error',
+                                                            output:
+                                                              result.output ||
+                                                              result.error ||
+                                                              result.message ||
+                                                              '',
                                                             return_code: result.return_code,
                                                             fullResponse: result,
                                                           };
 
-                                                          console.log('[MCE Refresh] Error details:', errorDetails);
+                                                          console.log(
+                                                            '[MCE Refresh] Error details:',
+                                                            errorDetails
+                                                          );
 
                                                           setAnsibleResults((prev) => ({
                                                             ...prev,
@@ -7431,11 +7618,14 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             hour12: true,
                                                           });
 
-                                                        console.log('[MCE Provision ROSA HCP] Response:', {
-                                                          ok: response.ok,
-                                                          success: result.success,
-                                                          result: result
-                                                        });
+                                                        console.log(
+                                                          '[MCE Provision ROSA HCP] Response:',
+                                                          {
+                                                            ok: response.ok,
+                                                            success: result.success,
+                                                            result: result,
+                                                          }
+                                                        );
 
                                                         if (response.ok && result.success) {
                                                           // Store result in ansibleResults so it appears in View Full Output
@@ -7469,13 +7659,24 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                         } else {
                                                           // Store failed result with error details
                                                           const errorDetails = {
-                                                            error: result.error || result.message || result.detail || 'Provisioning failed',
-                                                            output: result.output || result.error || result.message || '',
+                                                            error:
+                                                              result.error ||
+                                                              result.message ||
+                                                              result.detail ||
+                                                              'Provisioning failed',
+                                                            output:
+                                                              result.output ||
+                                                              result.error ||
+                                                              result.message ||
+                                                              '',
                                                             return_code: result.return_code,
                                                             fullResponse: result,
                                                           };
 
-                                                          console.log('[MCE Provision ROSA HCP] Error details:', errorDetails);
+                                                          console.log(
+                                                            '[MCE Provision ROSA HCP] Error details:',
+                                                            errorDetails
+                                                          );
 
                                                           setAnsibleResults((prev) => ({
                                                             ...prev,
@@ -7507,7 +7708,10 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                             hour12: true,
                                                           });
                                                         if (operationId) {
-                                                          console.error('[MCE Provision ROSA HCP] Exception:', error);
+                                                          console.error(
+                                                            '[MCE Provision ROSA HCP] Exception:',
+                                                            error
+                                                          );
 
                                                           // Store error for inline display
                                                           setAnsibleResults((prev) => ({
@@ -7594,7 +7798,11 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                 }
 
                                                 // Only show Active Resources if we have a successful result with output
-                                                if (!statusResult || !statusResult.result || !statusResult.result.output) {
+                                                if (
+                                                  !statusResult ||
+                                                  !statusResult.result ||
+                                                  !statusResult.result.output
+                                                ) {
                                                   return null;
                                                 }
 
@@ -8073,9 +8281,10 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       const timeAgo = Math.floor((Date.now() - operation.timestamp) / 60000);
 
                       // Determine if this is a Local Test Environment or MCE operation
-                      const isLocalOperation = operation.title.includes('Minikube') ||
-                                               operation.title.includes('Kind') ||
-                                               operation.title.includes('Local');
+                      const isLocalOperation =
+                        operation.title.includes('Minikube') ||
+                        operation.title.includes('Kind') ||
+                        operation.title.includes('Local');
                       const isMCEOperation = operation.title.includes('MCE');
 
                       // Color scheme based on environment
@@ -8114,7 +8323,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 {timeAgo < 1 ? 'now' : `${timeAgo}m`}
                               </span>
                             </div>
-{operation.status && (
+                            {operation.status && (
                               <div className="flex flex-col gap-0.5 ml-3.5 mt-0.5">
                                 <span
                                   className={`text-xs font-medium ${
@@ -8133,44 +8342,62 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 {(operation.status.includes('❌') ||
                                   operation.status.includes('Failed')) &&
                                   operation.ansibleResultKey &&
-                                  ansibleResults[operation.ansibleResultKey]?.result && (
-                                    (() => {
-                                      const result = ansibleResults[operation.ansibleResultKey].result;
-                                      const output = result.output || result.error || '';
-                                      const errorOutput = result.error || '';
+                                  ansibleResults[operation.ansibleResultKey]?.result &&
+                                  (() => {
+                                    const result =
+                                      ansibleResults[operation.ansibleResultKey].result;
+                                    const output = result.output || result.error || '';
+                                    const errorOutput = result.error || '';
 
-                                      // Parse error output to determine the issue
-                                      let errorDescription = '';
+                                    // Parse error output to determine the issue
+                                    let errorDescription = '';
 
-                                      // Only check for credential errors in the stderr/error output, not stdout
-                                      if (errorOutput.includes('CREDENTIAL CONFIGURATION ERROR') ||
-                                          errorOutput.includes('placeholder values')) {
-                                        errorDescription = 'Placeholder credentials detected';
-                                      } else if (errorOutput.includes('AUTHENTICATION FAILED') ||
-                                                 errorOutput.includes('401 Unauthorized') ||
-                                                 (errorOutput.includes('Login failed') && !errorOutput.includes('Login successful'))) {
-                                        errorDescription = 'Invalid credentials';
-                                      } else if (output.includes('timed out') || output.includes('AbortError')) {
-                                        errorDescription = 'Operation timed out';
-                                      } else if (output.includes('network') || output.includes('connection')) {
-                                        errorDescription = 'Network connection issue';
-                                      } else if (output.includes('not found') || output.includes('does not exist')) {
-                                        errorDescription = 'Resource not found';
-                                      } else if (errorOutput.length > 0) {
-                                        // Show first line of actual error
-                                        const errorLines = errorOutput.split('\n').filter(line => line.trim().length > 0);
-                                        errorDescription = errorLines[0]?.substring(0, 60) || 'Check View Full Output for details';
-                                      } else {
-                                        errorDescription = 'Check View Full Output for details';
-                                      }
+                                    // Only check for credential errors in the stderr/error output, not stdout
+                                    if (
+                                      errorOutput.includes('CREDENTIAL CONFIGURATION ERROR') ||
+                                      errorOutput.includes('placeholder values')
+                                    ) {
+                                      errorDescription = 'Placeholder credentials detected';
+                                    } else if (
+                                      errorOutput.includes('AUTHENTICATION FAILED') ||
+                                      errorOutput.includes('401 Unauthorized') ||
+                                      (errorOutput.includes('Login failed') &&
+                                        !errorOutput.includes('Login successful'))
+                                    ) {
+                                      errorDescription = 'Invalid credentials';
+                                    } else if (
+                                      output.includes('timed out') ||
+                                      output.includes('AbortError')
+                                    ) {
+                                      errorDescription = 'Operation timed out';
+                                    } else if (
+                                      output.includes('network') ||
+                                      output.includes('connection')
+                                    ) {
+                                      errorDescription = 'Network connection issue';
+                                    } else if (
+                                      output.includes('not found') ||
+                                      output.includes('does not exist')
+                                    ) {
+                                      errorDescription = 'Resource not found';
+                                    } else if (errorOutput.length > 0) {
+                                      // Show first line of actual error
+                                      const errorLines = errorOutput
+                                        .split('\n')
+                                        .filter((line) => line.trim().length > 0);
+                                      errorDescription =
+                                        errorLines[0]?.substring(0, 60) ||
+                                        'Check View Full Output for details';
+                                    } else {
+                                      errorDescription = 'Check View Full Output for details';
+                                    }
 
-                                      return (
-                                        <span className="text-xs text-red-500 italic">
-                                          {errorDescription}
-                                        </span>
-                                      );
-                                    })()
-                                  )}
+                                    return (
+                                      <span className="text-xs text-red-500 italic">
+                                        {errorDescription}
+                                      </span>
+                                    );
+                                  })()}
                               </div>
                             )}
                           </div>
