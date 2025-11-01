@@ -1,0 +1,41 @@
+# CAPI and HyperShift are mutually exclusive - disable CAPI components first
+- set_fact:
+    component: "cluster-api"
+
+- name: Disable cluster-api
+  include_tasks: "{{ AUTOMATION_PATH }}/tasks/update_enabled_flag.yml"
+  vars:
+    enable: "false"
+
+- set_fact:
+    component: "cluster-api-provider-aws"
+
+- name: Disable cluster-api-provider-aws
+  include_tasks: "{{ AUTOMATION_PATH }}/tasks/update_enabled_flag.yml"
+  vars:
+    enable: "false"
+
+# Now enable HyperShift components
+- set_fact:
+    component: "hypershift"
+
+- name: Get {{ component }} status
+  include_tasks: "{{ AUTOMATION_PATH }}/tasks/get_mce_component_status.yml"
+
+- name: Enable hypershift
+  include_tasks: "{{ AUTOMATION_PATH }}/tasks/update_enabled_flag.yml"
+  vars:
+    enable: "true"
+  when: not component_enabled.stdout | bool
+
+- set_fact:
+    component: "hypershift-local-hosting"
+
+- name: Get {{ component }} status
+  include_tasks: "{{ AUTOMATION_PATH }}/tasks/get_mce_component_status.yml"
+
+- name: Enable hypershift-local-hosting
+  include_tasks: "{{ AUTOMATION_PATH }}/tasks/update_enabled_flag.yml"
+  vars:
+    enable: "true"
+  when: not component_enabled.stdout | bool
