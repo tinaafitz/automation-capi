@@ -2681,6 +2681,131 @@ export function WhatCanIHelp() {
         </div>
       </div>
 
+      {/* Quick Stats Bar */}
+      <div className="border-b border-gray-200 bg-gradient-to-r from-purple-50 via-white to-pink-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="py-3 flex flex-wrap items-center justify-between gap-3 text-sm">
+            {/* Environment Status */}
+            <div className="flex items-center space-x-2">
+              <span className="text-gray-600 font-medium">Environment:</span>
+              <div className="flex items-center space-x-1 bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="font-medium">Online</span>
+              </div>
+            </div>
+
+            {/* Cluster Count */}
+            <div className="flex items-center space-x-2">
+              <CubeIcon className="h-4 w-4 text-purple-600" />
+              <span className="text-gray-600">Clusters:</span>
+              <span className="font-semibold text-purple-900">
+                {(() => {
+                  // Count clusters from Minikube active resources
+                  const minikubeResources = verifiedMinikubeClusterInfo
+                    ? parseDynamicResources(
+                        ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]?.result
+                          ?.output || ''
+                      )
+                    : [];
+                  const minikubeClusters = minikubeResources.filter(
+                    (r) =>
+                      r.type === 'ROSACluster' ||
+                      r.type === 'RosaControlPlane' ||
+                      r.type.toLowerCase().includes('cluster')
+                  );
+
+                  // Count clusters from MCE active resources
+                  const mceResources = ocpStatus?.connected
+                    ? parseDynamicResources(ansibleResults['check-mce-components']?.result?.output || '')
+                    : [];
+                  const mceClusters = mceResources.filter(
+                    (r) =>
+                      r.type === 'ROSACluster' ||
+                      r.type === 'RosaControlPlane' ||
+                      r.type.toLowerCase().includes('cluster')
+                  );
+
+                  const totalClusters = minikubeClusters.length + mceClusters.length;
+                  const readyClusters = [...minikubeClusters, ...mceClusters].filter(
+                    (r) => r.status?.toLowerCase().includes('ready')
+                  ).length;
+
+                  return totalClusters > 0 ? `${readyClusters}/${totalClusters}` : '0';
+                })()}
+              </span>
+            </div>
+
+            {/* Last Operation */}
+            <div className="flex items-center space-x-2">
+              <CommandLineIcon className="h-4 w-4 text-blue-600" />
+              <span className="text-gray-600">Last Operation:</span>
+              {recentOperations.length > 0 ? (
+                <div className="flex items-center space-x-1">
+                  {recentOperations[0].status === 'success' ? (
+                    <CheckCircleIcon className="h-4 w-4 text-green-600" />
+                  ) : recentOperations[0].status === 'error' ? (
+                    <svg className="h-4 w-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  ) : (
+                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  )}
+                  <span className="font-medium text-gray-900 max-w-xs truncate">
+                    {recentOperations[0].operation}
+                  </span>
+                  <span className="text-gray-500">
+                    ({(() => {
+                      const timestamp = new Date(recentOperations[0].timestamp);
+                      const now = new Date();
+                      const diffMs = now - timestamp;
+                      const seconds = Math.floor(diffMs / 1000);
+                      const minutes = Math.floor(seconds / 60);
+                      const hours = Math.floor(minutes / 60);
+
+                      if (hours > 0) return `${hours}h ago`;
+                      if (minutes > 0) return `${minutes}m ago`;
+                      if (seconds > 10) return `${seconds}s ago`;
+                      return 'just now';
+                    })()})
+                  </span>
+                </div>
+              ) : (
+                <span className="text-gray-500 italic">None</span>
+              )}
+            </div>
+
+            {/* Issues Count */}
+            <div className="flex items-center space-x-2">
+              <span className="text-gray-600">Issues:</span>
+              {(() => {
+                // Count failed operations
+                const failedOps = recentOperations.filter((op) => op.status === 'error').length;
+                return failedOps > 0 ? (
+                  <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full font-semibold">
+                    {failedOps}
+                  </span>
+                ) : (
+                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold flex items-center space-x-1">
+                    <CheckCircleIcon className="h-3 w-3" />
+                    <span>0</span>
+                  </span>
+                );
+              })()}
+            </div>
+
+            {/* Refresh Button */}
+            <button
+              onClick={() => window.location.reload()}
+              className="flex items-center space-x-1 text-gray-600 hover:text-purple-600 transition-colors px-2 py-1 rounded-lg hover:bg-purple-50"
+              title="Refresh dashboard"
+            >
+              <ArrowPathIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-6 space-y-4 md:space-y-5">
         {/* Main Header with Configure Environment and Right Sidebar */}
         <div className="flex flex-col lg:flex-row items-start justify-between gap-4 lg:gap-8 mb-4 md:mb-6 animate-in fade-in duration-300">
