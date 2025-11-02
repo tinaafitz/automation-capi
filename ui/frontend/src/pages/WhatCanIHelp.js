@@ -2902,6 +2902,55 @@ export function WhatCanIHelp() {
       </div>
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-6 space-y-4 md:space-y-5">
+        {/* Test Environments Section */}
+        <div className="mb-6">
+          <div className="flex items-center mb-4">
+            <h2 className="text-xl font-bold text-gray-900">Test Environments</h2>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Minikube Environment Card */}
+            <TestEnvironmentCard
+              name="💻 Minikube"
+              icon="💻"
+              resources={
+                verifiedMinikubeClusterInfo
+                  ? parseDynamicResources(
+                      ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]?.result
+                        ?.output || ''
+                    )
+                  : []
+              }
+              recentOperations={recentOperations}
+              isActive={false}
+              onClick={() => {
+                const minikubeSection = document.getElementById('minikube-section');
+                if (minikubeSection) {
+                  minikubeSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }}
+            />
+
+            {/* MCE Environment Card */}
+            <TestEnvironmentCard
+              name="🌐 MCE Hub"
+              icon="🌐"
+              resources={
+                ocpStatus?.connected
+                  ? parseDynamicResources(ansibleResults['check-mce-components']?.result?.output || '')
+                  : []
+              }
+              recentOperations={recentOperations}
+              isActive={false}
+              onClick={() => {
+                const mceSection = document.getElementById('mce-section');
+                if (mceSection) {
+                  mceSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }}
+            />
+          </div>
+        </div>
+
         {/* Main Header with Configure Environment and Right Sidebar */}
         <div className="flex flex-col lg:flex-row items-start justify-between gap-4 lg:gap-8 mb-4 md:mb-6 animate-in fade-in duration-300">
           <div className="flex-1 w-full">
@@ -3625,7 +3674,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
             {/* Main Content Sections */}
             <div className="space-y-6">
               {/* Local Test Environment */}
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-purple-200/50 p-6 backdrop-blur-sm hover:scale-[1.02] hover:-translate-y-1 animate-in fade-in-50 slide-in-from-bottom-4 duration-800">
+              <div id="minikube-section" className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-purple-200/50 p-6 backdrop-blur-sm hover:scale-[1.02] hover:-translate-y-1 animate-in fade-in-50 slide-in-from-bottom-4 duration-800">
                 <h2
                   className="text-sm font-semibold text-purple-900 mb-3 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-2 -m-2 transition-colors"
                   onClick={() => toggleSection('local-environment')}
@@ -5119,7 +5168,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
               </div>
 
               {/* Configure Test Environment - Next to getting started */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-blue-200/50 p-6 backdrop-blur-sm hover:scale-[1.02] hover:-translate-y-1 animate-in fade-in-50 slide-in-from-bottom-4 duration-700">
+              <div id="mce-section" className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-blue-200/50 p-6 backdrop-blur-sm hover:scale-[1.02] hover:-translate-y-1 animate-in fade-in-50 slide-in-from-bottom-4 duration-700">
                 <h2
                   className="text-sm font-semibold text-indigo-900 mb-3 flex items-center cursor-pointer hover:bg-indigo-100/50 rounded-lg p-2 -m-2 transition-colors"
                   onClick={() => toggleSection('configure-environment')}
