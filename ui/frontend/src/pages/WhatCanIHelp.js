@@ -3246,10 +3246,10 @@ export function WhatCanIHelp() {
                               });
                               addNotification('Refreshing status...', 'info', 2000);
                             }}
-                            className="bg-cyan-600 text-white px-4 py-2 rounded-lg hover:bg-cyan-700 transition-colors font-medium text-sm inline-flex items-center space-x-2"
+                            className="bg-cyan-600 text-white px-4 py-2 rounded-lg hover:bg-cyan-700 hover:shadow-lg hover:scale-105 transition-all duration-200 font-medium text-sm inline-flex items-center space-x-2 group"
                           >
                             <svg
-                              className="h-4 w-4"
+                              className="h-4 w-4 group-hover:rotate-180 transition-transform duration-500"
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -3266,10 +3266,10 @@ export function WhatCanIHelp() {
 
                           <button
                             onClick={() => navigate('/setup')}
-                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm inline-flex items-center space-x-2"
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 hover:shadow-lg hover:scale-105 transition-all duration-200 font-medium text-sm inline-flex items-center space-x-2 group"
                           >
                             <svg
-                              className="h-4 w-4"
+                              className="h-4 w-4 group-hover:translate-x-1 transition-transform duration-200"
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
