@@ -2703,13 +2703,29 @@ async def run_ansible_task(request: dict):
             if result.stderr:
                 print(f"STDERR: {result.stderr}")
 
+            # Extract detailed error messages from Ansible output
+            detailed_error = ""
+            if result.returncode != 0 and result.stdout:
+                # Look for [ERROR]: Task failed: messages
+                import re
+                error_match = re.search(r'\[ERROR\]:\s*Task failed:\s*(.+?)(?=\nOrigin:|$)', result.stdout, re.DOTALL)
+                if error_match:
+                    detailed_error = error_match.group(1).strip()
+                    # Clean up the error message - extract the main error content
+                    # Look for the actual error message after "Action failed:"
+                    action_match = re.search(r'Action failed:\s*(.+)', detailed_error, re.DOTALL)
+                    if action_match:
+                        detailed_error = action_match.group(1).strip()
+
             # Only treat stderr as an error if returncode is non-zero
             # Ansible warnings go to stderr but don't indicate failure
+            error_message = detailed_error if detailed_error else (result.stderr if result.returncode != 0 else "")
+
             return {
                 "success": result.returncode == 0,
                 "return_code": result.returncode,
                 "output": result.stdout,
-                "error": result.stderr if result.returncode != 0 else "",
+                "error": error_message,
                 "warning": result.stderr if result.returncode == 0 else "",
                 "message": (
                     "Task completed successfully" if result.returncode == 0 else "Task failed"
