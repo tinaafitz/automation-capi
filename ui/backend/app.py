@@ -1949,6 +1949,45 @@ async def get_ocp_connection_status():
         ocp_user = config.get("OCP_HUB_CLUSTER_USER", "").strip()
         ocp_password = config.get("OCP_HUB_CLUSTER_PASSWORD", "").strip()
 
+        # Check for placeholder values
+        placeholder_values = [
+            "your-username",
+            "your-password",
+            "https://api.your-cluster.example.com:6443",
+            "api.your-cluster.example.com",
+        ]
+
+        is_placeholder = (
+            ocp_user in placeholder_values
+            or ocp_password in placeholder_values
+            or ocp_api_url in placeholder_values
+            or "your-cluster.example.com" in ocp_api_url
+        )
+
+        if is_placeholder:
+            return {
+                "connected": False,
+                "status": "placeholder_credentials",
+                "message": "⚠️ OCP Hub credentials contain placeholder values",
+                "suggestion": (
+                    "❌ CREDENTIAL CONFIGURATION REQUIRED\n\n"
+                    "Your vars/user_vars.yml file contains placeholder values:\n"
+                    f"  • OCP_HUB_CLUSTER_USER: {ocp_user}\n"
+                    f"  • OCP_HUB_API_URL: {ocp_api_url}\n\n"
+                    "✅ REQUIRED STEPS:\n"
+                    "1. Open vars/user_vars.yml\n"
+                    "2. Replace placeholder values with your actual OpenShift Hub credentials\n"
+                    "3. Get credentials from your OpenShift console → Copy login command\n"
+                    "4. Save the file and refresh this page\n\n"
+                    "📝 Note: This file is in .gitignore and will not be committed."
+                ),
+                "detected_values": {
+                    "username": ocp_user,
+                    "api_url": ocp_api_url,
+                },
+                "last_checked": datetime.now().isoformat(),
+            }
+
         if not ocp_api_url:
             return {
                 "connected": False,
@@ -2043,10 +2082,40 @@ async def get_ocp_connection_status():
             if (
                 "unauthorized" in error_msg.lower()
                 or "invalid username or password" in error_msg.lower()
+                or "401" in error_msg
+                or "login failed" in error_msg.lower()
             ):
                 status = "invalid_credentials"
-                message = "Invalid username or password"
-                suggestion = "Check your OCP_HUB_CLUSTER_USER and OCP_HUB_CLUSTER_PASSWORD in vars/user_vars.yml"
+                message = "❌ Authentication Failed (401 Unauthorized)"
+                suggestion = (
+                    "❌ AUTHENTICATION FAILED\n\n"
+                    "Login to OpenShift Hub cluster failed with 401 Unauthorized.\n\n"
+                    f"Cluster: {ocp_api_url}\n"
+                    f"Username: {ocp_user}\n\n"
+                    "⚠️  POSSIBLE CAUSES:\n\n"
+                    "1. ❌ Incorrect Password\n"
+                    "   - The password in vars/user_vars.yml may be wrong or outdated\n"
+                    "   - Passwords may have been rotated by your cluster administrator\n\n"
+                    "2. ❌ Account Disabled/Expired\n"
+                    "   - The user account may be disabled or expired\n"
+                    "   - Contact your cluster administrator to verify account status\n\n"
+                    "3. ❌ Wrong Username\n"
+                    "   - The username may be incorrect\n"
+                    "   - Verify the username is correct for this cluster\n\n"
+                    "✅ REQUIRED ACTIONS:\n\n"
+                    "1. Get fresh credentials from your OpenShift cluster:\n"
+                    f"   - Log in to OpenShift Console: {ocp_api_url.replace(':6443', '')}\n"
+                    "   - Click on your username in the top right\n"
+                    "   - Select 'Copy login command'\n"
+                    "   - Click 'Display Token'\n"
+                    "   - Copy the login command to get current credentials\n\n"
+                    "2. Update vars/user_vars.yml with the correct credentials:\n"
+                    f"   OCP_HUB_API_URL: \"{ocp_api_url}\"\n"
+                    "   OCP_HUB_CLUSTER_USER: \"your-correct-username\"\n"
+                    "   OCP_HUB_CLUSTER_PASSWORD: \"your-correct-password\"\n\n"
+                    "3. Save the file and refresh this page to retry\n\n"
+                    f"📝 Original Error: {error_msg}"
+                )
             elif (
                 "network" in error_msg.lower()
                 or "connection" in error_msg.lower()
