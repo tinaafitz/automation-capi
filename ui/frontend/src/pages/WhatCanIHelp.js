@@ -32,6 +32,9 @@ import ResourceConnectionsCard from '../components/ResourceConnectionsCard';
 import { MinikubeClusterModal } from '../components/MinikubeClusterModal';
 import { MinikubeTerminalModal } from '../components/MinikubeTerminalModal';
 import { MCETerminalModal } from '../components/MCETerminalModal';
+import TestEnvironmentCard from '../components/TestEnvironmentCard';
+import TestActivityFeed from '../components/TestActivityFeed';
+import ActiveOperationsPanel from '../components/ActiveOperationsPanel';
 
 // Helper function to calculate age from ISO timestamp
 function calculateAge(isoTimestamp) {
@@ -2803,6 +2806,97 @@ export function WhatCanIHelp() {
               <ArrowPathIcon className="h-4 w-4" />
               <span className="hidden sm:inline">Refresh</span>
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Testing Command Center Header */}
+      <div className="border-b border-purple-200 bg-gradient-to-r from-purple-100 via-pink-50 to-purple-100 shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-lg flex items-center justify-center shadow-lg">
+                <svg className="h-7 w-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">🎯 Testing Command Center</h1>
+                <p className="text-sm text-gray-600">CAPI/CAPA Multi-Environment Testing Dashboard</p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-6">
+              {/* Today's Tests */}
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-700">
+                  {(() => {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    return recentOperations.filter((op) => {
+                      if (!op.timestamp) return false;
+                      const opDate = new Date(op.timestamp);
+                      opDate.setHours(0, 0, 0, 0);
+                      return opDate.getTime() === today.getTime();
+                    }).length;
+                  })()}
+                </div>
+                <div className="text-xs text-gray-600">Today's Tests</div>
+              </div>
+
+              {/* Success Rate */}
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-700">
+                  {(() => {
+                    if (recentOperations.length === 0) return '0%';
+                    const successful = recentOperations.filter((op) =>
+                      op.result?.success ||
+                      op.result?.status === 'success' ||
+                      (!op.result?.error && op.result?.output)
+                    ).length;
+                    return Math.round((successful / recentOperations.length) * 100) + '%';
+                  })()}
+                </div>
+                <div className="text-xs text-gray-600">Success Rate</div>
+              </div>
+
+              {/* Active Operations */}
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-700 flex items-center justify-center">
+                  {(() => {
+                    const minikubeResources = verifiedMinikubeClusterInfo
+                      ? parseDynamicResources(
+                          ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]?.result
+                            ?.output || ''
+                        )
+                      : [];
+                    const mceResources = ocpStatus?.connected
+                      ? parseDynamicResources(ansibleResults['check-mce-components']?.result?.output || '')
+                      : [];
+                    const allResources = [...minikubeResources, ...mceResources];
+                    const activeCount = allResources.filter((r) =>
+                      r.status === 'Provisioning' ||
+                      r.status === 'Configuring' ||
+                      r.status === 'Pending'
+                    ).length;
+                    return activeCount > 0 ? (
+                      <>
+                        <span className="w-2 h-2 bg-blue-500 rounded-full mr-1.5 animate-pulse"></span>
+                        {activeCount}
+                      </>
+                    ) : (
+                      activeCount
+                    );
+                  })()}
+                </div>
+                <div className="text-xs text-gray-600">Active</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
