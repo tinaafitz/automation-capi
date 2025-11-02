@@ -2110,9 +2110,9 @@ async def get_ocp_connection_status():
                     "   - Click 'Display Token'\n"
                     "   - Copy the login command to get current credentials\n\n"
                     "2. Update vars/user_vars.yml with the correct credentials:\n"
-                    f"   OCP_HUB_API_URL: \"{ocp_api_url}\"\n"
-                    "   OCP_HUB_CLUSTER_USER: \"your-correct-username\"\n"
-                    "   OCP_HUB_CLUSTER_PASSWORD: \"your-correct-password\"\n\n"
+                    f'   OCP_HUB_API_URL: "{ocp_api_url}"\n'
+                    '   OCP_HUB_CLUSTER_USER: "your-correct-username"\n'
+                    '   OCP_HUB_CLUSTER_PASSWORD: "your-correct-password"\n\n'
                     "3. Save the file and refresh this page to retry\n\n"
                     f"📝 Original Error: {error_msg}"
                 )
@@ -2708,18 +2708,25 @@ async def run_ansible_task(request: dict):
             if result.returncode != 0 and result.stdout:
                 # Look for [ERROR]: Task failed: messages
                 import re
-                error_match = re.search(r'\[ERROR\]:\s*Task failed:\s*(.+?)(?=\nOrigin:|$)', result.stdout, re.DOTALL)
+
+                error_match = re.search(
+                    r"\[ERROR\]:\s*Task failed:\s*(.+?)(?=\nOrigin:|$)", result.stdout, re.DOTALL
+                )
                 if error_match:
                     detailed_error = error_match.group(1).strip()
                     # Clean up the error message - extract the main error content
                     # Look for the actual error message after "Action failed:"
-                    action_match = re.search(r'Action failed:\s*(.+)', detailed_error, re.DOTALL)
+                    action_match = re.search(r"Action failed:\s*(.+)", detailed_error, re.DOTALL)
                     if action_match:
                         detailed_error = action_match.group(1).strip()
 
             # Only treat stderr as an error if returncode is non-zero
             # Ansible warnings go to stderr but don't indicate failure
-            error_message = detailed_error if detailed_error else (result.stderr if result.returncode != 0 else "")
+            error_message = (
+                detailed_error
+                if detailed_error
+                else (result.stderr if result.returncode != 0 else "")
+            )
 
             return {
                 "success": result.returncode == 0,
@@ -2794,7 +2801,7 @@ async def get_mce_features():
                 "name": mce_name,
                 "version": mce_version,
                 "status": mce_status,
-                "available": mce_status == "Available"
+                "available": mce_status == "Available",
             }
 
             components = mce.get("spec", {}).get("overrides", {}).get("components", [])
@@ -3262,6 +3269,7 @@ async def verify_minikube_cluster(request: dict):
                 if version_result.returncode == 0:
                     try:
                         import json as json_module
+
                         version_data = json_module.loads(version_result.stdout)
                         version = version_data.get("serverVersion", {}).get("gitVersion", "v1.32.0")
                     except:

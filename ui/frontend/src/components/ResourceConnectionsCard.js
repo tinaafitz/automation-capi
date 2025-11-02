@@ -3,7 +3,7 @@ import React from 'react';
 const ResourceConnectionsCard = ({
   resources = [],
   environmentType = 'mce', // 'mce' or 'minikube'
-  clusterInfo = null
+  clusterInfo = null,
 }) => {
   // Filter for ROSA-specific resources
   const rosaResources = resources.filter(
@@ -21,9 +21,7 @@ const ResourceConnectionsCard = ({
   }
 
   // Find the ROSA namespace
-  const rosaNamespace = resources.find(
-    (r) => r.type === 'Namespace' && r.name === 'ns-rosa-hcp'
-  );
+  const rosaNamespace = resources.find((r) => r.type === 'Namespace' && r.name === 'ns-rosa-hcp');
 
   // Determine colors based on environment
   const isMCE = environmentType === 'mce';

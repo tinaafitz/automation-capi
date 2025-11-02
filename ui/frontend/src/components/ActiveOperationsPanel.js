@@ -2,12 +2,13 @@ import React from 'react';
 
 const ActiveOperationsPanel = ({ resources = [], operations = [] }) => {
   // Find resources that are currently in provisioning/pending states
-  const activeResources = resources.filter((r) =>
-    r.status === 'Provisioning' ||
-    r.status === 'Configuring' ||
-    r.status === 'Pending' ||
-    r.status === 'Creating' ||
-    r.status === 'Updating'
+  const activeResources = resources.filter(
+    (r) =>
+      r.status === 'Provisioning' ||
+      r.status === 'Configuring' ||
+      r.status === 'Pending' ||
+      r.status === 'Creating' ||
+      r.status === 'Updating'
   );
 
   // Find recent operations that might still be running (last 5 minutes)
@@ -58,7 +59,9 @@ const ActiveOperationsPanel = ({ resources = [], operations = [] }) => {
     // For operations
     const type = item.result?.type || item.type || 'Operation';
     const clusterFile = item.result?.clusterFile || item.clusterFile || '';
-    const clusterName = clusterFile ? clusterFile.replace('.yml', '').replace('.yaml', '') : 'cluster';
+    const clusterName = clusterFile
+      ? clusterFile.replace('.yml', '').replace('.yaml', '')
+      : 'cluster';
 
     let environment = 'Unknown';
     if (type.includes('MCE') || type.includes('OCP')) environment = 'MCE';
@@ -133,10 +136,7 @@ const ActiveOperationsPanel = ({ resources = [], operations = [] }) => {
           const progress = getProgressPercentage(item);
 
           return (
-            <div
-              key={idx}
-              className="bg-white rounded-lg border border-blue-200 p-4 shadow-sm"
-            >
+            <div key={idx} className="bg-white rounded-lg border border-blue-200 p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center space-x-2 flex-1 min-w-0">
                   <span className="text-sm font-semibold text-gray-900 truncate">

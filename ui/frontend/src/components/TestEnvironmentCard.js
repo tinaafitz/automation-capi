@@ -17,25 +17,25 @@ const TestEnvironmentCard = ({
   const last24h = recentOperations.filter((op) => {
     if (!op.timestamp) return false;
     const opTime = new Date(op.timestamp);
-    return (now - opTime) < 24 * 60 * 60 * 1000;
+    return now - opTime < 24 * 60 * 60 * 1000;
   });
 
-  const passedTests = last24h.filter((op) =>
-    op.result?.success ||
-    op.result?.status === 'success' ||
-    (!op.result?.error && op.result?.output)
+  const passedTests = last24h.filter(
+    (op) =>
+      op.result?.success ||
+      op.result?.status === 'success' ||
+      (!op.result?.error && op.result?.output)
   ).length;
 
-  const failedTests = last24h.filter((op) =>
-    op.result?.error ||
-    op.result?.status === 'error' ||
-    op.result?.return_code !== undefined && op.result?.return_code !== 0
+  const failedTests = last24h.filter(
+    (op) =>
+      op.result?.error ||
+      op.result?.status === 'error' ||
+      (op.result?.return_code !== undefined && op.result?.return_code !== 0)
   ).length;
 
-  const runningTests = resources.filter((r) =>
-    r.status === 'Provisioning' ||
-    r.status === 'Configuring' ||
-    r.status === 'Pending'
+  const runningTests = resources.filter(
+    (r) => r.status === 'Provisioning' || r.status === 'Configuring' || r.status === 'Pending'
   ).length;
 
   return (
@@ -133,7 +133,9 @@ const TestEnvironmentCard = ({
                   />
                 </svg>
               )}
-              <span className={`text-2xl font-bold ${failedTests > 0 ? 'text-red-700' : 'text-gray-400'}`}>
+              <span
+                className={`text-2xl font-bold ${failedTests > 0 ? 'text-red-700' : 'text-gray-400'}`}
+              >
                 {failedTests}
               </span>
             </div>
