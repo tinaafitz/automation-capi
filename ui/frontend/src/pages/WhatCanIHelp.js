@@ -2951,6 +2951,24 @@ export function WhatCanIHelp() {
           </div>
         </div>
 
+        {/* Active Operations Panel */}
+        <div className="mb-6">
+          <ActiveOperationsPanel
+            resources={[
+              ...(verifiedMinikubeClusterInfo
+                ? parseDynamicResources(
+                    ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]?.result
+                      ?.output || ''
+                  )
+                : []),
+              ...(ocpStatus?.connected
+                ? parseDynamicResources(ansibleResults['check-mce-components']?.result?.output || '')
+                : []),
+            ]}
+            operations={recentOperations}
+          />
+        </div>
+
         {/* Main Header with Configure Environment and Right Sidebar */}
         <div className="flex flex-col lg:flex-row items-start justify-between gap-4 lg:gap-8 mb-4 md:mb-6 animate-in fade-in duration-300">
           <div className="flex-1 w-full">
@@ -10277,6 +10295,11 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
           </div>
         </div>
       )}
+
+      {/* Test Activity Feed */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 mb-8">
+        <TestActivityFeed operations={recentOperations} />
+      </div>
 
       {/* Footer */}
       <div className="bg-white border-t border-gray-200 mt-12">
