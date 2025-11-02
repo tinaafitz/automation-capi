@@ -28,6 +28,7 @@ import { ConfigStatus } from '../components/ConfigStatus';
 import { OCPConnectionStatus } from '../components/OCPConnectionStatus';
 import { KindClusterModal } from '../components/KindClusterModal';
 import { KindTerminalModal } from '../components/KindTerminalModal';
+import ProvisioningFlowDiagram from '../components/ProvisioningFlowDiagram';
 import { MinikubeClusterModal } from '../components/MinikubeClusterModal';
 import { MinikubeTerminalModal } from '../components/MinikubeTerminalModal';
 import { MCETerminalModal } from '../components/MCETerminalModal';
@@ -4026,6 +4027,32 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         </div>
                       )}
                     </div>
+
+                    {/* Provisioning Flow Diagram */}
+                    {activeResources && activeResources.length > 0 && (
+                      <div className="bg-white rounded-lg p-4 border border-purple-100 mb-4">
+                        <h4 className="text-sm font-semibold text-purple-800 mb-2 flex items-center">
+                          <svg
+                            className="h-4 w-4 text-purple-600 mr-2"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M13 10V3L4 14h7v7l9-11h-7z"
+                            />
+                          </svg>
+                          Resource Relationships
+                        </h4>
+                        <p className="text-xs text-purple-600 mb-3">
+                          Interactive diagram showing how ROSA provisioning resources connect to create your cluster
+                        </p>
+                        <ProvisioningFlowDiagram resources={activeResources} />
+                      </div>
+                    )}
 
                     {/* Active Resources */}
                     <div className="bg-white rounded-lg p-4 border border-purple-100">
