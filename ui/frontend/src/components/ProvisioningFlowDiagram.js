@@ -1,11 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import ReactFlow, {
-  Background,
-  Controls,
-  MiniMap,
-  useNodesState,
-  useEdgesState,
-} from 'reactflow';
+import ReactFlow, { Background, Controls, MiniMap, useNodesState, useEdgesState } from 'reactflow';
 import 'reactflow/dist/style.css';
 
 // Custom node component for resource cards
@@ -270,10 +264,9 @@ const ProvisioningFlowDiagram = ({ resources = [] }) => {
             status: cp.status || 'Pending',
             type: 'Control Plane',
             icon: '⚙️',
-            details: [
-              cp.version ? `Version: ${cp.version}` : '',
-              `Age: ${cp.age || 'N/A'}`,
-            ].filter(Boolean),
+            details: [cp.version ? `Version: ${cp.version}` : '', `Age: ${cp.age || 'N/A'}`].filter(
+              Boolean
+            ),
           },
         });
 
@@ -311,11 +304,7 @@ const ProvisioningFlowDiagram = ({ resources = [] }) => {
           nodeColor={(node) => {
             const status = node.data?.status || '';
             if (status === 'Ready' || status === 'Active') return '#10B981';
-            if (
-              status === 'Provisioning' ||
-              status === 'Configuring' ||
-              status === 'Pending'
-            )
+            if (status === 'Provisioning' || status === 'Configuring' || status === 'Pending')
               return '#F59E0B';
             return '#EF4444';
           }}

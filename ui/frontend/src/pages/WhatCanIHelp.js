@@ -32,6 +32,9 @@ import ResourceConnectionsCard from '../components/ResourceConnectionsCard';
 import { MinikubeClusterModal } from '../components/MinikubeClusterModal';
 import { MinikubeTerminalModal } from '../components/MinikubeTerminalModal';
 import { MCETerminalModal } from '../components/MCETerminalModal';
+import TestEnvironmentCard from '../components/TestEnvironmentCard';
+import TestActivityFeed from '../components/TestActivityFeed';
+import ActiveOperationsPanel from '../components/ActiveOperationsPanel';
 
 // Helper function to calculate age from ISO timestamp
 function calculateAge(isoTimestamp) {
@@ -2199,8 +2202,9 @@ export function WhatCanIHelp() {
           }));
 
           // Create an AbortController for timeout
+          // MCE operations need longer timeout due to OCP login + network latency + oc commands
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+          const timeoutId = setTimeout(() => controller.abort(), 180000); // 180 second (3 minute) timeout
 
           const response = await fetch('http://localhost:8000/api/ansible/run-task', {
             method: 'POST',
@@ -2704,8 +2708,8 @@ export function WhatCanIHelp() {
                   // Count clusters from Minikube active resources
                   const minikubeResources = verifiedMinikubeClusterInfo
                     ? parseDynamicResources(
-                        ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]?.result
-                          ?.output || ''
+                        ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]
+                          ?.result?.output || ''
                       )
                     : [];
                   const minikubeClusters = minikubeResources.filter(
@@ -2717,7 +2721,9 @@ export function WhatCanIHelp() {
 
                   // Count clusters from MCE active resources
                   const mceResources = ocpStatus?.connected
-                    ? parseDynamicResources(ansibleResults['check-mce-components']?.result?.output || '')
+                    ? parseDynamicResources(
+                        ansibleResults['check-mce-components']?.result?.output || ''
+                      )
                     : [];
                   const mceClusters = mceResources.filter(
                     (r) =>
@@ -2727,8 +2733,8 @@ export function WhatCanIHelp() {
                   );
 
                   const totalClusters = minikubeClusters.length + mceClusters.length;
-                  const readyClusters = [...minikubeClusters, ...mceClusters].filter(
-                    (r) => r.status?.toLowerCase().includes('ready')
+                  const readyClusters = [...minikubeClusters, ...mceClusters].filter((r) =>
+                    r.status?.toLowerCase().includes('ready')
                   ).length;
 
                   return totalClusters > 0 ? `${readyClusters}/${totalClusters}` : '0';
@@ -2746,7 +2752,11 @@ export function WhatCanIHelp() {
                     <CheckCircleIcon className="h-4 w-4 text-green-600" />
                   ) : recentOperations[0].status === 'error' ? (
                     <svg className="h-4 w-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   ) : (
                     <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
@@ -2755,7 +2765,8 @@ export function WhatCanIHelp() {
                     {recentOperations[0].operation}
                   </span>
                   <span className="text-gray-500">
-                    ({(() => {
+                    (
+                    {(() => {
                       const timestamp = new Date(recentOperations[0].timestamp);
                       const now = new Date();
                       const diffMs = now - timestamp;
@@ -2767,7 +2778,8 @@ export function WhatCanIHelp() {
                       if (minutes > 0) return `${minutes}m ago`;
                       if (seconds > 10) return `${seconds}s ago`;
                       return 'just now';
-                    })()})
+                    })()}
+                    )
                   </span>
                 </div>
               ) : (
@@ -2807,7 +2819,180 @@ export function WhatCanIHelp() {
         </div>
       </div>
 
+      {/* Testing Command Center Header */}
+      <div className="border-b border-purple-200 bg-gradient-to-r from-purple-100 via-pink-50 to-purple-100 shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-lg flex items-center justify-center shadow-lg">
+                <svg
+                  className="h-7 w-7 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">🎯 Testing Command Center</h1>
+                <p className="text-sm text-gray-600">
+                  CAPI/CAPA Multi-Environment Testing Dashboard
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-6">
+              {/* Today's Tests */}
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-700">
+                  {(() => {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    return recentOperations.filter((op) => {
+                      if (!op.timestamp) return false;
+                      const opDate = new Date(op.timestamp);
+                      opDate.setHours(0, 0, 0, 0);
+                      return opDate.getTime() === today.getTime();
+                    }).length;
+                  })()}
+                </div>
+                <div className="text-xs text-gray-600">Today's Tests</div>
+              </div>
+
+              {/* Success Rate */}
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-700">
+                  {(() => {
+                    if (recentOperations.length === 0) return '0%';
+                    const successful = recentOperations.filter(
+                      (op) =>
+                        op.result?.success ||
+                        op.result?.status === 'success' ||
+                        (!op.result?.error && op.result?.output)
+                    ).length;
+                    return Math.round((successful / recentOperations.length) * 100) + '%';
+                  })()}
+                </div>
+                <div className="text-xs text-gray-600">Success Rate</div>
+              </div>
+
+              {/* Active Operations */}
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-700 flex items-center justify-center">
+                  {(() => {
+                    const minikubeResources = verifiedMinikubeClusterInfo
+                      ? parseDynamicResources(
+                          ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]
+                            ?.result?.output || ''
+                        )
+                      : [];
+                    const mceResources = ocpStatus?.connected
+                      ? parseDynamicResources(
+                          ansibleResults['check-mce-components']?.result?.output || ''
+                        )
+                      : [];
+                    const allResources = [...minikubeResources, ...mceResources];
+                    const activeCount = allResources.filter(
+                      (r) =>
+                        r.status === 'Provisioning' ||
+                        r.status === 'Configuring' ||
+                        r.status === 'Pending'
+                    ).length;
+                    return activeCount > 0 ? (
+                      <>
+                        <span className="w-2 h-2 bg-blue-500 rounded-full mr-1.5 animate-pulse"></span>
+                        {activeCount}
+                      </>
+                    ) : (
+                      activeCount
+                    );
+                  })()}
+                </div>
+                <div className="text-xs text-gray-600">Active</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-6 space-y-4 md:space-y-5">
+        {/* Test Environments Section */}
+        <div className="mb-6">
+          <div className="flex items-center mb-4">
+            <h2 className="text-xl font-bold text-gray-900">Test Environments</h2>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Minikube Environment Card */}
+            <TestEnvironmentCard
+              name="💻 Minikube"
+              icon="💻"
+              resources={
+                verifiedMinikubeClusterInfo
+                  ? parseDynamicResources(
+                      ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]?.result
+                        ?.output || ''
+                    )
+                  : []
+              }
+              recentOperations={recentOperations}
+              isActive={false}
+              onClick={() => {
+                const minikubeSection = document.getElementById('minikube-section');
+                if (minikubeSection) {
+                  minikubeSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }}
+            />
+
+            {/* MCE Environment Card */}
+            <TestEnvironmentCard
+              name="🌐 MCE Hub"
+              icon="🌐"
+              resources={
+                ocpStatus?.connected
+                  ? parseDynamicResources(
+                      ansibleResults['check-mce-components']?.result?.output || ''
+                    )
+                  : []
+              }
+              recentOperations={recentOperations}
+              isActive={false}
+              onClick={() => {
+                const mceSection = document.getElementById('mce-section');
+                if (mceSection) {
+                  mceSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Active Operations Panel */}
+        <div className="mb-6">
+          <ActiveOperationsPanel
+            resources={[
+              ...(verifiedMinikubeClusterInfo
+                ? parseDynamicResources(
+                    ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]?.result
+                      ?.output || ''
+                  )
+                : []),
+              ...(ocpStatus?.connected
+                ? parseDynamicResources(
+                    ansibleResults['check-mce-components']?.result?.output || ''
+                  )
+                : []),
+            ]}
+            operations={recentOperations}
+          />
+        </div>
+
         {/* Main Header with Configure Environment and Right Sidebar */}
         <div className="flex flex-col lg:flex-row items-start justify-between gap-4 lg:gap-8 mb-4 md:mb-6 animate-in fade-in duration-300">
           <div className="flex-1 w-full">
@@ -3531,7 +3716,10 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
             {/* Main Content Sections */}
             <div className="space-y-6">
               {/* Local Test Environment */}
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-purple-200/50 p-6 backdrop-blur-sm hover:scale-[1.02] hover:-translate-y-1 animate-in fade-in-50 slide-in-from-bottom-4 duration-800">
+              <div
+                id="minikube-section"
+                className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-purple-200/50 p-6 backdrop-blur-sm hover:scale-[1.02] hover:-translate-y-1 animate-in fade-in-50 slide-in-from-bottom-4 duration-800"
+              >
                 <h2
                   className="text-sm font-semibold text-purple-900 mb-3 flex items-center cursor-pointer hover:bg-purple-100/50 rounded-lg p-2 -m-2 transition-colors"
                   onClick={() => toggleSection('local-environment')}
@@ -4913,8 +5101,18 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                       </div>
                                       <span className="text-purple-600 font-mono"></span>
                                       <div className="flex items-center text-gray-600 text-xs">
-                                        <svg className="h-3 w-3 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        <svg
+                                          className="h-3 w-3 mr-1 text-gray-400"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                          />
                                         </svg>
                                         <span className="font-mono">
                                           {resource.creationTimestamp
@@ -4926,30 +5124,53 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                         {(() => {
                                           const status = resource.status || 'Active';
                                           const isReady = status === 'Ready' || status === 'Active';
-                                          const isPending = status === 'Provisioning' || status === 'Configuring' || status === 'Pending';
-                                          const isFailed = status.toLowerCase().includes('fail') || status.toLowerCase().includes('error');
+                                          const isPending =
+                                            status === 'Provisioning' ||
+                                            status === 'Configuring' ||
+                                            status === 'Pending';
+                                          const isFailed =
+                                            status.toLowerCase().includes('fail') ||
+                                            status.toLowerCase().includes('error');
 
                                           return (
-                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                              isReady
-                                                ? 'bg-green-100 text-green-800'
-                                                : isPending
-                                                  ? 'bg-amber-100 text-amber-800'
-                                                  : isFailed
-                                                    ? 'bg-red-100 text-red-800'
-                                                    : 'bg-gray-100 text-gray-800'
-                                            }`}>
+                                            <span
+                                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                                isReady
+                                                  ? 'bg-green-100 text-green-800'
+                                                  : isPending
+                                                    ? 'bg-amber-100 text-amber-800'
+                                                    : isFailed
+                                                      ? 'bg-red-100 text-red-800'
+                                                      : 'bg-gray-100 text-gray-800'
+                                              }`}
+                                            >
                                               {isReady && (
-                                                <svg className="h-3 w-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                <svg
+                                                  className="h-3 w-3 mr-1"
+                                                  fill="currentColor"
+                                                  viewBox="0 0 20 20"
+                                                >
+                                                  <path
+                                                    fillRule="evenodd"
+                                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                                    clipRule="evenodd"
+                                                  />
                                                 </svg>
                                               )}
                                               {isPending && (
                                                 <div className="w-2 h-2 bg-amber-500 rounded-full mr-1.5 animate-pulse"></div>
                                               )}
                                               {isFailed && (
-                                                <svg className="h-3 w-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                                <svg
+                                                  className="h-3 w-3 mr-1"
+                                                  fill="currentColor"
+                                                  viewBox="0 0 20 20"
+                                                >
+                                                  <path
+                                                    fillRule="evenodd"
+                                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                                    clipRule="evenodd"
+                                                  />
                                                 </svg>
                                               )}
                                               {status}
@@ -5025,7 +5246,10 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
               </div>
 
               {/* Configure Test Environment - Next to getting started */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-blue-200/50 p-6 backdrop-blur-sm hover:scale-[1.02] hover:-translate-y-1 animate-in fade-in-50 slide-in-from-bottom-4 duration-700">
+              <div
+                id="mce-section"
+                className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-blue-200/50 p-6 backdrop-blur-sm hover:scale-[1.02] hover:-translate-y-1 animate-in fade-in-50 slide-in-from-bottom-4 duration-700"
+              >
                 <h2
                   className="text-sm font-semibold text-indigo-900 mb-3 flex items-center cursor-pointer hover:bg-indigo-100/50 rounded-lg p-2 -m-2 transition-colors"
                   onClick={() => toggleSection('configure-environment')}
@@ -7837,7 +8061,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                               result.message ||
                                                               '',
                                                             timestamp: new Date(), // Add timestamp for View Full Output
-                                                            playbook: 'provision-rosa-hcp-cluster.yml',
+                                                            playbook:
+                                                              'provision-rosa-hcp-cluster.yml',
                                                             type: 'ROSA HCP Provisioning (MCE)',
                                                             clusterFile: trimmedFile,
                                                             return_code: result.return_code,
@@ -7894,7 +8119,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                                 error: error.message,
                                                                 output: error.message,
                                                                 timestamp: new Date(), // Add timestamp for View Full Output
-                                                                playbook: 'provision-rosa-hcp-cluster.yml',
+                                                                playbook:
+                                                                  'provision-rosa-hcp-cluster.yml',
                                                                 type: 'ROSA HCP Provisioning (MCE)',
                                                               },
                                                               timestamp: new Date(),
@@ -8017,7 +8243,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                 };
 
                                                 // Parse dynamic resources for the card
-                                                const dynamicResourcesForCard = parseDynamicResources(output);
+                                                const dynamicResourcesForCard =
+                                                  parseDynamicResources(output);
                                                 const sortedResourcesForCard = sortResources(
                                                   dynamicResourcesForCard,
                                                   mceSortField,
@@ -8029,7 +8256,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                     {/* Resource Connections Card */}
                                                     {sortedResourcesForCard.length > 0 && (
                                                       <div className="mb-4">
-                                                        <ResourceConnectionsCard resources={sortedResourcesForCard} />
+                                                        <ResourceConnectionsCard
+                                                          resources={sortedResourcesForCard}
+                                                        />
                                                       </div>
                                                     )}
 
@@ -8134,38 +8363,83 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                               <div className="flex items-center text-cyan-600 font-mono">
                                                                 {resource.creationTimestamp && (
                                                                   <>
-                                                                    <svg className="h-3 w-3 mr-1 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                    <svg
+                                                                      className="h-3 w-3 mr-1 text-cyan-400"
+                                                                      fill="none"
+                                                                      stroke="currentColor"
+                                                                      viewBox="0 0 24 24"
+                                                                    >
+                                                                      <path
+                                                                        strokeLinecap="round"
+                                                                        strokeLinejoin="round"
+                                                                        strokeWidth={2}
+                                                                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                                                      />
                                                                     </svg>
-                                                                    {calculateAge(resource.creationTimestamp)}
+                                                                    {calculateAge(
+                                                                      resource.creationTimestamp
+                                                                    )}
                                                                   </>
                                                                 )}
                                                               </div>
                                                               <div className="flex items-center">
                                                                 {(() => {
-                                                                  const status = resource.status || 'Active';
-                                                                  const isReady = status === 'Ready' || status === 'Active';
-                                                                  const isPending = status === 'Provisioning' || status === 'Configuring' || status === 'Pending';
-                                                                  const isFailed = status.toLowerCase().includes('fail') || status.toLowerCase().includes('error');
+                                                                  const status =
+                                                                    resource.status || 'Active';
+                                                                  const isReady =
+                                                                    status === 'Ready' ||
+                                                                    status === 'Active';
+                                                                  const isPending =
+                                                                    status === 'Provisioning' ||
+                                                                    status === 'Configuring' ||
+                                                                    status === 'Pending';
+                                                                  const isFailed =
+                                                                    status
+                                                                      .toLowerCase()
+                                                                      .includes('fail') ||
+                                                                    status
+                                                                      .toLowerCase()
+                                                                      .includes('error');
 
                                                                   return (
-                                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                                                      isReady ? 'bg-green-100 text-green-800'
-                                                                        : isPending ? 'bg-amber-100 text-amber-800'
-                                                                        : isFailed ? 'bg-red-100 text-red-800'
-                                                                        : 'bg-gray-100 text-gray-800'
-                                                                    }`}>
+                                                                    <span
+                                                                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                                                        isReady
+                                                                          ? 'bg-green-100 text-green-800'
+                                                                          : isPending
+                                                                            ? 'bg-amber-100 text-amber-800'
+                                                                            : isFailed
+                                                                              ? 'bg-red-100 text-red-800'
+                                                                              : 'bg-gray-100 text-gray-800'
+                                                                      }`}
+                                                                    >
                                                                       {isReady && (
-                                                                        <svg className="h-3 w-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                                                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                                        <svg
+                                                                          className="h-3 w-3 mr-1"
+                                                                          fill="currentColor"
+                                                                          viewBox="0 0 20 20"
+                                                                        >
+                                                                          <path
+                                                                            fillRule="evenodd"
+                                                                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                                                            clipRule="evenodd"
+                                                                          />
                                                                         </svg>
                                                                       )}
                                                                       {isPending && (
                                                                         <div className="w-2 h-2 bg-amber-500 rounded-full mr-1.5 animate-pulse"></div>
                                                                       )}
                                                                       {isFailed && (
-                                                                        <svg className="h-3 w-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                                                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                                                        <svg
+                                                                          className="h-3 w-3 mr-1"
+                                                                          fill="currentColor"
+                                                                          viewBox="0 0 20 20"
+                                                                        >
+                                                                          <path
+                                                                            fillRule="evenodd"
+                                                                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                                                            clipRule="evenodd"
+                                                                          />
                                                                         </svg>
                                                                       )}
                                                                       {status}
@@ -8385,7 +8659,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                   </>
                                                 ) : (
                                                   <div className="text-xs text-gray-500 italic py-2">
-                                                    No playbook output available. Run an operation to see results here.
+                                                    No playbook output available. Run an operation
+                                                    to see results here.
                                                   </div>
                                                 )}
                                               </div>
@@ -10134,6 +10409,11 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
           </div>
         </div>
       )}
+
+      {/* Test Activity Feed */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 mb-8">
+        <TestActivityFeed operations={recentOperations} />
+      </div>
 
       {/* Footer */}
       <div className="bg-white border-t border-gray-200 mt-12">
