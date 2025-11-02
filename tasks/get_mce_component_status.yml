@@ -7,3 +7,7 @@
   debug:
     msg: "{{ component }} enabled={{ mce_component_status.stdout }}"
 
+- name: Export component status for parent playbook
+  set_fact:
+    component_enabled: "{{ mce_component_status }}"
+

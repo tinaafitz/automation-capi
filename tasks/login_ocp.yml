@@ -1,7 +1,123 @@
-- name: Login OCP with {{ ocp_user }}
+- name: Validate OCP credentials are configured
+  fail:
+    msg: |
+      ❌ CREDENTIAL CONFIGURATION ERROR ❌
+
+      Your OpenShift Hub credentials have not been configured properly.
+      The system detected placeholder values in vars/user_vars.yml:
+
+      Current values detected:
+        - OCP_HUB_CLUSTER_USER: {{ ocp_user }}
+        - OCP_HUB_API_URL: {{ api_url }}
+
+      ⚠️  REQUIRED ACTION:
+
+      1. Open the file: vars/user_vars.yml
+
+      2. Replace the placeholder values with your actual OpenShift Hub credentials:
+
+         OCP_HUB_API_URL: "https://api.your-actual-cluster.example.com:6443"
+         OCP_HUB_CLUSTER_USER: "your-actual-username"
+         OCP_HUB_CLUSTER_PASSWORD: "your-actual-password"
+
+      3. To get your cluster credentials:
+         - Log in to your OpenShift cluster console
+         - Click on your username in the top right
+         - Select "Copy login command"
+         - OR use existing credentials from your cluster administrator
+
+      4. Save the file and retry this operation
+
+      📝 Note: The vars/user_vars.yml file is in .gitignore and will not be committed to git.
+
+  when: >
+    ocp_user is defined and
+    (ocp_user == 'your-username' or
+     ocp_user == '' or
+     api_url == 'https://api.your-cluster.example.com:6443' or
+     api_url == '' or
+     ocp_password == 'your-password' or
+     ocp_password == '')
+
+- name: Attempt OCP login with {{ ocp_user }}
   shell: |
     oc --insecure-skip-tls-verify login -u {{ ocp_user }} -p {{ ocp_password }} -s {{ api_url }}
-  changed_when: true
+  register: ocp_login_result
+  failed_when: false
+  changed_when: ocp_login_result.rc == 0
+
+- name: Check for authentication failure (401 Unauthorized)
+  fail:
+    msg: |
+      ❌ AUTHENTICATION FAILED ❌
+
+      Login to OpenShift Hub cluster failed with 401 Unauthorized.
+
+      Cluster: {{ api_url }}
+      Username: {{ ocp_user }}
+
+      ⚠️  POSSIBLE CAUSES:
+
+      1. ❌ Incorrect Password
+         - The password in vars/user_vars.yml may be wrong or outdated
+         - Passwords may have been rotated by your cluster administrator
+
+      2. ❌ Account Disabled/Expired
+         - The user account may be disabled or expired
+         - Contact your cluster administrator to verify account status
+
+      3. ❌ Wrong Username
+         - The username may be incorrect
+         - Verify the username is correct for this cluster
+
+      ✅ REQUIRED ACTIONS:
+
+      1. Get fresh credentials from your OpenShift cluster:
+         - Log in to OpenShift Console: {{ api_url | regex_replace(':6443', '') }}
+         - Click on your username in the top right
+         - Select "Copy login command"
+         - Click "Display Token"
+         - Copy the login command to get current credentials
+
+      2. Update vars/user_vars.yml with the correct credentials:
+         OCP_HUB_API_URL: "{{ api_url }}"
+         OCP_HUB_CLUSTER_USER: "your-correct-username"
+         OCP_HUB_CLUSTER_PASSWORD: "your-correct-password"
+
+      3. Save the file and retry this operation
+
+      📝 Original Error: {{ ocp_login_result.stdout | default('') }}
+  when: >
+    ocp_login_result.rc != 0 and
+    ('401 Unauthorized' in ocp_login_result.stdout or
+     'Login failed' in ocp_login_result.stdout)
+
+- name: Check for other login failures
+  fail:
+    msg: |
+      ❌ OPENSHIFT LOGIN FAILED ❌
+
+      Failed to login to OpenShift Hub cluster.
+
+      Cluster: {{ api_url }}
+      Username: {{ ocp_user }}
+
+      Error Details:
+      {{ ocp_login_result.stderr | default(ocp_login_result.stdout) }}
+
+      ⚠️  TROUBLESHOOTING STEPS:
+
+      1. Verify the cluster is accessible:
+         - Check if {{ api_url }} is reachable from your network
+         - Try accessing the console: {{ api_url | regex_replace(':6443', '') }}
+
+      2. Verify your credentials are correct in vars/user_vars.yml
+
+      3. Check for network/firewall issues blocking access to the cluster
+
+      4. Ensure the OpenShift CLI (oc) is installed and working:
+         oc version
+  when: ocp_login_result.rc != 0
 
 - name: Store OCP context name
   shell: oc config current-context
@@ -14,4 +130,4 @@
 
 - name: Print OCP login Information
   debug:
-    msg: "Logging in with user: {{ ocp_user }} api_url: {{ api_url }} context: {{ ocp_context }}"
+    msg: "✅ Successfully logged in - User: {{ ocp_user }} | API: {{ api_url }} | Context: {{ ocp_context }}"
