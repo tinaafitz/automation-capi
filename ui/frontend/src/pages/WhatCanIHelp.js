@@ -2202,8 +2202,9 @@ export function WhatCanIHelp() {
           }));
 
           // Create an AbortController for timeout
+          // MCE operations need longer timeout due to OCP login + network latency + oc commands
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+          const timeoutId = setTimeout(() => controller.abort(), 180000); // 180 second (3 minute) timeout
 
           const response = await fetch('http://localhost:8000/api/ansible/run-task', {
             method: 'POST',
