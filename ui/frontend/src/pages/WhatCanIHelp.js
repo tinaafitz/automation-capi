@@ -641,7 +641,12 @@ export function WhatCanIHelp() {
   // Fetch active resources from the Minikube cluster
   const fetchMinikubeActiveResources = async (clusterName, namespace = 'ns-rosa-hcp') => {
     try {
-      console.log('📡 Fetching Minikube active resources for cluster:', clusterName, 'namespace:', namespace);
+      console.log(
+        '📡 Fetching Minikube active resources for cluster:',
+        clusterName,
+        'namespace:',
+        namespace
+      );
       const response = await fetch('http://localhost:8000/api/minikube/get-active-resources', {
         method: 'POST',
         headers: {
@@ -743,9 +748,10 @@ export function WhatCanIHelp() {
 
   // Handle resource click to show details
   const handleResourceClick = async (resource, clusterType = 'minikube') => {
-    const clusterName = clusterType === 'minikube'
-      ? verifiedMinikubeClusterInfo?.name
-      : verifiedKindClusterInfo?.name;
+    const clusterName =
+      clusterType === 'minikube'
+        ? verifiedMinikubeClusterInfo?.name
+        : verifiedKindClusterInfo?.name;
 
     if (!clusterName) {
       addNotification('No cluster selected', 'error');
@@ -865,11 +871,14 @@ export function WhatCanIHelp() {
   // Fetch active resources when Minikube cluster info is loaded
   useEffect(() => {
     if (verifiedMinikubeClusterInfo?.name) {
-      console.log('🔄 Auto-fetching active resources for Minikube cluster:', verifiedMinikubeClusterInfo.name);
+      console.log(
+        '🔄 Auto-fetching active resources for Minikube cluster:',
+        verifiedMinikubeClusterInfo.name
+      );
       fetchMinikubeActiveResources(
         verifiedMinikubeClusterInfo.name,
         verifiedMinikubeClusterInfo.namespace || 'ns-rosa-hcp'
-      ).catch(err => console.error('Failed to auto-fetch active resources:', err));
+      ).catch((err) => console.error('Failed to auto-fetch active resources:', err));
     }
   }, [verifiedMinikubeClusterInfo?.name]);
 
@@ -2509,11 +2518,13 @@ export function WhatCanIHelp() {
 
         const cleaned = prev.filter((op) => {
           // Keep operations that don't have in-progress status
-          if (!op.status.includes('⏳') &&
-              !op.status.includes('Verifying...') &&
-              !op.status.includes('Configuring...') &&
-              !op.status.includes('Running...') &&
-              !op.status.includes('Processing...')) {
+          if (
+            !op.status.includes('⏳') &&
+            !op.status.includes('Verifying...') &&
+            !op.status.includes('Configuring...') &&
+            !op.status.includes('Running...') &&
+            !op.status.includes('Processing...')
+          ) {
             return true;
           }
 
@@ -2543,11 +2554,14 @@ export function WhatCanIHelp() {
   // Auto-fetch active resources when verified Minikube cluster info is available
   React.useEffect(() => {
     if (verifiedMinikubeClusterInfo?.name && verifiedMinikubeClusterInfo?.namespace) {
-      console.log('📡 Auto-fetching active resources for verified cluster:', verifiedMinikubeClusterInfo.name);
+      console.log(
+        '📡 Auto-fetching active resources for verified cluster:',
+        verifiedMinikubeClusterInfo.name
+      );
       fetchMinikubeActiveResources(
         verifiedMinikubeClusterInfo.name,
         verifiedMinikubeClusterInfo.namespace
-      ).catch(err => console.error('Auto-fetch active resources failed:', err));
+      ).catch((err) => console.error('Auto-fetch active resources failed:', err));
     }
   }, [verifiedMinikubeClusterInfo?.name, verifiedMinikubeClusterInfo?.namespace]);
 
@@ -3099,8 +3113,12 @@ export function WhatCanIHelp() {
                                 version: verifyData.cluster_info?.version || prev.version,
                                 status: verifyData.cluster_info?.status || prev.status,
                                 components: verifyData.cluster_info?.components || prev.components,
-                                component_versions: verifyData.cluster_info?.component_versions || prev.component_versions,
-                                component_timestamps: verifyData.cluster_info?.component_timestamps || prev.component_timestamps,
+                                component_versions:
+                                  verifyData.cluster_info?.component_versions ||
+                                  prev.component_versions,
+                                component_timestamps:
+                                  verifyData.cluster_info?.component_timestamps ||
+                                  prev.component_timestamps,
                                 verifiedDate: new Date().toLocaleString('en-US', {
                                   month: 'short',
                                   day: 'numeric',
@@ -3128,7 +3146,9 @@ export function WhatCanIHelp() {
                               fetchMinikubeActiveResources(
                                 verifiedMinikubeClusterInfo.name,
                                 verifiedMinikubeClusterInfo.namespace
-                              ).catch(err => console.error('Failed to fetch active resources:', err));
+                              ).catch((err) =>
+                                console.error('Failed to fetch active resources:', err)
+                              );
                             } else {
                               // Get completion time with seconds
                               const completionTime = new Date().toLocaleTimeString('en-US', {
@@ -3222,7 +3242,11 @@ export function WhatCanIHelp() {
                     <div className="bg-white rounded-md p-2 border border-purple-100">
                       <div className="text-xs text-purple-600 mb-1">CAPI/CAPA:</div>
                       <div className="flex items-center gap-1">
-                        <svg className="h-3.5 w-3.5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                        <svg
+                          className="h-3.5 w-3.5 text-green-600"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
                           <path
                             fillRule="evenodd"
                             d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -3239,8 +3263,8 @@ export function WhatCanIHelp() {
                       <div className="text-sm font-bold text-purple-900">
                         {
                           parseDynamicResources(
-                            ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]?.result
-                              ?.output || ''
+                            ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]
+                              ?.result?.output || ''
                           ).filter((r) => r.type === 'ROSACluster').length
                         }
                       </div>
@@ -3252,7 +3276,8 @@ export function WhatCanIHelp() {
                     <div className="bg-white rounded-md p-2 border border-purple-100">
                       <div className="text-xs font-medium text-purple-600 mb-1">API Server</div>
                       <div className="text-xs text-purple-900 font-mono break-all">
-                        {verifiedMinikubeClusterInfo.cluster_info?.api_url || 'https://127.0.0.1:8443'}
+                        {verifiedMinikubeClusterInfo.cluster_info?.api_url ||
+                          'https://127.0.0.1:8443'}
                       </div>
                     </div>
 
@@ -3261,17 +3286,16 @@ export function WhatCanIHelp() {
                       <div className="text-xs font-medium text-purple-600 mb-1">Last Verified</div>
                       <div className="text-xs text-purple-900">
                         {ansibleResults[`validate-minikube-capa`]?.timestamp
-                          ? new Date(ansibleResults[`validate-minikube-capa`].timestamp).toLocaleString(
-                              'en-US',
-                              {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric',
-                                hour: 'numeric',
-                                minute: '2-digit',
-                                hour12: true,
-                              }
-                            )
+                          ? new Date(
+                              ansibleResults[`validate-minikube-capa`].timestamp
+                            ).toLocaleString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              hour12: true,
+                            })
                           : 'Not verified yet'}
                       </div>
                     </div>
@@ -3350,361 +3374,362 @@ export function WhatCanIHelp() {
                 </h4>
 
                 {/* Action Buttons - Only show when key components exist */}
-                {activeResources.filter((r) =>
-                  r.type === 'Namespace' ||
-                  r.type === 'AWSClusterControllerIdentity' ||
-                  r.type === 'Secret (ROSA Creds)' ||
-                  r.type === 'Secret (AWS Creds)'
+                {activeResources.filter(
+                  (r) =>
+                    r.type === 'Namespace' ||
+                    r.type === 'AWSClusterControllerIdentity' ||
+                    r.type === 'Secret (ROSA Creds)' ||
+                    r.type === 'Secret (AWS Creds)'
                 ).length > 0 && (
                   <div className="mb-4 flex items-center justify-end space-x-2">
                     {/* Provision ROSA HCP Cluster Button */}
                     <button
                       onClick={async () => {
                         let operationId; // Declare outside try block for catch access
-                      try {
-                        // Prompt user for cluster definition file name
-                        const clusterFile = window.prompt(
-                          'Enter the YAML cluster definition file name:\n\n' +
-                            'Example: rosa-hcp-test.yml\n' +
-                            'Example: clusters/my-cluster.yaml\n\n' +
-                            'File should be in your automation-capi directory',
-                          lastRosaYamlPath || 'rosa-hcp-test.yml'
-                        );
-
-                        if (!clusterFile) return;
-
-                        const trimmedFile = clusterFile.trim();
-
-                        if (
-                          !confirm(
-                            `Provision ROSA HCP Cluster using "${trimmedFile}"?\n\nThis will:\n- Create namespace ns-rosa-hcp\n- Apply AWS Identity configuration\n- Create OCM client secret\n- Apply ROSA HCP cluster definition from ${trimmedFile}`
-                          )
-                        ) {
-                          return;
-                        }
-
-                        // Create unique operation ID
-                        operationId = `provision-rosa-hcp-${Date.now()}`;
-
-                        // Add to recent operations with "Provisioning..." status
-                        addToRecent({
-                          id: operationId,
-                          title: `Minikube Provision ROSA HCP: ${trimmedFile}`,
-                          color: 'bg-rose-600',
-                          status: '⏳ Provisioning...',
-                        });
-
-                        // Small delay to show the "Provisioning..." status
-                        await new Promise((resolve) => setTimeout(resolve, 100));
-
-                        // Save the file path for next time
-                        setLastRosaYamlPath(trimmedFile);
-
-                        const response = await fetch(
-                          'http://localhost:8000/api/ansible/run-task',
-                          {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              task_file: 'tasks/provision-rosa-hcp-cluster.yml',
-                              description: `Provision ROSA HCP Cluster: ${trimmedFile}`,
-                              kube_context:
-                                verifiedMinikubeClusterInfo?.contextName ||
-                                verifiedMinikubeClusterInfo?.name,
-                              extra_vars: {
-                                ROSA_HCP_CLUSTER_FILE: trimmedFile,
-                              },
-                            }),
-                          }
-                        );
-
-                        const result = await response.json();
-                        const completionTime = new Date().toLocaleTimeString('en-US', {
-                          hour: 'numeric',
-                          minute: '2-digit',
-                          second: '2-digit',
-                          hour12: true,
-                        });
-
-                        console.log('[Minikube Provision ROSA HCP] Response:', {
-                          ok: response.ok,
-                          success: result.success,
-                          result: result,
-                        });
-
-                        if (result.success) {
-                          // Store successful result
-                          setAnsibleResults((prev) => ({
-                            ...prev,
-                            [operationId]: {
-                              loading: false,
-                              success: true,
-                              result: {
-                                output: result.output,
-                                timestamp: new Date(),
-                                task_file: 'tasks/provision-rosa-hcp-cluster.yml',
-                                type: 'Provision ROSA HCP Cluster',
-                                cluster_file: trimmedFile,
-                              },
-                              timestamp: new Date(),
-                            },
-                          }));
-
-                          // Update operation status
-                          updateRecentOperationStatus(
-                            operationId,
-                            `✅ Provisioned successfully at ${completionTime}`
+                        try {
+                          // Prompt user for cluster definition file name
+                          const clusterFile = window.prompt(
+                            'Enter the YAML cluster definition file name:\n\n' +
+                              'Example: rosa-hcp-test.yml\n' +
+                              'Example: clusters/my-cluster.yaml\n\n' +
+                              'File should be in your automation-capi directory',
+                            lastRosaYamlPath || 'rosa-hcp-test.yml'
                           );
 
-                          // Refresh active resources
-                          await fetchMinikubeActiveResources(
-                            verifiedMinikubeClusterInfo.name,
-                            verifiedMinikubeClusterInfo.namespace
-                          );
-                        } else {
-                          // Extract detailed error message
-                          const errorDetails = {
-                            message: result.message || 'Unknown error',
-                            error: result.error || '',
-                            return_code: result.return_code,
-                            fullResponse: result,
-                          };
+                          if (!clusterFile) return;
 
-                          console.log(
-                            '[Minikube Provision ROSA HCP] Error details:',
-                            errorDetails
-                          );
+                          const trimmedFile = clusterFile.trim();
 
-                          setAnsibleResults((prev) => ({
-                            ...prev,
-                            [operationId]: {
-                              loading: false,
-                              success: false,
-                              result: {
-                                error: result.error || result.message || 'Provisioning failed',
-                                output: result.output || '',
-                                timestamp: new Date(),
-                                task_file: 'tasks/provision-rosa-hcp-cluster.yml',
-                                type: 'Provision ROSA HCP Cluster',
-                                cluster_file: trimmedFile,
-                              },
-                              timestamp: new Date(),
-                            },
-                          }));
-
-                          updateRecentOperationStatus(
-                            operationId,
-                            `❌ Provisioning failed at ${completionTime}`
-                          );
-                        }
-                      } catch (error) {
-                        console.error('[Minikube Provision ROSA HCP] Exception:', error);
-                        const completionTime = new Date().toLocaleTimeString('en-US', {
-                          hour: 'numeric',
-                          minute: '2-digit',
-                          second: '2-digit',
-                          hour12: true,
-                        });
-                        if (operationId) {
-                          setAnsibleResults((prev) => ({
-                            ...prev,
-                            [operationId]: {
-                              loading: false,
-                              success: false,
-                              result: {
-                                error: error.toString(),
-                                timestamp: new Date(),
-                                task_file: 'tasks/provision-rosa-hcp-cluster.yml',
-                                type: 'Provision ROSA HCP Cluster',
-                              },
-                              timestamp: new Date(),
-                            },
-                          }));
-                          updateRecentOperationStatus(
-                            operationId,
-                            `❌ Provisioning failed at ${completionTime}`
-                          );
-                        }
-                      }
-                    }}
-                    className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
-                  >
-                    <svg
-                      className="h-3.5 w-3.5 mr-1.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                      />
-                    </svg>
-                    <span>Provision ROSA HCP</span>
-                  </button>
-
-                  {/* Configure AutoNode Button */}
-                  {(() => {
-                    // Check if we have ansible results with dynamic resources
-                    const hasROSACluster =
-                      parseDynamicResources(
-                        ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]
-                          ?.result?.output || ''
-                      ).filter((r) => r.type === 'ROSACluster').length > 0;
-
-                    return hasROSACluster ? (
-                      <button
-                        onClick={async () => {
-                          let operationId;
-                          try {
-                            if (
-                              !confirm(
-                                'Configure AutoNode for ROSA HCP Cluster?\n\nThis will:\n- Configure EC2NodeClass\n- Create NodePool\n- Verify AutoNode configuration'
-                              )
+                          if (
+                            !confirm(
+                              `Provision ROSA HCP Cluster using "${trimmedFile}"?\n\nThis will:\n- Create namespace ns-rosa-hcp\n- Apply AWS Identity configuration\n- Create OCM client secret\n- Apply ROSA HCP cluster definition from ${trimmedFile}`
                             )
-                              return;
+                          ) {
+                            return;
+                          }
 
-                            operationId = `configure-autonode-${Date.now()}`;
+                          // Create unique operation ID
+                          operationId = `provision-rosa-hcp-${Date.now()}`;
 
-                            addToRecent({
-                              id: operationId,
-                              title: 'Minikube Configure AutoNode',
-                              color: 'bg-violet-600',
-                              status: '⏳ Configuring...',
-                            });
+                          // Add to recent operations with "Provisioning..." status
+                          addToRecent({
+                            id: operationId,
+                            title: `Minikube Provision ROSA HCP: ${trimmedFile}`,
+                            color: 'bg-rose-600',
+                            status: '⏳ Provisioning...',
+                          });
 
-                            await new Promise((resolve) => setTimeout(resolve, 100));
+                          // Small delay to show the "Provisioning..." status
+                          await new Promise((resolve) => setTimeout(resolve, 100));
 
-                            const response = await fetch(
-                              'http://localhost:8000/api/ansible/run-playbook',
-                              {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  playbook: 'test-autonode.yml',
-                                  description: 'Configure AutoNode',
-                                  extra_vars: {
-                                    KUBE_CONTEXT:
-                                      verifiedMinikubeClusterInfo?.contextName ||
-                                      verifiedMinikubeClusterInfo?.name,
-                                  },
-                                }),
-                              }
+                          // Save the file path for next time
+                          setLastRosaYamlPath(trimmedFile);
+
+                          const response = await fetch(
+                            'http://localhost:8000/api/ansible/run-task',
+                            {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                task_file: 'tasks/provision-rosa-hcp-cluster.yml',
+                                description: `Provision ROSA HCP Cluster: ${trimmedFile}`,
+                                kube_context:
+                                  verifiedMinikubeClusterInfo?.contextName ||
+                                  verifiedMinikubeClusterInfo?.name,
+                                extra_vars: {
+                                  ROSA_HCP_CLUSTER_FILE: trimmedFile,
+                                },
+                              }),
+                            }
+                          );
+
+                          const result = await response.json();
+                          const completionTime = new Date().toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true,
+                          });
+
+                          console.log('[Minikube Provision ROSA HCP] Response:', {
+                            ok: response.ok,
+                            success: result.success,
+                            result: result,
+                          });
+
+                          if (result.success) {
+                            // Store successful result
+                            setAnsibleResults((prev) => ({
+                              ...prev,
+                              [operationId]: {
+                                loading: false,
+                                success: true,
+                                result: {
+                                  output: result.output,
+                                  timestamp: new Date(),
+                                  task_file: 'tasks/provision-rosa-hcp-cluster.yml',
+                                  type: 'Provision ROSA HCP Cluster',
+                                  cluster_file: trimmedFile,
+                                },
+                                timestamp: new Date(),
+                              },
+                            }));
+
+                            // Update operation status
+                            updateRecentOperationStatus(
+                              operationId,
+                              `✅ Provisioned successfully at ${completionTime}`
                             );
 
-                            const result = await response.json();
-                            const completionTime = new Date().toLocaleTimeString('en-US', {
-                              hour: 'numeric',
-                              minute: '2-digit',
-                              second: '2-digit',
-                              hour12: true,
-                            });
+                            // Refresh active resources
+                            await fetchMinikubeActiveResources(
+                              verifiedMinikubeClusterInfo.name,
+                              verifiedMinikubeClusterInfo.namespace
+                            );
+                          } else {
+                            // Extract detailed error message
+                            const errorDetails = {
+                              message: result.message || 'Unknown error',
+                              error: result.error || '',
+                              return_code: result.return_code,
+                              fullResponse: result,
+                            };
 
-                            if (result.success) {
-                              setAnsibleResults((prev) => ({
-                                ...prev,
-                                [operationId]: {
-                                  loading: false,
-                                  success: true,
-                                  result: {
-                                    output: result.output,
-                                    timestamp: new Date(),
-                                    playbook: 'test-autonode.yml',
-                                    type: 'Configure AutoNode',
-                                  },
+                            console.log(
+                              '[Minikube Provision ROSA HCP] Error details:',
+                              errorDetails
+                            );
+
+                            setAnsibleResults((prev) => ({
+                              ...prev,
+                              [operationId]: {
+                                loading: false,
+                                success: false,
+                                result: {
+                                  error: result.error || result.message || 'Provisioning failed',
+                                  output: result.output || '',
                                   timestamp: new Date(),
+                                  task_file: 'tasks/provision-rosa-hcp-cluster.yml',
+                                  type: 'Provision ROSA HCP Cluster',
+                                  cluster_file: trimmedFile,
                                 },
-                              }));
+                                timestamp: new Date(),
+                              },
+                            }));
 
-                              updateRecentOperationStatus(
-                                operationId,
-                                `✅ AutoNode configured at ${completionTime}`
-                              );
-
-                              // Refresh active resources
-                              await fetchMinikubeActiveResources(
-                                verifiedMinikubeClusterInfo.name,
-                                verifiedMinikubeClusterInfo.namespace
-                              );
-                            } else {
-                              setAnsibleResults((prev) => ({
-                                ...prev,
-                                [operationId]: {
-                                  loading: false,
-                                  success: false,
-                                  result: {
-                                    error: result.error || 'Configuration failed',
-                                    output: result.output || '',
-                                    timestamp: new Date(),
-                                    playbook: 'test-autonode.yml',
-                                    type: 'Configure AutoNode',
-                                  },
-                                  timestamp: new Date(),
-                                },
-                              }));
-
-                              updateRecentOperationStatus(
-                                operationId,
-                                `❌ AutoNode configuration failed at ${completionTime}`
-                              );
-                            }
-                          } catch (error) {
-                            console.error('[Configure AutoNode] Exception:', error);
-                            const completionTime = new Date().toLocaleTimeString('en-US', {
-                              hour: 'numeric',
-                              minute: '2-digit',
-                              second: '2-digit',
-                              hour12: true,
-                            });
-                            if (operationId) {
-                              setAnsibleResults((prev) => ({
-                                ...prev,
-                                [operationId]: {
-                                  loading: false,
-                                  success: false,
-                                  result: {
-                                    error: error.toString(),
-                                    timestamp: new Date(),
-                                    playbook: 'test-autonode.yml',
-                                    type: 'Configure AutoNode',
-                                  },
-                                  timestamp: new Date(),
-                                },
-                              }));
-                              updateRecentOperationStatus(
-                                operationId,
-                                `❌ AutoNode configuration failed at ${completionTime}`
-                              );
-                            }
+                            updateRecentOperationStatus(
+                              operationId,
+                              `❌ Provisioning failed at ${completionTime}`
+                            );
                           }
-                        }}
-                        className="bg-violet-600 hover:bg-violet-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                        } catch (error) {
+                          console.error('[Minikube Provision ROSA HCP] Exception:', error);
+                          const completionTime = new Date().toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true,
+                          });
+                          if (operationId) {
+                            setAnsibleResults((prev) => ({
+                              ...prev,
+                              [operationId]: {
+                                loading: false,
+                                success: false,
+                                result: {
+                                  error: error.toString(),
+                                  timestamp: new Date(),
+                                  task_file: 'tasks/provision-rosa-hcp-cluster.yml',
+                                  type: 'Provision ROSA HCP Cluster',
+                                },
+                                timestamp: new Date(),
+                              },
+                            }));
+                            updateRecentOperationStatus(
+                              operationId,
+                              `❌ Provisioning failed at ${completionTime}`
+                            );
+                          }
+                        }
+                      }}
+                      className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                    >
+                      <svg
+                        className="h-3.5 w-3.5 mr-1.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
                       >
-                        <svg
-                          className="h-3.5 w-3.5 mr-1.5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                        />
+                      </svg>
+                      <span>Provision ROSA HCP</span>
+                    </button>
+
+                    {/* Configure AutoNode Button */}
+                    {(() => {
+                      // Check if we have ansible results with dynamic resources
+                      const hasROSACluster =
+                        parseDynamicResources(
+                          ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]
+                            ?.result?.output || ''
+                        ).filter((r) => r.type === 'ROSACluster').length > 0;
+
+                      return hasROSACluster ? (
+                        <button
+                          onClick={async () => {
+                            let operationId;
+                            try {
+                              if (
+                                !confirm(
+                                  'Configure AutoNode for ROSA HCP Cluster?\n\nThis will:\n- Configure EC2NodeClass\n- Create NodePool\n- Verify AutoNode configuration'
+                                )
+                              )
+                                return;
+
+                              operationId = `configure-autonode-${Date.now()}`;
+
+                              addToRecent({
+                                id: operationId,
+                                title: 'Minikube Configure AutoNode',
+                                color: 'bg-violet-600',
+                                status: '⏳ Configuring...',
+                              });
+
+                              await new Promise((resolve) => setTimeout(resolve, 100));
+
+                              const response = await fetch(
+                                'http://localhost:8000/api/ansible/run-playbook',
+                                {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    playbook: 'test-autonode.yml',
+                                    description: 'Configure AutoNode',
+                                    extra_vars: {
+                                      KUBE_CONTEXT:
+                                        verifiedMinikubeClusterInfo?.contextName ||
+                                        verifiedMinikubeClusterInfo?.name,
+                                    },
+                                  }),
+                                }
+                              );
+
+                              const result = await response.json();
+                              const completionTime = new Date().toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: true,
+                              });
+
+                              if (result.success) {
+                                setAnsibleResults((prev) => ({
+                                  ...prev,
+                                  [operationId]: {
+                                    loading: false,
+                                    success: true,
+                                    result: {
+                                      output: result.output,
+                                      timestamp: new Date(),
+                                      playbook: 'test-autonode.yml',
+                                      type: 'Configure AutoNode',
+                                    },
+                                    timestamp: new Date(),
+                                  },
+                                }));
+
+                                updateRecentOperationStatus(
+                                  operationId,
+                                  `✅ AutoNode configured at ${completionTime}`
+                                );
+
+                                // Refresh active resources
+                                await fetchMinikubeActiveResources(
+                                  verifiedMinikubeClusterInfo.name,
+                                  verifiedMinikubeClusterInfo.namespace
+                                );
+                              } else {
+                                setAnsibleResults((prev) => ({
+                                  ...prev,
+                                  [operationId]: {
+                                    loading: false,
+                                    success: false,
+                                    result: {
+                                      error: result.error || 'Configuration failed',
+                                      output: result.output || '',
+                                      timestamp: new Date(),
+                                      playbook: 'test-autonode.yml',
+                                      type: 'Configure AutoNode',
+                                    },
+                                    timestamp: new Date(),
+                                  },
+                                }));
+
+                                updateRecentOperationStatus(
+                                  operationId,
+                                  `❌ AutoNode configuration failed at ${completionTime}`
+                                );
+                              }
+                            } catch (error) {
+                              console.error('[Configure AutoNode] Exception:', error);
+                              const completionTime = new Date().toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: true,
+                              });
+                              if (operationId) {
+                                setAnsibleResults((prev) => ({
+                                  ...prev,
+                                  [operationId]: {
+                                    loading: false,
+                                    success: false,
+                                    result: {
+                                      error: error.toString(),
+                                      timestamp: new Date(),
+                                      playbook: 'test-autonode.yml',
+                                      type: 'Configure AutoNode',
+                                    },
+                                    timestamp: new Date(),
+                                  },
+                                }));
+                                updateRecentOperationStatus(
+                                  operationId,
+                                  `❌ AutoNode configuration failed at ${completionTime}`
+                                );
+                              }
+                            }
+                          }}
+                          className="bg-violet-600 hover:bg-violet-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                          />
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                          />
-                        </svg>
-                        <span>Configure AutoNode</span>
-                      </button>
-                    ) : null;
-                  })()}
+                          <svg
+                            className="h-3.5 w-3.5 mr-1.5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                          </svg>
+                          <span>Configure AutoNode</span>
+                        </button>
+                      ) : null;
+                    })()}
                   </div>
                 )}
 
@@ -3758,7 +3783,10 @@ export function WhatCanIHelp() {
 
               {/* Active Resources */}
               <div className="bg-white rounded-lg border-2 border-purple-200 p-6 shadow-lg">
-                {console.log('🎯 ACTIVE RESOURCES TILE IS RENDERING', {activeResourcesLength: activeResources.length, activeResources: activeResources})}
+                {console.log('🎯 ACTIVE RESOURCES TILE IS RENDERING', {
+                  activeResourcesLength: activeResources.length,
+                  activeResources: activeResources,
+                })}
 
                 <h4 className="text-base font-semibold text-purple-900 mb-4 flex items-center justify-between">
                   <div className="flex items-center">
@@ -3778,21 +3806,27 @@ export function WhatCanIHelp() {
                     Active Resources
                   </div>
                   <span className="text-xs font-normal text-purple-600">
-                    ({activeResources.filter((r) =>
-                      r.type !== 'Namespace' &&
-                      r.type !== 'AWSClusterControllerIdentity' &&
-                      r.type !== 'Secret (ROSA Creds)' &&
-                      r.type !== 'Secret (AWS Creds)'
-                    ).length} total)
+                    (
+                    {
+                      activeResources.filter(
+                        (r) =>
+                          r.type !== 'Namespace' &&
+                          r.type !== 'AWSClusterControllerIdentity' &&
+                          r.type !== 'Secret (ROSA Creds)' &&
+                          r.type !== 'Secret (AWS Creds)'
+                      ).length
+                    }{' '}
+                    total)
                   </span>
                 </h4>
 
                 {/* Action Buttons - Only show when resources exist */}
-                {activeResources.filter((r) =>
-                  r.type !== 'Namespace' &&
-                  r.type !== 'AWSClusterControllerIdentity' &&
-                  r.type !== 'Secret (ROSA Creds)' &&
-                  r.type !== 'Secret (AWS Creds)'
+                {activeResources.filter(
+                  (r) =>
+                    r.type !== 'Namespace' &&
+                    r.type !== 'AWSClusterControllerIdentity' &&
+                    r.type !== 'Secret (ROSA Creds)' &&
+                    r.type !== 'Secret (AWS Creds)'
                 ).length > 0 && (
                   <div className="mb-4 flex items-center justify-end space-x-2">
                     {/* Export Button */}
@@ -3803,131 +3837,209 @@ export function WhatCanIHelp() {
                           return;
                         }
 
-                      const includeComponents = window.confirm(
-                        'Export Active Resources\n\n' +
-                          'Do you want to include Key Component information in the export?\n\n' +
-                          '✓ Yes - Include component versions and status\n' +
-                          '✗ No - Export only active resources'
-                      );
-
-                      let operationId;
-                      try {
-                        operationId = `export-resources-${Date.now()}`;
-
-                        addToRecent({
-                          id: operationId,
-                          title: 'Minikube Export Active Resources',
-                          color: 'bg-indigo-600',
-                          status: '⏳ Exporting...',
-                        });
-
-                        console.log(
-                          `Exporting ${activeResources.length} active resources${includeComponents ? ' with key components' : ''}...`
+                        const includeComponents = window.confirm(
+                          'Export Active Resources\n\n' +
+                            'Do you want to include Key Component information in the export?\n\n' +
+                            '✓ Yes - Include component versions and status\n' +
+                            '✗ No - Export only active resources'
                         );
 
-                        const redactSensitiveData = (yamlContent) => {
-                          yamlContent = yamlContent.replace(
-                            /^(\s*)(data|stringData):\s*\n((?:\s+.+\n)*)/gm,
-                            (match, indent, fieldName, dataBlock) => {
-                              return `${indent}${fieldName}:\n${indent}  # [SENSITIVE DATA REMOVED - All secret data redacted]\n`;
-                            }
-                          );
+                        let operationId;
+                        try {
+                          operationId = `export-resources-${Date.now()}`;
 
-                          yamlContent = yamlContent.replace(
-                            /^(\s+)(password|token|apiKey|secretKey|accessKey|privateKey|certificate|clientSecret|clientID|ocmClientSecret|ocmClientID|ocmApiUrl|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|aws_access_key_id|aws_secret_access_key):\s+(.+)$/gim,
-                            (match, indent, key, value) => {
-                              return `${indent}${key}: "[SENSITIVE DATA REMOVED]"`;
-                            }
-                          );
-
-                          return yamlContent;
-                        };
-
-                        const yamls = [];
-                        for (const resource of activeResources) {
-                          const response = await fetch(
-                            'http://localhost:8000/api/minikube/get-resource-detail',
-                            {
-                              method: 'POST',
-                              headers: {
-                                'Content-Type': 'application/json',
-                              },
-                              body: JSON.stringify({
-                                cluster_name: verifiedMinikubeClusterInfo?.name,
-                                resource_type: resource.type,
-                                resource_name: resource.name,
-                                namespace: verifiedMinikubeClusterInfo?.namespace || 'ns-rosa-hcp',
-                              }),
-                            }
-                          );
-
-                          const result = await response.json();
-                          if (result.success && result.data) {
-                            const redactedYaml = redactSensitiveData(result.data);
-                            yamls.push(redactedYaml);
-                          }
-                        }
-
-                        if (yamls.length > 0) {
-                          let exportContent =
-                            '# ==============================================================================\n' +
-                            '# ROSA Automation - Active Resources Export (REDACTED)\n' +
-                            '# ==============================================================================\n' +
-                            '#\n' +
-                            `# Cluster: ${verifiedMinikubeClusterInfo.name}\n` +
-                            `# Version: ${verifiedMinikubeClusterInfo.version || 'Unknown'}\n` +
-                            `# Exported: ${new Date().toLocaleString()}\n` +
-                            '#\n' +
-                            '# Component Status:\n';
-
-                          if (includeComponents) {
-                            const components = [
-                              'Cert Manager (v1.13.0) - 3 pods running',
-                              'CAPI Controller (v1.5.3) - 1/1 ready',
-                              'CAPA Controller (v2.3.0) - 1/1 ready',
-                              'ROSA CRDs (v4.20) - All installed',
-                            ];
-                            components.forEach((comp) => {
-                              exportContent += `#   - ${comp}\n`;
-                            });
-                          }
-
-                          exportContent +=
-                            '#\n' +
-                            '# SENSITIVE DATA NOTICE:\n' +
-                            '#   - All secret data blocks have been removed\n' +
-                            '#   - Credentials and tokens are redacted\n' +
-                            '#   - This export is safe to share for troubleshooting\n' +
-                            '#\n' +
-                            '# ==============================================================================\n\n';
-
-                          exportContent += yamls.join('\n---\n\n');
-
-                          const blob = new Blob([exportContent], { type: 'text/yaml' });
-                          const url = window.URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = `minikube-resources-${verifiedMinikubeClusterInfo.name}-${new Date().toISOString().split('T')[0]}.yaml`;
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                          window.URL.revokeObjectURL(url);
-
-                          const completionTime = new Date().toLocaleTimeString('en-US', {
-                            hour: 'numeric',
-                            minute: '2-digit',
-                            second: '2-digit',
-                            hour12: true,
+                          addToRecent({
+                            id: operationId,
+                            title: 'Minikube Export Active Resources',
+                            color: 'bg-indigo-600',
+                            status: '⏳ Exporting...',
                           });
 
                           console.log(
-                            `Exported ${yamls.length} resources successfully at ${completionTime}`
+                            `Exporting ${activeResources.length} active resources${includeComponents ? ' with key components' : ''}...`
                           );
+
+                          const redactSensitiveData = (yamlContent) => {
+                            yamlContent = yamlContent.replace(
+                              /^(\s*)(data|stringData):\s*\n((?:\s+.+\n)*)/gm,
+                              (match, indent, fieldName, dataBlock) => {
+                                return `${indent}${fieldName}:\n${indent}  # [SENSITIVE DATA REMOVED - All secret data redacted]\n`;
+                              }
+                            );
+
+                            yamlContent = yamlContent.replace(
+                              /^(\s+)(password|token|apiKey|secretKey|accessKey|privateKey|certificate|clientSecret|clientID|ocmClientSecret|ocmClientID|ocmApiUrl|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|aws_access_key_id|aws_secret_access_key):\s+(.+)$/gim,
+                              (match, indent, key, value) => {
+                                return `${indent}${key}: "[SENSITIVE DATA REMOVED]"`;
+                              }
+                            );
+
+                            return yamlContent;
+                          };
+
+                          const yamls = [];
+                          for (const resource of activeResources) {
+                            const response = await fetch(
+                              'http://localhost:8000/api/minikube/get-resource-detail',
+                              {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                  cluster_name: verifiedMinikubeClusterInfo?.name,
+                                  resource_type: resource.type,
+                                  resource_name: resource.name,
+                                  namespace:
+                                    verifiedMinikubeClusterInfo?.namespace || 'ns-rosa-hcp',
+                                }),
+                              }
+                            );
+
+                            const result = await response.json();
+                            if (result.success && result.data) {
+                              const redactedYaml = redactSensitiveData(result.data);
+                              yamls.push(redactedYaml);
+                            }
+                          }
+
+                          if (yamls.length > 0) {
+                            let exportContent =
+                              '# ==============================================================================\n' +
+                              '# ROSA Automation - Active Resources Export (REDACTED)\n' +
+                              '# ==============================================================================\n' +
+                              '#\n' +
+                              `# Cluster: ${verifiedMinikubeClusterInfo.name}\n` +
+                              `# Version: ${verifiedMinikubeClusterInfo.version || 'Unknown'}\n` +
+                              `# Exported: ${new Date().toLocaleString()}\n` +
+                              '#\n' +
+                              '# Component Status:\n';
+
+                            if (includeComponents) {
+                              const components = [
+                                'Cert Manager (v1.13.0) - 3 pods running',
+                                'CAPI Controller (v1.5.3) - 1/1 ready',
+                                'CAPA Controller (v2.3.0) - 1/1 ready',
+                                'ROSA CRDs (v4.20) - All installed',
+                              ];
+                              components.forEach((comp) => {
+                                exportContent += `#   - ${comp}\n`;
+                              });
+                            }
+
+                            exportContent +=
+                              '#\n' +
+                              '# SENSITIVE DATA NOTICE:\n' +
+                              '#   - All secret data blocks have been removed\n' +
+                              '#   - Credentials and tokens are redacted\n' +
+                              '#   - This export is safe to share for troubleshooting\n' +
+                              '#\n' +
+                              '# ==============================================================================\n\n';
+
+                            exportContent += yamls.join('\n---\n\n');
+
+                            const blob = new Blob([exportContent], { type: 'text/yaml' });
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `minikube-resources-${verifiedMinikubeClusterInfo.name}-${new Date().toISOString().split('T')[0]}.yaml`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            window.URL.revokeObjectURL(url);
+
+                            const completionTime = new Date().toLocaleTimeString('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              hour12: true,
+                            });
+
+                            console.log(
+                              `Exported ${yamls.length} resources successfully at ${completionTime}`
+                            );
+                            updateRecentOperationStatus(
+                              operationId,
+                              `✅ Exported ${yamls.length} resources at ${completionTime}`
+                            );
+                          } else {
+                            const completionTime = new Date().toLocaleTimeString('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              hour12: true,
+                            });
+                            updateRecentOperationStatus(
+                              operationId,
+                              `❌ Export failed at ${completionTime}`
+                            );
+                            alert('Failed to export resources');
+                          }
+                        } catch (error) {
+                          console.error('Export error:', error);
+                          const completionTime = new Date().toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true,
+                          });
+                          if (operationId) {
+                            updateRecentOperationStatus(
+                              operationId,
+                              `❌ Export failed at ${completionTime}`
+                            );
+                          }
+                        }
+                      }}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                    >
+                      <svg
+                        className="h-3.5 w-3.5 mr-1.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                      <span>Export</span>
+                    </button>
+
+                    {/* Refresh Button */}
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const operationId = `refresh-minikube-resources-${Date.now()}`;
+                        try {
+                          addToRecent({
+                            id: operationId,
+                            title: 'Minikube Refresh Active Resources',
+                            color: 'bg-cyan-600',
+                            status: '🔄 Refreshing...',
+                          });
+
+                          await fetchMinikubeActiveResources(
+                            verifiedMinikubeClusterInfo.name,
+                            verifiedMinikubeClusterInfo.namespace
+                          );
+
+                          const completionTime = new Date().toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true,
+                          });
+
                           updateRecentOperationStatus(
                             operationId,
-                            `✅ Exported ${yamls.length} resources at ${completionTime}`
+                            `✅ Refreshed at ${completionTime}`
                           );
-                        } else {
+                        } catch (error) {
+                          console.error('Refresh error:', error);
                           const completionTime = new Date().toLocaleTimeString('en-US', {
                             hour: 'numeric',
                             minute: '2-digit',
@@ -3936,170 +4048,108 @@ export function WhatCanIHelp() {
                           });
                           updateRecentOperationStatus(
                             operationId,
-                            `❌ Export failed at ${completionTime}`
-                          );
-                          alert('Failed to export resources');
-                        }
-                      } catch (error) {
-                        console.error('Export error:', error);
-                        const completionTime = new Date().toLocaleTimeString('en-US', {
-                          hour: 'numeric',
-                          minute: '2-digit',
-                          second: '2-digit',
-                          hour12: true,
-                        });
-                        if (operationId) {
-                          updateRecentOperationStatus(
-                            operationId,
-                            `❌ Export failed at ${completionTime}`
+                            `❌ Refresh failed at ${completionTime}`
                           );
                         }
-                      }
-                    }}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
-                  >
-                    <svg
-                      className="h-3.5 w-3.5 mr-1.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                      }}
+                      className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
-                    </svg>
-                    <span>Export</span>
-                  </button>
-
-                  {/* Refresh Button */}
-                  <button
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      const operationId = `refresh-minikube-resources-${Date.now()}`;
-                      try {
-                        addToRecent({
-                          id: operationId,
-                          title: 'Minikube Refresh Active Resources',
-                          color: 'bg-cyan-600',
-                          status: '🔄 Refreshing...',
-                        });
-
-                        await fetchMinikubeActiveResources(
-                          verifiedMinikubeClusterInfo.name,
-                          verifiedMinikubeClusterInfo.namespace
-                        );
-
-                        const completionTime = new Date().toLocaleTimeString('en-US', {
-                          hour: 'numeric',
-                          minute: '2-digit',
-                          second: '2-digit',
-                          hour12: true,
-                        });
-
-                        updateRecentOperationStatus(
-                          operationId,
-                          `✅ Refreshed at ${completionTime}`
-                        );
-                      } catch (error) {
-                        console.error('Refresh error:', error);
-                        const completionTime = new Date().toLocaleTimeString('en-US', {
-                          hour: 'numeric',
-                          minute: '2-digit',
-                          second: '2-digit',
-                          hour12: true,
-                        });
-                        updateRecentOperationStatus(
-                          operationId,
-                          `❌ Refresh failed at ${completionTime}`
-                        );
-                      }
-                    }}
-                    className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
-                  >
-                    <svg
-                      className="h-3.5 w-3.5 mr-1.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                      />
-                    </svg>
-                    <span>Refresh</span>
-                  </button>
-                </div>
+                      <svg
+                        className="h-3.5 w-3.5 mr-1.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                        />
+                      </svg>
+                      <span>Refresh</span>
+                    </button>
+                  </div>
                 )}
 
                 <div className="max-h-80 overflow-y-auto">
-                  {activeResources.filter((r) =>
-                    // Filter out infrastructure components - only show workload resources
-                    r.type !== 'Namespace' &&
-                    r.type !== 'AWSClusterControllerIdentity' &&
-                    r.type !== 'Secret (ROSA Creds)' &&
-                    r.type !== 'Secret (AWS Creds)'
+                  {activeResources.filter(
+                    (r) =>
+                      // Filter out infrastructure components - only show workload resources
+                      r.type !== 'Namespace' &&
+                      r.type !== 'AWSClusterControllerIdentity' &&
+                      r.type !== 'Secret (ROSA Creds)' &&
+                      r.type !== 'Secret (AWS Creds)'
                   ).length > 0 ? (
                     <div className="grid grid-cols-2 gap-2">
-                      {activeResources.filter((r) =>
-                        // Filter out infrastructure components - only show workload resources
-                        r.type !== 'Namespace' &&
-                        r.type !== 'AWSClusterControllerIdentity' &&
-                        r.type !== 'Secret (ROSA Creds)' &&
-                        r.type !== 'Secret (AWS Creds)'
-                      ).map((resource, idx) => (
-                        <div
-                          key={idx}
-                          className="bg-purple-50 rounded-md p-2 border border-purple-100 hover:shadow-sm transition-shadow"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-start space-x-2 flex-1 min-w-0">
-                              <div className="flex-shrink-0 mt-0.5">
-                                <svg
-                                  className="h-3 w-3 text-green-600"
-                                  fill="currentColor"
-                                  viewBox="0 0 20 20"
-                                >
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-xs font-semibold text-purple-900 truncate" title={resource.name}>
-                                  {resource.name}
+                      {activeResources
+                        .filter(
+                          (r) =>
+                            // Filter out infrastructure components - only show workload resources
+                            r.type !== 'Namespace' &&
+                            r.type !== 'AWSClusterControllerIdentity' &&
+                            r.type !== 'Secret (ROSA Creds)' &&
+                            r.type !== 'Secret (AWS Creds)'
+                        )
+                        .map((resource, idx) => (
+                          <div
+                            key={idx}
+                            className="bg-purple-50 rounded-md p-2 border border-purple-100 hover:shadow-sm transition-shadow"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-start space-x-2 flex-1 min-w-0">
+                                <div className="flex-shrink-0 mt-0.5">
+                                  <svg
+                                    className="h-3 w-3 text-green-600"
+                                    fill="currentColor"
+                                    viewBox="0 0 20 20"
+                                  >
+                                    <path
+                                      fillRule="evenodd"
+                                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                      clipRule="evenodd"
+                                    />
+                                  </svg>
                                 </div>
-                                <div className="text-[10px] text-purple-600 truncate" title={resource.type}>{resource.type}</div>
-                                {resource.age && (
-                                  <div className="text-[10px] text-gray-500 mt-0.5">
-                                    {resource.age}
+                                <div className="flex-1 min-w-0">
+                                  <div
+                                    className="text-xs font-semibold text-purple-900 truncate"
+                                    title={resource.name}
+                                  >
+                                    {resource.name}
                                   </div>
-                                )}
+                                  <div
+                                    className="text-[10px] text-purple-600 truncate"
+                                    title={resource.type}
+                                  >
+                                    {resource.type}
+                                  </div>
+                                  {resource.age && (
+                                    <div className="text-[10px] text-gray-500 mt-0.5">
+                                      {resource.age}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex-shrink-0">
-                              <span
-                                className={`px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
-                                  resource.status === 'Ready' || resource.status === 'Active' || resource.status === 'Configured'
-                                    ? 'bg-green-100 text-green-700'
-                                    : resource.status === 'Provisioning' || resource.status === 'Configuring'
-                                    ? 'bg-amber-100 text-amber-700'
-                                    : 'bg-blue-100 text-blue-700'
-                                }`}
-                              >
-                                {resource.status}
-                              </span>
+                              <div className="flex-shrink-0">
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
+                                    resource.status === 'Ready' ||
+                                    resource.status === 'Active' ||
+                                    resource.status === 'Configured'
+                                      ? 'bg-green-100 text-green-700'
+                                      : resource.status === 'Provisioning' ||
+                                          resource.status === 'Configuring'
+                                        ? 'bg-amber-100 text-amber-700'
+                                        : 'bg-blue-100 text-blue-700'
+                                  }`}
+                                >
+                                  {resource.status}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
                     </div>
                   ) : (
                     <div className="text-center py-6 text-sm text-gray-500 italic">
@@ -4136,12 +4186,17 @@ export function WhatCanIHelp() {
                         key={op.id}
                         className="flex items-center gap-2 bg-white rounded-md px-3 py-1.5 border border-indigo-100 hover:shadow-sm transition-shadow flex-shrink-0"
                       >
-                        <div className={`w-2 h-2 rounded-full ${
-                          op.status.includes('✅') ? 'bg-green-500 animate-pulse' :
-                          op.status.includes('❌') ? 'bg-red-500' :
-                          op.status.includes('⏳') ? 'bg-amber-500 animate-pulse' :
-                          'bg-blue-500'
-                        }`}></div>
+                        <div
+                          className={`w-2 h-2 rounded-full ${
+                            op.status.includes('✅')
+                              ? 'bg-green-500 animate-pulse'
+                              : op.status.includes('❌')
+                                ? 'bg-red-500'
+                                : op.status.includes('⏳')
+                                  ? 'bg-amber-500 animate-pulse'
+                                  : 'bg-blue-500'
+                          }`}
+                        ></div>
                         <div className="flex flex-col">
                           <span className="text-xs font-medium text-gray-900 truncate max-w-[200px]">
                             {op.title}
@@ -4188,20 +4243,35 @@ export function WhatCanIHelp() {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              const output = ansibleResults['validate-minikube-capa'].result.output ||
-                                ansibleResults['validate-minikube-capa'].result.error || '';
+                              const output =
+                                ansibleResults['validate-minikube-capa'].result.output ||
+                                ansibleResults['validate-minikube-capa'].result.error ||
+                                '';
                               navigator.clipboard.writeText(output);
                               // Show temporary feedback
                               const btn = e.currentTarget;
                               const originalText = btn.innerHTML;
-                              btn.innerHTML = '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>';
-                              setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+                              btn.innerHTML =
+                                '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>';
+                              setTimeout(() => {
+                                btn.innerHTML = originalText;
+                              }, 2000);
                             }}
                             className="px-3 py-1.5 text-xs bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors flex items-center space-x-1.5"
                             title="Copy output to clipboard"
                           >
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                              />
                             </svg>
                             <span>Copy</span>
                           </button>
@@ -4240,9 +4310,11 @@ export function WhatCanIHelp() {
                                         ? 'hidden'
                                         : line.content.includes('✓')
                                           ? 'text-green-300 pl-2'
-                                          : line.content.includes('✗') || line.content.includes('FAILED')
+                                          : line.content.includes('✗') ||
+                                              line.content.includes('FAILED')
                                             ? 'text-red-400 pl-2'
-                                            : line.content.includes('ok=') || line.content.includes('changed=')
+                                            : line.content.includes('ok=') ||
+                                                line.content.includes('changed=')
                                               ? 'text-yellow-300 mt-2 font-semibold'
                                               : 'text-gray-400 pl-2'
                                 }
@@ -5241,8 +5313,12 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 version: verifyData.cluster_info?.version || prev.version,
                                 status: verifyData.cluster_info?.status || prev.status,
                                 components: verifyData.cluster_info?.components || prev.components,
-                                component_versions: verifyData.cluster_info?.component_versions || prev.component_versions,
-                                component_timestamps: verifyData.cluster_info?.component_timestamps || prev.component_timestamps,
+                                component_versions:
+                                  verifyData.cluster_info?.component_versions ||
+                                  prev.component_versions,
+                                component_timestamps:
+                                  verifyData.cluster_info?.component_timestamps ||
+                                  prev.component_timestamps,
                                 verifiedDate: new Date().toLocaleString('en-US', {
                                   month: 'short',
                                   day: 'numeric',
@@ -5270,7 +5346,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               fetchMinikubeActiveResources(
                                 verifiedMinikubeClusterInfo.name,
                                 verifiedMinikubeClusterInfo.namespace
-                              ).catch(err => console.error('Failed to fetch active resources:', err));
+                              ).catch((err) =>
+                                console.error('Failed to fetch active resources:', err)
+                              );
                             } else {
                               // Get completion time with seconds
                               const completionTime = new Date().toLocaleTimeString('en-US', {
@@ -5474,7 +5552,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                       {component.name}
                                     </span>
                                   </div>
-                                  <span className="text-purple-600 font-mono">{component.version}</span>
+                                  <span className="text-purple-600 font-mono">
+                                    {component.version}
+                                  </span>
                                 </div>
                               );
                             });

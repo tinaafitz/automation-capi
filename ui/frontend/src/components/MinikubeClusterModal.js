@@ -203,7 +203,9 @@ export function MinikubeClusterModal({
     } catch (err) {
       console.error('Failed to configure Minikube cluster:', err);
       if (err.name === 'AbortError') {
-        setError('Configuration timed out. The cluster verification is taking longer than expected.');
+        setError(
+          'Configuration timed out. The cluster verification is taking longer than expected.'
+        );
       } else {
         setError('Failed to configure cluster. Please try again.');
       }
