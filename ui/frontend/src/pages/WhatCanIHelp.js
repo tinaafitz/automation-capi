@@ -584,6 +584,7 @@ export function WhatCanIHelp() {
         version: verificationData.cluster_info?.version || 'v1.32.0',
         components: verificationData.cluster_info?.components || {},
         component_timestamps: verificationData.cluster_info?.component_timestamps || {},
+        component_versions: verificationData.cluster_info?.component_versions || [],
       };
       setVerifiedMinikubeClusterInfo(clusterInfo);
 
@@ -3091,62 +3092,15 @@ export function WhatCanIHelp() {
 
                             const verifyData = await verifyResponse.json();
 
-                            // Update cluster info with fresh data including version
+                            // Update cluster info with fresh data including version and component_versions
                             if (verifyResponse.ok && verifyData.accessible) {
                               setVerifiedMinikubeClusterInfo((prev) => ({
                                 ...prev,
                                 version: verifyData.cluster_info?.version || prev.version,
                                 status: verifyData.cluster_info?.status || prev.status,
                                 components: verifyData.cluster_info?.components || prev.components,
-                              }));
-                            }
-
-                            // Run the validation playbook
-                            const response = await fetch(
-                              'http://localhost:8000/api/ansible/run-task',
-                              {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  task_file: 'tasks/validate-kind-capa-environment.yml',
-                                  description: 'Validate CAPA environment components',
-                                  kube_context: verifiedMinikubeClusterInfo.name,
-                                }),
-                              }
-                            );
-
-                            const result = await response.json();
-
-                            // Get completion time with seconds
-                            const completionTime = new Date().toLocaleTimeString('en-US', {
-                              hour: 'numeric',
-                              minute: '2-digit',
-                              second: '2-digit',
-                              hour12: true,
-                            });
-
-                            if (response.ok && result.success) {
-                              console.log('Validation completed at:', completionTime);
-
-                              // Store result in ansibleResults for View Full Output
-                              setAnsibleResults((prev) => ({
-                                ...prev,
-                                'validate-minikube-capa': {
-                                  loading: false,
-                                  success: true,
-                                  result: {
-                                    output: result.output,
-                                    timestamp: new Date(),
-                                    task_file: 'tasks/validate-kind-capa-environment.yml',
-                                    type: 'Minikube CAPI/CAPA Validation',
-                                  },
-                                  timestamp: new Date(),
-                                },
-                              }));
-
-                              // Update the verifiedDate to current time
-                              setVerifiedMinikubeClusterInfo((prev) => ({
-                                ...prev,
+                                component_versions: verifyData.cluster_info?.component_versions || prev.component_versions,
+                                component_timestamps: verifyData.cluster_info?.component_timestamps || prev.component_timestamps,
                                 verifiedDate: new Date().toLocaleString('en-US', {
                                   month: 'short',
                                   day: 'numeric',
@@ -3157,9 +3111,17 @@ export function WhatCanIHelp() {
                                 }),
                               }));
 
+                              // Get completion time with seconds
+                              const completionTime = new Date().toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: true,
+                              });
+
                               updateRecentOperationStatus(
                                 verifyId,
-                                `✅ Validation completed at ${completionTime}`
+                                `✅ Verification completed at ${completionTime}`
                               );
 
                               // Fetch active resources after successful verification (non-blocking)
@@ -3168,27 +3130,17 @@ export function WhatCanIHelp() {
                                 verifiedMinikubeClusterInfo.namespace
                               ).catch(err => console.error('Failed to fetch active resources:', err));
                             } else {
-                              console.log('Validation failed at:', completionTime);
-
-                              // Store error in ansibleResults
-                              setAnsibleResults((prev) => ({
-                                ...prev,
-                                'validate-minikube-capa': {
-                                  loading: false,
-                                  success: false,
-                                  result: {
-                                    error: result.error || result.message || 'Validation failed',
-                                    timestamp: new Date(),
-                                    task_file: 'tasks/validate-kind-capa-environment.yml',
-                                    type: 'Minikube CAPI/CAPA Validation',
-                                  },
-                                  timestamp: new Date(),
-                                },
-                              }));
+                              // Get completion time with seconds
+                              const completionTime = new Date().toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: true,
+                              });
 
                               updateRecentOperationStatus(
                                 verifyId,
-                                `❌ Validation failed at ${completionTime}: ${result.message || 'Unknown error'}`
+                                `❌ Verification failed at ${completionTime}: ${verifyData.message || 'Unknown error'}`
                               );
                             }
                           } catch (error) {
@@ -3199,27 +3151,11 @@ export function WhatCanIHelp() {
                               second: '2-digit',
                               hour12: true,
                             });
-                            console.log('Validation failed at:', completionTime, error);
-
-                            // Store error in ansibleResults
-                            setAnsibleResults((prev) => ({
-                              ...prev,
-                              'validate-minikube-capa': {
-                                loading: false,
-                                success: false,
-                                result: {
-                                  error: error.toString(),
-                                  timestamp: new Date(),
-                                  task_file: 'tasks/validate-kind-capa-environment.yml',
-                                  type: 'Minikube CAPI/CAPA Validation',
-                                },
-                                timestamp: new Date(),
-                              },
-                            }));
+                            console.log('Verification failed at:', completionTime, error);
 
                             updateRecentOperationStatus(
                               verifyId,
-                              `❌ Validation failed at ${completionTime}`
+                              `❌ Verification failed at ${completionTime}: ${error.message || error.toString()}`
                             );
                           }
                         }
@@ -3409,12 +3345,7 @@ export function WhatCanIHelp() {
                 <h4 className="text-base font-semibold text-purple-900 mb-4 flex items-center justify-between">
                   <span>Key Components</span>
                   <span className="text-xs font-normal text-purple-600">
-                    ({activeResources.filter((r) =>
-                      r.type === 'Namespace' ||
-                      r.type === 'AWSClusterControllerIdentity' ||
-                      r.type === 'Secret (ROSA Creds)' ||
-                      r.type === 'Secret (AWS Creds)'
-                    ).length} configured)
+                    ({verifiedMinikubeClusterInfo?.component_versions?.length || 0} configured)
                   </span>
                 </h4>
 
@@ -3777,59 +3708,51 @@ export function WhatCanIHelp() {
                   </div>
                 )}
 
-                {/* Key Components List */}
+                {/* Key Components List - Show CAPI/CAPA component versions */}
                 <div className="space-y-2">
-                  {activeResources
-                    .filter((r) =>
-                      // Filter for infrastructure/key components only (not workload resources)
-                      r.type === 'Namespace' ||
-                      r.type === 'AWSClusterControllerIdentity' ||
-                      r.type === 'Secret (ROSA Creds)' ||
-                      r.type === 'Secret (AWS Creds)'
-                    )
-                    .map((component, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center space-x-3 p-2 bg-white rounded-md border border-purple-100 hover:bg-purple-50 hover:border-purple-200 transition-all cursor-pointer"
-                      onClick={() => handleResourceClick(component, 'minikube')}
-                      title={`Click to view ${component.name} details`}
-                    >
-                      {/* Status Icon */}
-                      <div className="flex-shrink-0">
-                        <svg
-                          className="h-5 w-5 text-green-500"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </div>
+                  {(() => {
+                    const componentVersions = verifiedMinikubeClusterInfo?.component_versions || [];
 
-                      {/* Component Name */}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-purple-900">
-                          {/* Display friendly component type name */}
-                          {component.type === 'Namespace' && 'ROSA Namespace'}
-                          {component.type === 'AWSClusterControllerIdentity' && 'AWS Identity'}
-                          {component.type === 'Secret (ROSA Creds)' && 'ROSA Credentials'}
-                          {component.type === 'Secret (AWS Creds)' && 'AWS Credentials'}
+                    if (componentVersions.length === 0) {
+                      return (
+                        <div className="text-xs text-purple-600/70 px-3 py-2">
+                          No components found. Run Verify to detect components.
                         </div>
-                      </div>
+                      );
+                    }
 
-                      {/* Age Badge */}
-                      {component.age && (
+                    return componentVersions.map((component, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-2 bg-white rounded-md border border-purple-100"
+                      >
+                        {/* Component Name */}
+                        <div className="flex items-center space-x-2">
+                          <svg
+                            className="h-4 w-4 text-green-500"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          <div className="text-sm font-medium text-purple-900">
+                            {component.name}
+                          </div>
+                        </div>
+
+                        {/* Version Badge */}
                         <div className="flex-shrink-0">
-                          <span className="text-xs text-purple-500">
-                            {component.age}
+                          <span className="text-xs font-mono text-purple-600 bg-purple-50 px-2 py-1 rounded">
+                            {component.version}
                           </span>
                         </div>
-                      )}
-                    </div>
-                  ))}
+                      </div>
+                    ));
+                  })()}
                 </div>
               </div>
 
@@ -5311,62 +5234,15 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                             const verifyData = await verifyResponse.json();
 
-                            // Update cluster info with fresh data including version
+                            // Update cluster info with fresh data including version and component_versions
                             if (verifyResponse.ok && verifyData.accessible) {
                               setVerifiedMinikubeClusterInfo((prev) => ({
                                 ...prev,
                                 version: verifyData.cluster_info?.version || prev.version,
                                 status: verifyData.cluster_info?.status || prev.status,
                                 components: verifyData.cluster_info?.components || prev.components,
-                              }));
-                            }
-
-                            // Run the validation playbook
-                            const response = await fetch(
-                              'http://localhost:8000/api/ansible/run-task',
-                              {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  task_file: 'tasks/validate-kind-capa-environment.yml',
-                                  description: 'Validate CAPA environment components',
-                                  kube_context: verifiedMinikubeClusterInfo.name,
-                                }),
-                              }
-                            );
-
-                            const result = await response.json();
-
-                            // Get completion time with seconds
-                            const completionTime = new Date().toLocaleTimeString('en-US', {
-                              hour: 'numeric',
-                              minute: '2-digit',
-                              second: '2-digit',
-                              hour12: true,
-                            });
-
-                            if (response.ok && result.success) {
-                              console.log('Validation completed at:', completionTime);
-
-                              // Store result in ansibleResults for View Full Output
-                              setAnsibleResults((prev) => ({
-                                ...prev,
-                                'validate-minikube-capa': {
-                                  loading: false,
-                                  success: true,
-                                  result: {
-                                    output: result.output,
-                                    timestamp: new Date(),
-                                    task_file: 'tasks/validate-kind-capa-environment.yml',
-                                    type: 'Minikube CAPI/CAPA Validation',
-                                  },
-                                  timestamp: new Date(),
-                                },
-                              }));
-
-                              // Update the verifiedDate to current time
-                              setVerifiedMinikubeClusterInfo((prev) => ({
-                                ...prev,
+                                component_versions: verifyData.cluster_info?.component_versions || prev.component_versions,
+                                component_timestamps: verifyData.cluster_info?.component_timestamps || prev.component_timestamps,
                                 verifiedDate: new Date().toLocaleString('en-US', {
                                   month: 'short',
                                   day: 'numeric',
@@ -5377,9 +5253,17 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 }),
                               }));
 
+                              // Get completion time with seconds
+                              const completionTime = new Date().toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: true,
+                              });
+
                               updateRecentOperationStatus(
                                 verifyId,
-                                `✅ Validation completed at ${completionTime}`
+                                `✅ Verification completed at ${completionTime}`
                               );
 
                               // Fetch active resources after successful verification (non-blocking)
@@ -5388,27 +5272,17 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 verifiedMinikubeClusterInfo.namespace
                               ).catch(err => console.error('Failed to fetch active resources:', err));
                             } else {
-                              console.log('Validation failed at:', completionTime);
-
-                              // Store error in ansibleResults
-                              setAnsibleResults((prev) => ({
-                                ...prev,
-                                'validate-minikube-capa': {
-                                  loading: false,
-                                  success: false,
-                                  result: {
-                                    error: result.error || result.message || 'Validation failed',
-                                    timestamp: new Date(),
-                                    task_file: 'tasks/validate-kind-capa-environment.yml',
-                                    type: 'Minikube CAPI/CAPA Validation',
-                                  },
-                                  timestamp: new Date(),
-                                },
-                              }));
+                              // Get completion time with seconds
+                              const completionTime = new Date().toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: true,
+                              });
 
                               updateRecentOperationStatus(
                                 verifyId,
-                                `❌ Validation failed at ${completionTime}: ${result.message || 'Unknown error'}`
+                                `❌ Verification failed at ${completionTime}: ${verifyData.message || 'Unknown error'}`
                               );
                             }
                           } catch (error) {
@@ -5419,27 +5293,11 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               second: '2-digit',
                               hour12: true,
                             });
-                            console.log('Validation failed at:', completionTime, error);
-
-                            // Store error in ansibleResults
-                            setAnsibleResults((prev) => ({
-                              ...prev,
-                              'validate-minikube-capa': {
-                                loading: false,
-                                success: false,
-                                result: {
-                                  error: error.toString(),
-                                  timestamp: new Date(),
-                                  task_file: 'tasks/validate-kind-capa-environment.yml',
-                                  type: 'Minikube CAPI/CAPA Validation',
-                                },
-                                timestamp: new Date(),
-                              },
-                            }));
+                            console.log('Verification failed at:', completionTime, error);
 
                             updateRecentOperationStatus(
                               verifyId,
-                              `❌ Validation failed at ${completionTime}`
+                              `❌ Verification failed at ${completionTime}: ${error.message || error.toString()}`
                             );
                           }
                         }
@@ -5586,73 +5444,17 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           Key Components
                         </h4>
                         {/* Table Header */}
-                        <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs font-semibold text-purple-700 bg-purple-50 px-3 py-2 rounded mb-2">
+                        <div className="grid grid-cols-[2fr_1fr] gap-4 text-xs font-semibold text-purple-700 bg-purple-50 px-3 py-2 rounded mb-2">
                           <div>Component</div>
-                          <div>Name</div>
                           <div>Version</div>
-                          <div>Age</div>
-                          <div>Status</div>
                         </div>
-                        {/* Table Rows - Dynamically Generated */}
+                        {/* Table Rows - Show actual component versions from backend */}
                         <div className="space-y-2">
                           {(() => {
-                            // Component metadata mapping
-                            const componentMeta = {
-                              'cert-manager': {
-                                label: 'Cert Manager',
-                                namespace: 'cert-manager',
-                                deployment: 'cert-manager',
-                                type: 'Deployment',
-                                version: 'v1.13.0',
-                                status: '3 pods running',
-                              },
-                              'capi-controller': {
-                                label: 'CAPI Controller',
-                                namespace: 'capi-system',
-                                deployment: 'capi-controller-manager',
-                                type: 'Deployment',
-                                version: 'v1.5.3',
-                                status: '1/1 ready',
-                              },
-                              'capa-controller': {
-                                label: 'CAPA Controller',
-                                namespace: 'capa-system',
-                                deployment: 'capa-controller-manager',
-                                type: 'Deployment',
-                                version: 'v2.3.0',
-                                status: '1/1 ready',
-                              },
-                              'rosa-crd': {
-                                label: 'ROSA CRDs',
-                                namespace: 'cluster-scoped',
-                                deployment: 'rosacontrolplanes.controlplane.cluster.x-k8s.io',
-                                type: 'CustomResourceDefinition',
-                                version: 'v4.20',
-                                status: 'All installed',
-                              },
-                              'aws-credentials': {
-                                label: 'AWS Credentials',
-                                namespace: 'capa-system',
-                                deployment: 'capa-manager-bootstrap-credentials',
-                                type: 'Secret',
-                                version: '–',
-                                status: 'Configured',
-                              },
-                              'ocm-secret': {
-                                label: 'OCM Client Secret',
-                                namespace: 'capa-system',
-                                deployment: 'rosa-creds-secret',
-                                type: 'Secret',
-                                version: '–',
-                                status: 'Configured',
-                              },
-                            };
+                            const componentVersions =
+                              verifiedMinikubeClusterInfo?.component_versions || [];
 
-                            const timestamps =
-                              verifiedMinikubeClusterInfo?.component_timestamps || {};
-                            const components = Object.keys(timestamps);
-
-                            if (components.length === 0) {
+                            if (componentVersions.length === 0) {
                               return (
                                 <div className="text-xs text-purple-600/70 px-3 py-2">
                                   No components found. Run Verify to detect components.
@@ -5660,54 +5462,19 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               );
                             }
 
-                            return components.map((key) => {
-                              const meta = componentMeta[key];
-                              if (!meta) return null; // Skip unknown components
-
+                            return componentVersions.map((component, index) => {
                               return (
                                 <div
-                                  key={key}
-                                  className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded"
+                                  key={index}
+                                  className="grid grid-cols-[2fr_1fr] gap-4 text-xs px-3 py-2.5 bg-purple-50/50 rounded"
                                 >
-                                  <div className="flex flex-col">
-                                    <div className="flex items-center">
-                                      <span className="mr-2">✅</span>
-                                      <span className="text-purple-800 font-medium">
-                                        {meta.label}
-                                      </span>
-                                    </div>
-                                    <span className="text-purple-600/70 text-[10px] ml-6">
-                                      {meta.namespace}
+                                  <div className="flex items-center">
+                                    <span className="mr-2">✅</span>
+                                    <span className="text-purple-800 font-medium">
+                                      {component.name}
                                     </span>
                                   </div>
-                                  <div className="flex items-center">
-                                    <button
-                                      onClick={() => {
-                                        if (!verifiedMinikubeClusterInfo) {
-                                          alert('Please verify the Minikube cluster first');
-                                          return;
-                                        }
-                                        fetchResourceDetail(
-                                          verifiedMinikubeClusterInfo.name,
-                                          meta.type,
-                                          meta.deployment,
-                                          meta.type === 'CustomResourceDefinition'
-                                            ? ''
-                                            : meta.namespace
-                                        );
-                                      }}
-                                      className="text-purple-800 font-medium hover:text-purple-600 hover:underline text-left cursor-pointer transition-colors"
-                                    >
-                                      {meta.deployment.length > 25
-                                        ? meta.deployment.substring(0, 22) + '...'
-                                        : meta.deployment}
-                                    </button>
-                                  </div>
-                                  <span className="text-purple-600 font-mono">{meta.version}</span>
-                                  <span className="text-purple-700 font-mono text-xs">
-                                    {calculateAge(timestamps[key]) || ''}
-                                  </span>
-                                  <span className="text-green-600 font-medium">{meta.status}</span>
+                                  <span className="text-purple-600 font-mono">{component.version}</span>
                                 </div>
                               );
                             });
@@ -5999,48 +5766,22 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                   status: '🔄 Refreshing...',
                                 });
 
-                                // Run the validation task directly
-                                const response = await fetch(
-                                  'http://localhost:8000/api/ansible/run-task',
-                                  {
-                                    method: 'POST',
-                                    headers: {
-                                      'Content-Type': 'application/json',
-                                    },
-                                    body: JSON.stringify({
-                                      task_file: 'tasks/validate-kind-capa-environment.yml',
-                                      description: 'Minikube Refresh Active Resources',
-                                    }),
-                                  }
+                                // Fetch active resources directly
+                                await fetchMinikubeActiveResources(
+                                  verifiedMinikubeClusterInfo.name,
+                                  verifiedMinikubeClusterInfo.namespace
                                 );
 
-                                const result = await response.json();
-
-                                if (response.ok && result.success) {
-                                  // Store refresh results in a separate key
-                                  setAnsibleResults((prev) => ({
-                                    ...prev,
-                                    'refresh-check-minikube-components': {
-                                      loading: false,
-                                      result: result,
-                                      timestamp: new Date(),
-                                      success: true,
-                                    },
-                                  }));
-
-                                  const completionTime = new Date().toLocaleTimeString('en-US', {
-                                    hour: 'numeric',
-                                    minute: '2-digit',
-                                    second: '2-digit',
-                                    hour12: true,
-                                  });
-                                  updateRecentOperationStatus(
-                                    operationId,
-                                    `✅ Refreshed at ${completionTime}`
-                                  );
-                                } else {
-                                  throw new Error(result.error || 'Refresh failed');
-                                }
+                                const completionTime = new Date().toLocaleTimeString('en-US', {
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                  hour12: true,
+                                });
+                                updateRecentOperationStatus(
+                                  operationId,
+                                  `✅ Refreshed at ${completionTime}`
+                                );
                               } catch (error) {
                                 console.error('Error refreshing Minikube resources:', error);
                                 const completionTime = new Date().toLocaleTimeString('en-US', {

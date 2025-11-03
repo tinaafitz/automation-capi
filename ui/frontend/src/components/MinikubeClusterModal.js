@@ -36,7 +36,7 @@ export function MinikubeClusterModal({
 
       // Add timeout to prevent hanging
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
       const response = await fetch('http://localhost:8000/api/minikube/list-clusters', {
         signal: controller.signal,
@@ -90,9 +90,9 @@ export function MinikubeClusterModal({
     setError(null);
 
     try {
-      // Add timeout for cluster creation (5 minutes to match backend)
+      // Add timeout for cluster creation (match backend timeout)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
+      const timeoutId = setTimeout(() => controller.abort(), 360000); // 6 minute timeout (backend has 5 min)
 
       const response = await fetch('http://localhost:8000/api/minikube/create-cluster', {
         method: 'POST',
@@ -134,14 +134,19 @@ export function MinikubeClusterModal({
     setError(null);
 
     try {
-      // Step 1: Verify cluster exists and is accessible
+      // Step 1: Verify cluster exists and is accessible (with 2 minute timeout)
+      const controller1 = new AbortController();
+      const timeoutId1 = setTimeout(() => controller1.abort(), 120000); // 2 minute timeout
+
       const verifyResponse = await fetch('http://localhost:8000/api/minikube/verify-cluster', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ cluster_name: clusterName }),
+        signal: controller1.signal,
       });
+      clearTimeout(timeoutId1);
       const verifyData = await verifyResponse.json();
 
       if (!verifyData.exists || !verifyData.accessible) {
@@ -150,14 +155,19 @@ export function MinikubeClusterModal({
         return;
       }
 
-      // Step 2: Initialize CAPI/CAPA on the cluster
+      // Step 2: Initialize CAPI/CAPA on the cluster (with 10 minute timeout)
+      const controller2 = new AbortController();
+      const timeoutId2 = setTimeout(() => controller2.abort(), 600000); // 10 minute timeout
+
       const initResponse = await fetch('http://localhost:8000/api/minikube/initialize-capi', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ cluster_name: clusterName }),
+        signal: controller2.signal,
       });
+      clearTimeout(timeoutId2);
       const initData = await initResponse.json();
 
       if (!initData.success) {
@@ -166,14 +176,19 @@ export function MinikubeClusterModal({
         return;
       }
 
-      // Step 3: Re-verify cluster after initialization and configure
+      // Step 3: Re-verify cluster after initialization (with 2 minute timeout)
+      const controller3 = new AbortController();
+      const timeoutId3 = setTimeout(() => controller3.abort(), 120000); // 2 minute timeout
+
       const finalVerifyResponse = await fetch('http://localhost:8000/api/minikube/verify-cluster', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ cluster_name: clusterName }),
+        signal: controller3.signal,
       });
+      clearTimeout(timeoutId3);
       const finalVerifyData = await finalVerifyResponse.json();
 
       if (finalVerifyData.exists && finalVerifyData.accessible) {
@@ -187,7 +202,11 @@ export function MinikubeClusterModal({
       }
     } catch (err) {
       console.error('Failed to configure Minikube cluster:', err);
-      setError('Failed to configure cluster. Please try again.');
+      if (err.name === 'AbortError') {
+        setError('Configuration timed out. The cluster verification is taking longer than expected.');
+      } else {
+        setError('Failed to configure cluster. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
