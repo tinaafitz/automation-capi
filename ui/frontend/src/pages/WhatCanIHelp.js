@@ -22,6 +22,7 @@ import {
   ArrowPathIcon,
   DocumentTextIcon,
   IdentificationIcon,
+  ChevronDownIcon,
 } from '@heroicons/react/24/outline';
 import { ROSAStatus } from '../components/ROSAStatus';
 import { ConfigStatus } from '../components/ConfigStatus';
@@ -417,6 +418,18 @@ export function WhatCanIHelp() {
 
   // Last used ROSA YAML path for ROSA HCP provisioning
   const [lastRosaYamlPath, setLastRosaYamlPath] = useState('rosa-hcp-test.yml');
+
+  // Environment selector state with localStorage persistence
+  const [selectedEnvironment, setSelectedEnvironment] = useState(() => {
+    try {
+      const saved = localStorage.getItem('selectedTestEnvironment');
+      return saved || 'minikube';
+    } catch (error) {
+      console.error('Error loading selectedEnvironment from localStorage:', error);
+      return 'minikube';
+    }
+  });
+  const [showEnvironmentDropdown, setShowEnvironmentDropdown] = useState(false);
 
   // Track if we've already shown initial notifications to prevent loops
   const hasShownInitialNotifications = useRef(false);
@@ -865,6 +878,11 @@ export function WhatCanIHelp() {
   useEffect(() => {
     localStorage.setItem('recentOperations', JSON.stringify(recentOperations));
   }, [recentOperations]);
+
+  // Save selected environment to localStorage
+  useEffect(() => {
+    localStorage.setItem('selectedTestEnvironment', selectedEnvironment);
+  }, [selectedEnvironment]);
 
   // Fetch active resources when Minikube cluster info is loaded
   useEffect(() => {
@@ -2482,6 +2500,29 @@ export function WhatCanIHelp() {
     });
   };
 
+  // Environment configuration
+  const environments = [
+    {
+      id: 'minikube',
+      name: 'Minikube',
+      icon: '⚡',
+      description: 'Local Kubernetes test environment',
+      status: verifiedMinikubeClusterInfo ? 'active' : 'inactive',
+    },
+    {
+      id: 'mce',
+      name: 'MCE',
+      icon: '🎯',
+      description: 'Multi-Cluster Engine environment',
+      status: ocpStatus?.status === 'connected' ? 'active' : 'inactive',
+    },
+  ];
+
+  const handleEnvironmentChange = (envId) => {
+    setSelectedEnvironment(envId);
+    setShowEnvironmentDropdown(false);
+  };
+
   const addToRecent = (operation) => {
     setRecentOperations((prev) => {
       const filtered = prev.filter((op) => op.id !== operation.id);
@@ -3025,12 +3066,71 @@ export function WhatCanIHelp() {
       </div>
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-6 space-y-4 md:space-y-5">
-        {/* Test Environments Section - Minikube */}
-        {verifiedMinikubeClusterInfo && (
+        {/* Environment Selector Dropdown */}
+        {(verifiedMinikubeClusterInfo || ocpStatus?.status === 'connected') && (
           <div className="mb-6">
-            <div className="flex items-center mb-4">
+            <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-900">Test Environments</h2>
+
+              {/* Dropdown Selector */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowEnvironmentDropdown(!showEnvironmentDropdown)}
+                  className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-purple-300 rounded-lg hover:border-purple-500 transition-all duration-200 shadow-sm hover:shadow-md"
+                >
+                  <span className="text-lg">{environments.find(e => e.id === selectedEnvironment)?.icon}</span>
+                  <span className="font-semibold text-gray-900">
+                    {environments.find(e => e.id === selectedEnvironment)?.name}
+                  </span>
+                  <ChevronDownIcon className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${showEnvironmentDropdown ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Dropdown Menu */}
+                {showEnvironmentDropdown && (
+                  <div className="absolute right-0 mt-2 w-80 bg-white border-2 border-purple-200 rounded-lg shadow-xl z-50">
+                    <div className="p-2">
+                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-3 py-2">
+                        Select Environment
+                      </div>
+                      {environments.map((env) => (
+                        <button
+                          key={env.id}
+                          onClick={() => handleEnvironmentChange(env.id)}
+                          className={`w-full text-left px-3 py-3 rounded-lg transition-all duration-150 ${
+                            selectedEnvironment === env.id
+                              ? 'bg-purple-50 border-2 border-purple-300'
+                              : 'hover:bg-gray-50 border-2 border-transparent'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <span className="text-2xl">{env.icon}</span>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-gray-900">{env.name}</span>
+                                {selectedEnvironment === env.id && (
+                                  <CheckCircleIcon className="h-4 w-4 text-purple-600" />
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-600 mt-0.5">{env.description}</p>
+                              <div className="flex items-center gap-1 mt-1">
+                                <span className={`w-2 h-2 rounded-full ${env.status === 'active' ? 'bg-green-500' : 'bg-gray-300'}`}></span>
+                                <span className="text-xs text-gray-500 capitalize">{env.status}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
+          </div>
+        )}
+
+        {/* Test Environments Section - Minikube */}
+        {selectedEnvironment === 'minikube' && verifiedMinikubeClusterInfo && (
+          <div className="mb-6">
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Minikube Test Environment Connections */}
@@ -4516,11 +4616,8 @@ export function WhatCanIHelp() {
         )}
 
         {/* Test Environments Section - MCE */}
-        {ocpStatus?.connected && !verifiedMinikubeClusterInfo && (
+        {selectedEnvironment === 'mce' && ocpStatus?.connected && (
           <div className="mb-6">
-            <div className="flex items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Test Environments</h2>
-            </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* MCE Test Environment Connections */}
               <div className="bg-white rounded-lg border-2 border-cyan-200 p-6 shadow-lg">
