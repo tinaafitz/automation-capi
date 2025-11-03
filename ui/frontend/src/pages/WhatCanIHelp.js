@@ -34,7 +34,6 @@ import { MinikubeTerminalModal } from '../components/MinikubeTerminalModal';
 import { MCETerminalModal } from '../components/MCETerminalModal';
 import TestEnvironmentCard from '../components/TestEnvironmentCard';
 import TestActivityFeed from '../components/TestActivityFeed';
-import ActiveOperationsPanel from '../components/ActiveOperationsPanel';
 
 // Helper function to calculate age from ISO timestamp
 function calculateAge(isoTimestamp) {
@@ -3052,24 +3051,11 @@ export function WhatCanIHelp() {
                         d="M13 10V3L4 14h7v7l9-11h-7z"
                       />
                     </svg>
-                    ⚡ Test Environment Connections
+                    Minikube Test Environment
                   </h4>
 
                   {/* Action Buttons */}
                   <div className="flex items-center gap-2">
-                    {verifiedMinikubeClusterInfo && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowMinikubeTerminalModal(true);
-                        }}
-                        className="bg-teal-600 hover:bg-teal-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
-                        title="Open terminal for verified cluster"
-                      >
-                        <CommandLineIcon className="h-3 w-3" />
-                        <span>Terminal</span>
-                      </button>
-                    )}
                     <button
                       onClick={async (e) => {
                         e.stopPropagation();
@@ -3366,12 +3352,29 @@ export function WhatCanIHelp() {
 
               {/* Key Components */}
               <div className="bg-white rounded-lg border-2 border-purple-200 p-6 shadow-lg">
-                <h4 className="text-base font-semibold text-purple-900 mb-4 flex items-center justify-between">
-                  <span>Key Components</span>
-                  <span className="text-xs font-normal text-purple-600">
-                    ({verifiedMinikubeClusterInfo?.component_versions?.length || 0} configured)
-                  </span>
-                </h4>
+                <div className="mb-4">
+                  <h4 className="text-base font-semibold text-purple-900 mb-2 flex items-center justify-between">
+                    <span className="flex items-center">
+                      <svg
+                        className="h-5 w-5 text-purple-600 mr-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+                        />
+                      </svg>
+                      CAPI/CAPA Components
+                    </span>
+                    <span className="text-xs font-normal text-purple-600">
+                      ({verifiedMinikubeClusterInfo?.component_versions?.length || 0} configured)
+                    </span>
+                  </h4>
+                </div>
 
                 {/* Action Buttons - Only show when key components exist */}
                 {activeResources.filter(
@@ -3381,7 +3384,22 @@ export function WhatCanIHelp() {
                     r.type === 'Secret (ROSA Creds)' ||
                     r.type === 'Secret (AWS Creds)'
                 ).length > 0 && (
-                  <div className="mb-4 flex items-center justify-end space-x-2">
+                  <div className="mb-4 flex items-center justify-start space-x-2">
+                    {/* Terminal Button */}
+                    {verifiedMinikubeClusterInfo && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowMinikubeTerminalModal(true);
+                        }}
+                        className="bg-teal-600 hover:bg-teal-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                        title="Open terminal for verified cluster"
+                      >
+                        <CommandLineIcon className="h-3 w-3" />
+                        <span>Terminal</span>
+                      </button>
+                    )}
+
                     {/* Provision ROSA HCP Cluster Button */}
                     <button
                       onClick={async () => {
@@ -3552,7 +3570,7 @@ export function WhatCanIHelp() {
                           }
                         }
                       }}
-                      className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                      className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
                     >
                       <svg
                         className="h-3.5 w-3.5 mr-1.5"
@@ -3567,7 +3585,7 @@ export function WhatCanIHelp() {
                           d="M12 6v6m0 0v6m0-6h6m-6 0H6"
                         />
                       </svg>
-                      <span>Provision ROSA HCP</span>
+                      <span>Provision</span>
                     </button>
 
                     {/* Configure AutoNode Button */}
@@ -3828,7 +3846,7 @@ export function WhatCanIHelp() {
                     r.type !== 'Secret (ROSA Creds)' &&
                     r.type !== 'Secret (AWS Creds)'
                 ).length > 0 && (
-                  <div className="mb-4 flex items-center justify-end space-x-2">
+                  <div className="mb-4 flex items-center justify-start space-x-2">
                     {/* Export Button */}
                     <button
                       onClick={async () => {
@@ -4072,7 +4090,7 @@ export function WhatCanIHelp() {
                   </div>
                 )}
 
-                <div className="max-h-80 overflow-y-auto">
+                <div className="max-h-96 overflow-y-auto overflow-x-auto">
                   {activeResources.filter(
                     (r) =>
                       // Filter out infrastructure components - only show workload resources
@@ -4081,78 +4099,147 @@ export function WhatCanIHelp() {
                       r.type !== 'Secret (ROSA Creds)' &&
                       r.type !== 'Secret (AWS Creds)'
                   ).length > 0 ? (
-                    <div className="grid grid-cols-2 gap-2">
-                      {activeResources
-                        .filter(
-                          (r) =>
-                            // Filter out infrastructure components - only show workload resources
-                            r.type !== 'Namespace' &&
-                            r.type !== 'AWSClusterControllerIdentity' &&
-                            r.type !== 'Secret (ROSA Creds)' &&
-                            r.type !== 'Secret (AWS Creds)'
-                        )
-                        .map((resource, idx) => (
-                          <div
-                            key={idx}
-                            className="bg-purple-50 rounded-md p-2 border border-purple-100 hover:shadow-sm transition-shadow"
+                    <table className="min-w-full divide-y divide-purple-200">
+                      <thead className="bg-purple-50 sticky top-0">
+                        <tr>
+                          <th
+                            scope="col"
+                            className="px-4 py-3 text-left text-sm font-semibold text-purple-900 cursor-pointer hover:bg-purple-100 transition-colors"
+                            onClick={() => {
+                              const newDirection = minikubeSortField === 'name' && minikubeSortDirection === 'asc' ? 'desc' : 'asc';
+                              setMinikubeSortField('name');
+                              setMinikubeSortDirection(newDirection);
+                            }}
                           >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-start space-x-2 flex-1 min-w-0">
-                                <div className="flex-shrink-0 mt-0.5">
-                                  <svg
-                                    className="h-3 w-3 text-green-600"
-                                    fill="currentColor"
-                                    viewBox="0 0 20 20"
-                                  >
-                                    <path
-                                      fillRule="evenodd"
-                                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                      clipRule="evenodd"
-                                    />
-                                  </svg>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div
-                                    className="text-xs font-semibold text-purple-900 truncate"
-                                    title={resource.name}
-                                  >
-                                    {resource.name}
-                                  </div>
-                                  <div
-                                    className="text-[10px] text-purple-600 truncate"
-                                    title={resource.type}
-                                  >
-                                    {resource.type}
-                                  </div>
-                                  {resource.age && (
-                                    <div className="text-[10px] text-gray-500 mt-0.5">
-                                      {resource.age}
-                                    </div>
+                            <div className="flex items-center gap-1">
+                              Name
+                              {minikubeSortField === 'name' && (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  {minikubeSortDirection === 'asc' ? (
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                  ) : (
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                   )}
-                                </div>
-                              </div>
-                              <div className="flex-shrink-0">
+                                </svg>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            scope="col"
+                            className="px-4 py-3 text-left text-sm font-semibold text-purple-900 cursor-pointer hover:bg-purple-100 transition-colors"
+                            onClick={() => {
+                              const newDirection = minikubeSortField === 'type' && minikubeSortDirection === 'asc' ? 'desc' : 'asc';
+                              setMinikubeSortField('type');
+                              setMinikubeSortDirection(newDirection);
+                            }}
+                          >
+                            <div className="flex items-center gap-1">
+                              Type
+                              {minikubeSortField === 'type' && (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  {minikubeSortDirection === 'asc' ? (
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                  ) : (
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  )}
+                                </svg>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            scope="col"
+                            className="px-4 py-3 text-left text-sm font-semibold text-purple-900 cursor-pointer hover:bg-purple-100 transition-colors"
+                            onClick={() => {
+                              const newDirection = minikubeSortField === 'status' && minikubeSortDirection === 'asc' ? 'desc' : 'asc';
+                              setMinikubeSortField('status');
+                              setMinikubeSortDirection(newDirection);
+                            }}
+                          >
+                            <div className="flex items-center gap-1">
+                              Status
+                              {minikubeSortField === 'status' && (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  {minikubeSortDirection === 'asc' ? (
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                  ) : (
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  )}
+                                </svg>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            scope="col"
+                            className="px-4 py-3 text-left text-sm font-semibold text-purple-900 cursor-pointer hover:bg-purple-100 transition-colors"
+                            onClick={() => {
+                              const newDirection = minikubeSortField === 'age' && minikubeSortDirection === 'asc' ? 'desc' : 'asc';
+                              setMinikubeSortField('age');
+                              setMinikubeSortDirection(newDirection);
+                            }}
+                          >
+                            <div className="flex items-center gap-1">
+                              Created
+                              {minikubeSortField === 'age' && (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  {minikubeSortDirection === 'asc' ? (
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                  ) : (
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  )}
+                                </svg>
+                              )}
+                            </div>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-purple-100">
+                        {sortResources(
+                          activeResources.filter(
+                            (r) =>
+                              // Filter out infrastructure components - only show workload resources
+                              r.type !== 'Namespace' &&
+                              r.type !== 'AWSClusterControllerIdentity' &&
+                              r.type !== 'Secret (ROSA Creds)' &&
+                              r.type !== 'Secret (AWS Creds)'
+                          ),
+                          minikubeSortField,
+                          minikubeSortDirection
+                        ).map((resource, idx) => (
+                            <tr
+                              key={idx}
+                              className="hover:bg-purple-50 transition-colors"
+                            >
+                              <td className="px-4 py-3 text-sm font-medium text-purple-900">
+                                {resource.name}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-purple-700">
+                                {resource.type}
+                              </td>
+                              <td className="px-4 py-3">
                                 <span
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
+                                  className={`inline-flex px-2.5 py-1 rounded-full text-sm font-medium ${
                                     resource.status === 'Ready' ||
                                     resource.status === 'Active' ||
                                     resource.status === 'Configured'
-                                      ? 'bg-green-100 text-green-700'
+                                      ? 'bg-green-100 text-green-800'
                                       : resource.status === 'Provisioning' ||
                                           resource.status === 'Configuring'
-                                        ? 'bg-amber-100 text-amber-700'
-                                        : 'bg-blue-100 text-blue-700'
+                                        ? 'bg-amber-100 text-amber-800'
+                                        : 'bg-blue-100 text-blue-800'
                                   }`}
                                 >
                                   {resource.status}
                                 </span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                    </div>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {resource.age || 'N/A'}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
                   ) : (
-                    <div className="text-center py-6 text-sm text-gray-500 italic">
+                    <div className="text-center py-8 text-sm text-gray-500 italic">
                       No active resources found. Click "Verify" or "Configure" to load resources.
                     </div>
                   )}
@@ -4160,13 +4247,70 @@ export function WhatCanIHelp() {
               </div>
             </div>
 
-            {/* Recent Operations Bar */}
-            {recentOperations.length > 0 && (
-              <div className="mt-6 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200 p-3 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+            {/* Recent Operations Section */}
+            <div className="mt-6 bg-white rounded-xl border-2 border-purple-200 p-6 shadow-lg">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="bg-gradient-to-br from-purple-500 to-indigo-600 p-2 rounded-lg">
+                  <svg
+                    className="h-5 w-5 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-purple-900">Recent Operations</h3>
+                  <p className="text-xs text-purple-600">
+                    {recentOperations.length > 0
+                      ? `Latest ${recentOperations.length} operation${recentOperations.length !== 1 ? 's' : ''}`
+                      : 'No operations yet'}
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-3">
+                {recentOperations.length > 0 ? (
+                  recentOperations.slice(0, 5).map((op, idx) => (
+                    <div
+                      key={op.id}
+                      className="flex items-center gap-3 bg-gradient-to-r from-gray-50 to-purple-50 rounded-lg px-4 py-3 border border-purple-100 hover:shadow-md hover:border-purple-300 transition-all"
+                    >
+                      <div
+                        className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                          op.status.includes('✅')
+                            ? 'bg-green-500 shadow-lg shadow-green-500/50 animate-pulse'
+                            : op.status.includes('❌')
+                              ? 'bg-red-500 shadow-lg shadow-red-500/50'
+                              : op.status.includes('⏳')
+                                ? 'bg-amber-500 shadow-lg shadow-amber-500/50 animate-pulse'
+                                : 'bg-blue-500 shadow-lg shadow-blue-500/50'
+                        }`}
+                      ></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold text-gray-900 truncate">
+                            {op.title}
+                          </span>
+                          <span className="text-xs text-gray-500 flex-shrink-0">
+                            {op.timestamp ? new Date(op.timestamp).toLocaleTimeString() : ''}
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-600 block mt-1">
+                          {op.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="bg-gradient-to-r from-gray-50 to-purple-50 rounded-lg px-4 py-4 border border-purple-100 text-center">
                     <svg
-                      className="h-4 w-4 text-indigo-600"
+                      className="h-8 w-8 text-purple-300 mx-auto mb-2"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -4175,42 +4319,15 @@ export function WhatCanIHelp() {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
                       />
                     </svg>
-                    <span className="text-xs font-semibold text-indigo-900">Recent Activity</span>
+                    <p className="text-sm font-medium text-purple-600">No recent operations</p>
+                    <p className="text-xs text-gray-500 mt-1">Operations will appear here once you start working</p>
                   </div>
-                  <div className="flex items-center gap-2 overflow-x-auto flex-1 ml-4">
-                    {recentOperations.slice(0, 5).map((op, idx) => (
-                      <div
-                        key={op.id}
-                        className="flex items-center gap-2 bg-white rounded-md px-3 py-1.5 border border-indigo-100 hover:shadow-sm transition-shadow flex-shrink-0"
-                      >
-                        <div
-                          className={`w-2 h-2 rounded-full ${
-                            op.status.includes('✅')
-                              ? 'bg-green-500 animate-pulse'
-                              : op.status.includes('❌')
-                                ? 'bg-red-500'
-                                : op.status.includes('⏳')
-                                  ? 'bg-amber-500 animate-pulse'
-                                  : 'bg-blue-500'
-                          }`}
-                        ></div>
-                        <div className="flex flex-col">
-                          <span className="text-xs font-medium text-gray-900 truncate max-w-[200px]">
-                            {op.title}
-                          </span>
-                          <span className="text-[10px] text-gray-600">
-                            {op.status.length > 40 ? op.status.substring(0, 40) + '...' : op.status}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                )}
               </div>
-            )}
+            </div>
 
             {/* View Full Output Section - Dedicated section for detailed operation logs */}
             {ansibleResults['validate-minikube-capa'] &&
@@ -4233,7 +4350,7 @@ export function WhatCanIHelp() {
                               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                             />
                           </svg>
-                          <span>Validation Output</span>
+                          <span>Recent Operations Output</span>
                           <span className="px-2 py-1 text-xs bg-green-500/20 text-green-400 rounded-md border border-green-500/30">
                             Minikube CAPI/CAPA
                           </span>
@@ -4330,25 +4447,6 @@ export function WhatCanIHelp() {
                 </div>
               )}
 
-            {/* Minikube Test Environment Card - Full Width */}
-            <div className="mt-6">
-              <TestEnvironmentCard
-                name="💻 Minikube"
-                icon="💻"
-                resources={parseDynamicResources(
-                  ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]?.result
-                    ?.output || ''
-                )}
-                recentOperations={recentOperations}
-                isActive={false}
-                onClick={() => {
-                  const minikubeSection = document.getElementById('minikube-section');
-                  if (minikubeSection) {
-                    minikubeSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }
-                }}
-              />
-            </div>
           </div>
         )}
 
@@ -4488,26 +4586,6 @@ export function WhatCanIHelp() {
             </div>
           </div>
         )}
-
-        {/* Active Operations Panel */}
-        <div className="mb-6">
-          <ActiveOperationsPanel
-            resources={[
-              ...(verifiedMinikubeClusterInfo
-                ? parseDynamicResources(
-                    ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]?.result
-                      ?.output || ''
-                  )
-                : []),
-              ...(ocpStatus?.connected
-                ? parseDynamicResources(
-                    ansibleResults['check-mce-components']?.result?.output || ''
-                  )
-                : []),
-            ]}
-            operations={recentOperations}
-          />
-        </div>
 
         {/* Main Header with Configure Environment and Right Sidebar */}
         <div className="flex flex-col lg:flex-row items-start justify-between gap-4 lg:gap-8 mb-4 md:mb-6 animate-in fade-in duration-300">
@@ -6125,7 +6203,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 d="M12 6v6m0 0v6m0-6h6m-6 0H6"
                               />
                             </svg>
-                            <span>Provision ROSA HCP</span>
+                            <span>Provision</span>
                           </button>
 
                           {/* Configure AutoNode Button */}
@@ -9459,7 +9537,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                                         d="M12 6v6m0 0v6m0-6h6m-6 0H6"
                                                       />
                                                     </svg>
-                                                    <span>Provision ROSA HCP</span>
+                                                    <span>Provision</span>
                                                   </button>
                                                 </div>
                                               </h4>
@@ -10162,6 +10240,11 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                         !errorOutput.includes('Login successful'))
                                     ) {
                                       errorDescription = 'Invalid credentials';
+                                    } else if (
+                                      output.includes('MCE IS NOT CONFIGURED') ||
+                                      errorOutput.includes('MCE IS NOT CONFIGURED')
+                                    ) {
+                                      errorDescription = 'MCE is not configured';
                                     } else if (
                                       output.includes('timed out') ||
                                       output.includes('AbortError')
