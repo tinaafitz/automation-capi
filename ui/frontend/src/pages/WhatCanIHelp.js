@@ -4106,7 +4106,10 @@ export function WhatCanIHelp() {
                             scope="col"
                             className="px-4 py-3 text-left text-sm font-semibold text-purple-900 cursor-pointer hover:bg-purple-100 transition-colors"
                             onClick={() => {
-                              const newDirection = minikubeSortField === 'name' && minikubeSortDirection === 'asc' ? 'desc' : 'asc';
+                              const newDirection =
+                                minikubeSortField === 'name' && minikubeSortDirection === 'asc'
+                                  ? 'desc'
+                                  : 'asc';
                               setMinikubeSortField('name');
                               setMinikubeSortDirection(newDirection);
                             }}
@@ -4114,11 +4117,26 @@ export function WhatCanIHelp() {
                             <div className="flex items-center gap-1">
                               Name
                               {minikubeSortField === 'name' && (
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
                                   {minikubeSortDirection === 'asc' ? (
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M5 15l7-7 7 7"
+                                    />
                                   ) : (
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M19 9l-7 7-7-7"
+                                    />
                                   )}
                                 </svg>
                               )}
@@ -4128,7 +4146,10 @@ export function WhatCanIHelp() {
                             scope="col"
                             className="px-4 py-3 text-left text-sm font-semibold text-purple-900 cursor-pointer hover:bg-purple-100 transition-colors"
                             onClick={() => {
-                              const newDirection = minikubeSortField === 'type' && minikubeSortDirection === 'asc' ? 'desc' : 'asc';
+                              const newDirection =
+                                minikubeSortField === 'type' && minikubeSortDirection === 'asc'
+                                  ? 'desc'
+                                  : 'asc';
                               setMinikubeSortField('type');
                               setMinikubeSortDirection(newDirection);
                             }}
@@ -4136,11 +4157,26 @@ export function WhatCanIHelp() {
                             <div className="flex items-center gap-1">
                               Type
                               {minikubeSortField === 'type' && (
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
                                   {minikubeSortDirection === 'asc' ? (
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M5 15l7-7 7 7"
+                                    />
                                   ) : (
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M19 9l-7 7-7-7"
+                                    />
                                   )}
                                 </svg>
                               )}
@@ -4150,7 +4186,10 @@ export function WhatCanIHelp() {
                             scope="col"
                             className="px-4 py-3 text-left text-sm font-semibold text-purple-900 cursor-pointer hover:bg-purple-100 transition-colors"
                             onClick={() => {
-                              const newDirection = minikubeSortField === 'status' && minikubeSortDirection === 'asc' ? 'desc' : 'asc';
+                              const newDirection =
+                                minikubeSortField === 'status' && minikubeSortDirection === 'asc'
+                                  ? 'desc'
+                                  : 'asc';
                               setMinikubeSortField('status');
                               setMinikubeSortDirection(newDirection);
                             }}
@@ -4158,11 +4197,26 @@ export function WhatCanIHelp() {
                             <div className="flex items-center gap-1">
                               Status
                               {minikubeSortField === 'status' && (
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
                                   {minikubeSortDirection === 'asc' ? (
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M5 15l7-7 7 7"
+                                    />
                                   ) : (
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M19 9l-7 7-7-7"
+                                    />
                                   )}
                                 </svg>
                               )}
@@ -4172,7 +4226,10 @@ export function WhatCanIHelp() {
                             scope="col"
                             className="px-4 py-3 text-left text-sm font-semibold text-purple-900 cursor-pointer hover:bg-purple-100 transition-colors"
                             onClick={() => {
-                              const newDirection = minikubeSortField === 'age' && minikubeSortDirection === 'asc' ? 'desc' : 'asc';
+                              const newDirection =
+                                minikubeSortField === 'age' && minikubeSortDirection === 'asc'
+                                  ? 'desc'
+                                  : 'asc';
                               setMinikubeSortField('age');
                               setMinikubeSortDirection(newDirection);
                             }}
@@ -4180,11 +4237,26 @@ export function WhatCanIHelp() {
                             <div className="flex items-center gap-1">
                               Created
                               {minikubeSortField === 'age' && (
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
                                   {minikubeSortDirection === 'asc' ? (
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M5 15l7-7 7 7"
+                                    />
                                   ) : (
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M19 9l-7 7-7-7"
+                                    />
                                   )}
                                 </svg>
                               )}
@@ -4205,37 +4277,32 @@ export function WhatCanIHelp() {
                           minikubeSortField,
                           minikubeSortDirection
                         ).map((resource, idx) => (
-                            <tr
-                              key={idx}
-                              className="hover:bg-purple-50 transition-colors"
-                            >
-                              <td className="px-4 py-3 text-sm font-medium text-purple-900">
-                                {resource.name}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-purple-700">
-                                {resource.type}
-                              </td>
-                              <td className="px-4 py-3">
-                                <span
-                                  className={`inline-flex px-2.5 py-1 rounded-full text-sm font-medium ${
-                                    resource.status === 'Ready' ||
-                                    resource.status === 'Active' ||
-                                    resource.status === 'Configured'
-                                      ? 'bg-green-100 text-green-800'
-                                      : resource.status === 'Provisioning' ||
-                                          resource.status === 'Configuring'
-                                        ? 'bg-amber-100 text-amber-800'
-                                        : 'bg-blue-100 text-blue-800'
-                                  }`}
-                                >
-                                  {resource.status}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-sm text-gray-600">
-                                {resource.age || 'N/A'}
-                              </td>
-                            </tr>
-                          ))}
+                          <tr key={idx} className="hover:bg-purple-50 transition-colors">
+                            <td className="px-4 py-3 text-sm font-medium text-purple-900">
+                              {resource.name}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-purple-700">{resource.type}</td>
+                            <td className="px-4 py-3">
+                              <span
+                                className={`inline-flex px-2.5 py-1 rounded-full text-sm font-medium ${
+                                  resource.status === 'Ready' ||
+                                  resource.status === 'Active' ||
+                                  resource.status === 'Configured'
+                                    ? 'bg-green-100 text-green-800'
+                                    : resource.status === 'Provisioning' ||
+                                        resource.status === 'Configuring'
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-blue-100 text-blue-800'
+                                }`}
+                              >
+                                {resource.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-600">
+                              {resource.age || 'N/A'}
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   ) : (
@@ -4301,9 +4368,7 @@ export function WhatCanIHelp() {
                             {op.timestamp ? new Date(op.timestamp).toLocaleTimeString() : ''}
                           </span>
                         </div>
-                        <span className="text-xs text-gray-600 block mt-1">
-                          {op.status}
-                        </span>
+                        <span className="text-xs text-gray-600 block mt-1">{op.status}</span>
                       </div>
                     </div>
                   ))
@@ -4323,7 +4388,9 @@ export function WhatCanIHelp() {
                       />
                     </svg>
                     <p className="text-sm font-medium text-purple-600">No recent operations</p>
-                    <p className="text-xs text-gray-500 mt-1">Operations will appear here once you start working</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Operations will appear here once you start working
+                    </p>
                   </div>
                 )}
               </div>
@@ -4446,7 +4513,6 @@ export function WhatCanIHelp() {
                   </div>
                 </div>
               )}
-
           </div>
         )}
 
