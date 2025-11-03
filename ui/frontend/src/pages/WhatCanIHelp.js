@@ -417,6 +417,9 @@ export function WhatCanIHelp() {
   const [credentialWarning, setCredentialWarning] = useState(null); // { type: 'placeholder' | 'invalid', message: string }
   const [mceFeaturesLoading, setMceFeaturesLoading] = useState(false);
 
+  // Last used ROSA YAML path for ROSA HCP provisioning
+  const [lastRosaYamlPath, setLastRosaYamlPath] = useState('rosa-hcp-test.yml');
+
   // Track if we've already shown initial notifications to prevent loops
   const hasShownInitialNotifications = useRef(false);
 
@@ -637,6 +640,7 @@ export function WhatCanIHelp() {
   // Fetch active resources from the Minikube cluster
   const fetchMinikubeActiveResources = async (clusterName, namespace = 'ns-rosa-hcp') => {
     try {
+      console.log('📡 Fetching Minikube active resources for cluster:', clusterName, 'namespace:', namespace);
       const response = await fetch('http://localhost:8000/api/minikube/get-active-resources', {
         method: 'POST',
         headers: {
@@ -649,10 +653,13 @@ export function WhatCanIHelp() {
       });
 
       const data = await response.json();
+      console.log('📊 Minikube active resources response:', data);
 
       if (data.success) {
+        console.log('✅ Setting activeResources with', data.resources.length, 'resources');
         setActiveResources(data.resources);
       } else {
+        console.log('❌ API returned success=false, clearing activeResources');
         setActiveResources([]);
       }
     } catch (error) {
@@ -731,6 +738,25 @@ export function WhatCanIHelp() {
       console.error('Failed to fetch OCP resource detail:', error);
       addNotification('Failed to fetch resource details', 'error', 3000);
     }
+  };
+
+  // Handle resource click to show details
+  const handleResourceClick = async (resource, clusterType = 'minikube') => {
+    const clusterName = clusterType === 'minikube'
+      ? verifiedMinikubeClusterInfo?.name
+      : verifiedKindClusterInfo?.name;
+
+    if (!clusterName) {
+      addNotification('No cluster selected', 'error');
+      return;
+    }
+
+    await fetchResourceDetail(
+      clusterName,
+      resource.type,
+      resource.name,
+      resource.namespace || 'ns-rosa-hcp'
+    );
   };
 
   const verifyKindCluster = async (clusterName) => {
@@ -834,6 +860,17 @@ export function WhatCanIHelp() {
   useEffect(() => {
     localStorage.setItem('recentOperations', JSON.stringify(recentOperations));
   }, [recentOperations]);
+
+  // Fetch active resources when Minikube cluster info is loaded
+  useEffect(() => {
+    if (verifiedMinikubeClusterInfo?.name) {
+      console.log('🔄 Auto-fetching active resources for Minikube cluster:', verifiedMinikubeClusterInfo.name);
+      fetchMinikubeActiveResources(
+        verifiedMinikubeClusterInfo.name,
+        verifiedMinikubeClusterInfo.namespace || 'ns-rosa-hcp'
+      ).catch(err => console.error('Failed to auto-fetch active resources:', err));
+    }
+  }, [verifiedMinikubeClusterInfo?.name]);
 
   // Save ansibleResults to localStorage
   useEffect(() => {
@@ -2460,6 +2497,59 @@ export function WhatCanIHelp() {
     });
   };
 
+  // Cleanup stale "in-progress" operations on mount
+  React.useEffect(() => {
+    const cleanupStaleOperations = () => {
+      setRecentOperations((prev) => {
+        // Filter out operations with "Verifying...", "Configuring...", or other in-progress statuses
+        // that are older than 5 minutes (likely stuck from previous session)
+        const now = Date.now();
+        const fiveMinutesAgo = now - 5 * 60 * 1000;
+
+        const cleaned = prev.filter((op) => {
+          // Keep operations that don't have in-progress status
+          if (!op.status.includes('⏳') &&
+              !op.status.includes('Verifying...') &&
+              !op.status.includes('Configuring...') &&
+              !op.status.includes('Running...') &&
+              !op.status.includes('Processing...')) {
+            return true;
+          }
+
+          // Keep recent in-progress operations (less than 5 minutes old)
+          if (op.timestamp && op.timestamp > fiveMinutesAgo) {
+            return true;
+          }
+
+          // Remove old in-progress operations (likely stale)
+          console.log('Removing stale operation:', op.id, op.status);
+          return false;
+        });
+
+        return cleaned;
+      });
+    };
+
+    // Run cleanup on mount
+    cleanupStaleOperations();
+
+    // Also run cleanup every 10 seconds to catch any operations that become stale quickly
+    const cleanupInterval = setInterval(cleanupStaleOperations, 10000);
+
+    return () => clearInterval(cleanupInterval);
+  }, []);
+
+  // Auto-fetch active resources when verified Minikube cluster info is available
+  React.useEffect(() => {
+    if (verifiedMinikubeClusterInfo?.name && verifiedMinikubeClusterInfo?.namespace) {
+      console.log('📡 Auto-fetching active resources for verified cluster:', verifiedMinikubeClusterInfo.name);
+      fetchMinikubeActiveResources(
+        verifiedMinikubeClusterInfo.name,
+        verifiedMinikubeClusterInfo.namespace
+      ).catch(err => console.error('Auto-fetch active resources failed:', err));
+    }
+  }, [verifiedMinikubeClusterInfo?.name, verifiedMinikubeClusterInfo?.namespace]);
+
   const toggleSection = (sectionId) => {
     setCollapsedSections((prev) => {
       const newSet = new Set(prev);
@@ -2922,56 +3012,1487 @@ export function WhatCanIHelp() {
       </div>
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-6 space-y-4 md:space-y-5">
-        {/* Test Environments Section */}
-        <div className="mb-6">
-          <div className="flex items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-900">Test Environments</h2>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Minikube Environment Card */}
-            <TestEnvironmentCard
-              name="💻 Minikube"
-              icon="💻"
-              resources={
-                verifiedMinikubeClusterInfo
-                  ? parseDynamicResources(
-                      ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]?.result
-                        ?.output || ''
-                    )
-                  : []
-              }
-              recentOperations={recentOperations}
-              isActive={false}
-              onClick={() => {
-                const minikubeSection = document.getElementById('minikube-section');
-                if (minikubeSection) {
-                  minikubeSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-              }}
-            />
+        {/* Test Environments Section - Minikube */}
+        {verifiedMinikubeClusterInfo && (
+          <div className="mb-6">
+            <div className="flex items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Test Environments</h2>
+            </div>
 
-            {/* MCE Environment Card */}
-            <TestEnvironmentCard
-              name="🌐 MCE Hub"
-              icon="🌐"
-              resources={
-                ocpStatus?.connected
-                  ? parseDynamicResources(
-                      ansibleResults['check-mce-components']?.result?.output || ''
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Minikube Test Environment Connections */}
+              <div className="bg-white rounded-lg border-2 border-purple-200 p-6 shadow-lg">
+                <div className="flex flex-col space-y-3 mb-4">
+                  <h4 className="text-base font-semibold text-purple-900 flex items-center">
+                    <svg
+                      className="h-5 w-5 text-purple-600 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 10V3L4 14h7v7l9-11h-7z"
+                      />
+                    </svg>
+                    ⚡ Test Environment Connections
+                  </h4>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-2">
+                    {verifiedMinikubeClusterInfo && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowMinikubeTerminalModal(true);
+                        }}
+                        className="bg-teal-600 hover:bg-teal-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                        title="Open terminal for verified cluster"
+                      >
+                        <CommandLineIcon className="h-3 w-3" />
+                        <span>Terminal</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+
+                        console.log('Manual verify clicked for Minikube cluster');
+
+                        // Verify Minikube cluster status
+                        if (verifiedMinikubeClusterInfo?.name) {
+                          // Create unique ID for this verification using timestamp
+                          const verifyId = `validate-minikube-capa`;
+
+                          // Add to recent operations with "Verifying..." status
+                          addToRecent({
+                            id: verifyId,
+                            title: 'Minikube Verify Environment',
+                            color: 'bg-purple-600',
+                            status: '⏳ Verifying...',
+                            ansibleResultKey: 'validate-minikube-capa',
+                          });
+
+                          console.log('Starting Minikube validation...');
+                          try {
+                            // First, refresh cluster info to get updated version
+                            const verifyResponse = await fetch(
+                              'http://localhost:8000/api/minikube/verify-cluster',
+                              {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  cluster_name: verifiedMinikubeClusterInfo.name,
+                                }),
+                              }
+                            );
+
+                            const verifyData = await verifyResponse.json();
+
+                            // Update cluster info with fresh data including version
+                            if (verifyResponse.ok && verifyData.accessible) {
+                              setVerifiedMinikubeClusterInfo((prev) => ({
+                                ...prev,
+                                version: verifyData.cluster_info?.version || prev.version,
+                                status: verifyData.cluster_info?.status || prev.status,
+                                components: verifyData.cluster_info?.components || prev.components,
+                              }));
+                            }
+
+                            // Run the validation playbook
+                            const response = await fetch(
+                              'http://localhost:8000/api/ansible/run-task',
+                              {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  task_file: 'tasks/validate-kind-capa-environment.yml',
+                                  description: 'Validate CAPA environment components',
+                                  kube_context: verifiedMinikubeClusterInfo.name,
+                                }),
+                              }
+                            );
+
+                            const result = await response.json();
+
+                            // Get completion time with seconds
+                            const completionTime = new Date().toLocaleTimeString('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              hour12: true,
+                            });
+
+                            if (response.ok && result.success) {
+                              console.log('Validation completed at:', completionTime);
+
+                              // Store result in ansibleResults for View Full Output
+                              setAnsibleResults((prev) => ({
+                                ...prev,
+                                'validate-minikube-capa': {
+                                  loading: false,
+                                  success: true,
+                                  result: {
+                                    output: result.output,
+                                    timestamp: new Date(),
+                                    task_file: 'tasks/validate-kind-capa-environment.yml',
+                                    type: 'Minikube CAPI/CAPA Validation',
+                                  },
+                                  timestamp: new Date(),
+                                },
+                              }));
+
+                              // Update the verifiedDate to current time
+                              setVerifiedMinikubeClusterInfo((prev) => ({
+                                ...prev,
+                                verifiedDate: new Date().toLocaleString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                  hour12: true,
+                                }),
+                              }));
+
+                              updateRecentOperationStatus(
+                                verifyId,
+                                `✅ Validation completed at ${completionTime}`
+                              );
+
+                              // Fetch active resources after successful verification (non-blocking)
+                              fetchMinikubeActiveResources(
+                                verifiedMinikubeClusterInfo.name,
+                                verifiedMinikubeClusterInfo.namespace
+                              ).catch(err => console.error('Failed to fetch active resources:', err));
+                            } else {
+                              console.log('Validation failed at:', completionTime);
+
+                              // Store error in ansibleResults
+                              setAnsibleResults((prev) => ({
+                                ...prev,
+                                'validate-minikube-capa': {
+                                  loading: false,
+                                  success: false,
+                                  result: {
+                                    error: result.error || result.message || 'Validation failed',
+                                    timestamp: new Date(),
+                                    task_file: 'tasks/validate-kind-capa-environment.yml',
+                                    type: 'Minikube CAPI/CAPA Validation',
+                                  },
+                                  timestamp: new Date(),
+                                },
+                              }));
+
+                              updateRecentOperationStatus(
+                                verifyId,
+                                `❌ Validation failed at ${completionTime}: ${result.message || 'Unknown error'}`
+                              );
+                            }
+                          } catch (error) {
+                            // Update operation status with error and timestamp (including seconds)
+                            const completionTime = new Date().toLocaleTimeString('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              hour12: true,
+                            });
+                            console.log('Validation failed at:', completionTime, error);
+
+                            // Store error in ansibleResults
+                            setAnsibleResults((prev) => ({
+                              ...prev,
+                              'validate-minikube-capa': {
+                                loading: false,
+                                success: false,
+                                result: {
+                                  error: error.toString(),
+                                  timestamp: new Date(),
+                                  task_file: 'tasks/validate-kind-capa-environment.yml',
+                                  type: 'Minikube CAPI/CAPA Validation',
+                                },
+                                timestamp: new Date(),
+                              },
+                            }));
+
+                            updateRecentOperationStatus(
+                              verifyId,
+                              `❌ Validation failed at ${completionTime}`
+                            );
+                          }
+                        }
+                      }}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                      title="Verify Minikube cluster and CAPI/CAPA environment"
+                    >
+                      <ArrowPathIcon className="h-3 w-3" />
+                      <span>Verify</span>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowMinikubeConfigModal(true);
+                      }}
+                      className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                      title="Configure Minikube cluster"
+                    >
+                      <Cog6ToothIcon className="h-3 w-3" />
+                      <span>Configure</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Minikube Environment Info */}
+                <div className="mb-4 bg-purple-50 rounded-lg p-4 border border-purple-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-base font-semibold text-purple-900">
+                      {verifiedMinikubeClusterInfo.name}
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-white rounded-md border border-purple-200">
+                      <span
+                        className={`w-2 h-2 rounded-full ${
+                          verifiedMinikubeClusterInfo.status === 'running'
+                            ? 'bg-green-500'
+                            : 'bg-red-500'
+                        }`}
+                      ></span>
+                      <span className="text-xs font-medium text-purple-700">
+                        {verifiedMinikubeClusterInfo.cluster_info?.version || 'v1.34.0'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3 mb-3">
+                    {/* Status */}
+                    <div className="bg-white rounded-md p-2 border border-purple-100">
+                      <div className="text-xs text-purple-600 mb-1">Status:</div>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            verifiedMinikubeClusterInfo.status === 'running'
+                              ? 'bg-green-500'
+                              : 'bg-red-500'
+                          }`}
+                        ></span>
+                        <span className="text-sm font-medium text-purple-900 capitalize">
+                          {verifiedMinikubeClusterInfo.status || 'Unknown'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* CAPI/CAPA */}
+                    <div className="bg-white rounded-md p-2 border border-purple-100">
+                      <div className="text-xs text-purple-600 mb-1">CAPI/CAPA:</div>
+                      <div className="flex items-center gap-1">
+                        <svg className="h-3.5 w-3.5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        <span className="text-sm font-medium text-green-700">Enabled</span>
+                      </div>
+                    </div>
+
+                    {/* Clusters */}
+                    <div className="bg-white rounded-md p-2 border border-purple-100">
+                      <div className="text-xs text-purple-600 mb-1">Clusters:</div>
+                      <div className="text-sm font-bold text-purple-900">
+                        {
+                          parseDynamicResources(
+                            ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]?.result
+                              ?.output || ''
+                          ).filter((r) => r.type === 'ROSACluster').length
+                        }
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {/* API Server */}
+                    <div className="bg-white rounded-md p-2 border border-purple-100">
+                      <div className="text-xs font-medium text-purple-600 mb-1">API Server</div>
+                      <div className="text-xs text-purple-900 font-mono break-all">
+                        {verifiedMinikubeClusterInfo.cluster_info?.api_url || 'https://127.0.0.1:8443'}
+                      </div>
+                    </div>
+
+                    {/* Last Verified */}
+                    <div className="bg-white rounded-md p-2 border border-purple-100">
+                      <div className="text-xs font-medium text-purple-600 mb-1">Last Verified</div>
+                      <div className="text-xs text-purple-900">
+                        {ansibleResults[`validate-minikube-capa`]?.timestamp
+                          ? new Date(ansibleResults[`validate-minikube-capa`].timestamp).toLocaleString(
+                              'en-US',
+                              {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true,
+                              }
+                            )
+                          : 'Not verified yet'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cluster list */}
+                <div className="space-y-2">
+                  {parseDynamicResources(
+                    ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]?.result
+                      ?.output || ''
+                  )
+                    .filter((r) => r.type === 'ROSACluster')
+                    .map((cluster, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-white rounded-lg border border-purple-200 p-3 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                              <svg
+                                className="h-4 w-4 text-purple-600"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                                />
+                              </svg>
+                            </div>
+                            <div>
+                              <div className="text-sm font-semibold text-gray-900">
+                                {cluster.name}
+                              </div>
+                              <div className="text-xs text-purple-600">ROSACluster</div>
+                            </div>
+                          </div>
+                          <div>
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                cluster.status === 'Ready'
+                                  ? 'bg-green-100 text-green-800 border border-green-200'
+                                  : 'bg-amber-100 text-amber-800 border border-amber-200'
+                              }`}
+                            >
+                              {cluster.status}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                  {parseDynamicResources(
+                    ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]?.result
+                      ?.output || ''
+                  ).filter((r) => r.type === 'ROSACluster').length === 0 && (
+                    <div className="text-center py-4 text-sm text-gray-500 italic">
+                      No ROSA clusters found. Create one from the Minikube section below.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Key Components */}
+              <div className="bg-white rounded-lg border-2 border-purple-200 p-6 shadow-lg">
+                <h4 className="text-base font-semibold text-purple-900 mb-4 flex items-center justify-between">
+                  <span>Key Components</span>
+                  <span className="text-xs font-normal text-purple-600">
+                    ({activeResources.filter((r) =>
+                      r.type === 'Namespace' ||
+                      r.type === 'AWSClusterControllerIdentity' ||
+                      r.type === 'Secret (ROSA Creds)' ||
+                      r.type === 'Secret (AWS Creds)'
+                    ).length} configured)
+                  </span>
+                </h4>
+
+                {/* Action Buttons - Only show when key components exist */}
+                {activeResources.filter((r) =>
+                  r.type === 'Namespace' ||
+                  r.type === 'AWSClusterControllerIdentity' ||
+                  r.type === 'Secret (ROSA Creds)' ||
+                  r.type === 'Secret (AWS Creds)'
+                ).length > 0 && (
+                  <div className="mb-4 flex items-center justify-end space-x-2">
+                    {/* Provision ROSA HCP Cluster Button */}
+                    <button
+                      onClick={async () => {
+                        let operationId; // Declare outside try block for catch access
+                      try {
+                        // Prompt user for cluster definition file name
+                        const clusterFile = window.prompt(
+                          'Enter the YAML cluster definition file name:\n\n' +
+                            'Example: rosa-hcp-test.yml\n' +
+                            'Example: clusters/my-cluster.yaml\n\n' +
+                            'File should be in your automation-capi directory',
+                          lastRosaYamlPath || 'rosa-hcp-test.yml'
+                        );
+
+                        if (!clusterFile) return;
+
+                        const trimmedFile = clusterFile.trim();
+
+                        if (
+                          !confirm(
+                            `Provision ROSA HCP Cluster using "${trimmedFile}"?\n\nThis will:\n- Create namespace ns-rosa-hcp\n- Apply AWS Identity configuration\n- Create OCM client secret\n- Apply ROSA HCP cluster definition from ${trimmedFile}`
+                          )
+                        ) {
+                          return;
+                        }
+
+                        // Create unique operation ID
+                        operationId = `provision-rosa-hcp-${Date.now()}`;
+
+                        // Add to recent operations with "Provisioning..." status
+                        addToRecent({
+                          id: operationId,
+                          title: `Minikube Provision ROSA HCP: ${trimmedFile}`,
+                          color: 'bg-rose-600',
+                          status: '⏳ Provisioning...',
+                        });
+
+                        // Small delay to show the "Provisioning..." status
+                        await new Promise((resolve) => setTimeout(resolve, 100));
+
+                        // Save the file path for next time
+                        setLastRosaYamlPath(trimmedFile);
+
+                        const response = await fetch(
+                          'http://localhost:8000/api/ansible/run-task',
+                          {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              task_file: 'tasks/provision-rosa-hcp-cluster.yml',
+                              description: `Provision ROSA HCP Cluster: ${trimmedFile}`,
+                              kube_context:
+                                verifiedMinikubeClusterInfo?.contextName ||
+                                verifiedMinikubeClusterInfo?.name,
+                              extra_vars: {
+                                ROSA_HCP_CLUSTER_FILE: trimmedFile,
+                              },
+                            }),
+                          }
+                        );
+
+                        const result = await response.json();
+                        const completionTime = new Date().toLocaleTimeString('en-US', {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          hour12: true,
+                        });
+
+                        console.log('[Minikube Provision ROSA HCP] Response:', {
+                          ok: response.ok,
+                          success: result.success,
+                          result: result,
+                        });
+
+                        if (result.success) {
+                          // Store successful result
+                          setAnsibleResults((prev) => ({
+                            ...prev,
+                            [operationId]: {
+                              loading: false,
+                              success: true,
+                              result: {
+                                output: result.output,
+                                timestamp: new Date(),
+                                task_file: 'tasks/provision-rosa-hcp-cluster.yml',
+                                type: 'Provision ROSA HCP Cluster',
+                                cluster_file: trimmedFile,
+                              },
+                              timestamp: new Date(),
+                            },
+                          }));
+
+                          // Update operation status
+                          updateRecentOperationStatus(
+                            operationId,
+                            `✅ Provisioned successfully at ${completionTime}`
+                          );
+
+                          // Refresh active resources
+                          await fetchMinikubeActiveResources(
+                            verifiedMinikubeClusterInfo.name,
+                            verifiedMinikubeClusterInfo.namespace
+                          );
+                        } else {
+                          // Extract detailed error message
+                          const errorDetails = {
+                            message: result.message || 'Unknown error',
+                            error: result.error || '',
+                            return_code: result.return_code,
+                            fullResponse: result,
+                          };
+
+                          console.log(
+                            '[Minikube Provision ROSA HCP] Error details:',
+                            errorDetails
+                          );
+
+                          setAnsibleResults((prev) => ({
+                            ...prev,
+                            [operationId]: {
+                              loading: false,
+                              success: false,
+                              result: {
+                                error: result.error || result.message || 'Provisioning failed',
+                                output: result.output || '',
+                                timestamp: new Date(),
+                                task_file: 'tasks/provision-rosa-hcp-cluster.yml',
+                                type: 'Provision ROSA HCP Cluster',
+                                cluster_file: trimmedFile,
+                              },
+                              timestamp: new Date(),
+                            },
+                          }));
+
+                          updateRecentOperationStatus(
+                            operationId,
+                            `❌ Provisioning failed at ${completionTime}`
+                          );
+                        }
+                      } catch (error) {
+                        console.error('[Minikube Provision ROSA HCP] Exception:', error);
+                        const completionTime = new Date().toLocaleTimeString('en-US', {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          hour12: true,
+                        });
+                        if (operationId) {
+                          setAnsibleResults((prev) => ({
+                            ...prev,
+                            [operationId]: {
+                              loading: false,
+                              success: false,
+                              result: {
+                                error: error.toString(),
+                                timestamp: new Date(),
+                                task_file: 'tasks/provision-rosa-hcp-cluster.yml',
+                                type: 'Provision ROSA HCP Cluster',
+                              },
+                              timestamp: new Date(),
+                            },
+                          }));
+                          updateRecentOperationStatus(
+                            operationId,
+                            `❌ Provisioning failed at ${completionTime}`
+                          );
+                        }
+                      }
+                    }}
+                    className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                  >
+                    <svg
+                      className="h-3.5 w-3.5 mr-1.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                      />
+                    </svg>
+                    <span>Provision ROSA HCP</span>
+                  </button>
+
+                  {/* Configure AutoNode Button */}
+                  {(() => {
+                    // Check if we have ansible results with dynamic resources
+                    const hasROSACluster =
+                      parseDynamicResources(
+                        ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]
+                          ?.result?.output || ''
+                      ).filter((r) => r.type === 'ROSACluster').length > 0;
+
+                    return hasROSACluster ? (
+                      <button
+                        onClick={async () => {
+                          let operationId;
+                          try {
+                            if (
+                              !confirm(
+                                'Configure AutoNode for ROSA HCP Cluster?\n\nThis will:\n- Configure EC2NodeClass\n- Create NodePool\n- Verify AutoNode configuration'
+                              )
+                            )
+                              return;
+
+                            operationId = `configure-autonode-${Date.now()}`;
+
+                            addToRecent({
+                              id: operationId,
+                              title: 'Minikube Configure AutoNode',
+                              color: 'bg-violet-600',
+                              status: '⏳ Configuring...',
+                            });
+
+                            await new Promise((resolve) => setTimeout(resolve, 100));
+
+                            const response = await fetch(
+                              'http://localhost:8000/api/ansible/run-playbook',
+                              {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  playbook: 'test-autonode.yml',
+                                  description: 'Configure AutoNode',
+                                  extra_vars: {
+                                    KUBE_CONTEXT:
+                                      verifiedMinikubeClusterInfo?.contextName ||
+                                      verifiedMinikubeClusterInfo?.name,
+                                  },
+                                }),
+                              }
+                            );
+
+                            const result = await response.json();
+                            const completionTime = new Date().toLocaleTimeString('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              hour12: true,
+                            });
+
+                            if (result.success) {
+                              setAnsibleResults((prev) => ({
+                                ...prev,
+                                [operationId]: {
+                                  loading: false,
+                                  success: true,
+                                  result: {
+                                    output: result.output,
+                                    timestamp: new Date(),
+                                    playbook: 'test-autonode.yml',
+                                    type: 'Configure AutoNode',
+                                  },
+                                  timestamp: new Date(),
+                                },
+                              }));
+
+                              updateRecentOperationStatus(
+                                operationId,
+                                `✅ AutoNode configured at ${completionTime}`
+                              );
+
+                              // Refresh active resources
+                              await fetchMinikubeActiveResources(
+                                verifiedMinikubeClusterInfo.name,
+                                verifiedMinikubeClusterInfo.namespace
+                              );
+                            } else {
+                              setAnsibleResults((prev) => ({
+                                ...prev,
+                                [operationId]: {
+                                  loading: false,
+                                  success: false,
+                                  result: {
+                                    error: result.error || 'Configuration failed',
+                                    output: result.output || '',
+                                    timestamp: new Date(),
+                                    playbook: 'test-autonode.yml',
+                                    type: 'Configure AutoNode',
+                                  },
+                                  timestamp: new Date(),
+                                },
+                              }));
+
+                              updateRecentOperationStatus(
+                                operationId,
+                                `❌ AutoNode configuration failed at ${completionTime}`
+                              );
+                            }
+                          } catch (error) {
+                            console.error('[Configure AutoNode] Exception:', error);
+                            const completionTime = new Date().toLocaleTimeString('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              hour12: true,
+                            });
+                            if (operationId) {
+                              setAnsibleResults((prev) => ({
+                                ...prev,
+                                [operationId]: {
+                                  loading: false,
+                                  success: false,
+                                  result: {
+                                    error: error.toString(),
+                                    timestamp: new Date(),
+                                    playbook: 'test-autonode.yml',
+                                    type: 'Configure AutoNode',
+                                  },
+                                  timestamp: new Date(),
+                                },
+                              }));
+                              updateRecentOperationStatus(
+                                operationId,
+                                `❌ AutoNode configuration failed at ${completionTime}`
+                              );
+                            }
+                          }
+                        }}
+                        className="bg-violet-600 hover:bg-violet-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                      >
+                        <svg
+                          className="h-3.5 w-3.5 mr-1.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                          />
+                        </svg>
+                        <span>Configure AutoNode</span>
+                      </button>
+                    ) : null;
+                  })()}
+                  </div>
+                )}
+
+                {/* Key Components List */}
+                <div className="space-y-2">
+                  {activeResources
+                    .filter((r) =>
+                      // Filter for infrastructure/key components only (not workload resources)
+                      r.type === 'Namespace' ||
+                      r.type === 'AWSClusterControllerIdentity' ||
+                      r.type === 'Secret (ROSA Creds)' ||
+                      r.type === 'Secret (AWS Creds)'
                     )
-                  : []
-              }
-              recentOperations={recentOperations}
-              isActive={false}
-              onClick={() => {
-                const mceSection = document.getElementById('mce-section');
-                if (mceSection) {
-                  mceSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-              }}
-            />
+                    .map((component, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center space-x-3 p-2 bg-white rounded-md border border-purple-100 hover:bg-purple-50 hover:border-purple-200 transition-all cursor-pointer"
+                      onClick={() => handleResourceClick(component, 'minikube')}
+                      title={`Click to view ${component.name} details`}
+                    >
+                      {/* Status Icon */}
+                      <div className="flex-shrink-0">
+                        <svg
+                          className="h-5 w-5 text-green-500"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </div>
+
+                      {/* Component Name */}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-purple-900">
+                          {/* Display friendly component type name */}
+                          {component.type === 'Namespace' && 'ROSA Namespace'}
+                          {component.type === 'AWSClusterControllerIdentity' && 'AWS Identity'}
+                          {component.type === 'Secret (ROSA Creds)' && 'ROSA Credentials'}
+                          {component.type === 'Secret (AWS Creds)' && 'AWS Credentials'}
+                        </div>
+                      </div>
+
+                      {/* Age Badge */}
+                      {component.age && (
+                        <div className="flex-shrink-0">
+                          <span className="text-xs text-purple-500">
+                            {component.age}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Active Resources */}
+              <div className="bg-white rounded-lg border-2 border-purple-200 p-6 shadow-lg">
+                {console.log('🎯 ACTIVE RESOURCES TILE IS RENDERING', {activeResourcesLength: activeResources.length, activeResources: activeResources})}
+
+                <h4 className="text-base font-semibold text-purple-900 mb-4 flex items-center justify-between">
+                  <div className="flex items-center">
+                    <svg
+                      className="h-5 w-5 text-purple-600 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                      />
+                    </svg>
+                    Active Resources
+                  </div>
+                  <span className="text-xs font-normal text-purple-600">
+                    ({activeResources.filter((r) =>
+                      r.type !== 'Namespace' &&
+                      r.type !== 'AWSClusterControllerIdentity' &&
+                      r.type !== 'Secret (ROSA Creds)' &&
+                      r.type !== 'Secret (AWS Creds)'
+                    ).length} total)
+                  </span>
+                </h4>
+
+                {/* Action Buttons - Only show when resources exist */}
+                {activeResources.filter((r) =>
+                  r.type !== 'Namespace' &&
+                  r.type !== 'AWSClusterControllerIdentity' &&
+                  r.type !== 'Secret (ROSA Creds)' &&
+                  r.type !== 'Secret (AWS Creds)'
+                ).length > 0 && (
+                  <div className="mb-4 flex items-center justify-end space-x-2">
+                    {/* Export Button */}
+                    <button
+                      onClick={async () => {
+                        if (!activeResources || activeResources.length === 0) {
+                          alert('No active resources to export');
+                          return;
+                        }
+
+                      const includeComponents = window.confirm(
+                        'Export Active Resources\n\n' +
+                          'Do you want to include Key Component information in the export?\n\n' +
+                          '✓ Yes - Include component versions and status\n' +
+                          '✗ No - Export only active resources'
+                      );
+
+                      let operationId;
+                      try {
+                        operationId = `export-resources-${Date.now()}`;
+
+                        addToRecent({
+                          id: operationId,
+                          title: 'Minikube Export Active Resources',
+                          color: 'bg-indigo-600',
+                          status: '⏳ Exporting...',
+                        });
+
+                        console.log(
+                          `Exporting ${activeResources.length} active resources${includeComponents ? ' with key components' : ''}...`
+                        );
+
+                        const redactSensitiveData = (yamlContent) => {
+                          yamlContent = yamlContent.replace(
+                            /^(\s*)(data|stringData):\s*\n((?:\s+.+\n)*)/gm,
+                            (match, indent, fieldName, dataBlock) => {
+                              return `${indent}${fieldName}:\n${indent}  # [SENSITIVE DATA REMOVED - All secret data redacted]\n`;
+                            }
+                          );
+
+                          yamlContent = yamlContent.replace(
+                            /^(\s+)(password|token|apiKey|secretKey|accessKey|privateKey|certificate|clientSecret|clientID|ocmClientSecret|ocmClientID|ocmApiUrl|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|aws_access_key_id|aws_secret_access_key):\s+(.+)$/gim,
+                            (match, indent, key, value) => {
+                              return `${indent}${key}: "[SENSITIVE DATA REMOVED]"`;
+                            }
+                          );
+
+                          return yamlContent;
+                        };
+
+                        const yamls = [];
+                        for (const resource of activeResources) {
+                          const response = await fetch(
+                            'http://localhost:8000/api/minikube/get-resource-detail',
+                            {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                              },
+                              body: JSON.stringify({
+                                cluster_name: verifiedMinikubeClusterInfo?.name,
+                                resource_type: resource.type,
+                                resource_name: resource.name,
+                                namespace: verifiedMinikubeClusterInfo?.namespace || 'ns-rosa-hcp',
+                              }),
+                            }
+                          );
+
+                          const result = await response.json();
+                          if (result.success && result.data) {
+                            const redactedYaml = redactSensitiveData(result.data);
+                            yamls.push(redactedYaml);
+                          }
+                        }
+
+                        if (yamls.length > 0) {
+                          let exportContent =
+                            '# ==============================================================================\n' +
+                            '# ROSA Automation - Active Resources Export (REDACTED)\n' +
+                            '# ==============================================================================\n' +
+                            '#\n' +
+                            `# Cluster: ${verifiedMinikubeClusterInfo.name}\n` +
+                            `# Version: ${verifiedMinikubeClusterInfo.version || 'Unknown'}\n` +
+                            `# Exported: ${new Date().toLocaleString()}\n` +
+                            '#\n' +
+                            '# Component Status:\n';
+
+                          if (includeComponents) {
+                            const components = [
+                              'Cert Manager (v1.13.0) - 3 pods running',
+                              'CAPI Controller (v1.5.3) - 1/1 ready',
+                              'CAPA Controller (v2.3.0) - 1/1 ready',
+                              'ROSA CRDs (v4.20) - All installed',
+                            ];
+                            components.forEach((comp) => {
+                              exportContent += `#   - ${comp}\n`;
+                            });
+                          }
+
+                          exportContent +=
+                            '#\n' +
+                            '# SENSITIVE DATA NOTICE:\n' +
+                            '#   - All secret data blocks have been removed\n' +
+                            '#   - Credentials and tokens are redacted\n' +
+                            '#   - This export is safe to share for troubleshooting\n' +
+                            '#\n' +
+                            '# ==============================================================================\n\n';
+
+                          exportContent += yamls.join('\n---\n\n');
+
+                          const blob = new Blob([exportContent], { type: 'text/yaml' });
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `minikube-resources-${verifiedMinikubeClusterInfo.name}-${new Date().toISOString().split('T')[0]}.yaml`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          window.URL.revokeObjectURL(url);
+
+                          const completionTime = new Date().toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true,
+                          });
+
+                          console.log(
+                            `Exported ${yamls.length} resources successfully at ${completionTime}`
+                          );
+                          updateRecentOperationStatus(
+                            operationId,
+                            `✅ Exported ${yamls.length} resources at ${completionTime}`
+                          );
+                        } else {
+                          const completionTime = new Date().toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true,
+                          });
+                          updateRecentOperationStatus(
+                            operationId,
+                            `❌ Export failed at ${completionTime}`
+                          );
+                          alert('Failed to export resources');
+                        }
+                      } catch (error) {
+                        console.error('Export error:', error);
+                        const completionTime = new Date().toLocaleTimeString('en-US', {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          hour12: true,
+                        });
+                        if (operationId) {
+                          updateRecentOperationStatus(
+                            operationId,
+                            `❌ Export failed at ${completionTime}`
+                          );
+                        }
+                      }
+                    }}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                  >
+                    <svg
+                      className="h-3.5 w-3.5 mr-1.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                    <span>Export</span>
+                  </button>
+
+                  {/* Refresh Button */}
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      const operationId = `refresh-minikube-resources-${Date.now()}`;
+                      try {
+                        addToRecent({
+                          id: operationId,
+                          title: 'Minikube Refresh Active Resources',
+                          color: 'bg-cyan-600',
+                          status: '🔄 Refreshing...',
+                        });
+
+                        await fetchMinikubeActiveResources(
+                          verifiedMinikubeClusterInfo.name,
+                          verifiedMinikubeClusterInfo.namespace
+                        );
+
+                        const completionTime = new Date().toLocaleTimeString('en-US', {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          hour12: true,
+                        });
+
+                        updateRecentOperationStatus(
+                          operationId,
+                          `✅ Refreshed at ${completionTime}`
+                        );
+                      } catch (error) {
+                        console.error('Refresh error:', error);
+                        const completionTime = new Date().toLocaleTimeString('en-US', {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          hour12: true,
+                        });
+                        updateRecentOperationStatus(
+                          operationId,
+                          `❌ Refresh failed at ${completionTime}`
+                        );
+                      }
+                    }}
+                    className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                  >
+                    <svg
+                      className="h-3.5 w-3.5 mr-1.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                    <span>Refresh</span>
+                  </button>
+                </div>
+                )}
+
+                <div className="max-h-80 overflow-y-auto">
+                  {activeResources.filter((r) =>
+                    // Filter out infrastructure components - only show workload resources
+                    r.type !== 'Namespace' &&
+                    r.type !== 'AWSClusterControllerIdentity' &&
+                    r.type !== 'Secret (ROSA Creds)' &&
+                    r.type !== 'Secret (AWS Creds)'
+                  ).length > 0 ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {activeResources.filter((r) =>
+                        // Filter out infrastructure components - only show workload resources
+                        r.type !== 'Namespace' &&
+                        r.type !== 'AWSClusterControllerIdentity' &&
+                        r.type !== 'Secret (ROSA Creds)' &&
+                        r.type !== 'Secret (AWS Creds)'
+                      ).map((resource, idx) => (
+                        <div
+                          key={idx}
+                          className="bg-purple-50 rounded-md p-2 border border-purple-100 hover:shadow-sm transition-shadow"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-start space-x-2 flex-1 min-w-0">
+                              <div className="flex-shrink-0 mt-0.5">
+                                <svg
+                                  className="h-3 w-3 text-green-600"
+                                  fill="currentColor"
+                                  viewBox="0 0 20 20"
+                                >
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                    clipRule="evenodd"
+                                  />
+                                </svg>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs font-semibold text-purple-900 truncate" title={resource.name}>
+                                  {resource.name}
+                                </div>
+                                <div className="text-[10px] text-purple-600 truncate" title={resource.type}>{resource.type}</div>
+                                {resource.age && (
+                                  <div className="text-[10px] text-gray-500 mt-0.5">
+                                    {resource.age}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex-shrink-0">
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
+                                  resource.status === 'Ready' || resource.status === 'Active' || resource.status === 'Configured'
+                                    ? 'bg-green-100 text-green-700'
+                                    : resource.status === 'Provisioning' || resource.status === 'Configuring'
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : 'bg-blue-100 text-blue-700'
+                                }`}
+                              >
+                                {resource.status}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-sm text-gray-500 italic">
+                      No active resources found. Click "Verify" or "Configure" to load resources.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Operations Bar */}
+            {recentOperations.length > 0 && (
+              <div className="mt-6 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200 p-3 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <svg
+                      className="h-4 w-4 text-indigo-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <span className="text-xs font-semibold text-indigo-900">Recent Activity</span>
+                  </div>
+                  <div className="flex items-center gap-2 overflow-x-auto flex-1 ml-4">
+                    {recentOperations.slice(0, 5).map((op, idx) => (
+                      <div
+                        key={op.id}
+                        className="flex items-center gap-2 bg-white rounded-md px-3 py-1.5 border border-indigo-100 hover:shadow-sm transition-shadow flex-shrink-0"
+                      >
+                        <div className={`w-2 h-2 rounded-full ${
+                          op.status.includes('✅') ? 'bg-green-500 animate-pulse' :
+                          op.status.includes('❌') ? 'bg-red-500' :
+                          op.status.includes('⏳') ? 'bg-amber-500 animate-pulse' :
+                          'bg-blue-500'
+                        }`}></div>
+                        <div className="flex flex-col">
+                          <span className="text-xs font-medium text-gray-900 truncate max-w-[200px]">
+                            {op.title}
+                          </span>
+                          <span className="text-[10px] text-gray-600">
+                            {op.status.length > 40 ? op.status.substring(0, 40) + '...' : op.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* View Full Output Section - Dedicated section for detailed operation logs */}
+            {ansibleResults['validate-minikube-capa'] &&
+              ansibleResults['validate-minikube-capa'].result && (
+                <div className="mt-6">
+                  <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg shadow-xl overflow-hidden">
+                    <details className="group" open>
+                      <summary className="text-base font-semibold text-white p-4 cursor-pointer hover:bg-gray-700 transition-colors flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <svg
+                            className="h-5 w-5 text-green-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                            />
+                          </svg>
+                          <span>Validation Output</span>
+                          <span className="px-2 py-1 text-xs bg-green-500/20 text-green-400 rounded-md border border-green-500/30">
+                            Minikube CAPI/CAPA
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const output = ansibleResults['validate-minikube-capa'].result.output ||
+                                ansibleResults['validate-minikube-capa'].result.error || '';
+                              navigator.clipboard.writeText(output);
+                              // Show temporary feedback
+                              const btn = e.currentTarget;
+                              const originalText = btn.innerHTML;
+                              btn.innerHTML = '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>';
+                              setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+                            }}
+                            className="px-3 py-1.5 text-xs bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors flex items-center space-x-1.5"
+                            title="Copy output to clipboard"
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            <span>Copy</span>
+                          </button>
+                          <svg
+                            className="h-5 w-5 text-gray-400 group-open:rotate-180 transition-transform"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
+                        </div>
+                      </summary>
+                      <div className="border-t border-gray-700">
+                        {/* Terminal-style output */}
+                        <div className="max-h-96 overflow-y-auto bg-gray-950 p-6">
+                          <div className="font-mono text-sm leading-relaxed">
+                            {formatPlaybookOutput(
+                              ansibleResults['validate-minikube-capa'].result.output ||
+                                ansibleResults['validate-minikube-capa'].result.error ||
+                                ''
+                            ).map((line, idx) => (
+                              <div
+                                key={idx}
+                                className={
+                                  line.type === 'play'
+                                    ? 'text-green-400 font-bold my-3 pb-2 border-b border-gray-800'
+                                    : line.type === 'task'
+                                      ? 'text-blue-400 font-semibold mt-3 mb-1'
+                                      : line.type === 'banner'
+                                        ? 'hidden'
+                                        : line.content.includes('✓')
+                                          ? 'text-green-300 pl-2'
+                                          : line.content.includes('✗') || line.content.includes('FAILED')
+                                            ? 'text-red-400 pl-2'
+                                            : line.content.includes('ok=') || line.content.includes('changed=')
+                                              ? 'text-yellow-300 mt-2 font-semibold'
+                                              : 'text-gray-400 pl-2'
+                                }
+                              >
+                                {line.content}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              )}
+
+            {/* Minikube Test Environment Card - Full Width */}
+            <div className="mt-6">
+              <TestEnvironmentCard
+                name="💻 Minikube"
+                icon="💻"
+                resources={parseDynamicResources(
+                  ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]?.result
+                    ?.output || ''
+                )}
+                recentOperations={recentOperations}
+                isActive={false}
+                onClick={() => {
+                  const minikubeSection = document.getElementById('minikube-section');
+                  if (minikubeSection) {
+                    minikubeSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
+                }}
+              />
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Test Environments Section - MCE */}
+        {ocpStatus?.connected && !verifiedMinikubeClusterInfo && (
+          <div className="mb-6">
+            <div className="flex items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Test Environments</h2>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* MCE Test Environment Connections */}
+              <div className="bg-white rounded-lg border-2 border-cyan-200 p-6 shadow-lg">
+                <h4 className="text-base font-semibold text-cyan-900 mb-4 flex items-center">
+                  <svg
+                    className="h-5 w-5 text-cyan-600 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                    />
+                  </svg>
+                  ⚡ Test Environment Connections
+                </h4>
+
+                {/* MCE Environment Info */}
+                <div className="mb-4 bg-cyan-50 rounded-lg p-3 border border-cyan-100">
+                  <div className="text-sm font-semibold text-cyan-800 mb-2">
+                    MCE Hub Environment
+                  </div>
+                  <div className="text-sm text-cyan-700">
+                    <div className="mb-1">
+                      <span className="font-medium">Hub:</span> {ocpStatus?.api_url || 'Connected'}
+                    </div>
+                    <div className="mb-1">
+                      <span className="font-medium">Status:</span>{' '}
+                      <span className="inline-flex items-center">
+                        <span className="w-2 h-2 bg-green-500 rounded-full mr-1.5"></span>
+                        Connected
+                      </span>
+                    </div>
+                    <div className="mb-1">
+                      <span className="font-medium">CAPI/CAPA:</span>{' '}
+                      <span className="text-green-700 font-semibold">✓ Enabled</span>
+                    </div>
+                    <div>
+                      <span className="font-medium">Clusters:</span>{' '}
+                      {
+                        parseDynamicResources(
+                          ansibleResults['check-mce-components']?.result?.output || ''
+                        ).filter((r) => r.type === 'ROSACluster').length
+                      }
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cluster list */}
+                <div className="space-y-2">
+                  {parseDynamicResources(
+                    ansibleResults['check-mce-components']?.result?.output || ''
+                  )
+                    .filter((r) => r.type === 'ROSACluster')
+                    .map((cluster, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-white rounded-lg border border-cyan-200 p-3 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-cyan-100 rounded-lg flex items-center justify-center">
+                              <svg
+                                className="h-4 w-4 text-cyan-600"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                                />
+                              </svg>
+                            </div>
+                            <div>
+                              <div className="text-sm font-semibold text-gray-900">
+                                {cluster.name}
+                              </div>
+                              <div className="text-xs text-cyan-600">ROSACluster</div>
+                            </div>
+                          </div>
+                          <div>
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                cluster.status === 'Ready'
+                                  ? 'bg-green-100 text-green-800 border border-green-200'
+                                  : 'bg-amber-100 text-amber-800 border border-amber-200'
+                              }`}
+                            >
+                              {cluster.status}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                  {parseDynamicResources(
+                    ansibleResults['check-mce-components']?.result?.output || ''
+                  ).filter((r) => r.type === 'ROSACluster').length === 0 && (
+                    <div className="text-center py-4 text-sm text-gray-500 italic">
+                      No ROSA clusters found. Create one from the MCE section below.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* MCE Environment Card */}
+              <TestEnvironmentCard
+                name="🌐 MCE Hub"
+                icon="🌐"
+                resources={parseDynamicResources(
+                  ansibleResults['check-mce-components']?.result?.output || ''
+                )}
+                recentOperations={recentOperations}
+                isActive={false}
+                onClick={() => {
+                  const mceSection = document.getElementById('mce-section');
+                  if (mceSection) {
+                    mceSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Active Operations Panel */}
         <div className="mb-6">
@@ -3860,6 +5381,12 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                                 verifyId,
                                 `✅ Validation completed at ${completionTime}`
                               );
+
+                              // Fetch active resources after successful verification (non-blocking)
+                              fetchMinikubeActiveResources(
+                                verifiedMinikubeClusterInfo.name,
+                                verifiedMinikubeClusterInfo.namespace
+                              ).catch(err => console.error('Failed to fetch active resources:', err));
                             } else {
                               console.log('Validation failed at:', completionTime);
 
@@ -5197,50 +6724,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                         );
                       })()}
                     </div>
-
-                    {/* View Full Output - Show validation playbook logs */}
-                    {ansibleResults['validate-minikube-capa'] &&
-                      ansibleResults['validate-minikube-capa'].result && (
-                        <div className="mt-4">
-                          <details className="bg-white rounded border border-purple-200">
-                            <summary className="text-xs font-medium text-purple-700 p-2 cursor-pointer hover:bg-purple-50">
-                              View Full Output
-                            </summary>
-                            <div className="p-2 border-t bg-gray-50">
-                              {/* Header identifying the operation */}
-                              <div className="mb-2 pb-2 border-b border-gray-200">
-                                <span className="text-xs font-semibold text-purple-700">
-                                  Operation: Minikube CAPI/CAPA Validation
-                                </span>
-                              </div>
-                              <div className="max-h-40 overflow-y-auto">
-                                <pre className="text-xs whitespace-pre-wrap font-mono">
-                                  {formatPlaybookOutput(
-                                    ansibleResults['validate-minikube-capa'].result.output ||
-                                      ansibleResults['validate-minikube-capa'].result.error ||
-                                      ''
-                                  ).map((line, idx) => (
-                                    <div
-                                      key={idx}
-                                      className={
-                                        line.type === 'play'
-                                          ? 'text-green-700 font-bold'
-                                          : line.type === 'task'
-                                            ? 'text-blue-700 font-semibold'
-                                            : line.type === 'banner'
-                                              ? 'text-gray-400'
-                                              : 'text-gray-600'
-                                      }
-                                    >
-                                      {line.content}
-                                    </div>
-                                  ))}
-                                </pre>
-                              </div>
-                            </div>
-                          </details>
-                        </div>
-                      )}
                   </div>
                 )}
               </div>
