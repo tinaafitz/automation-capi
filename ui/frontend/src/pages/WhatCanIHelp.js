@@ -23,6 +23,7 @@ import {
   DocumentTextIcon,
   IdentificationIcon,
   ChevronDownIcon,
+  ChevronUpIcon,
   ClockIcon,
   DocumentDuplicateIcon,
 } from '@heroicons/react/24/outline';
@@ -297,6 +298,11 @@ export function WhatCanIHelp() {
   const [loadingStates, setLoadingStates] = useState(new Set());
   const [favorites, setFavorites] = useState(new Set());
   const [recentOperations, setRecentOperations] = useState([]);
+  const [recentOperationsCollapsed, setRecentOperationsCollapsed] = useState(false);
+  const [recentOperationsOutputCollapsed, setRecentOperationsOutputCollapsed] = useState(false);
+  const [minikubeOperationsOutputCollapsed, setMinikubeOperationsOutputCollapsed] = useState(false);
+  const [minikubeRecentOpsCollapsed, setMinikubeRecentOpsCollapsed] = useState(false);
+  const [mceRecentOpsCollapsed, setMceRecentOpsCollapsed] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [rosaStatus, setRosaStatus] = useState(null);
   const [configStatus, setConfigStatus] = useState(null);
@@ -4432,8 +4438,11 @@ export function WhatCanIHelp() {
             </div>
 
             {/* Recent Operations Section */}
-            <div className="mt-6 bg-white rounded-xl border-2 border-purple-200 p-6 shadow-lg">
-              <div className="flex items-center gap-3 mb-4">
+            <div className="mt-6 bg-white rounded-xl border-2 border-purple-200 shadow-lg overflow-hidden">
+              <div
+                className="flex items-center gap-3 p-6 cursor-pointer hover:bg-purple-50 transition-colors"
+                onClick={() => setMinikubeRecentOpsCollapsed(!minikubeRecentOpsCollapsed)}
+              >
                 <div className="bg-gradient-to-br from-purple-500 to-indigo-600 p-2 rounded-lg">
                   <svg
                     className="h-5 w-5 text-white"
@@ -4449,7 +4458,7 @@ export function WhatCanIHelp() {
                     />
                   </svg>
                 </div>
-                <div>
+                <div className="flex-1">
                   <h3 className="text-base font-bold text-purple-900">Recent Operations</h3>
                   <p className="text-xs text-purple-600">
                     {recentOperations.length > 0
@@ -4457,8 +4466,18 @@ export function WhatCanIHelp() {
                       : 'No operations yet'}
                   </p>
                 </div>
+                <div className="p-0.5">
+                  {minikubeRecentOpsCollapsed ? (
+                    <ChevronDownIcon className="h-5 w-5 text-purple-600" />
+                  ) : (
+                    <ChevronUpIcon className="h-5 w-5 text-purple-600" />
+                  )}
+                </div>
               </div>
-              <div className="grid grid-cols-1 gap-3">
+
+              {!minikubeRecentOpsCollapsed && (
+                <div className="px-6 pb-6">
+                  <div className="grid grid-cols-1 gap-3">
                 {recentOperations.length > 0 ? (
                   recentOperations.slice(0, 5).map((op, idx) => (
                     <div
@@ -4510,7 +4529,9 @@ export function WhatCanIHelp() {
                     </p>
                   </div>
                 )}
-              </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* View Full Output Section - Dedicated section for detailed operation logs */}
@@ -4518,11 +4539,53 @@ export function WhatCanIHelp() {
               ansibleResults['validate-minikube-capa'].result && (
                 <div className="mt-6">
                   <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg shadow-xl overflow-hidden">
-                    <details className="group" open>
-                      <summary className="text-base font-semibold text-white p-4 cursor-pointer hover:bg-gray-700 transition-colors flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
+                    <div
+                      className="text-base font-semibold text-white p-4 cursor-pointer hover:bg-gray-700 transition-colors flex items-center justify-between"
+                      onClick={() => setMinikubeOperationsOutputCollapsed(!minikubeOperationsOutputCollapsed)}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <svg
+                          className="h-5 w-5 text-green-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          />
+                        </svg>
+                        <span>Recent Operations Output</span>
+                        <span className="px-2 py-1 text-xs bg-green-500/20 text-green-400 rounded-md border border-green-500/30">
+                          Minikube CAPI/CAPA
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const output =
+                              ansibleResults['validate-minikube-capa'].result.output ||
+                              ansibleResults['validate-minikube-capa'].result.error ||
+                              '';
+                            navigator.clipboard.writeText(output);
+                            // Show temporary feedback
+                            const btn = e.currentTarget;
+                            const originalText = btn.innerHTML;
+                            btn.innerHTML =
+                              '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>';
+                            setTimeout(() => {
+                              btn.innerHTML = originalText;
+                            }, 2000);
+                          }}
+                          className="px-3 py-1.5 text-xs bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors flex items-center space-x-1.5"
+                          title="Copy output to clipboard"
+                        >
                           <svg
-                            className="h-5 w-5 text-green-400"
+                            className="h-4 w-4"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -4531,66 +4594,22 @@ export function WhatCanIHelp() {
                               strokeLinecap="round"
                               strokeLinejoin="round"
                               strokeWidth={2}
-                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
                             />
                           </svg>
-                          <span>Recent Operations Output</span>
-                          <span className="px-2 py-1 text-xs bg-green-500/20 text-green-400 rounded-md border border-green-500/30">
-                            Minikube CAPI/CAPA
-                          </span>
+                          <span>Copy</span>
+                        </button>
+                        <div className="p-0.5">
+                          {minikubeOperationsOutputCollapsed ? (
+                            <ChevronDownIcon className="h-5 w-5 text-white" />
+                          ) : (
+                            <ChevronUpIcon className="h-5 w-5 text-white" />
+                          )}
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              const output =
-                                ansibleResults['validate-minikube-capa'].result.output ||
-                                ansibleResults['validate-minikube-capa'].result.error ||
-                                '';
-                              navigator.clipboard.writeText(output);
-                              // Show temporary feedback
-                              const btn = e.currentTarget;
-                              const originalText = btn.innerHTML;
-                              btn.innerHTML =
-                                '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>';
-                              setTimeout(() => {
-                                btn.innerHTML = originalText;
-                              }, 2000);
-                            }}
-                            className="px-3 py-1.5 text-xs bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors flex items-center space-x-1.5"
-                            title="Copy output to clipboard"
-                          >
-                            <svg
-                              className="h-4 w-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                              />
-                            </svg>
-                            <span>Copy</span>
-                          </button>
-                          <svg
-                            className="h-5 w-5 text-gray-400 group-open:rotate-180 transition-transform"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 9l-7 7-7-7"
-                            />
-                          </svg>
-                        </div>
-                      </summary>
+                      </div>
+                    </div>
+
+                    {!minikubeOperationsOutputCollapsed && (
                       <div className="border-t border-gray-700">
                         {/* Terminal-style output */}
                         <div className="max-h-96 overflow-y-auto bg-gray-950 p-6">
@@ -4626,7 +4645,7 @@ export function WhatCanIHelp() {
                           </div>
                         </div>
                       </div>
-                    </details>
+                    )}
                   </div>
                 </div>
               )}
@@ -4662,7 +4681,7 @@ export function WhatCanIHelp() {
                     <button
                       onClick={async () => {
                         console.log('MCE Verify button clicked');
-                        const timestamp = new Date().toLocaleTimeString();
+                        const timestamp = Date.now();
 
                         // Add to recent operations
                         const newOperation = {
@@ -4745,7 +4764,7 @@ export function WhatCanIHelp() {
                     <button
                       onClick={async () => {
                         console.log('MCE Configure button clicked');
-                        const timestamp = new Date().toLocaleTimeString();
+                        const timestamp = Date.now();
 
                         // Add to recent operations
                         const newOperation = {
@@ -5078,7 +5097,10 @@ export function WhatCanIHelp() {
             <div className="grid grid-cols-1 gap-6 mt-6">
               {/* Recent Operations */}
               <div className="bg-white rounded-xl shadow-lg border-2 border-cyan-200 overflow-hidden">
-                <div className="bg-gradient-to-r from-cyan-600 to-teal-600 px-6 py-4">
+                <div
+                  className="bg-gradient-to-r from-cyan-600 to-teal-600 px-6 py-4 cursor-pointer hover:from-cyan-700 hover:to-teal-700 transition-all"
+                  onClick={() => setMceRecentOpsCollapsed(!mceRecentOpsCollapsed)}
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className="bg-white/20 rounded-full p-2">
@@ -5093,10 +5115,18 @@ export function WhatCanIHelp() {
                         </p>
                       </div>
                     </div>
+                    <div className="p-0.5">
+                      {mceRecentOpsCollapsed ? (
+                        <ChevronDownIcon className="h-5 w-5 text-white" />
+                      ) : (
+                        <ChevronUpIcon className="h-5 w-5 text-white" />
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                <div className="p-6">
+                {!mceRecentOpsCollapsed && (
+                  <div className="p-6">
                   {recentOperations.length === 0 ? (
                     <div className="text-center py-12">
                       <div className="inline-flex items-center justify-center w-16 h-16 bg-cyan-100 rounded-full mb-4">
@@ -5145,12 +5175,16 @@ export function WhatCanIHelp() {
                     </div>
                   )}
                 </div>
+                )}
               </div>
 
               {/* Recent Operations Output */}
               {recentOperations.length > 0 && (
                 <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-xl shadow-2xl border-2 border-cyan-300 overflow-hidden">
-                  <div className="bg-gradient-to-r from-cyan-600 to-teal-600 px-6 py-3 flex items-center justify-between">
+                  <div
+                    className="bg-gradient-to-r from-cyan-600 to-teal-600 px-6 py-3 flex items-center justify-between cursor-pointer hover:from-cyan-700 hover:to-teal-700 transition-all"
+                    onClick={() => setRecentOperationsOutputCollapsed(!recentOperationsOutputCollapsed)}
+                  >
                     <div className="flex items-center space-x-3">
                       <div className="bg-white/20 rounded-lg px-3 py-1">
                         <span className="text-white font-mono text-sm font-semibold">
@@ -5161,22 +5195,33 @@ export function WhatCanIHelp() {
                         MCE CAPI/CAPA
                       </div>
                     </div>
-                    <button
-                      onClick={() => {
-                        const outputText = recentOperations
-                          .map(op => `${op.title}\n${op.status}\n${op.timestamp}\n`)
-                          .join('\n');
-                        navigator.clipboard.writeText(outputText);
-                        addNotification('📋 Output copied to clipboard', 'success', 2000);
-                      }}
-                      className="bg-white/20 hover:bg-white/30 text-white px-4 py-1.5 rounded-lg transition-colors duration-200 flex items-center space-x-2 text-sm font-medium"
-                    >
-                      <DocumentDuplicateIcon className="h-4 w-4" />
-                      <span>Copy</span>
-                    </button>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const outputText = recentOperations
+                            .map(op => `${op.title}\n${op.status}\n${op.timestamp}\n`)
+                            .join('\n');
+                          navigator.clipboard.writeText(outputText);
+                          addNotification('📋 Output copied to clipboard', 'success', 2000);
+                        }}
+                        className="bg-white/20 hover:bg-white/30 text-white px-4 py-1.5 rounded-lg transition-colors duration-200 flex items-center space-x-2 text-sm font-medium"
+                      >
+                        <DocumentDuplicateIcon className="h-4 w-4" />
+                        <span>Copy</span>
+                      </button>
+                      <div className="p-0.5">
+                        {recentOperationsOutputCollapsed ? (
+                          <ChevronDownIcon className="h-5 w-5 text-white" />
+                        ) : (
+                          <ChevronUpIcon className="h-5 w-5 text-white" />
+                        )}
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="p-6 font-mono text-sm text-green-400 max-h-96 overflow-y-auto">
+                  {!recentOperationsOutputCollapsed && (
+                    <div className="p-6 font-mono text-sm text-green-400 max-h-96 overflow-y-auto">
                     {recentOperations.map((op, idx) => (
                       <div key={idx} className="mb-4 pb-4 border-b border-gray-700 last:border-0">
                         <div className="text-cyan-400 font-semibold mb-1">
@@ -5190,7 +5235,8 @@ export function WhatCanIHelp() {
                         </div>
                       </div>
                     ))}
-                  </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -5925,215 +5971,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
           {/* Right Sidebar with Environment Status and Getting Started */}
           <div className="space-y-3 min-w-64 max-w-72 lg:sticky lg:top-4 animate-in slide-in-from-right duration-300">
-            {/* Recent Operations Widget */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-md border border-gray-200 backdrop-blur-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 animate-in fade-in slide-in-from-right-4 duration-300 overflow-hidden">
-              {/* Header */}
-              <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-2.5 py-1.5 text-white relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-indigo-400/20 to-purple-400/20 animate-pulse"></div>
-                <div className="relative flex items-center gap-1.5">
-                  <div className="p-0.5 bg-white/20 rounded backdrop-blur-sm">
-                    <svg
-                      className="h-3 w-3 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-xs font-bold text-white leading-tight">
-                      Recent Operations
-                    </h2>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-2">
-                {(() => {
-                  // Filter operations based on selected environment
-                  const filteredOperations = recentOperations.filter((operation) => {
-                    const isLocalOperation =
-                      operation.title.includes('Minikube') ||
-                      operation.title.includes('Kind') ||
-                      operation.title.includes('Local');
-                    const isMCEOperation =
-                      operation.title.includes('MCE') ||
-                      operation.title.includes('CAPI/CAPA');
-
-                    if (selectedEnvironment === 'minikube') {
-                      return isLocalOperation;
-                    } else if (selectedEnvironment === 'mce') {
-                      return isMCEOperation;
-                    }
-                    return true;
-                  });
-
-                  return filteredOperations.length > 0 ? (
-                    <div className="space-y-1.5">
-                      {filteredOperations
-                      .map((operation, index) => {
-                        const timeAgo = Math.floor((Date.now() - operation.timestamp) / 60000);
-
-                        // Determine if this is a Local Test Environment or MCE operation
-                        const isLocalOperation =
-                          operation.title.includes('Minikube') ||
-                          operation.title.includes('Kind') ||
-                          operation.title.includes('Local');
-                        const isMCEOperation =
-                          operation.title.includes('MCE') ||
-                          operation.title.includes('CAPI/CAPA');
-
-                      // Color scheme based on environment
-                      const bgColor = isLocalOperation
-                        ? 'bg-purple-50/80'
-                        : isMCEOperation
-                          ? 'bg-blue-50/80'
-                          : 'bg-white';
-                      const borderColor = isLocalOperation
-                        ? 'border-purple-200/60'
-                        : isMCEOperation
-                          ? 'border-blue-200/60'
-                          : 'border-gray-200/50';
-                      const textColor = isLocalOperation
-                        ? 'text-purple-900'
-                        : isMCEOperation
-                          ? 'text-blue-900'
-                          : 'text-gray-900';
-
-                      return (
-                        <div
-                          key={`${operation.id}-${operation.timestamp}`}
-                          className={`${bgColor} rounded p-2 border ${borderColor} transition-all duration-200 group`}
-                        >
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-2 flex-1 min-w-0">
-                                <div
-                                  className={`w-1.5 h-1.5 ${(operation.color || 'bg-gray-600').replace('bg-', 'bg-')} rounded-full`}
-                                ></div>
-                                <span className={`text-xs font-medium ${textColor} truncate`}>
-                                  {operation.title}
-                                </span>
-                              </div>
-                              <span className="text-xs font-mono text-gray-500 ml-2 flex-shrink-0">
-                                {timeAgo < 1 ? 'now' : `${timeAgo}m`}
-                              </span>
-                            </div>
-                            {operation.status && (
-                              <div className="flex flex-col gap-0.5 ml-3.5 mt-0.5">
-                                <span
-                                  className={`text-xs font-medium ${
-                                    operation.status.includes('✅') ||
-                                    operation.status.includes('success')
-                                      ? 'text-green-600'
-                                      : operation.status.includes('❌') ||
-                                          operation.status.includes('error')
-                                        ? 'text-red-600'
-                                        : 'text-gray-600'
-                                  }`}
-                                >
-                                  {operation.status}
-                                </span>
-                                {/* Show helpful error description for failed operations */}
-                                {(operation.status.includes('❌') ||
-                                  operation.status.includes('Failed')) &&
-                                  operation.ansibleResultKey &&
-                                  ansibleResults[operation.ansibleResultKey]?.result &&
-                                  (() => {
-                                    const result =
-                                      ansibleResults[operation.ansibleResultKey].result;
-                                    const output = result.output || result.error || '';
-                                    const errorOutput = result.error || '';
-
-                                    // Parse error output to determine the issue
-                                    let errorDescription = '';
-
-                                    // Only check for credential errors in the stderr/error output, not stdout
-                                    if (
-                                      errorOutput.includes('CREDENTIAL CONFIGURATION ERROR') ||
-                                      errorOutput.includes('placeholder values')
-                                    ) {
-                                      errorDescription = 'Placeholder credentials detected';
-                                    } else if (
-                                      errorOutput.includes('AUTHENTICATION FAILED') ||
-                                      errorOutput.includes('401 Unauthorized') ||
-                                      (errorOutput.includes('Login failed') &&
-                                        !errorOutput.includes('Login successful'))
-                                    ) {
-                                      errorDescription = 'Invalid credentials';
-                                    } else if (
-                                      output.includes('MCE IS NOT CONFIGURED') ||
-                                      errorOutput.includes('MCE IS NOT CONFIGURED')
-                                    ) {
-                                      errorDescription = 'MCE is not configured';
-                                    } else if (
-                                      output.includes('timed out') ||
-                                      output.includes('AbortError')
-                                    ) {
-                                      errorDescription = 'Operation timed out';
-                                    } else if (
-                                      output.includes('network') ||
-                                      output.includes('connection')
-                                    ) {
-                                      errorDescription = 'Network connection issue';
-                                    } else if (
-                                      output.includes('not found') ||
-                                      output.includes('does not exist')
-                                    ) {
-                                      errorDescription = 'Resource not found';
-                                    } else if (errorOutput.length > 0) {
-                                      // Show first line of actual error
-                                      const errorLines = errorOutput
-                                        .split('\n')
-                                        .filter((line) => line.trim().length > 0);
-                                      errorDescription =
-                                        errorLines[0]?.substring(0, 60) ||
-                                        'Check View Full Output for details';
-                                    } else {
-                                      errorDescription = 'Check View Full Output for details';
-                                    }
-
-                                    return (
-                                      <span className="text-xs text-red-500 italic">
-                                        {errorDescription}
-                                      </span>
-                                    );
-                                  })()}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-6 px-4">
-                    <svg
-                      className="h-10 w-10 mx-auto mb-2 text-gray-300"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <p className="text-xs text-gray-500 font-medium mb-1">No recent operations</p>
-                    <p className="text-xs text-gray-400">Run an operation to see it here</p>
-                  </div>
-                  );
-                })()}
-              </div>
-            </div>
           </div>
         </div>
       </div>
