@@ -4907,22 +4907,7 @@ export function WhatCanIHelp() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3 mb-3">
-                    {/* Status */}
-                    <div className="bg-white rounded-md p-2 border border-cyan-100">
-                      <div className="text-xs text-cyan-600 mb-1">Status:</div>
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`w-2 h-2 rounded-full ${
-                            ocpStatus?.connected ? 'bg-green-500' : 'bg-yellow-500'
-                          }`}
-                        ></span>
-                        <span className="text-sm font-medium text-cyan-900 capitalize">
-                          {ocpStatus?.connected ? 'Authenticated' : 'Not Authenticated'}
-                        </span>
-                      </div>
-                    </div>
-
+                  <div className="grid grid-cols-2 gap-3 mb-3">
                     {/* CAPI/CAPA */}
                     <div className="bg-white rounded-md p-2 border border-cyan-100">
                       <div className="text-xs text-cyan-600 mb-1">CAPI/CAPA:</div>
@@ -4972,18 +4957,29 @@ export function WhatCanIHelp() {
                     {/* Last Verified */}
                     <div className="bg-white rounded-md p-2 border border-cyan-100">
                       <div className="text-xs font-medium text-cyan-600 mb-1">Last Verified</div>
-                      <div className="text-xs text-cyan-900">
-                        {mceLastVerified
-                          ? new Date(mceLastVerified).toLocaleString('en-US', {
+                      {mceLastVerified ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                            <span className="text-xs font-medium text-green-700">Verified</span>
+                          </div>
+                          <div className="text-xs text-cyan-900">
+                            {new Date(mceLastVerified).toLocaleString('en-US', {
                               month: 'short',
                               day: 'numeric',
                               year: 'numeric',
                               hour: 'numeric',
                               minute: '2-digit',
                               hour12: true,
-                            })
-                          : 'Not verified yet'}
-                      </div>
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                          <span className="text-xs font-medium text-gray-500">Not Verified</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
