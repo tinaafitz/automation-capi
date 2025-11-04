@@ -4965,7 +4965,7 @@ export function WhatCanIHelp() {
                     <div className="bg-white rounded-md p-2 border border-cyan-100">
                       <div className="text-xs font-medium text-cyan-600 mb-1">API Server</div>
                       <div className="text-xs text-cyan-900 font-mono break-all">
-                        {ocpStatus?.api_url || 'N/A'}
+                        {ocpStatus?.api_url || ocpStatus?.configured_url || ocpStatus?.detected_values?.api_url || 'N/A'}
                       </div>
                     </div>
 
