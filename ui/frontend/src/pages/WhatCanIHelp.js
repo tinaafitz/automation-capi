@@ -3485,7 +3485,7 @@ export function WhatCanIHelp() {
                       CAPI/CAPA Components
                     </span>
                     <span className="text-xs font-normal text-purple-600">
-                      ({verifiedMinikubeClusterInfo?.component_versions?.length || 0} configured)
+                      ({Object.keys(verifiedMinikubeClusterInfo?.component_timestamps || {}).filter(key => ['capi-controller', 'capa-controller', 'rosa-crd', 'cert-manager'].includes(key)).length} configured)
                     </span>
                   </h4>
                 </div>
@@ -3868,9 +3868,27 @@ export function WhatCanIHelp() {
                 {/* Key Components List - Show CAPI/CAPA component versions */}
                 <div className="space-y-2">
                   {(() => {
-                    const componentVersions = verifiedMinikubeClusterInfo?.component_versions || [];
+                    // Use component_timestamps to build the list
+                    const componentTimestamps = verifiedMinikubeClusterInfo?.component_timestamps || {};
 
-                    if (componentVersions.length === 0) {
+                    // Map timestamps to component display
+                    const componentMap = {
+                      'capi-controller': { displayName: 'CAPI Controller', type: 'Deployment', name: 'capi-controller-manager', namespace: 'capi-system' },
+                      'capa-controller': { displayName: 'CAPA Controller', type: 'Deployment', name: 'capa-controller-manager', namespace: 'capa-system' },
+                      'rosa-crd': { displayName: 'ROSA CRD', type: 'CustomResourceDefinition', name: 'rosaclusters.infrastructure.cluster.x-k8s.io', namespace: '' },
+                      'cert-manager': { displayName: 'Cert Manager', type: 'Deployment', name: 'cert-manager', namespace: 'cert-manager' },
+                    };
+
+                    const components = Object.keys(componentTimestamps)
+                      .filter(key => componentMap[key]) // Only show known components
+                      .map(key => ({
+                        key,
+                        displayName: componentMap[key].displayName,
+                        timestamp: componentTimestamps[key],
+                        resourceInfo: componentMap[key]
+                      }));
+
+                    if (components.length === 0) {
                       return (
                         <div className="text-xs text-purple-600/70 px-3 py-2">
                           No components found. Run Verify to detect components.
@@ -3878,37 +3896,52 @@ export function WhatCanIHelp() {
                       );
                     }
 
-                    return componentVersions.map((component, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between p-2 bg-white rounded-md border border-purple-100"
-                      >
-                        {/* Component Name */}
-                        <div className="flex items-center space-x-2">
-                          <svg
-                            className="h-4 w-4 text-green-500"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                          <div className="text-sm font-medium text-purple-900">
-                            {component.name}
+                    return components.map((component, idx) => {
+                      const resourceInfo = component.resourceInfo;
+
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-2 bg-white rounded-md border border-purple-100 hover:bg-purple-50 transition-colors cursor-pointer"
+                          onClick={() => {
+                            if (resourceInfo && resourceInfo.type !== 'CustomResourceDefinition') {
+                              fetchResourceDetail(
+                                verifiedMinikubeClusterInfo.name,
+                                resourceInfo.type,
+                                resourceInfo.name,
+                                resourceInfo.namespace
+                              );
+                            }
+                          }}
+                          title={resourceInfo && resourceInfo.type !== 'CustomResourceDefinition' ? "Click to view YAML" : ""}
+                        >
+                          {/* Component Name */}
+                          <div className="flex items-center space-x-2">
+                            <svg
+                              className="h-4 w-4 text-green-500"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                            <div className="text-sm font-medium text-purple-900">
+                              {component.displayName}
+                            </div>
+                          </div>
+
+                          {/* Timestamp Badge */}
+                          <div className="flex-shrink-0">
+                            <span className="text-xs font-mono text-purple-600 bg-purple-50 px-2 py-1 rounded">
+                              {new Date(component.timestamp).toLocaleDateString()}
+                            </span>
                           </div>
                         </div>
-
-                        {/* Version Badge */}
-                        <div className="flex-shrink-0">
-                          <span className="text-xs font-mono text-purple-600 bg-purple-50 px-2 py-1 rounded">
-                            {component.version}
-                          </span>
-                        </div>
-                      </div>
-                    ));
+                      );
+                    });
                   })()}
                 </div>
               </div>
@@ -4391,7 +4424,19 @@ export function WhatCanIHelp() {
                           minikubeSortField,
                           minikubeSortDirection
                         ).map((resource, idx) => (
-                          <tr key={idx} className="hover:bg-purple-50 transition-colors">
+                          <tr
+                            key={idx}
+                            className="hover:bg-purple-50 transition-colors cursor-pointer"
+                            onClick={() => {
+                              fetchResourceDetail(
+                                verifiedMinikubeClusterInfo.name,
+                                resource.type,
+                                resource.name,
+                                resource.namespace || 'ns-rosa-hcp'
+                              );
+                            }}
+                            title="Click to view YAML"
+                          >
                             <td className="px-4 py-3 text-sm font-medium text-purple-900">
                               {resource.name}
                             </td>
