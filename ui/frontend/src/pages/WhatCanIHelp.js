@@ -418,6 +418,28 @@ export function WhatCanIHelp() {
   // MCE Terminal state
   const [showMCETerminalModal, setShowMCETerminalModal] = useState(false);
 
+  // Embedded MCE Terminal state (for persistent terminal section)
+  const [mceTerminalCollapsed, setMceTerminalCollapsed] = useState(() => {
+    try {
+      const saved = localStorage.getItem('mceTerminalCollapsed');
+      return saved === 'true';
+    } catch (error) {
+      return false; // Default: expanded
+    }
+  });
+  const [mceTerminalCommand, setMceTerminalCommand] = useState('');
+  const [mceTerminalOutput, setMceTerminalOutput] = useState('Welcome to MCE Terminal! Type commands or select from templates.\n');
+  const [mceTerminalHistory, setMceTerminalHistory] = useState(() => {
+    try {
+      const saved = localStorage.getItem('mce-embedded-terminal-history');
+      return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+      return [];
+    }
+  });
+  const [mceTerminalHistoryIndex, setMceTerminalHistoryIndex] = useState(-1);
+  const [mceTerminalExecuting, setMceTerminalExecuting] = useState(false);
+
   // MCE Features modal state
   const [showMCEFeaturesModal, setShowMCEFeaturesModal] = useState(false);
   const [mceFeatures, setMceFeatures] = useState(null);
@@ -695,6 +717,74 @@ export function WhatCanIHelp() {
     }
   };
 
+  // MCE Embedded Terminal command execution
+  const executeMceTerminalCommand = async () => {
+    if (!mceTerminalCommand.trim() || mceTerminalExecuting) return;
+
+    setMceTerminalExecuting(true);
+    const timestamp = new Date().toLocaleTimeString();
+
+    setMceTerminalOutput((prev) => `${prev}\n$ ${mceTerminalCommand}\n`);
+
+    const newHistoryItem = {
+      command: mceTerminalCommand.trim(),
+      timestamp: new Date().toISOString(),
+      timestampFormatted: timestamp,
+    };
+    setMceTerminalHistory((prev) => [newHistoryItem, ...prev].slice(0, 100));
+    setMceTerminalHistoryIndex(-1);
+
+    try {
+      const response = await fetch('http://localhost:8000/api/ocp/execute-command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: mceTerminalCommand.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setMceTerminalOutput((prev) => `${prev}${data.output}\n`);
+      } else {
+        setMceTerminalOutput(
+          (prev) => `${prev}Error: ${data.error || 'Command failed'}\n${data.output || ''}\n`
+        );
+      }
+    } catch (err) {
+      setMceTerminalOutput(
+        (prev) => `${prev}Error: Failed to execute command - ${err.message}\n`
+      );
+    } finally {
+      setMceTerminalExecuting(false);
+      setMceTerminalCommand('');
+    }
+  };
+
+  // MCE Terminal keyboard handler for history navigation
+  const handleMceTerminalKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      executeMceTerminalCommand();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (mceTerminalHistory.length > 0) {
+        const newIndex = Math.min(mceTerminalHistoryIndex + 1, mceTerminalHistory.length - 1);
+        setMceTerminalHistoryIndex(newIndex);
+        setMceTerminalCommand(mceTerminalHistory[newIndex].command);
+      }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (mceTerminalHistoryIndex > 0) {
+        const newIndex = mceTerminalHistoryIndex - 1;
+        setMceTerminalHistoryIndex(newIndex);
+        setMceTerminalCommand(mceTerminalHistory[newIndex].command);
+      } else if (mceTerminalHistoryIndex === 0) {
+        setMceTerminalHistoryIndex(-1);
+        setMceTerminalCommand('');
+      }
+    }
+  };
+
   const fetchResourceDetail = async (
     clusterName,
     resourceType,
@@ -913,6 +1003,16 @@ export function WhatCanIHelp() {
   useEffect(() => {
     localStorage.setItem('selectedTestEnvironment', selectedEnvironment);
   }, [selectedEnvironment]);
+
+  // Save MCE terminal collapsed state to localStorage
+  useEffect(() => {
+    localStorage.setItem('mceTerminalCollapsed', mceTerminalCollapsed.toString());
+  }, [mceTerminalCollapsed]);
+
+  // Save MCE terminal history to localStorage
+  useEffect(() => {
+    localStorage.setItem('mce-embedded-terminal-history', JSON.stringify(mceTerminalHistory));
+  }, [mceTerminalHistory]);
 
   // Fetch active resources when Minikube cluster info is loaded
   useEffect(() => {
@@ -4715,8 +4815,8 @@ export function WhatCanIHelp() {
           <div className="mb-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Tile 1: MCE Test Environment */}
-              <div className="bg-white rounded-lg border-2 border-cyan-200 p-6 shadow-lg">
-                <div className="flex flex-col space-y-3 mb-4">
+              <div className="bg-white rounded-lg border-2 border-cyan-200 p-6 shadow-lg flex flex-col h-[600px]">
+                <div className="flex flex-col space-y-3 mb-4 flex-shrink-0">
                   <h4 className="text-base font-semibold text-cyan-900 flex items-center">
                     <svg
                       className="h-5 w-5 text-cyan-600 mr-2"
@@ -4929,8 +5029,8 @@ export function WhatCanIHelp() {
                   </div>
                 </div>
 
-                {/* MCE Environment Info */}
-                <div className="mb-4 bg-cyan-50 rounded-lg p-4 border border-cyan-100">
+                {/* MCE Environment Info - Scrollable content area */}
+                <div className="mb-4 bg-cyan-50 rounded-lg p-4 border border-cyan-100 flex-1 overflow-y-auto">
                   <div className="flex items-center justify-between mb-4">
                     <div className="text-base font-semibold text-cyan-900">
                       {mceInfo?.name || 'multiclusterengine'}
@@ -5051,8 +5151,8 @@ export function WhatCanIHelp() {
               </div>
 
               {/* Tile 2: CAPI/CAPA Components */}
-              <div className="bg-white rounded-lg border-2 border-cyan-200 p-6 shadow-lg">
-                <div className="flex flex-col space-y-3 mb-4">
+              <div className="bg-white rounded-lg border-2 border-cyan-200 p-6 shadow-lg flex flex-col h-[600px]">
+                <div className="flex flex-col space-y-3 mb-4 flex-shrink-0">
                   <h4 className="text-base font-semibold text-cyan-900 flex items-center justify-between">
                     <span className="flex items-center">
                       <CubeIcon className="h-5 w-5 text-cyan-600 mr-2" />
@@ -5087,8 +5187,8 @@ export function WhatCanIHelp() {
                   </div>
                 </div>
 
-                {/* Component List */}
-                <div className="space-y-2 max-h-80 overflow-y-auto">
+                {/* Component List - Scrollable content area */}
+                <div className="space-y-2 flex-1 overflow-y-auto">
                   {(() => {
                     const capiComponents = mceFeatures?.filter(f =>
                       f.name.includes('cluster-api') ||
@@ -5183,8 +5283,8 @@ export function WhatCanIHelp() {
               </div>
 
               {/* Tile 3: Active Resources */}
-              <div className="bg-white rounded-lg border-2 border-cyan-200 p-6 shadow-lg">
-                <div className="flex flex-col space-y-3 mb-4">
+              <div className="bg-white rounded-lg border-2 border-cyan-200 p-6 shadow-lg flex flex-col h-[600px]">
+                <div className="flex flex-col space-y-3 mb-4 flex-shrink-0">
                   <h4 className="text-base font-semibold text-cyan-900 flex items-center">
                     <ChartBarIcon className="h-5 w-5 text-cyan-600 mr-2" />
                     Active Resources
@@ -5205,8 +5305,8 @@ export function WhatCanIHelp() {
                   </div>
                 </div>
 
-                {/* Resources List */}
-                <div className="space-y-2">
+                {/* Resources List - Scrollable content area */}
+                <div className="space-y-2 flex-1 overflow-y-auto">
                   {(() => {
                     const mceResources = parseDynamicResources(
                       ansibleResults['check-mce-components']?.result?.output || ''
@@ -5263,6 +5363,247 @@ export function WhatCanIHelp() {
                   })()}
                 </div>
               </div>
+            </div>
+
+            {/* Embedded MCE Terminal Section - Always visible, closeable */}
+            <div className="mt-6 bg-gradient-to-br from-cyan-50 to-blue-50 rounded-2xl shadow-md border border-cyan-200 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
+              {/* Terminal Header - Click anywhere to toggle */}
+              <div
+                className="bg-gradient-to-r from-cyan-600 to-blue-600 text-white px-6 py-4 flex items-center justify-between cursor-pointer hover:from-cyan-700 hover:to-blue-700 transition-colors"
+                onClick={() => setMceTerminalCollapsed(!mceTerminalCollapsed)}
+                title={mceTerminalCollapsed ? 'Click to expand Terminal' : 'Click to collapse Terminal'}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">💻</span>
+                  <h3 className="text-xl font-bold">Terminal</h3>
+                  <span className="text-sm bg-cyan-500/30 px-3 py-1 rounded-full">
+                    Interactive Shell
+                  </span>
+                </div>
+                <div className="p-2">
+                  {mceTerminalCollapsed ? (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+
+              {/* Terminal Content - Shortened with max height */}
+              {!mceTerminalCollapsed && (
+                <div className="p-6 max-h-96 overflow-hidden">
+                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full">
+                    {/* Command Templates Sidebar - Scrollable */}
+                    <div className="lg:col-span-1 flex flex-col max-h-80">
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2 flex-shrink-0">
+                        <span>📋</span>
+                        Command Templates
+                      </h4>
+                      <div className="space-y-3 overflow-y-auto pr-2 flex-1">
+                        {/* Cluster Info Category */}
+                        <div>
+                          <div className="text-xs font-semibold text-gray-500 uppercase mb-2">
+                            Cluster Info
+                          </div>
+                          <div className="space-y-1">
+                            <button
+                              onClick={() => setMceTerminalCommand('oc cluster-info')}
+                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                            >
+                              Cluster Info
+                            </button>
+                            <button
+                              onClick={() => setMceTerminalCommand('oc version')}
+                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                            >
+                              OpenShift Version
+                            </button>
+                            <button
+                              onClick={() => setMceTerminalCommand('oc get nodes')}
+                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                            >
+                              List Nodes
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* MCE/CAPI/CAPA Category */}
+                        <div>
+                          <div className="text-xs font-semibold text-gray-500 uppercase mb-2">
+                            MCE/CAPI/CAPA
+                          </div>
+                          <div className="space-y-1">
+                            <button
+                              onClick={() => setMceTerminalCommand('oc get mce -A')}
+                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                            >
+                              Get MCE
+                            </button>
+                            <button
+                              onClick={() => setMceTerminalCommand('oc get deploy -n capi-system')}
+                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                            >
+                              CAPI Deployments
+                            </button>
+                            <button
+                              onClick={() => setMceTerminalCommand('oc get deploy -n capa-system')}
+                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                            >
+                              CAPA Deployments
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* ROSA Resources Category */}
+                        <div>
+                          <div className="text-xs font-semibold text-gray-500 uppercase mb-2">
+                            ROSA Resources
+                          </div>
+                          <div className="space-y-1">
+                            <button
+                              onClick={() => setMceTerminalCommand('oc get rosacluster -A')}
+                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                            >
+                              ROSA Clusters
+                            </button>
+                            <button
+                              onClick={() => setMceTerminalCommand('oc get rosacontrolplane -A')}
+                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                            >
+                              Control Planes
+                            </button>
+                            <button
+                              onClick={() => setMceTerminalCommand('oc get rosanetwork -A')}
+                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                            >
+                              ROSA Networks
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Secrets & Config Category */}
+                        <div>
+                          <div className="text-xs font-semibold text-gray-500 uppercase mb-2">
+                            Secrets & Config
+                          </div>
+                          <div className="space-y-1">
+                            <button
+                              onClick={() => setMceTerminalCommand('oc get secret -n capa-system')}
+                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                            >
+                              CAPA Secrets
+                            </button>
+                            <button
+                              onClick={() => setMceTerminalCommand('oc get awsclustercontrolleridentity')}
+                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                            >
+                              AWS Identity
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Troubleshooting Category */}
+                        <div>
+                          <div className="text-xs font-semibold text-gray-500 uppercase mb-2">
+                            Troubleshooting
+                          </div>
+                          <div className="space-y-1">
+                            <button
+                              onClick={() => setMceTerminalCommand('oc get events -A --sort-by=".lastTimestamp" | tail -20')}
+                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                            >
+                              Recent Events
+                            </button>
+                            <button
+                              onClick={() => setMceTerminalCommand('oc get pods -A | grep -v Running | grep -v Completed')}
+                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                            >
+                              Problem Pods
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Terminal Output and Input */}
+                    <div className="lg:col-span-3 flex flex-col">
+                      {/* Terminal Output */}
+                      <div
+                        className="bg-black text-green-400 font-mono text-sm p-4 rounded-lg h-64 overflow-y-auto mb-4 flex-shrink-0"
+                        style={{ fontFamily: 'Monaco, Courier, monospace' }}
+                      >
+                        <pre className="whitespace-pre-wrap">{mceTerminalOutput}</pre>
+                      </div>
+
+                      {/* Command Input */}
+                      <div className="flex gap-2">
+                        <div className="flex-1 relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-mono">
+                            $
+                          </span>
+                          <input
+                            type="text"
+                            value={mceTerminalCommand}
+                            onChange={(e) => setMceTerminalCommand(e.target.value)}
+                            onKeyDown={handleMceTerminalKeyDown}
+                            placeholder="Enter command... (↑/↓ for history)"
+                            disabled={mceTerminalExecuting}
+                            className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent font-mono text-sm disabled:bg-gray-100"
+                          />
+                        </div>
+                        <button
+                          onClick={executeMceTerminalCommand}
+                          disabled={mceTerminalExecuting || !mceTerminalCommand.trim()}
+                          className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:from-cyan-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                        >
+                          {mceTerminalExecuting ? 'Running...' : 'Execute'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setMceTerminalOutput('Terminal cleared.\n');
+                            setMceTerminalCommand('');
+                          }}
+                          className="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                          title="Clear Terminal"
+                        >
+                          🗑️ Clear
+                        </button>
+                      </div>
+
+                      {/* Command History */}
+                      {mceTerminalHistory.length > 0 && (
+                        <div className="mt-4">
+                          <details className="bg-gray-50 rounded-lg p-4">
+                            <summary className="cursor-pointer font-medium text-sm text-gray-700">
+                              Command History ({mceTerminalHistory.length})
+                            </summary>
+                            <div className="mt-3 space-y-2 max-h-48 overflow-y-auto">
+                              {mceTerminalHistory.slice(0, 20).map((item, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex items-center justify-between p-2 bg-white rounded border border-gray-200 hover:bg-cyan-50 cursor-pointer"
+                                  onClick={() => setMceTerminalCommand(item.command)}
+                                >
+                                  <span className="font-mono text-xs flex-1 text-gray-700">
+                                    {item.command}
+                                  </span>
+                                  <span className="text-xs text-gray-500 ml-2">
+                                    {item.timestampFormatted}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Recent Operations and Output - Second Row */}
@@ -5478,6 +5819,7 @@ export function WhatCanIHelp() {
                 )}
               </div>
             </div>
+
           </div>
         )}
 
