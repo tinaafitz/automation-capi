@@ -3094,7 +3094,9 @@ export function WhatCanIHelp() {
         {(verifiedMinikubeClusterInfo || ocpStatus?.status === 'connected') && (
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Minikube Test Environment</h2>
+              <h2 className="text-xl font-bold text-gray-900">
+                {selectedEnvironment === 'mce' ? 'MCE Test Environment' : 'Minikube Test Environment'}
+              </h2>
 
               {/* Dropdown Selector */}
               <div className="relative">
