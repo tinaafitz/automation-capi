@@ -36,6 +36,7 @@ import { MinikubeClusterModal } from '../components/MinikubeClusterModal';
 import { MinikubeTerminalModal } from '../components/MinikubeTerminalModal';
 import { MCETerminalModal } from '../components/MCETerminalModal';
 import TestEnvironmentCard from '../components/TestEnvironmentCard';
+import TestActivityFeed from '../components/TestActivityFeed';
 
 // Helper function to calculate age from ISO timestamp
 function calculateAge(isoTimestamp) {
