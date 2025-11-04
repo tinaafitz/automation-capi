@@ -3094,7 +3094,7 @@ export function WhatCanIHelp() {
         {(verifiedMinikubeClusterInfo || ocpStatus?.status === 'connected') && (
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Test Environments</h2>
+              <h2 className="text-xl font-bold text-gray-900">Minikube Test Environment</h2>
 
               {/* Dropdown Selector */}
               <div className="relative">
@@ -3174,7 +3174,7 @@ export function WhatCanIHelp() {
                         d="M13 10V3L4 14h7v7l9-11h-7z"
                       />
                     </svg>
-                    Minikube Test Environment
+                    Minikube Configuration
                   </h4>
 
                   {/* Action Buttons */}
@@ -3381,15 +3381,6 @@ export function WhatCanIHelp() {
                   </div>
 
                   <div className="space-y-2">
-                    {/* API Server */}
-                    <div className="bg-white rounded-md p-2 border border-purple-100">
-                      <div className="text-xs font-medium text-purple-600 mb-1">API Server</div>
-                      <div className="text-xs text-purple-900 font-mono break-all">
-                        {verifiedMinikubeClusterInfo.cluster_info?.api_url ||
-                          'https://127.0.0.1:8443'}
-                      </div>
-                    </div>
-
                     {/* Last Verified */}
                     <div className="bg-white rounded-md p-2 border border-purple-100">
                       <div className="text-xs font-medium text-purple-600 mb-1">Last Verified</div>
