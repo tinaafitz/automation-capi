@@ -321,6 +321,9 @@ export function WhatCanIHelp() {
   const [minikubeSortDirection, setMinikubeSortDirection] = useState('asc');
   const [mceSortField, setMceSortField] = useState('type');
   const [mceSortDirection, setMceSortDirection] = useState('asc');
+  // State for dynamically fetched MCE active resources
+  const [mceActiveResources, setMceActiveResources] = useState([]);
+  const [mceResourcesLoading, setMceResourcesLoading] = useState(false);
   // Sorting states for Key Components table
   const [mceComponentSortField, setMceComponentSortField] = useState('component');
   const [mceComponentSortDirection, setMceComponentSortDirection] = useState('asc');
@@ -854,6 +857,76 @@ export function WhatCanIHelp() {
     } catch (error) {
       console.error('Failed to fetch OCP resource detail:', error);
       addNotification('Failed to fetch resource details', 'error', 3000);
+    }
+  };
+
+  // Fetch MCE active resources dynamically from OpenShift
+  const fetchMceActiveResources = async () => {
+    setMceResourcesLoading(true);
+    console.log('🔍 Fetching MCE CAPI/CAPA active resources...');
+
+    try {
+      const resources = [];
+
+      // Fetch deployments in multicluster-engine namespace
+      const deployments = ['capi-controller-manager', 'capa-controller-manager', 'mce-capi-webhook-config'];
+
+      for (const deploymentName of deployments) {
+        try {
+          const response = await fetch('http://localhost:8000/api/ocp/execute-command', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              command: `oc get deployment ${deploymentName} -n multicluster-engine -o json`
+            }),
+          });
+
+          const result = await response.json();
+
+          if (result.success && result.output) {
+            const data = JSON.parse(result.output);
+            resources.push({
+              type: 'Deployment',
+              name: deploymentName,
+              namespace: 'multicluster-engine',
+            });
+          }
+        } catch (error) {
+          console.warn(`Failed to fetch deployment ${deploymentName}:`, error);
+        }
+      }
+
+      // Fetch AWSClusterControllerIdentity (cluster-scoped)
+      try {
+        const response = await fetch('http://localhost:8000/api/ocp/execute-command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            command: 'oc get awsclustercontrolleridentity default -o json'
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success && result.output) {
+          const data = JSON.parse(result.output);
+          resources.push({
+            type: 'AWSClusterControllerIdentity',
+            name: 'default',
+            namespace: '', // cluster-scoped
+          });
+        }
+      } catch (error) {
+        console.warn('Failed to fetch AWSClusterControllerIdentity:', error);
+      }
+
+      console.log(`✅ Fetched ${resources.length} MCE CAPI/CAPA resources`);
+      setMceActiveResources(resources);
+    } catch (error) {
+      console.error('❌ Failed to fetch MCE active resources:', error);
+      addNotification('Failed to fetch MCE resources', 'error', 3000);
+    } finally {
+      setMceResourcesLoading(false);
     }
   };
 
@@ -5151,7 +5224,7 @@ export function WhatCanIHelp() {
                       CAPI/CAPA Components
                     </span>
                     <span className="text-xs font-normal text-cyan-600">
-                      ({mceFeatures?.filter(f => f.name.includes('cluster-api')).length || 0} configured)
+                      ({mceFeatures?.filter(f => f.name === 'cluster-api' || f.name === 'cluster-api-provider-aws').length || 0} configured)
                     </span>
                   </h4>
 
@@ -5272,9 +5345,8 @@ export function WhatCanIHelp() {
                 <div className="space-y-2 flex-1 overflow-y-auto">
                   {(() => {
                     const capiComponents = mceFeatures?.filter(f =>
-                      f.name.includes('cluster-api') ||
-                      f.name === 'hive' ||
-                      f.name === 'assisted-service'
+                      f.name === 'cluster-api' ||
+                      f.name === 'cluster-api-provider-aws'
                     ) || [];
 
                     if (capiComponents.length === 0) {
@@ -5287,10 +5359,8 @@ export function WhatCanIHelp() {
 
                     // Map component names to deployment information
                     const componentDeploymentMap = {
-                      'cluster-api': { resourceType: 'Deployment', resourceName: 'capi-controller-manager', namespace: 'capi-system' },
-                      'cluster-api-provider-aws': { resourceType: 'Deployment', resourceName: 'capa-controller-manager', namespace: 'capa-system' },
-                      'hive': { resourceType: 'Deployment', resourceName: 'hive-controllers', namespace: 'hive' },
-                      'assisted-service': { resourceType: 'Deployment', resourceName: 'assisted-service', namespace: 'assisted-installer' },
+                      'cluster-api': { resourceType: 'Deployment', resourceName: 'capi-controller-manager', namespace: 'multicluster-engine' },
+                      'cluster-api-provider-aws': { resourceType: 'Deployment', resourceName: 'capa-controller-manager', namespace: 'multicluster-engine' },
                     };
 
                     return capiComponents.map((component, idx) => {
@@ -5374,14 +5444,17 @@ export function WhatCanIHelp() {
                   {/* Action Buttons */}
                   <div className="flex items-center gap-2">
                     <button
-                      className="flex-1 px-3 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors text-sm font-medium"
+                      className="flex-1 px-3 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors text-sm font-medium disabled:opacity-50"
+                      disabled={mceResourcesLoading}
                     >
                       Export
                     </button>
                     <button
-                      className="flex-1 px-3 py-2 border-2 border-cyan-600 text-cyan-600 rounded-lg hover:bg-cyan-50 transition-colors text-sm font-medium"
+                      className="flex-1 px-3 py-2 border-2 border-cyan-600 text-cyan-600 rounded-lg hover:bg-cyan-50 transition-colors text-sm font-medium disabled:opacity-50"
+                      onClick={fetchMceActiveResources}
+                      disabled={mceResourcesLoading}
                     >
-                      Refresh
+                      {mceResourcesLoading ? 'Loading...' : 'Refresh'}
                     </button>
                   </div>
                 </div>
@@ -5389,14 +5462,19 @@ export function WhatCanIHelp() {
                 {/* Resources List - Scrollable content area */}
                 <div className="space-y-2 flex-1 overflow-y-auto">
                   {(() => {
-                    const mceResources = parseDynamicResources(
-                      ansibleResults['check-mce-components']?.result?.output || ''
-                    );
+                    if (mceResourcesLoading) {
+                      return (
+                        <div className="text-center py-8 text-cyan-600 text-sm">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600 mx-auto mb-2"></div>
+                          Loading resources...
+                        </div>
+                      );
+                    }
 
-                    if (mceResources.length === 0) {
+                    if (mceActiveResources.length === 0) {
                       return (
                         <div className="text-center py-8 text-cyan-600/70 text-sm">
-                          No resources found. Click Verify to detect resources.
+                          No resources found. Click Refresh to fetch CAPI/CAPA resources.
                         </div>
                       );
                     }
@@ -5404,7 +5482,7 @@ export function WhatCanIHelp() {
                     return (
                       <div className="bg-cyan-50 rounded-lg p-3 border border-cyan-100">
                         <div className="text-xs font-semibold text-cyan-800 mb-2">
-                          Active Resources ({mceResources.length})
+                          Active Resources ({mceActiveResources.length})
                         </div>
                         <div className="overflow-x-auto">
                           <table className="w-full text-xs">
@@ -5416,7 +5494,7 @@ export function WhatCanIHelp() {
                               </tr>
                             </thead>
                             <tbody>
-                              {mceResources.map((resource, idx) => (
+                              {mceActiveResources.map((resource, idx) => (
                                 <tr
                                   key={idx}
                                   className="border-b border-cyan-100 last:border-0 hover:bg-cyan-100 transition-colors cursor-pointer"
@@ -5424,7 +5502,7 @@ export function WhatCanIHelp() {
                                     fetchOcpResourceDetail(
                                       resource.type,
                                       resource.name,
-                                      resource.namespace || 'ns-rosa-hcp'
+                                      resource.namespace || ''
                                     );
                                   }}
                                   title="Click to view YAML"
@@ -5432,7 +5510,7 @@ export function WhatCanIHelp() {
                                   <td className="py-2 px-2 font-medium text-cyan-900">{resource.name}</td>
                                   <td className="py-2 px-2 text-cyan-700">{resource.type}</td>
                                   <td className="py-2 px-2 text-cyan-700">
-                                    {resource.namespace || 'ns-rosa-hcp'}
+                                    {resource.namespace || '(cluster-scoped)'}
                                   </td>
                                 </tr>
                               ))}
