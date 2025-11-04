@@ -327,6 +327,13 @@ export function WhatCanIHelp() {
   // Sorting states for Key Components table
   const [mceComponentSortField, setMceComponentSortField] = useState('component');
   const [mceComponentSortDirection, setMceComponentSortDirection] = useState('asc');
+
+  // State for provisioned ROSA clusters
+  const [rosaClusters, setRosaClusters] = useState([]);
+  const [rosaClustersLoading, setRosaClustersLoading] = useState(false);
+  const [selectedClusterForUpgrade, setSelectedClusterForUpgrade] = useState(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showClusterPanel, setShowClusterPanel] = useState(false);
   const [ansibleResults, setAnsibleResults] = useState(() => {
     try {
       const saved = localStorage.getItem('ansibleResults');
@@ -681,6 +688,78 @@ export function WhatCanIHelp() {
     } catch (error) {
       console.error('Failed to fetch active resources:', error);
       setActiveResources([]);
+    }
+  };
+
+  // Fetch provisioned ROSA clusters from OCP/MCE
+  const fetchRosaClusters = async () => {
+    setRosaClustersLoading(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/ocp/rosa-clusters');
+      const data = await response.json();
+
+      if (data.success) {
+        setRosaClusters(data.clusters);
+      } else {
+        setRosaClusters([]);
+        console.error('Failed to fetch ROSA clusters:', data.message);
+      }
+    } catch (error) {
+      console.error('Error fetching ROSA clusters:', error);
+      setRosaClusters([]);
+    } finally {
+      setRosaClustersLoading(false);
+    }
+  };
+
+  // Handle cluster upgrade
+  const handleUpgradeCluster = async (clusterName, namespace, targetVersion) => {
+    try {
+      const operationId = `upgrade-${clusterName}-${Date.now()}`;
+
+      // Add to recent operations
+      addToRecent({
+        id: operationId,
+        title: `Upgrade ${clusterName}`,
+        color: 'bg-purple-600',
+        status: `⏳ Upgrading to ${targetVersion}...`,
+      });
+
+      const response = await fetch(`http://localhost:8000/api/ocp/rosa-clusters/${clusterName}/upgrade`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          version: targetVersion,
+          namespace: namespace,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const completionTime = new Date().toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+        });
+        updateRecentOperationStatus(operationId, `✅ Upgrade initiated at ${completionTime}`);
+        addNotification(`🎉 Cluster ${clusterName} upgrade initiated successfully!`, 'success', 3000);
+
+        // Refresh cluster list
+        await fetchRosaClusters();
+      } else {
+        updateRecentOperationStatus(operationId, `❌ Upgrade failed`);
+        addNotification(`Failed to upgrade cluster: ${data.message}`, 'error');
+      }
+    } catch (error) {
+      console.error('Error upgrading cluster:', error);
+      addNotification('Failed to upgrade cluster', 'error');
+    } finally {
+      setShowUpgradeModal(false);
+      setSelectedClusterForUpgrade(null);
     }
   };
 
@@ -1438,6 +1517,13 @@ export function WhatCanIHelp() {
   //
   //   runAutoVerification();
   // }, []); // Empty dependency array ensures this only runs once on mount
+
+  // Fetch ROSA clusters when OCP connection is established
+  useEffect(() => {
+    if (ocpStatus?.connected) {
+      fetchRosaClusters();
+    }
+  }, [ocpStatus?.connected]);
 
   // Real-time data updates
   useEffect(() => {
@@ -3060,47 +3146,58 @@ export function WhatCanIHelp() {
               </div>
             </div>
 
-            {/* Cluster Count */}
+            {/* Cluster Count - Clickable when clusters exist */}
             <div className="flex items-center space-x-2">
               <CubeIcon className="h-4 w-4 text-purple-600" />
               <span className="text-gray-600">Clusters:</span>
-              <span className="font-semibold text-purple-900">
-                {(() => {
-                  // Count clusters from Minikube active resources
-                  const minikubeResources = verifiedMinikubeClusterInfo
-                    ? parseDynamicResources(
-                        ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]
-                          ?.result?.output || ''
-                      )
-                    : [];
-                  const minikubeClusters = minikubeResources.filter(
-                    (r) =>
-                      r.type === 'ROSACluster' ||
-                      r.type === 'RosaControlPlane' ||
-                      r.type.toLowerCase().includes('cluster')
-                  );
+              {(() => {
+                // Count clusters from Minikube active resources
+                const minikubeResources = verifiedMinikubeClusterInfo
+                  ? parseDynamicResources(
+                      ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]
+                        ?.result?.output || ''
+                    )
+                  : [];
+                const minikubeClusters = minikubeResources.filter(
+                  (r) =>
+                    r.type === 'ROSACluster' ||
+                    r.type === 'RosaControlPlane' ||
+                    r.type.toLowerCase().includes('cluster')
+                );
 
-                  // Count clusters from MCE active resources
-                  const mceResources = ocpStatus?.connected
-                    ? parseDynamicResources(
-                        ansibleResults['check-mce-components']?.result?.output || ''
-                      )
-                    : [];
-                  const mceClusters = mceResources.filter(
-                    (r) =>
-                      r.type === 'ROSACluster' ||
-                      r.type === 'RosaControlPlane' ||
-                      r.type.toLowerCase().includes('cluster')
-                  );
+                // Count clusters from MCE active resources
+                const mceResources = ocpStatus?.connected
+                  ? parseDynamicResources(
+                      ansibleResults['check-mce-components']?.result?.output || ''
+                    )
+                  : [];
+                const mceClusters = mceResources.filter(
+                  (r) =>
+                    r.type === 'ROSACluster' ||
+                    r.type === 'RosaControlPlane' ||
+                    r.type.toLowerCase().includes('cluster')
+                );
 
-                  const totalClusters = minikubeClusters.length + mceClusters.length;
-                  const readyClusters = [...minikubeClusters, ...mceClusters].filter((r) =>
-                    r.status?.toLowerCase().includes('ready')
-                  ).length;
+                const totalClusters = minikubeClusters.length + mceClusters.length;
+                const readyClusters = [...minikubeClusters, ...mceClusters].filter((r) =>
+                  r.status?.toLowerCase().includes('ready')
+                ).length;
 
-                  return totalClusters > 0 ? `${readyClusters}/${totalClusters}` : '0';
-                })()}
-              </span>
+                const clusterCount = totalClusters > 0 ? `${readyClusters}/${totalClusters}` : '0';
+                const hasRosaClusters = rosaClusters && rosaClusters.length > 0;
+
+                return hasRosaClusters ? (
+                  <button
+                    onClick={() => setShowClusterPanel(true)}
+                    className="font-semibold text-purple-900 bg-purple-100 hover:bg-purple-200 px-2 py-1 rounded-full transition-colors duration-200 cursor-pointer"
+                    title="Click to view ROSA clusters"
+                  >
+                    {clusterCount}
+                  </button>
+                ) : (
+                  <span className="font-semibold text-purple-900">{clusterCount}</span>
+                );
+              })()}
             </div>
 
             {/* Last Operation */}
@@ -4879,8 +4976,11 @@ export function WhatCanIHelp() {
         {selectedEnvironment === 'mce' && (
           <div className="mb-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Tile 1: MCE Test Environment */}
-              <div className="bg-white rounded-lg border-2 border-cyan-200 p-6 shadow-lg flex flex-col h-[600px]">
+              {/* Tile 1: MCE Test Environment - Wrapper for camper pull-out */}
+              <div className={`relative transition-all duration-500 ${showClusterPanel ? 'lg:col-span-2' : ''}`}>
+                <div className="flex">
+                  {/* MCE Card */}
+                  <div className="bg-white rounded-lg border-2 border-cyan-200 p-6 shadow-lg flex flex-col h-[600px] flex-shrink-0 w-full lg:w-[400px]">
                 <div className="flex flex-col space-y-3 mb-4 flex-shrink-0">
                   <h4 className="text-base font-semibold text-cyan-900 flex items-center">
                     <svg
@@ -5168,9 +5268,26 @@ export function WhatCanIHelp() {
                     <div className="bg-white rounded-md p-2 border border-cyan-100">
                       <div className="text-xs text-cyan-600 mb-1">Clusters:</div>
                       <div className="text-sm font-bold text-cyan-900">
-                        {parseDynamicResources(
-                          ansibleResults['check-mce-components']?.result?.output || ''
-                        ).filter((r) => r.type === 'ROSACluster').length}
+                        {(() => {
+                          const clusterCount = parseDynamicResources(
+                            ansibleResults['check-mce-components']?.result?.output || ''
+                          ).filter((r) => r.type === 'ROSACluster').length;
+
+                          return clusterCount > 0 ? (
+                            <button
+                              onClick={async () => {
+                                await fetchRosaClusters();
+                                setShowClusterPanel(true);
+                              }}
+                              className="font-bold text-cyan-900 bg-cyan-100 hover:bg-cyan-200 px-2 py-1 rounded-full transition-colors duration-200 cursor-pointer"
+                              title="Click to view ROSA clusters"
+                            >
+                              {clusterCount}
+                            </button>
+                          ) : (
+                            <span>{clusterCount}</span>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -5215,6 +5332,182 @@ export function WhatCanIHelp() {
                 </div>
               </div>
 
+                  {/* Camper Pull-Out Panel - ROSA Clusters */}
+                  {showClusterPanel && (
+                    <div className="ml-4 transition-all duration-500 ease-out transform translate-x-0 w-[500px] flex-shrink-0">
+                      <div className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-lg shadow-2xl h-[600px] flex flex-col overflow-hidden border-2 border-blue-200">
+                    {/* Header */}
+                    <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white px-6 py-4 shadow-lg flex-shrink-0">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3">
+                          <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
+                            <span className="text-2xl">🌩️</span>
+                          </div>
+                          <div>
+                            <h3 className="text-2xl font-bold">ROSA Clusters</h3>
+                            <p className="text-blue-100 text-xs mt-0.5">Provisioned via OpenShift/MCE</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={async () => {
+                              await fetchRosaClusters();
+                            }}
+                            disabled={rosaClustersLoading}
+                            className="p-1.5 bg-white/20 hover:bg-white/30 rounded-md backdrop-blur-sm transition-colors disabled:opacity-50"
+                            title="Refresh clusters"
+                          >
+                            <svg
+                              className={`h-4 w-4 ${rosaClustersLoading ? 'animate-spin' : ''}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                              />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => setShowClusterPanel(false)}
+                            className="p-1.5 bg-white/20 hover:bg-white/30 rounded-md backdrop-blur-sm transition-colors"
+                            title="Close panel"
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 overflow-y-auto p-4">
+                      {rosaClustersLoading ? (
+                        <div className="flex items-center justify-center h-full">
+                          <div className="text-center">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p className="text-gray-600">Loading ROSA clusters...</p>
+                          </div>
+                        </div>
+                      ) : rosaClusters.length === 0 ? (
+                        <div className="flex items-center justify-center h-full">
+                          <div className="text-center">
+                            <div className="text-6xl mb-4">🌩️</div>
+                            <p className="text-gray-600 font-medium">No ROSA clusters found</p>
+                            <p className="text-gray-500 text-sm mt-2">Provision a cluster to get started</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {rosaClusters.map((cluster, idx) => (
+                            <div
+                              key={idx}
+                              className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow"
+                            >
+                              {/* Cluster Header */}
+                              <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
+                                <div className="flex items-start justify-between">
+                                  <div>
+                                    <h4 className="font-bold text-lg text-gray-900">{cluster.name}</h4>
+                                    {cluster.rosa_cluster_name && cluster.rosa_cluster_name !== cluster.name && (
+                                      <p className="text-xs text-gray-500 mt-0.5">ROSA: {cluster.rosa_cluster_name}</p>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {cluster.ready ? (
+                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                        </svg>
+                                        Ready
+                                      </span>
+                                    ) : cluster.status === 'Error' ? (
+                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                                        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                        </svg>
+                                        Error
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                                        <svg className="w-3 h-3 mr-1 animate-spin" fill="none" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Provisioning
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Cluster Details Grid */}
+                              <div className="p-4">
+                                <div className="grid grid-cols-2 gap-3">
+                                  {/* Version */}
+                                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-100">
+                                    <div className="text-xs font-medium text-blue-600 mb-1">Version</div>
+                                    <div className="text-sm font-bold text-blue-900">{cluster.version}</div>
+                                  </div>
+
+                                  {/* Region */}
+                                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-3 border border-purple-100">
+                                    <div className="text-xs font-medium text-purple-600 mb-1">Region</div>
+                                    <div className="text-sm font-bold text-purple-900">{cluster.region}</div>
+                                  </div>
+
+                                  {/* Nodes */}
+                                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-3 border border-green-100">
+                                    <div className="text-xs font-medium text-green-600 mb-1">Nodes</div>
+                                    <div className="text-sm font-bold text-green-900">{cluster.nodes}</div>
+                                  </div>
+
+                                  {/* Instance Type */}
+                                  <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg p-3 border border-amber-100">
+                                    <div className="text-xs font-medium text-amber-600 mb-1">Instance</div>
+                                    <div className="text-sm font-bold text-amber-900">{cluster.instance_type}</div>
+                                  </div>
+                                </div>
+
+                                {/* Age */}
+                                {cluster.age && (
+                                  <div className="mt-3 text-xs text-gray-500">
+                                    Created {cluster.age} ago
+                                  </div>
+                                )}
+
+                                {/* Action Buttons */}
+                                {cluster.console_url && (
+                                  <div className="mt-3 flex gap-2">
+                                    <a
+                                      href={cluster.console_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex-1 inline-flex items-center justify-center px-3 py-2 text-xs font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-md transition-all shadow-sm"
+                                    >
+                                      <svg className="w-3 h-3 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                      </svg>
+                                      Open Console
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Tile 2: CAPI/CAPA Components */}
               <div className="bg-white rounded-lg border-2 border-cyan-200 p-6 shadow-lg flex flex-col h-[600px]">
                 <div className="flex flex-col space-y-3 mb-4 flex-shrink-0">
@@ -5228,16 +5521,8 @@ export function WhatCanIHelp() {
                     </span>
                   </h4>
 
-                  {/* Terminal and Provision Buttons */}
+                  {/* Provision Button */}
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setShowMCETerminal(true)}
-                      className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
-                      title="Open MCE terminal"
-                    >
-                      <CommandLineIcon className="h-3 w-3" />
-                      <span>Terminal</span>
-                    </button>
                     <button
                       onClick={async () => {
                         let operationId;
@@ -5444,13 +5729,13 @@ export function WhatCanIHelp() {
                   {/* Action Buttons */}
                   <div className="flex items-center gap-2">
                     <button
-                      className="flex-1 px-3 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors text-sm font-medium disabled:opacity-50"
+                      className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5 disabled:opacity-50"
                       disabled={mceResourcesLoading}
                     >
                       Export
                     </button>
                     <button
-                      className="flex-1 px-3 py-2 border-2 border-cyan-600 text-cyan-600 rounded-lg hover:bg-cyan-50 transition-colors text-sm font-medium disabled:opacity-50"
+                      className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5 disabled:opacity-50"
                       onClick={fetchMceActiveResources}
                       disabled={mceResourcesLoading}
                     >
@@ -5523,6 +5808,102 @@ export function WhatCanIHelp() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Upgrade Modal */}
+        {showUpgradeModal && selectedClusterForUpgrade && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full animate-in fade-in zoom-in-95 duration-200">
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-4 rounded-t-2xl">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">⬆️</span>
+                        <h3 className="text-xl font-bold">Upgrade Cluster</h3>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setShowUpgradeModal(false);
+                          setSelectedClusterForUpgrade(null);
+                        }}
+                        className="p-1 hover:bg-white/20 rounded-lg transition-colors"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Modal Content */}
+                  <div className="p-6">
+                    <div className="mb-6">
+                      <p className="text-gray-700 mb-2">
+                        <span className="font-semibold">Cluster:</span> {selectedClusterForUpgrade.rosa_cluster_name}
+                      </p>
+                      <p className="text-gray-700 mb-4">
+                        <span className="font-semibold">Current Version:</span> {selectedClusterForUpgrade.version}
+                      </p>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Select the version you want to upgrade to:
+                      </p>
+                    </div>
+
+                    {/* Version Selection */}
+                    <div className="space-y-2 mb-6">
+                      {selectedClusterForUpgrade.available_upgrades.map((version) => (
+                        <button
+                          key={version}
+                          onClick={() =>
+                            handleUpgradeCluster(
+                              selectedClusterForUpgrade.name,
+                              selectedClusterForUpgrade.namespace,
+                              version
+                            )
+                          }
+                          className="w-full px-4 py-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg hover:from-blue-100 hover:to-purple-100 transition-colors flex items-center justify-between group"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">📦</span>
+                            <div className="text-left">
+                              <p className="font-semibold text-gray-900">OpenShift {version}</p>
+                              <p className="text-xs text-gray-600">
+                                Upgrade from {selectedClusterForUpgrade.version}
+                              </p>
+                            </div>
+                          </div>
+                          <svg
+                            className="w-5 h-5 text-blue-600 group-hover:translate-x-1 transition-transform"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M13 7l5 5m0 0l-5 5m5-5H6"
+                            />
+                          </svg>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Cancel Button */}
+                    <button
+                      onClick={() => {
+                        setShowUpgradeModal(false);
+                        setSelectedClusterForUpgrade(null);
+                      }}
+                      className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Embedded MCE Terminal Section - Always visible, closeable */}
             <div className="mt-6 bg-gradient-to-br from-cyan-50 to-blue-50 rounded-2xl shadow-md border border-cyan-200 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -6723,7 +7104,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
           <div className="space-y-3 min-w-64 max-w-72 lg:sticky lg:top-4 animate-in slide-in-from-right duration-300">
           </div>
         </div>
-      </div>
 
       {/* Command Palette Modal */}
       {showCommandPalette && (
@@ -8231,6 +8611,213 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
           </div>
         </div>
       </div>
+
+      {/* ROSA Clusters Slide-Out Panel */}
+      {showClusterPanel && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity duration-300"
+            onClick={() => setShowClusterPanel(false)}
+          />
+
+          {/* Slide-out Panel */}
+          <div className="fixed top-0 right-0 h-full w-full max-w-3xl bg-gradient-to-br from-gray-50 to-blue-50 shadow-2xl z-50 transform transition-transform duration-300 ease-out overflow-y-auto">
+            {/* Panel Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white px-8 py-6 shadow-lg z-10">
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-4">
+                  <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
+                    <span className="text-3xl">🌩️</span>
+                  </div>
+                  <div>
+                    <h3 className="text-3xl font-bold mb-1">ROSA Clusters</h3>
+                    <p className="text-blue-100 text-sm">Provisioned via OpenShift/MCE</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="bg-white/20 px-4 py-2 rounded-full backdrop-blur-sm">
+                    <span className="text-sm font-semibold">
+                      {rosaClusters.length} cluster{rosaClusters.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fetchRosaClusters();
+                    }}
+                    disabled={rosaClustersLoading}
+                    className="p-2.5 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50 backdrop-blur-sm"
+                    title="Refresh clusters"
+                  >
+                    <svg
+                      className={`w-5 h-5 ${rosaClustersLoading ? 'animate-spin' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => setShowClusterPanel(false)}
+                    className="p-2.5 hover:bg-white/20 rounded-lg transition-colors backdrop-blur-sm"
+                    title="Close panel"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Panel Content */}
+            <div className="p-8">
+              {rosaClustersLoading ? (
+                <div className="text-center py-16">
+                  <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-600"></div>
+                  <p className="mt-6 text-gray-600 text-lg font-medium">Loading clusters...</p>
+                </div>
+              ) : rosaClusters.length === 0 ? (
+                <div className="text-center py-16 bg-white rounded-2xl border-2 border-dashed border-blue-200 shadow-sm">
+                  <span className="text-6xl mb-4 block">🌥️</span>
+                  <p className="mt-6 text-gray-700 font-semibold text-xl">No ROSA clusters provisioned yet</p>
+                  <p className="mt-3 text-gray-500 max-w-md mx-auto">
+                    Provision your first cluster using the ROSA HCP provisioning tool
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {rosaClusters.map((cluster) => (
+                    <div
+                      key={cluster.name}
+                      className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden hover:shadow-xl transition-all hover:scale-[1.01] duration-200"
+                    >
+                      {/* Cluster Header */}
+                      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white px-6 py-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
+                              <span className="text-2xl">🌩️</span>
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-xl">{cluster.rosa_cluster_name}</h4>
+                              <p className="text-blue-100 text-xs mt-0.5">Resource: {cluster.name}</p>
+                            </div>
+                          </div>
+                          <span
+                            className={`px-4 py-2 rounded-full text-sm font-bold backdrop-blur-sm ${
+                              cluster.status === 'Ready'
+                                ? 'bg-green-500/30 text-green-100'
+                                : cluster.status === 'Provisioning'
+                                ? 'bg-yellow-500/30 text-yellow-100'
+                                : 'bg-red-500/30 text-red-100'
+                            }`}
+                          >
+                            {cluster.status === 'Ready' ? '✓ ' : cluster.status === 'Error' ? '✗ ' : '⋯ '}
+                            {cluster.status}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Cluster Details Grid */}
+                      <div className="p-6">
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                          {/* Version */}
+                          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
+                            <div className="text-xs font-medium text-blue-600 mb-2">VERSION</div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg font-bold text-gray-900">{cluster.version}</span>
+                              {cluster.available_upgrades && cluster.available_upgrades.length > 0 && (
+                                <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded-full font-semibold">
+                                  ⬆ {cluster.available_upgrades.length}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Region */}
+                          <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-100">
+                            <div className="text-xs font-medium text-purple-600 mb-2">REGION</div>
+                            <span className="text-lg font-bold text-gray-900">{cluster.region}</span>
+                          </div>
+
+                          {/* Nodes */}
+                          <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border border-green-100">
+                            <div className="text-xs font-medium text-green-600 mb-2">NODES</div>
+                            <span className="text-lg font-bold text-gray-900">{cluster.nodes}</span>
+                          </div>
+
+                          {/* Instance Type */}
+                          <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-100">
+                            <div className="text-xs font-medium text-amber-600 mb-2">INSTANCE TYPE</div>
+                            <span className="text-lg font-bold text-gray-900">{cluster.instance_type}</span>
+                          </div>
+                        </div>
+
+                        {/* Age Badge */}
+                        <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>Created {cluster.age} ago</span>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-3">
+                          {cluster.console_url && (
+                            <a
+                              href={cluster.console_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all flex items-center justify-center gap-2 font-semibold shadow-md hover:shadow-lg"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                />
+                              </svg>
+                              Open Console
+                            </a>
+                          )}
+                          {cluster.available_upgrades && cluster.available_upgrades.length > 0 && (
+                            <button
+                              onClick={() => {
+                                setSelectedClusterForUpgrade(cluster);
+                                setShowUpgradeModal(true);
+                              }}
+                              className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all flex items-center justify-center gap-2 font-semibold shadow-md hover:shadow-lg"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M7 11l5-5m0 0l5 5m-5-5v12"
+                                />
+                              </svg>
+                              Upgrade Available
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
