@@ -5955,17 +5955,39 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
               </div>
 
               <div className="p-2">
-                {recentOperations.length > 0 ? (
-                  <div className="space-y-1.5">
-                    {recentOperations.map((operation, index) => {
-                      const timeAgo = Math.floor((Date.now() - operation.timestamp) / 60000);
+                {(() => {
+                  // Filter operations based on selected environment
+                  const filteredOperations = recentOperations.filter((operation) => {
+                    const isLocalOperation =
+                      operation.title.includes('Minikube') ||
+                      operation.title.includes('Kind') ||
+                      operation.title.includes('Local');
+                    const isMCEOperation =
+                      operation.title.includes('MCE') ||
+                      operation.title.includes('CAPI/CAPA');
 
-                      // Determine if this is a Local Test Environment or MCE operation
-                      const isLocalOperation =
-                        operation.title.includes('Minikube') ||
-                        operation.title.includes('Kind') ||
-                        operation.title.includes('Local');
-                      const isMCEOperation = operation.title.includes('MCE');
+                    if (selectedEnvironment === 'minikube') {
+                      return isLocalOperation;
+                    } else if (selectedEnvironment === 'mce') {
+                      return isMCEOperation;
+                    }
+                    return true;
+                  });
+
+                  return filteredOperations.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {filteredOperations
+                      .map((operation, index) => {
+                        const timeAgo = Math.floor((Date.now() - operation.timestamp) / 60000);
+
+                        // Determine if this is a Local Test Environment or MCE operation
+                        const isLocalOperation =
+                          operation.title.includes('Minikube') ||
+                          operation.title.includes('Kind') ||
+                          operation.title.includes('Local');
+                        const isMCEOperation =
+                          operation.title.includes('MCE') ||
+                          operation.title.includes('CAPI/CAPA');
 
                       // Color scheme based on environment
                       const bgColor = isLocalOperation
@@ -6108,7 +6130,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                     <p className="text-xs text-gray-500 font-medium mb-1">No recent operations</p>
                     <p className="text-xs text-gray-400">Run an operation to see it here</p>
                   </div>
-                )}
+                  );
+                })()}
               </div>
             </div>
           </div>
