@@ -5034,55 +5034,80 @@ export function WhatCanIHelp() {
                       );
                     }
 
-                    return capiComponents.map((component, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between p-2 bg-cyan-50 rounded-md border border-cyan-100"
-                      >
-                        {/* Component Name */}
-                        <div className="flex items-center space-x-2">
-                          {component.enabled ? (
-                            <svg
-                              className="h-4 w-4 text-green-500"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          ) : (
-                            <svg
-                              className="h-4 w-4 text-gray-400"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          )}
-                          <div className="text-xs font-medium text-cyan-900">
-                            {component.name}
+                    // Map component names to deployment information
+                    const componentDeploymentMap = {
+                      'cluster-api': { resourceType: 'Deployment', resourceName: 'capi-controller-manager', namespace: 'capi-system' },
+                      'cluster-api-provider-aws': { resourceType: 'Deployment', resourceName: 'capa-controller-manager', namespace: 'capa-system' },
+                      'hive': { resourceType: 'Deployment', resourceName: 'hive-controllers', namespace: 'hive' },
+                      'assisted-service': { resourceType: 'Deployment', resourceName: 'assisted-service', namespace: 'assisted-installer' },
+                    };
+
+                    return capiComponents.map((component, idx) => {
+                      const deploymentInfo = componentDeploymentMap[component.name];
+                      const isClickable = deploymentInfo && component.enabled;
+
+                      return (
+                        <div
+                          key={idx}
+                          className={`flex items-center justify-between p-2 bg-cyan-50 rounded-md border border-cyan-100 ${
+                            isClickable ? 'hover:bg-cyan-100 transition-colors cursor-pointer' : ''
+                          }`}
+                          onClick={() => {
+                            if (isClickable) {
+                              fetchOcpResourceDetail(
+                                deploymentInfo.resourceType,
+                                deploymentInfo.resourceName,
+                                deploymentInfo.namespace
+                              );
+                            }
+                          }}
+                          title={isClickable ? "Click to view YAML" : ""}
+                        >
+                          {/* Component Name */}
+                          <div className="flex items-center space-x-2">
+                            {component.enabled ? (
+                              <svg
+                                className="h-4 w-4 text-green-500"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            ) : (
+                              <svg
+                                className="h-4 w-4 text-gray-400"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            )}
+                            <div className="text-xs font-medium text-cyan-900">
+                              {component.name}
+                            </div>
+                          </div>
+
+                          {/* Status Badge */}
+                          <div className="flex-shrink-0">
+                            <span className={`text-xs font-mono px-2 py-1 rounded ${
+                              component.enabled
+                                ? 'text-green-700 bg-green-100'
+                                : 'text-gray-600 bg-gray-100'
+                            }`}>
+                              {component.enabled ? 'Enabled' : 'Disabled'}
+                            </span>
                           </div>
                         </div>
-
-                        {/* Status Badge */}
-                        <div className="flex-shrink-0">
-                          <span className={`text-xs font-mono px-2 py-1 rounded ${
-                            component.enabled
-                              ? 'text-green-700 bg-green-100'
-                              : 'text-gray-600 bg-gray-100'
-                          }`}>
-                            {component.enabled ? 'Enabled' : 'Disabled'}
-                          </span>
-                        </div>
-                      </div>
-                    ));
+                      );
+                    });
                   })()}
                 </div>
               </div>
@@ -5110,21 +5135,62 @@ export function WhatCanIHelp() {
                   </div>
                 </div>
 
-                {/* Resources Summary */}
+                {/* Resources List */}
                 <div className="space-y-2">
-                  <div className="bg-cyan-50 rounded-lg p-3 border border-cyan-100">
-                    <div className="text-xs font-semibold text-cyan-800 mb-2">ROSA Clusters</div>
-                    <div className="space-y-1.5 text-xs text-cyan-700">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">Total:</span>
-                        <span className="font-semibold">
-                          {parseDynamicResources(
-                            ansibleResults['check-mce-components']?.result?.output || ''
-                          ).filter((r) => r.type === 'ROSACluster').length}
-                        </span>
+                  {(() => {
+                    const mceResources = parseDynamicResources(
+                      ansibleResults['check-mce-components']?.result?.output || ''
+                    );
+
+                    if (mceResources.length === 0) {
+                      return (
+                        <div className="text-center py-8 text-cyan-600/70 text-sm">
+                          No resources found. Click Verify to detect resources.
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="bg-cyan-50 rounded-lg p-3 border border-cyan-100">
+                        <div className="text-xs font-semibold text-cyan-800 mb-2">
+                          Active Resources ({mceResources.length})
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="border-b border-cyan-200">
+                                <th className="text-left py-2 px-2 font-semibold text-cyan-900">Name</th>
+                                <th className="text-left py-2 px-2 font-semibold text-cyan-900">Type</th>
+                                <th className="text-left py-2 px-2 font-semibold text-cyan-900">Namespace</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {mceResources.map((resource, idx) => (
+                                <tr
+                                  key={idx}
+                                  className="border-b border-cyan-100 last:border-0 hover:bg-cyan-100 transition-colors cursor-pointer"
+                                  onClick={() => {
+                                    fetchOcpResourceDetail(
+                                      resource.type,
+                                      resource.name,
+                                      resource.namespace || 'ns-rosa-hcp'
+                                    );
+                                  }}
+                                  title="Click to view YAML"
+                                >
+                                  <td className="py-2 px-2 font-medium text-cyan-900">{resource.name}</td>
+                                  <td className="py-2 px-2 text-cyan-700">{resource.type}</td>
+                                  <td className="py-2 px-2 text-cyan-700">
+                                    {resource.namespace || 'ns-rosa-hcp'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
