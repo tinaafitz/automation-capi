@@ -3612,15 +3612,8 @@ export function WhatCanIHelp() {
                   </h4>
                 </div>
 
-                {/* Action Buttons - Only show when key components exist */}
-                {activeResources.filter(
-                  (r) =>
-                    r.type === 'Namespace' ||
-                    r.type === 'AWSClusterControllerIdentity' ||
-                    r.type === 'Secret (ROSA Creds)' ||
-                    r.type === 'Secret (AWS Creds)'
-                ).length > 0 && (
-                  <div className="mb-4 flex items-center justify-start space-x-2">
+                {/* Action Buttons - Always show for verified cluster */}
+                <div className="mb-4 flex items-center justify-start space-x-2">
                     {/* Terminal Button */}
                     {verifiedMinikubeClusterInfo && (
                       <button
@@ -3985,7 +3978,6 @@ export function WhatCanIHelp() {
                       ) : null;
                     })()}
                   </div>
-                )}
 
                 {/* Key Components List - Show CAPI/CAPA component versions */}
                 <div className="space-y-2">
@@ -5174,9 +5166,98 @@ export function WhatCanIHelp() {
                       <span>Terminal</span>
                     </button>
                     <button
-                      onClick={() => {
-                        // Navigate to provision page or trigger provision workflow
-                        addNotification('🚀 Opening provision workflow...', 'info', 2000);
+                      onClick={async () => {
+                        let operationId;
+                        try {
+                          // Prompt user for cluster definition file name
+                          const clusterFile = window.prompt(
+                            'Enter the YAML cluster definition file name:\n\n' +
+                              'Example: rosa-hcp-test.yml\n' +
+                              'Example: clusters/my-cluster.yaml\n\n' +
+                              'File should be in your automation-capi directory',
+                            lastRosaYamlPath || 'rosa-hcp-test.yml'
+                          );
+
+                          if (!clusterFile) return;
+
+                          const trimmedFile = clusterFile.trim();
+
+                          if (
+                            !confirm(
+                              `Provision ROSA HCP Cluster using "${trimmedFile}"?\n\nThis will:\n- Apply ROSA HCP cluster definition from ${trimmedFile} to your MCE cluster`
+                            )
+                          ) {
+                            return;
+                          }
+
+                          // Save the YAML path for next time
+                          await fetch('http://localhost:8000/api/rosa/save-yaml-path', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ path: trimmedFile }),
+                          });
+                          setLastRosaYamlPath(trimmedFile);
+
+                          operationId = Date.now();
+                          const operationTitle = `Provision ROSA Cluster: ${trimmedFile}`;
+
+                          // Add to recent operations
+                          const newOperation = {
+                            title: operationTitle,
+                            status: '⏳ Applying cluster definition...',
+                            timestamp: operationId,
+                            playbook: `oc apply -f ${trimmedFile}`,
+                          };
+                          setRecentOperations((prev) => [newOperation, ...prev].slice(0, 10));
+
+                          addNotification('🚀 Provisioning ROSA HCP cluster...', 'info', 3000);
+
+                          // Execute oc apply command
+                          const response = await fetch('http://localhost:8000/api/ocp/execute-command', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              command: `oc apply -f ${trimmedFile}`,
+                            }),
+                          });
+
+                          const data = await response.json();
+
+                          if (data.success) {
+                            setRecentOperations((prev) => {
+                              const updated = [...prev];
+                              if (updated[0]?.title === operationTitle) {
+                                updated[0] = {
+                                  ...updated[0],
+                                  status: `✅ Cluster definition applied successfully at ${new Date().toLocaleTimeString()}`,
+                                  output: data.output,
+                                };
+                              }
+                              return updated;
+                            });
+
+                            addNotification('✅ ROSA HCP cluster provisioning initiated', 'success', 3000);
+                          } else {
+                            throw new Error(data.error || 'Failed to apply cluster definition');
+                          }
+                        } catch (error) {
+                          console.error('Error provisioning ROSA cluster:', error);
+
+                          if (operationId) {
+                            setRecentOperations((prev) => {
+                              const updated = [...prev];
+                              if (updated[0]?.timestamp === operationId) {
+                                updated[0] = {
+                                  ...updated[0],
+                                  status: `❌ Provisioning failed: ${error.message}`,
+                                };
+                              }
+                              return updated;
+                            });
+                          }
+
+                          addNotification(`❌ Failed to provision cluster: ${error.message}`, 'error', 3000);
+                        }
                       }}
                       className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
                       title="Provision ROSA cluster"
@@ -5683,7 +5764,18 @@ export function WhatCanIHelp() {
                       {recentOperations.map((op, idx) => (
                         <div
                           key={idx}
-                          className="flex items-center justify-between p-4 bg-gradient-to-r from-cyan-50 to-teal-50 rounded-lg border border-cyan-200 hover:shadow-md transition-all duration-200"
+                          onClick={() => {
+                            // Ensure the output section is expanded
+                            setRecentOperationsOutputCollapsed(false);
+                            // Scroll to the output section
+                            setTimeout(() => {
+                              const outputSection = document.querySelector('.bg-gradient-to-br.from-gray-900');
+                              if (outputSection) {
+                                outputSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                              }
+                            }, 100);
+                          }}
+                          className="flex items-center justify-between p-4 bg-gradient-to-r from-cyan-50 to-teal-50 rounded-lg border border-cyan-200 hover:shadow-md hover:cursor-pointer transition-all duration-200"
                         >
                           <div className="flex items-center space-x-3 flex-1 min-w-0">
                             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
