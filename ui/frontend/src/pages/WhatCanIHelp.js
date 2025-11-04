@@ -4711,7 +4711,7 @@ export function WhatCanIHelp() {
                         d="M13 10V3L4 14h7v7l9-11h-7z"
                       />
                     </svg>
-                    MCE Test Environment
+                    MCE Test Configuration
                   </h4>
 
                   {/* Action Buttons */}
@@ -4914,11 +4914,11 @@ export function WhatCanIHelp() {
                       <div className="flex items-center gap-1.5">
                         <span
                           className={`w-2 h-2 rounded-full ${
-                            ocpStatus?.connected ? 'bg-green-500' : 'bg-gray-400'
+                            ocpStatus?.connected ? 'bg-green-500' : 'bg-yellow-500'
                           }`}
                         ></span>
                         <span className="text-sm font-medium text-cyan-900 capitalize">
-                          {ocpStatus?.connected ? 'Connected' : 'Disconnected'}
+                          {ocpStatus?.connected ? 'Authenticated' : 'Not Authenticated'}
                         </span>
                       </div>
                     </div>
