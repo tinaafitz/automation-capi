@@ -4734,6 +4734,13 @@ export function WhatCanIHelp() {
                             'check-mce-components': { loading: true, result: null, timestamp: new Date() },
                           }));
 
+                          console.log('Fetching OCP connection status...');
+                          // First fetch OCP connection status
+                          const ocpResponse = await fetch(`http://localhost:8000/api/ocp/connection-status?t=${timestamp}`);
+                          const ocpData = await ocpResponse.json();
+                          console.log('OCP status response:', ocpData);
+                          setOcpStatus(ocpData);
+
                           console.log('Fetching MCE features...');
                           // Fetch MCE features and update state
                           const response = await fetch('http://localhost:8000/api/mce/features');
