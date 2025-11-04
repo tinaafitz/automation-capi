@@ -20,8 +20,12 @@ export function MinikubeTerminalModal({ isOpen, onClose, clusterName }) {
   const [showHistory, setShowHistory] = useState(false);
   const [historySearch, setHistorySearch] = useState('');
   const [copiedCommand, setCopiedCommand] = useState(null);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const inputRef = useRef(null);
   const outputRef = useRef(null);
+  const modalRef = useRef(null);
 
   // Load command history from localStorage
   useEffect(() => {
@@ -57,6 +61,49 @@ export function MinikubeTerminalModal({ isOpen, onClose, clusterName }) {
       inputRef.current.focus();
     }
   }, [isOpen]);
+
+  // Reset position when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setPosition({ x: 0, y: 0 });
+    }
+  }, [isOpen]);
+
+  // Handle drag functionality
+  const handleMouseDown = (e) => {
+    // Only allow dragging from the header area
+    if (e.target.closest('.drag-handle')) {
+      setIsDragging(true);
+      setDragStart({
+        x: e.clientX - position.x,
+        y: e.clientY - position.y,
+      });
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    if (isDragging) {
+      const newX = e.clientX - dragStart.x;
+      const newY = e.clientY - dragStart.y;
+      setPosition({ x: newX, y: newY });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Add global mouse event listeners for dragging
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, dragStart, position]);
 
   const executeCommand = async () => {
     if (!command.trim() || executing) return;
@@ -225,9 +272,17 @@ export function MinikubeTerminalModal({ isOpen, onClose, clusterName }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div
+        ref={modalRef}
+        className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+        style={{
+          transform: `translate(${position.x}px, ${position.y}px)`,
+          cursor: isDragging ? 'grabbing' : 'default',
+        }}
+        onMouseDown={handleMouseDown}
+      >
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-6 flex items-center justify-between">
+        <div className="drag-handle bg-gradient-to-r from-purple-600 to-pink-600 text-white p-6 flex items-center justify-between cursor-grab active:cursor-grabbing">
           <div className="flex items-center">
             <CommandLineIcon className="h-8 w-8 mr-3" />
             <div>
