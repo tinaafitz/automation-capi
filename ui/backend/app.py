@@ -2151,11 +2151,25 @@ async def get_ocp_connection_status():
             return response_data
 
     except subprocess.TimeoutExpired:
+        # Get API URL from config even if timeout occurred
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            config_path = os.path.join(project_root, "vars", "user_vars.yml")
+            if os.path.exists(config_path):
+                with open(config_path, "r") as file:
+                    config = yaml.safe_load(file) or {}
+                ocp_api_url = config.get("OCP_HUB_API_URL", "").strip()
+            else:
+                ocp_api_url = None
+        except:
+            ocp_api_url = None
+
         return {
             "connected": False,
             "status": "timeout",
             "message": "Connection test timed out after 30 seconds",
             "suggestion": "Check network connectivity and API URL",
+            "api_url": ocp_api_url,
             "last_checked": datetime.now().isoformat(),
         }
     except FileNotFoundError:

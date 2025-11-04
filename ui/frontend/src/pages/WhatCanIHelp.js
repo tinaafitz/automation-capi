@@ -863,9 +863,29 @@ export function WhatCanIHelp() {
     const savedFavorites = JSON.parse(localStorage.getItem('favorites') || '[]');
     const savedRecent = JSON.parse(localStorage.getItem('recentOperations') || '[]');
 
+    // Clear old operations that don't have playbook field (one-time migration)
+    const migratedRecent = savedRecent.filter(op => op.playbook);
+
     setDarkMode(savedDarkMode);
     setFavorites(new Set(savedFavorites));
-    setRecentOperations(savedRecent);
+    setRecentOperations(migratedRecent);
+  }, []);
+
+  // Fetch OCP status on component mount to display API Server URL
+  useEffect(() => {
+    const fetchOcpStatus = async () => {
+      try {
+        console.log('🔍 Fetching OCP status on mount...');
+        const response = await fetch('http://localhost:8000/api/ocp/connection-status');
+        const data = await response.json();
+        console.log('✅ OCP status received:', data);
+        setOcpStatus(data);
+      } catch (error) {
+        console.error('❌ Error fetching OCP status on mount:', error);
+      }
+    };
+
+    fetchOcpStatus();
   }, []);
 
   // Save preferences to localStorage
@@ -4726,6 +4746,7 @@ export function WhatCanIHelp() {
                           title: 'MCE Environment Verification',
                           status: '⏳ Verifying...',
                           timestamp: timestamp,
+                          playbook: 'Ansible Task: tasks/validate-capa-environment.yml',
                         };
                         setRecentOperations((prev) => [newOperation, ...prev].slice(0, 10));
 
@@ -4736,44 +4757,62 @@ export function WhatCanIHelp() {
                             'check-mce-components': { loading: true, result: null, timestamp: new Date() },
                           }));
 
-                          console.log('Fetching OCP connection status...');
-                          // First fetch OCP connection status
-                          const ocpResponse = await fetch(`http://localhost:8000/api/ocp/connection-status?t=${timestamp}`);
-                          const ocpData = await ocpResponse.json();
-                          console.log('OCP status response:', ocpData);
-                          setOcpStatus(ocpData);
-
-                          console.log('Fetching MCE features...');
-                          // Fetch MCE features and update state
-                          const response = await fetch('http://localhost:8000/api/mce/features');
-                          const data = await response.json();
-                          setMceFeatures(data.features || []);
-                          setMceInfo(data.mce_info || null);
-                          setMceLastVerified(new Date().toISOString());
-
-                          // Update results
-                          setAnsibleResults((prev) => ({
-                            ...prev,
-                            'check-mce-components': {
-                              loading: false,
-                              result: { success: true, output: JSON.stringify(data) },
-                              timestamp: new Date()
+                          console.log('Running validation task...');
+                          // Call the Ansible task to validate CAPA environment
+                          const response = await fetch('http://localhost:8000/api/ansible/run-task', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
                             },
-                          }));
-
-                          // Update recent operation status
-                          setRecentOperations((prev) => {
-                            const updated = [...prev];
-                            if (updated[0]?.title === 'MCE Environment Verification') {
-                              updated[0] = {
-                                ...updated[0],
-                                status: `✅ Verification completed successfully at ${new Date().toLocaleTimeString()}`,
-                              };
-                            }
-                            return updated;
+                            body: JSON.stringify({
+                              task_file: 'tasks/validate-capa-environment.yml',
+                              description: 'Validate MCE environment',
+                            }),
                           });
 
-                          addNotification(`✅ MCE environment verified successfully`, 'success', 3000);
+                          const data = await response.json();
+                          console.log('Validation task response:', data);
+
+                          if (data.success) {
+                            // Also refresh the UI state by fetching MCE features
+                            const mceResponse = await fetch('http://localhost:8000/api/mce/features');
+                            const mceData = await mceResponse.json();
+                            setMceFeatures(mceData.features || []);
+                            setMceInfo(mceData.mce_info || null);
+                            setMceLastVerified(new Date().toISOString());
+
+                            // Fetch OCP connection status for UI display
+                            const ocpResponse = await fetch(`http://localhost:8000/api/ocp/connection-status?t=${timestamp}`);
+                            const ocpData = await ocpResponse.json();
+                            setOcpStatus(ocpData);
+
+                            // Update results
+                            setAnsibleResults((prev) => ({
+                              ...prev,
+                              'check-mce-components': {
+                                loading: false,
+                                result: { success: true, output: data.output },
+                                timestamp: new Date()
+                              },
+                            }));
+
+                            // Update recent operation status with playbook output
+                            setRecentOperations((prev) => {
+                              const updated = [...prev];
+                              if (updated[0]?.title === 'MCE Environment Verification') {
+                                updated[0] = {
+                                  ...updated[0],
+                                  status: `✅ Verification completed successfully at ${new Date().toLocaleTimeString()}`,
+                                  output: data.output,
+                                };
+                              }
+                              return updated;
+                            });
+
+                            addNotification(`✅ MCE environment verified successfully`, 'success', 3000);
+                          } else {
+                            throw new Error(data.error || 'Validation task failed');
+                          }
                         } catch (error) {
                           console.error('Error verifying MCE:', error);
                           setAnsibleResults((prev) => ({
@@ -4816,6 +4855,7 @@ export function WhatCanIHelp() {
                           title: 'Configure CAPI/CAPA Environment',
                           status: '⏳ Configuring...',
                           timestamp: timestamp,
+                          playbook: 'Ansible Role: configure-capa-environment',
                         };
                         setRecentOperations((prev) => [newOperation, ...prev].slice(0, 10));
 
@@ -4907,7 +4947,7 @@ export function WhatCanIHelp() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="grid grid-cols-3 gap-3 mb-3">
                     {/* CAPI/CAPA */}
                     <div className="bg-white rounded-md p-2 border border-cyan-100">
                       <div className="text-xs text-cyan-600 mb-1">CAPI/CAPA:</div>
@@ -4930,6 +4970,31 @@ export function WhatCanIHelp() {
                           </>
                         ) : (
                           <span className="text-sm font-medium text-gray-500">Unknown</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Hypershift */}
+                    <div className="bg-white rounded-md p-2 border border-cyan-100">
+                      <div className="text-xs text-cyan-600 mb-1">Hypershift:</div>
+                      <div className="flex items-center gap-1">
+                        {mceFeatures?.find(f => f.name === 'hypershift')?.enabled ? (
+                          <>
+                            <svg
+                              className="h-3.5 w-3.5 text-green-600"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                            <span className="text-sm font-medium text-green-700">Enabled</span>
+                          </>
+                        ) : (
+                          <span className="text-sm font-medium text-red-600">Disabled</span>
                         )}
                       </div>
                     </div>
@@ -5222,12 +5287,28 @@ export function WhatCanIHelp() {
                         </p>
                       </div>
                     </div>
-                    <div className="p-0.5">
-                      {mceRecentOpsCollapsed ? (
-                        <ChevronDownIcon className="h-5 w-5 text-white" />
-                      ) : (
-                        <ChevronUpIcon className="h-5 w-5 text-white" />
+                    <div className="flex items-center space-x-2">
+                      {recentOperations.length > 0 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRecentOperations([]);
+                            localStorage.removeItem('recentOperations');
+                            addNotification('🗑️ Recent operations cleared', 'success', 2000);
+                          }}
+                          className="bg-red-500/30 hover:bg-red-500/50 text-white px-3 py-1.5 rounded-lg transition-colors duration-200 flex items-center space-x-1 text-sm font-medium"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                          <span>Clear</span>
+                        </button>
                       )}
+                      <div className="p-0.5">
+                        {mceRecentOpsCollapsed ? (
+                          <ChevronDownIcon className="h-5 w-5 text-white" />
+                        ) : (
+                          <ChevronUpIcon className="h-5 w-5 text-white" />
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -5276,7 +5357,15 @@ export function WhatCanIHelp() {
                               <div className="text-sm text-cyan-700 mt-1">{op.status}</div>
                             </div>
                           </div>
-                          <div className="text-xs text-cyan-600 ml-4 flex-shrink-0">{op.timestamp}</div>
+                          <div className="text-xs text-cyan-600 ml-4 flex-shrink-0">
+                            {typeof op.timestamp === 'number'
+                              ? new Date(op.timestamp).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                })
+                              : op.timestamp}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -5286,29 +5375,45 @@ export function WhatCanIHelp() {
               </div>
 
               {/* Recent Operations Output */}
-              {recentOperations.length > 0 && (
-                <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-xl shadow-2xl border-2 border-cyan-300 overflow-hidden">
-                  <div
-                    className="bg-gradient-to-r from-cyan-600 to-teal-600 px-6 py-3 flex items-center justify-between cursor-pointer hover:from-cyan-700 hover:to-teal-700 transition-all"
-                    onClick={() => setRecentOperationsOutputCollapsed(!recentOperationsOutputCollapsed)}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="bg-white/20 rounded-lg px-3 py-1">
-                        <span className="text-white font-mono text-sm font-semibold">
-                          Recent Operations Output
-                        </span>
-                      </div>
-                      <div className="bg-teal-700 text-teal-100 text-xs px-2 py-1 rounded font-mono">
-                        MCE CAPI/CAPA
-                      </div>
+              <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-xl shadow-2xl border-2 border-cyan-300 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-cyan-600 to-teal-600 px-6 py-3 flex items-center justify-between cursor-pointer hover:from-cyan-700 hover:to-teal-700 transition-all"
+                  onClick={() => setRecentOperationsOutputCollapsed(!recentOperationsOutputCollapsed)}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-white/20 rounded-lg px-3 py-1">
+                      <span className="text-white font-mono text-sm font-semibold">
+                        Recent Operations Output
+                      </span>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="bg-teal-700 text-teal-100 text-xs px-2 py-1 rounded font-mono">
+                      MCE CAPI/CAPA
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {recentOperations.length > 0 && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           const outputText = recentOperations
-                            .map(op => `${op.title}\n${op.status}\n${op.timestamp}\n`)
-                            .join('\n');
+                            .map(op => {
+                              const lines = [op.title];
+                              if (op.playbook) lines.push(`📋 ${op.playbook}`);
+                              lines.push(op.status);
+                              lines.push(typeof op.timestamp === 'number'
+                                ? new Date(op.timestamp).toLocaleString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    hour12: true,
+                                  })
+                                : op.timestamp);
+                              return lines.join('\n');
+                            })
+                            .join('\n\n');
                           navigator.clipboard.writeText(outputText);
                           addNotification('📋 Output copied to clipboard', 'success', 2000);
                         }}
@@ -5317,35 +5422,61 @@ export function WhatCanIHelp() {
                         <DocumentDuplicateIcon className="h-4 w-4" />
                         <span>Copy</span>
                       </button>
-                      <div className="p-0.5">
-                        {recentOperationsOutputCollapsed ? (
-                          <ChevronDownIcon className="h-5 w-5 text-white" />
-                        ) : (
-                          <ChevronUpIcon className="h-5 w-5 text-white" />
-                        )}
-                      </div>
+                    )}
+                    <div className="p-0.5">
+                      {recentOperationsOutputCollapsed ? (
+                        <ChevronDownIcon className="h-5 w-5 text-white" />
+                      ) : (
+                        <ChevronUpIcon className="h-5 w-5 text-white" />
+                      )}
                     </div>
                   </div>
+                </div>
 
-                  {!recentOperationsOutputCollapsed && (
-                    <div className="p-6 font-mono text-sm text-green-400 max-h-96 overflow-y-auto">
-                    {recentOperations.map((op, idx) => (
+                {!recentOperationsOutputCollapsed && (
+                  <div className="p-6 font-mono text-sm text-green-400 max-h-96 overflow-y-auto">
+                  {recentOperations.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      No operations output yet. Run Verify or Configure to see output here.
+                    </div>
+                  ) : (
+                    recentOperations.map((op, idx) => (
                       <div key={idx} className="mb-4 pb-4 border-b border-gray-700 last:border-0">
                         <div className="text-cyan-400 font-semibold mb-1">
                           {op.title}
                         </div>
+                        {op.playbook && (
+                          <div className="text-yellow-400 ml-4 text-xs mb-1">
+                            📋 {op.playbook}
+                          </div>
+                        )}
                         <div className="text-green-300 ml-4">
                           {op.status}
                         </div>
+                        {op.output && (
+                          <div className="text-gray-400 ml-4 mt-2 text-xs whitespace-pre-wrap">
+                            {op.output}
+                          </div>
+                        )}
                         <div className="text-gray-500 text-xs ml-4 mt-1">
-                          {op.timestamp}
+                          {typeof op.timestamp === 'number'
+                            ? new Date(op.timestamp).toLocaleString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: true,
+                              })
+                            : op.timestamp}
                         </div>
                       </div>
-                    ))}
-                    </div>
+                    ))
                   )}
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
