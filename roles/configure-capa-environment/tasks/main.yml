@@ -1,6 +1,75 @@
+# ======================================================
+# Configure CAPI/CAPA Environment - Main Task
+# ======================================================
+# This role configures the CAPI/CAPA environment with the following sequential steps:
+# 1. Enable CAPI/CAPA (which automatically disables Hypershift if needed)
+# 2. Wait for CAPI/CAPA controllers to be ready
+# 3. Create necessary configuration objects
+# ======================================================
+
 - name: Set automation path
   set_fact:
     automation_path: "{{ AUTOMATION_PATH | default(playbook_dir) }}"
+
+# ======================================================
+# STEP 1: Enable CAPI/CAPA (Disables Hypershift First)
+# ======================================================
+- name: Enable CAPI/CAPA components
+  debug:
+    msg: |
+
+      ⏳ STEP 1: Enabling CAPI/CAPA Components
+
+      This will:
+      - Disable Hypershift and hypershift-local-hosting (if enabled)
+      - Enable cluster-api component
+      - Enable cluster-api-provider-aws component
+
+- name: Execute CAPI/CAPA enablement
+  include_tasks: "{{ automation_path }}/tasks/enable_capi_capa.yml"
+
+- name: CAPI/CAPA enablement complete
+  debug:
+    msg: "✅ STEP 1 COMPLETE: CAPI/CAPA components enabled"
+
+# ======================================================
+# STEP 2: Wait for CAPI/CAPA Controllers to be Ready
+# ======================================================
+- name: Wait for controllers to be ready
+  debug:
+    msg: |
+
+      ⏳ STEP 2: Waiting for CAPI/CAPA Controllers to be Ready
+
+      This will wait for:
+      - capi-controller-manager deployment to be available
+      - capa-controller-manager deployment to be available
+
+      This may take several minutes...
+
+- name: Execute controller readiness wait
+  include_tasks: "{{ automation_path }}/tasks/wait-for-capi-capa-ready.yml"
+
+- name: Controllers ready
+  debug:
+    msg: "✅ STEP 2 COMPLETE: CAPI/CAPA controllers are ready"
+
+# ======================================================
+# STEP 3: Create Configuration Objects
+# ======================================================
+- name: Create configuration objects
+  debug:
+    msg: |
+
+      ⏳ STEP 3: Creating Configuration Objects
+
+      This will create:
+      - {{ capi_namespace }} namespace
+      - ClusterManager registration configuration
+      - ClusterRoleBinding for registration-capi
+      - AWS credentials secret (capa-manager-bootstrap-credentials)
+      - ROSA credentials secret (rosa-creds-secret)
+      - AWSClusterControllerIdentity
 
 - name: Create output folder
   include_tasks: "{{ automation_path }}/tasks/create_output_folder.yml"
@@ -26,3 +95,31 @@
 
 - name: Set the AWSClusterControllerIdentity
   include_tasks: "{{ automation_path }}/tasks/set_aws_identity.yml"
+
+- name: Configuration objects created
+  debug:
+    msg: "✅ STEP 3 COMPLETE: All configuration objects created"
+
+# ======================================================
+# FINAL: Configuration Complete
+# ======================================================
+- name: Configuration complete summary
+  debug:
+    msg: |
+
+      ✅ ✅ ✅ CAPI/CAPA CONFIGURATION COMPLETE! ✅ ✅ ✅
+
+      All steps completed successfully:
+
+      ✓ STEP 1: CAPI/CAPA components enabled (Hypershift disabled)
+      ✓ STEP 2: Controllers are ready and available
+      ✓ STEP 3: Configuration objects created
+
+      Your environment is now ready to provision ROSA HCP clusters!
+
+      Next steps:
+      - Create ROSA HCP clusters using the UI
+      - Upload YAML templates to provision clusters
+      - Monitor cluster status and resources
+
+      Happy cluster provisioning! 🚀
