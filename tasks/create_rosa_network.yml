@@ -1,10 +1,27 @@
 ---
 # Create ROSANetwork for automated VPC and subnet provisioning
+
+- name: Set ROSANetwork template variables
+  set_fact:
+    template_name: "rosa-network-config"
+    template_category: "features"
+    template_extension: ".yaml.j2"
+    template_debug: true
+
+- name: Resolve ROSANetwork template
+  include_tasks: tasks/template_resolver.yml
+
+- name: Create output directory for ROSANetwork
+  file:
+    path: "{{ output_dir }}"
+    state: directory
+    mode: '0755'
+
 - name: "Create ROSANetwork for cluster {{ cluster_name }}"
   block:
     - name: Generate ROSANetwork from template
       template:
-        src: "{{ template_version_path }}/features/rosa-network-config.yaml.j2"
+        src: "{{ resolved_template_path }}"
         dest: "{{ output_dir }}/{{ cluster_name }}-rosa-network.yaml"
         mode: '0644'
       vars:
@@ -27,11 +44,6 @@
       kubernetes.core.k8s:
         state: present
         src: "{{ output_dir }}/{{ cluster_name }}-rosa-network.yaml"
-        wait: true
-        wait_condition:
-          type: Ready
-          status: "True"
-        wait_timeout: "{{ rosa_network_creation_timeout | default(900) }}"
       register: rosa_network_result
 
     - name: Display ROSANetwork creation result
@@ -47,26 +59,24 @@
         namespace: "{{ capi_namespace }}"
         wait: true
         wait_condition:
-          type: Ready
+          type: ROSANetworkReady
           status: "True"
         wait_timeout: "{{ rosa_network_ready_timeout | default(1200) }}"
       register: network_ready_status
 
     - name: Extract network information from status
       set_fact:
-        vpc_id: "{{ network_ready_status.resources[0].status.vpcId | default('') }}"
-        public_subnets: "{{ network_ready_status.resources[0].status.publicSubnets | default([]) }}"
-        private_subnets: "{{ network_ready_status.resources[0].status.privateSubnets | default([]) }}"
-        cloudformation_stack: "{{ network_ready_status.resources[0].status.stackName | default('') }}"
-        network_ready: "{{ network_ready_status.resources[0].status.ready | default(false) }}"
+        vpc_id: "{{ (network_ready_status.resources[0].status.resources | selectattr('logicalId', 'equalto', 'VPC') | map(attribute='physicalId') | list | first) | default('') }}"
+        subnet_info: "{{ network_ready_status.resources[0].status.subnets | default([]) }}"
+        network_resources: "{{ network_ready_status.resources[0].status.resources | default([]) }}"
+        network_ready_condition: "{{ network_ready_status.resources[0].status.conditions | selectattr('type', 'equalto', 'ROSANetworkReady') | selectattr('status', 'equalto', 'True') | list | length > 0 }}"
 
     - name: Validate network creation success
       assert:
         that:
           - vpc_id != ""
-          - public_subnets | length > 0
-          - private_subnets | length > 0
-          - network_ready == true
+          - subnet_info | length > 0
+          - network_ready_condition == true
         fail_msg: "ROSANetwork creation failed or incomplete"
         success_msg: "ROSANetwork created successfully with VPC and subnets"
 
@@ -75,10 +85,10 @@
         msg:
           - "✓ ROSANetwork creation completed successfully"
           - "VPC ID: {{ vpc_id }}"
-          - "Public Subnets: {{ public_subnets | length }} created"
-          - "Private Subnets: {{ private_subnets | length }} created"
-          - "CloudFormation Stack: {{ cloudformation_stack }}"
-          - "Network Ready: {{ network_ready }}"
+          - "Availability Zones: {{ subnet_info | length }}"
+          - "Subnets per AZ: 1 public + 1 private"
+          - "Total CloudFormation Resources: {{ network_resources | length }}"
+          - "Network Ready: {{ network_ready_condition }}"
 
   rescue:
     - name: Handle ROSANetwork creation failure

@@ -16,21 +16,17 @@ spec:
     kind: AWSClusterControllerIdentity
     name: {{ rosa_network_config.identity_name | default('default') }}
 
-  # Credentials secret reference
-  credentialsSecretRef:
-    name: {{ rosa_creds_secret }}
-
   # Network configuration
+  region: {{ aws_region | default('us-west-2') }}
+  stackName: {{ cluster_name }}-rosa-network-stack
   availabilityZones:
-    {% for az in rosa_network_config.availability_zones %}
+{% for az in rosa_network_config.availability_zones %}
     - {{ az }}
-    {% endfor %}
-
+{% endfor %}
   cidrBlock: {{ rosa_network_config.cidr_block | default('10.0.0.0/16') }}
-
-  {% if rosa_network_config.tags is defined %}
+{% if rosa_network_config.tags is defined %}
   tags:
-    {% for key, value in rosa_network_config.tags.items() %}
+{% for key, value in rosa_network_config.tags.items() %}
     {{ key }}: {{ value }}
-    {% endfor %}
-  {% endif %}
+{% endfor %}
+{% endif %}
