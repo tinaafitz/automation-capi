@@ -20,7 +20,7 @@
 
 - name: Wait for ROSARoleConfig to exist
   kubernetes.core.k8s_info:
-    api_version: infrastructure.cluster.x-k8s.io/v1beta1
+    api_version: infrastructure.cluster.x-k8s.io/v1beta2
     kind: ROSARoleConfig
     name: "{{ rosa_role_config_name }}"
     namespace: "{{ capi_namespace }}"
@@ -33,7 +33,7 @@
   block:
     - name: Wait for ROSARoleConfig to be ready
       kubernetes.core.k8s_info:
-        api_version: infrastructure.cluster.x-k8s.io/v1beta1
+        api_version: infrastructure.cluster.x-k8s.io/v1beta2
         kind: ROSARoleConfig
         name: "{{ rosa_role_config_name }}"
         namespace: "{{ capi_namespace }}"
@@ -41,8 +41,8 @@
       until:
         - rosa_role_config_status.resources | length > 0
         - rosa_role_config_status.resources[0].status is defined
-        - rosa_role_config_status.resources[0].status.phase is defined
-        - rosa_role_config_status.resources[0].status.phase == 'Ready'
+        - rosa_role_config_status.resources[0].status.conditions is defined
+        - rosa_role_config_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True') | list | length > 0
       retries: "{{ (max_wait_time | int / poll_interval | int) | int }}"
       delay: "{{ poll_interval | int }}"
 
@@ -62,7 +62,7 @@
 
     - name: Get current ROSARoleConfig status for debugging
       kubernetes.core.k8s_info:
-        api_version: infrastructure.cluster.x-k8s.io/v1beta1
+        api_version: infrastructure.cluster.x-k8s.io/v1beta2
         kind: ROSARoleConfig
         name: "{{ rosa_role_config_name }}"
         namespace: "{{ capi_namespace }}"
@@ -74,7 +74,6 @@
         msg: |
           Current ROSARoleConfig Status:
           {% if failed_rosa_role_config_status.resources | length > 0 %}
-          - Phase: {{ failed_rosa_role_config_status.resources[0].status.phase | default('Unknown') }}
           - Conditions:
           {% for condition in failed_rosa_role_config_status.resources[0].status.conditions | default([]) %}
             * Type: {{ condition.type }}
@@ -199,7 +198,6 @@
       Timing Information:
       - Wait Duration: {{ wait_duration }} seconds
       - Status: Ready
-      - Phase: {{ rosa_role_config_resource.status.phase }}
   when: rosa_roles_ready | default(false)
 
 - name: Set final facts
