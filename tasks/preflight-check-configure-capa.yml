@@ -1,0 +1,148 @@
+# ======================================================
+# Pre-flight Check for CAPI/CAPA Configuration
+# ======================================================
+# This task performs pre-flight checks before configuring CAPI/CAPA:
+# 1. Check OCP login succeeded
+# 2. Check current CAPI/CAPA and Hypershift status
+# 3. Return status information for UI to display confirmation dialog
+# ======================================================
+
+# ======================================================
+# STEP 0: Get current OCP context
+# ======================================================
+- name: Get current OCP context
+  shell: oc config current-context
+  register: current_context
+  failed_when: false
+  changed_when: false
+
+- name: Set ocp_context fact
+  set_fact:
+    ocp_context: "{{ current_context.stdout | trim }}"
+  when: current_context.rc == 0 and current_context.stdout | length > 0
+
+# ======================================================
+# STEP 1: Verify OCP Login
+# ======================================================
+- name: Verify OCP context is set (from login)
+  fail:
+    msg: |
+      ❌ OCP LOGIN FAILED ❌
+
+      OpenShift Hub login has not been completed successfully.
+
+      The OCP context is not set, which means login did not succeed.
+
+      ⚠️  REQUIRED ACTION:
+
+      1. Check your credentials in vars/user_vars.yml:
+         - OCP_HUB_API_URL
+         - OCP_HUB_CLUSTER_USER
+         - OCP_HUB_CLUSTER_PASSWORD
+
+      2. Verify the cluster is accessible:
+         oc login {{ api_url | default('your-cluster-api-url') }}
+
+      3. Check network connectivity to the OpenShift Hub cluster
+
+      4. Retry the configuration after fixing login issues
+  when: ocp_context is not defined or ocp_context == ''
+
+- name: OCP Login Check
+  debug:
+    msg: "✅ Pre-flight Step 1/3: OCP login successful - Context: {{ ocp_context }}"
+
+# ======================================================
+# STEP 2: Check CAPI/CAPA Status
+# ======================================================
+- name: Check for capi-controller-manager deployment
+  shell: |
+    oc --context='{{ ocp_context }}' get deploy -n {{ mce_namespace }} -ojson |\
+    jq -c '.items[] | select(.metadata.name | contains("capi-controller-manager")) | {name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
+  register: capi_controller_manager
+  failed_when: false
+  changed_when: false
+
+- name: Check for capa-controller-manager deployment
+  shell: |
+    oc --context='{{ ocp_context }}' get deploy -n {{ mce_namespace }} -ojson |\
+    jq -c '.items[] | select(.metadata.name | contains("capa-controller-manager")) | {name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
+  register: capa_controller_manager
+  failed_when: false
+  changed_when: false
+
+- name: Set CAPI/CAPA status fact
+  set_fact:
+    capi_enabled: "{{ (capi_controller_manager.stdout | length > 0) and (capa_controller_manager.stdout | length > 0) }}"
+
+- name: CAPI/CAPA Status Check
+  debug:
+    msg: "✅ Pre-flight Step 2/3: CAPI/CAPA status - {{ 'Enabled' if capi_enabled else 'Disabled' }}"
+
+# ======================================================
+# STEP 3: Check Hypershift Status
+# ======================================================
+- name: Check for Hypershift operator deployment
+  shell: |
+    oc --context='{{ ocp_context }}' get deploy -n hypershift -ojson 2>/dev/null |\
+    jq -c '.items[] | select(.metadata.name == "operator") | {name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
+  register: hypershift_operator
+  failed_when: false
+  changed_when: false
+
+- name: Set Hypershift status fact
+  set_fact:
+    hypershift_enabled: "{{ hypershift_operator.stdout | length > 0 }}"
+
+- name: Hypershift Status Check
+  debug:
+    msg: "✅ Pre-flight Step 3/3: Hypershift status - {{ 'Enabled' if hypershift_enabled else 'Disabled' }}"
+
+# ======================================================
+# STEP 4: Determine Configuration Action Required
+# ======================================================
+- name: Determine configuration action
+  set_fact:
+    requires_hypershift_disable: "{{ not capi_enabled and hypershift_enabled }}"
+    requires_capi_enable: "{{ not capi_enabled }}"
+    already_configured: "{{ capi_enabled }}"
+
+- name: Pre-flight check summary
+  debug:
+    msg: |
+
+      ✅ PRE-FLIGHT CHECK COMPLETE
+
+      Current Status:
+      - OCP Login: Connected ({{ ocp_context }})
+      - CAPI/CAPA: {{ 'Enabled ✓' if capi_enabled else 'Disabled ✗' }}
+      - Hypershift: {{ 'Enabled ✓' if hypershift_enabled else 'Disabled ✗' }}
+
+      {% if already_configured %}
+      ℹ️  CAPI/CAPA is already configured and enabled!
+
+      No configuration changes are needed.
+      {% elif requires_hypershift_disable %}
+      ⚠️  CONFIGURATION REQUIRED
+
+      To enable CAPI/CAPA, the following actions will be performed:
+
+      1. Disable Hypershift (required - CAPI/CAPA and Hypershift cannot coexist)
+      2. Enable CAPI/CAPA controllers
+      3. Wait for CAPI/CAPA controllers to be ready
+      4. Create necessary configuration objects (secrets, identities, role bindings)
+
+      ⚠️  WARNING: Disabling Hypershift will affect any existing Hypershift clusters!
+
+      User confirmation is required to proceed.
+      {% elif requires_capi_enable %}
+      ℹ️  CONFIGURATION REQUIRED
+
+      To enable CAPI/CAPA, the following actions will be performed:
+
+      1. Enable CAPI/CAPA controllers
+      2. Wait for CAPI/CAPA controllers to be ready
+      3. Create necessary configuration objects (secrets, identities, role bindings)
+
+      User confirmation is required to proceed.
+      {% endif %}
