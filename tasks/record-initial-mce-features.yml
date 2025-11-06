@@ -1,0 +1,83 @@
+# ======================================================
+# Record Initial MCE Features State
+# ======================================================
+# This task records the current state of MCE features
+# before any configuration changes are made.
+# This provides a historical record for operations tracking.
+# ======================================================
+
+- name: Get MCE features status
+  shell: |
+    oc --context='{{ ocp_context }}' get mce -o json | \
+    jq -r '.items[0].spec.overrides.components[] | "\(.name)=\(.enabled)"' | \
+    sort
+  register: mce_features_raw
+  failed_when: false
+  changed_when: false
+
+- name: Parse MCE features into structured format
+  set_fact:
+    mce_features_initial: >-
+      {{ mce_features_raw.stdout_lines |
+         map('regex_replace', '^(.+)=(true|false)$', '\1: \2') |
+         list }}
+
+- name: Count enabled and disabled features
+  set_fact:
+    enabled_features: >-
+      {{ mce_features_raw.stdout_lines |
+         select('search', '=true$') |
+         list | length }}
+    disabled_features: >-
+      {{ mce_features_raw.stdout_lines |
+         select('search', '=false$') |
+         list | length }}
+
+- name: Get current timestamp
+  shell: date -u +"%Y-%m-%dT%H:%M:%SZ"
+  register: current_timestamp
+  changed_when: false
+
+- name: Record initial MCE features state
+  debug:
+    msg: |
+
+      ╔═══════════════════════════════════════════════════════════════════════════════╗
+      ║                                                                               ║
+      ║                    📊 INITIAL MCE FEATURES STATE 📊                           ║
+      ║                         (Before Configuration)                                ║
+      ║                                                                               ║
+      ╚═══════════════════════════════════════════════════════════════════════════════╝
+
+      📈 SUMMARY:
+         Total Features: {{ mce_features_raw.stdout_lines | length }}
+         ✅ Enabled: {{ enabled_features }}
+         ❌ Disabled: {{ disabled_features }}
+
+      🔍 KEY CAPI/CAPA STATUS:
+         • cluster-api: {{ 'Enabled ✓' if 'cluster-api: true' in mce_features_initial else 'Disabled ✗' }}
+         • cluster-api-provider-aws: {{ 'Enabled ✓' if 'cluster-api-provider-aws: true' in mce_features_initial else 'Disabled ✗' }}
+         • hypershift: {{ 'Enabled ✓' if 'hypershift: true' in mce_features_initial else 'Disabled ✗' }}
+         • hypershift-local-hosting: {{ 'Enabled ✓' if 'hypershift-local-hosting: true' in mce_features_initial else 'Disabled ✗' }}
+
+      📋 ALL FEATURES:
+      {% for feature in mce_features_initial %}
+         {{ feature }}
+      {% endfor %}
+
+      ⏰ Snapshot taken at: {{ current_timestamp.stdout }}
+
+      ╚═══════════════════════════════════════════════════════════════════════════════╝
+
+- name: Store initial features state as fact for later reference
+  set_fact:
+    mce_initial_state:
+      timestamp: "{{ current_timestamp.stdout }}"
+      total_features: "{{ mce_features_raw.stdout_lines | length }}"
+      enabled_count: "{{ enabled_features }}"
+      disabled_count: "{{ disabled_features }}"
+      features: "{{ mce_features_initial }}"
+      capi_enabled: "{{ 'cluster-api: true' in mce_features_initial }}"
+      capa_enabled: "{{ 'cluster-api-provider-aws: true' in mce_features_initial }}"
+      hypershift_enabled: "{{ 'hypershift: true' in mce_features_initial }}"
+      hypershift_local_enabled: "{{ 'hypershift-local-hosting: true' in mce_features_initial }}"
