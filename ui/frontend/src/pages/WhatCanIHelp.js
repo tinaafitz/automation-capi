@@ -3786,61 +3786,108 @@ export function WhatCanIHelp() {
                             );
 
                             const result = await response.json();
-                            const completionTime = new Date().toLocaleTimeString('en-US', {
-                              hour: 'numeric',
-                              minute: '2-digit',
-                              second: '2-digit',
-                              hour12: true,
-                            });
 
-                            if (result.success) {
-                              setAnsibleResults((prev) => ({
-                                ...prev,
-                                [operationId]: {
-                                  loading: false,
-                                  success: true,
-                                  result: {
-                                    output: result.output,
-                                    timestamp: new Date(),
-                                    playbook: 'test-autonode.yml',
-                                    type: 'Configure AutoNode',
-                                  },
-                                  timestamp: new Date(),
-                                },
-                              }));
-
-                              updateRecentOperationStatus(
-                                operationId,
-                                `✅ AutoNode configured at ${completionTime}`
-                              );
-
-                              // Refresh active resources
-                              await fetchMinikubeActiveResources(
-                                verifiedMinikubeClusterInfo.name,
-                                verifiedMinikubeClusterInfo.namespace
-                              );
-                            } else {
-                              setAnsibleResults((prev) => ({
-                                ...prev,
-                                [operationId]: {
-                                  loading: false,
-                                  success: false,
-                                  result: {
-                                    error: result.error || 'Configuration failed',
-                                    output: result.output || '',
-                                    timestamp: new Date(),
-                                    playbook: 'test-autonode.yml',
-                                    type: 'Configure AutoNode',
-                                  },
-                                  timestamp: new Date(),
-                                },
-                              }));
-
-                              updateRecentOperationStatus(
-                                operationId,
-                                `❌ AutoNode configuration failed at ${completionTime}`
-                              );
+                            if (!result.job_id) {
+                              throw new Error('No job_id returned from server');
                             }
+
+                            const jobId = result.job_id;
+                            console.log('[Configure AutoNode] Job created, polling for status. Job ID:', jobId);
+
+                            // Poll for job status
+                            const pollInterval = setInterval(async () => {
+                              try {
+                                const jobResponse = await fetch(`http://localhost:8000/api/jobs/${jobId}`);
+                                const jobData = await jobResponse.json();
+                                console.log('[Configure AutoNode] Job status update:', jobData.status, jobData.message);
+
+                                const completionTime = new Date().toLocaleTimeString('en-US', {
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                  hour12: true,
+                                });
+
+                                // Update status while running
+                                if (jobData.status === 'running' || jobData.status === 'pending') {
+                                  updateRecentOperationStatus(
+                                    operationId,
+                                    `⏳ ${jobData.message || 'Configuring...'}`
+                                  );
+                                }
+
+                                // Handle completion
+                                if (jobData.status === 'completed') {
+                                  clearInterval(pollInterval);
+                                  setAnsibleResults((prev) => ({
+                                    ...prev,
+                                    [operationId]: {
+                                      loading: false,
+                                      success: true,
+                                      result: {
+                                        output: jobData.logs ? jobData.logs.join('\n') : '',
+                                        timestamp: new Date(),
+                                        playbook: 'test-autonode.yml',
+                                        type: 'Configure AutoNode',
+                                      },
+                                      timestamp: new Date(),
+                                    },
+                                  }));
+
+                                  updateRecentOperationStatus(
+                                    operationId,
+                                    `✅ AutoNode configured at ${completionTime}`
+                                  );
+
+                                  // Refresh active resources
+                                  await fetchMinikubeActiveResources(
+                                    verifiedMinikubeClusterInfo.name,
+                                    verifiedMinikubeClusterInfo.namespace
+                                  );
+                                } else if (jobData.status === 'failed') {
+                                  clearInterval(pollInterval);
+                                  setAnsibleResults((prev) => ({
+                                    ...prev,
+                                    [operationId]: {
+                                      loading: false,
+                                      success: false,
+                                      result: {
+                                        error: jobData.message || 'Configuration failed',
+                                        output: jobData.logs ? jobData.logs.join('\n') : '',
+                                        timestamp: new Date(),
+                                        playbook: 'test-autonode.yml',
+                                        type: 'Configure AutoNode',
+                                      },
+                                      timestamp: new Date(),
+                                    },
+                                  }));
+
+                                  updateRecentOperationStatus(
+                                    operationId,
+                                    `❌ AutoNode configuration failed at ${completionTime}`
+                                  );
+                                }
+                              } catch (pollError) {
+                                console.error('[Configure AutoNode] Error polling job status:', pollError);
+                                clearInterval(pollInterval);
+                                const completionTime = new Date().toLocaleTimeString('en-US', {
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                  hour12: true,
+                                });
+                                updateRecentOperationStatus(
+                                  operationId,
+                                  `❌ Lost connection to job at ${completionTime}`
+                                );
+                              }
+                            }, 3000); // Poll every 3 seconds
+
+                            // Set timeout to stop polling after 30 minutes
+                            setTimeout(() => {
+                              clearInterval(pollInterval);
+                              console.log('[Configure AutoNode] Polling timeout reached');
+                            }, 1800000);
                           } catch (error) {
                             console.error('[Configure AutoNode] Exception:', error);
                             const completionTime = new Date().toLocaleTimeString('en-US', {
@@ -7577,14 +7624,16 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
         onSubmit={async (config) => {
           console.log('🚀 [PROVISION] onSubmit handler called with config:', config);
           try {
-            // Add to recent operations
+            // Add to recent operations with unique ID
+            const operationId = `provision-rosa-hcp-${Date.now()}`;
             const timestamp = new Date().toLocaleTimeString();
-            console.log('📝 [PROVISION] Adding task to Recent Operations at', timestamp);
+            console.log('📝 [PROVISION] Adding task to Recent Operations at', timestamp, 'with ID:', operationId);
             setRecentOperations((prev) => [
               {
+                id: operationId,
                 title: 'Provision ROSA HCP Cluster',
                 status: `⏳ Provisioning cluster "${config.clusterName}" at ${timestamp}...`,
-                timestamp: new Date().toISOString(),
+                timestamp: Date.now(),
                 output: '',
               },
               ...prev.slice(0, 9),
@@ -7622,35 +7671,84 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
             const data = await response.json();
             console.log('📦 [PROVISION] Response data:', data);
 
-            // Update recent operation with result
-            console.log('✏️ [PROVISION] Updating Recent Operations with result');
-            setRecentOperations((prev) => {
-              const updated = [...prev];
-              if (updated[0]?.title === 'Provision ROSA HCP Cluster') {
-                updated[0] = {
-                  ...updated[0],
-                  status: data.success
-                    ? `✅ Cluster "${config.clusterName}" provisioned successfully at ${new Date().toLocaleTimeString()}`
-                    : `❌ Failed to provision cluster "${config.clusterName}" at ${new Date().toLocaleTimeString()}`,
-                  output: data.output || data.error || '',
-                };
+            if (!data.job_id) {
+              throw new Error('No job_id returned from server');
+            }
+
+            const jobId = data.job_id;
+            console.log('🔄 [PROVISION] Job created, polling for status. Job ID:', jobId);
+
+            // Poll for job status
+            const pollInterval = setInterval(async () => {
+              try {
+                const jobResponse = await fetch(`http://localhost:8000/api/jobs/${jobId}`);
+                const jobData = await jobResponse.json();
+                console.log('📊 [PROVISION] Job status update:', jobData.status, jobData.message);
+
+                // Update recent operation with progress
+                setRecentOperations((prev) => {
+                  return prev.map((op) => {
+                    if (op.id === operationId) {
+                      let statusText = `⏳ ${jobData.message || 'In progress...'}`;
+
+                      if (jobData.status === 'completed') {
+                        statusText = `✅ Cluster "${config.clusterName}" provisioned successfully at ${new Date().toLocaleTimeString()}`;
+                      } else if (jobData.status === 'failed') {
+                        statusText = `❌ Failed: ${jobData.message} at ${new Date().toLocaleTimeString()}`;
+                      }
+
+                      return {
+                        ...op,
+                        status: statusText,
+                        output: jobData.logs ? jobData.logs.join('\n') : '',
+                      };
+                    }
+                    return op;
+                  });
+                });
+
+                // Stop polling if job is complete
+                if (jobData.status === 'completed' || jobData.status === 'failed') {
+                  clearInterval(pollInterval);
+                  console.log('✅ [PROVISION] Job completed with status:', jobData.status);
+                }
+              } catch (pollError) {
+                console.error('❌ [PROVISION] Error polling job status:', pollError);
+                clearInterval(pollInterval);
+                setRecentOperations((prev) => {
+                  return prev.map((op) => {
+                    if (op.id === operationId) {
+                      return {
+                        ...op,
+                        status: `❌ Lost connection to job at ${new Date().toLocaleTimeString()}`,
+                        output: `Error polling job status: ${pollError.message}`,
+                      };
+                    }
+                    return op;
+                  });
+                });
               }
-              return updated;
-            });
-            console.log('✅ [PROVISION] Task completed successfully');
+            }, 3000); // Poll every 3 seconds
+
+            // Set timeout to stop polling after 30 minutes
+            setTimeout(() => {
+              clearInterval(pollInterval);
+              console.log('⏱️ [PROVISION] Polling timeout reached');
+            }, 1800000);
           } catch (error) {
             console.error('❌ [PROVISION] Error provisioning cluster:', error);
             console.error('❌ [PROVISION] Error stack:', error.stack);
             setRecentOperations((prev) => {
-              const updated = [...prev];
-              if (updated[0]?.title === 'Provision ROSA HCP Cluster') {
-                updated[0] = {
-                  ...updated[0],
-                  status: `❌ Error at ${new Date().toLocaleTimeString()}`,
-                  output: `Error: ${error.message}\n${error.stack || ''}`,
-                };
-              }
-              return updated;
+              return prev.map((op) => {
+                if (op.id === operationId) {
+                  return {
+                    ...op,
+                    status: `❌ Error at ${new Date().toLocaleTimeString()}`,
+                    output: `Error: ${error.message}\n${error.stack || ''}`,
+                  };
+                }
+                return op;
+              });
             });
           }
         }}
