@@ -3041,22 +3041,16 @@ async def run_ansible_role(request: dict):
         raise HTTPException(status_code=500, detail=error_msg)
 
 
-@app.post("/api/ansible/run-playbook")
-async def run_ansible_playbook_endpoint(request: dict):
-    """Run an existing ansible playbook"""
+def run_playbook_background(playbook: str, extra_vars: dict, job_id: str, description: str):
+    """Run ansible playbook asynchronously in background"""
     try:
-        playbook = request.get("playbook")
-        description = request.get("description", "Running ansible playbook")
-        extra_vars = request.get("extra_vars", {})
-
-        if not playbook:
-            raise HTTPException(status_code=400, detail="playbook is required")
+        jobs[job_id]["status"] = "running"
+        jobs[job_id]["progress"] = 10
+        jobs[job_id]["message"] = f"Starting playbook: {playbook}"
 
         # Ensure the playbook file exists
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         playbook_path = os.path.join(project_root, playbook)
-        if not os.path.exists(playbook_path):
-            raise HTTPException(status_code=404, detail=f"Playbook not found: {playbook}")
 
         # Prepare ansible command
         cmd = [
@@ -3070,6 +3064,8 @@ async def run_ansible_playbook_endpoint(request: dict):
             cmd.extend(["-e", f"{key}={value}"])
 
         print(f"Running ansible playbook: {' '.join(cmd)}")
+        jobs[job_id]["progress"] = 30
+        jobs[job_id]["message"] = "Executing ansible playbook"
 
         # Prepare environment with KUBECONFIG
         env = os.environ.copy()
@@ -3089,41 +3085,80 @@ async def run_ansible_playbook_endpoint(request: dict):
             env=env,
         )
 
-        # Parse the output
-        stdout_lines = result.stdout.split("\n") if result.stdout else []
-        stderr_lines = result.stderr.split("\n") if result.stderr else []
-
         print(f"Ansible playbook completed with return code: {result.returncode}")
         print(f"STDOUT: {result.stdout}")
         if result.stderr:
             print(f"STDERR: {result.stderr}")
 
-        return {
-            "success": result.returncode == 0,
-            "return_code": result.returncode,
-            "output": result.stdout,
-            "error": result.stderr,
-            "message": (
-                "Playbook completed successfully" if result.returncode == 0 else "Playbook failed"
-            ),
-            "playbook": playbook,
-            "description": description,
-            "stdout_lines": stdout_lines,
-            "stderr_lines": stderr_lines,
-        }
+        if result.returncode == 0:
+            jobs[job_id]["status"] = "completed"
+            jobs[job_id]["progress"] = 100
+            jobs[job_id]["message"] = "Playbook completed successfully"
+        else:
+            jobs[job_id]["status"] = "failed"
+            jobs[job_id]["message"] = f"Playbook failed with return code {result.returncode}"
+
+        jobs[job_id]["logs"].extend(result.stdout.split("\n") if result.stdout else [])
+        if result.stderr:
+            jobs[job_id]["logs"].extend(["", "STDERR:", *result.stderr.split("\n")])
+        jobs[job_id]["completed_at"] = datetime.now()
+        jobs[job_id]["return_code"] = result.returncode
 
     except subprocess.TimeoutExpired:
-        error_msg = f"Playbook {playbook} timed out after 30 minutes"
-        print(error_msg)
-        return {
-            "success": False,
-            "error": error_msg,
-            "message": "Playbook timed out",
+        jobs[job_id]["status"] = "failed"
+        jobs[job_id]["message"] = "Playbook timed out after 30 minutes"
+        jobs[job_id]["completed_at"] = datetime.now()
+    except Exception as e:
+        jobs[job_id]["status"] = "failed"
+        jobs[job_id]["message"] = f"Error: {str(e)}"
+        jobs[job_id]["completed_at"] = datetime.now()
+
+
+@app.post("/api/ansible/run-playbook")
+async def run_ansible_playbook_endpoint(request: dict, background_tasks: BackgroundTasks):
+    """Run an existing ansible playbook asynchronously"""
+    try:
+        playbook = request.get("playbook")
+        description = request.get("description", "Running ansible playbook")
+        extra_vars = request.get("extra_vars", {})
+
+        if not playbook:
+            raise HTTPException(status_code=400, detail="playbook is required")
+
+        # Ensure the playbook file exists
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        playbook_path = os.path.join(project_root, playbook)
+        if not os.path.exists(playbook_path):
+            raise HTTPException(status_code=404, detail=f"Playbook not found: {playbook}")
+
+        # Generate job ID
+        job_id = str(uuid.uuid4())
+
+        # Create job
+        jobs[job_id] = {
+            "id": job_id,
+            "status": "pending",
+            "progress": 0,
+            "message": f"Queued: {description}",
+            "logs": [],
+            "created_at": datetime.now(),
             "playbook": playbook,
             "description": description,
         }
+
+        # Run playbook in background
+        background_tasks.add_task(run_playbook_background, playbook, extra_vars, job_id, description)
+
+        return {
+            "job_id": job_id,
+            "status": "pending",
+            "message": f"Playbook {playbook} queued for execution",
+            "playbook": playbook,
+            "description": description,
+        }
+
     except Exception as e:
-        error_msg = f"Error running playbook {playbook}: {str(e)}"
+        error_msg = f"Error queuing playbook {playbook}: {str(e)}"
         print(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
 
