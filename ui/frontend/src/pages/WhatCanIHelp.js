@@ -6136,23 +6136,7 @@ export function WhatCanIHelp() {
                     {recentOperations.map((op, idx) => (
                       <div
                         key={idx}
-                        onClick={() => {
-                          // Ensure the output section is expanded
-                          setRecentOperationsOutputCollapsed(false);
-                          // Scroll to the output section
-                          setTimeout(() => {
-                            const outputSection = document.querySelector(
-                              '.bg-gradient-to-br.from-gray-900'
-                            );
-                            if (outputSection) {
-                              outputSection.scrollIntoView({
-                                behavior: 'smooth',
-                                block: 'nearest',
-                              });
-                            }
-                          }, 100);
-                        }}
-                        className="flex items-center justify-between p-4 bg-gradient-to-r from-cyan-50 to-teal-50 rounded-lg border border-cyan-200 hover:shadow-md hover:cursor-pointer transition-all duration-200"
+                        className="flex items-center justify-between p-4 bg-gradient-to-r from-cyan-50 to-teal-50 rounded-lg border border-cyan-200 transition-all duration-200"
                       >
                         <div className="flex items-center space-x-3 flex-1 min-w-0">
                           <div
@@ -7591,9 +7575,11 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
         isOpen={showProvisionModal}
         onClose={() => setShowProvisionModal(false)}
         onSubmit={async (config) => {
+          console.log('🚀 [PROVISION] onSubmit handler called with config:', config);
           try {
             // Add to recent operations
             const timestamp = new Date().toLocaleTimeString();
+            console.log('📝 [PROVISION] Adding task to Recent Operations at', timestamp);
             setRecentOperations((prev) => [
               {
                 title: 'Provision ROSA HCP Cluster',
@@ -7605,32 +7591,39 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
             ]);
 
             // Close modal
+            console.log('🔒 [PROVISION] Closing modal');
             setShowProvisionModal(false);
 
             // Call backend API
-            const response = await fetch('http://localhost:8000/api/ansible/run-task', {
+            const requestBody = {
+              playbook: 'create_rosa_hcp_automated.yaml',
+              description: `Provision ROSA HCP cluster: ${config.clusterName}`,
+              extra_vars: {
+                cluster_name: config.clusterName,
+                openshift_version: config.openShiftVersion,
+                create_rosa_roles: config.createRosaRoleConfig,
+                create_rosa_network: config.createRosaNetwork,
+                network_cidr: config.vpcCidrBlock,
+                availability_zone_count: config.availabilityZoneCount,
+                role_prefix: config.rolePrefix || config.clusterName,
+              },
+            };
+            console.log('📤 [PROVISION] Sending request to backend:', requestBody);
+
+            const response = await fetch('http://localhost:8000/api/ansible/run-playbook', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify({
-                task_file: 'create_rosa_hcp_automated.yaml',
-                description: `Provision ROSA HCP cluster: ${config.clusterName}`,
-                extra_vars: {
-                  cluster_name: config.clusterName,
-                  openshift_version: config.openShiftVersion,
-                  create_rosa_roles: config.createRosaRoleConfig,
-                  create_rosa_network: config.createRosaNetwork,
-                  network_cidr: config.vpcCidrBlock,
-                  availability_zone_count: config.availabilityZoneCount,
-                  role_prefix: config.rolePrefix || config.clusterName,
-                },
-              }),
+              body: JSON.stringify(requestBody),
             });
 
+            console.log('📥 [PROVISION] Received response, status:', response.status, response.statusText);
             const data = await response.json();
+            console.log('📦 [PROVISION] Response data:', data);
 
             // Update recent operation with result
+            console.log('✏️ [PROVISION] Updating Recent Operations with result');
             setRecentOperations((prev) => {
               const updated = [...prev];
               if (updated[0]?.title === 'Provision ROSA HCP Cluster') {
@@ -7644,8 +7637,10 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
               }
               return updated;
             });
+            console.log('✅ [PROVISION] Task completed successfully');
           } catch (error) {
-            console.error('Error provisioning cluster:', error);
+            console.error('❌ [PROVISION] Error provisioning cluster:', error);
+            console.error('❌ [PROVISION] Error stack:', error.stack);
             setRecentOperations((prev) => {
               const updated = [...prev];
               if (updated[0]?.title === 'Provision ROSA HCP Cluster') {
