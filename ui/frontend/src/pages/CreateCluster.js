@@ -101,9 +101,21 @@ export function CreateCluster() {
                   onChange={(e) => handleInputChange('version', e.target.value)}
                   className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-red-500 focus:border-red-500"
                 >
-                  <option value="4.20.0">4.20.0 (Recommended)</option>
+                  <option value="4.20.0">4.20.0 (Latest)</option>
+                  <option value="4.19.10">4.19.10 (Recommended)</option>
+                  <option value="4.19.9">4.19.9</option>
+                  <option value="4.19.8">4.19.8</option>
+                  <option value="4.19.7">4.19.7</option>
                   <option value="4.19.0">4.19.0</option>
                   <option value="4.18.9">4.18.9</option>
+                  <option value="4.18.8">4.18.8</option>
+                  <option value="4.18.0">4.18.0</option>
+                  <option value="4.17.9">4.17.9</option>
+                  <option value="4.17.0">4.17.0</option>
+                  <option value="4.16.9">4.16.9</option>
+                  <option value="4.16.0">4.16.0</option>
+                  <option value="4.15.9">4.15.9</option>
+                  <option value="4.15.0">4.15.0</option>
                 </select>
               </div>
 

@@ -39,6 +39,7 @@ import { MinikubeTerminalModal } from '../components/MinikubeTerminalModal';
 import { MCETerminalModal } from '../components/MCETerminalModal';
 import TestEnvironmentCard from '../components/TestEnvironmentCard';
 import TestActivityFeed from '../components/TestActivityFeed';
+import { RosaProvisionModal } from '../components/RosaProvisionModal';
 
 // Helper function to calculate age from ISO timestamp
 function calculateAge(isoTimestamp) {
@@ -312,6 +313,7 @@ export function WhatCanIHelp() {
   const [guidedSetupStatus, setGuidedSetupStatus] = useState(null);
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
   const [showKindClusterModal, setShowKindClusterModal] = useState(false);
+  const [showProvisionModal, setShowProvisionModal] = useState(false);
   const [kindClusters, setKindClusters] = useState([]);
   const [selectedKindCluster, setSelectedKindCluster] = useState('');
   const [kindClusterInput, setKindClusterInput] = useState('');
@@ -4695,7 +4697,7 @@ export function WhatCanIHelp() {
 
         {/* Test Environments Section - MCE */}
         {selectedEnvironment === 'mce' && (
-          <div className="mb-6 relative">
+          <div className="mb-6 relative max-w-[1800px] mx-auto space-y-6">
             {/* Floating Settings Button */}
             <button
               onClick={() => setSettingsPanelOpen(true)}
@@ -4897,13 +4899,14 @@ export function WhatCanIHelp() {
                           const data = await response.json();
 
                           if (data.success) {
-                            // Update recent operation status
+                            // Update recent operation status with output
                             setRecentOperations((prev) => {
                               const updated = [...prev];
                               if (updated[0]?.title === 'Configure CAPI/CAPA Environment') {
                                 updated[0] = {
                                   ...updated[0],
                                   status: `✅ Configuration completed successfully at ${new Date().toLocaleTimeString()}`,
+                                  output: data.output || '',
                                 };
                               }
                               return updated;
@@ -4911,13 +4914,14 @@ export function WhatCanIHelp() {
 
                             addNotification('✅ CAPI/CAPA environment configured successfully', 'success', 3000);
                           } else {
-                            // Update recent operation status with error
+                            // Update recent operation status with error and output
                             setRecentOperations((prev) => {
                               const updated = [...prev];
                               if (updated[0]?.title === 'Configure CAPI/CAPA Environment') {
                                 updated[0] = {
                                   ...updated[0],
                                   status: `❌ Configuration failed at ${new Date().toLocaleTimeString()}`,
+                                  output: data.output || data.error || '',
                                 };
                               }
                               return updated;
@@ -4928,13 +4932,14 @@ export function WhatCanIHelp() {
                         } catch (error) {
                           console.error('Error configuring CAPI/CAPA environment:', error);
 
-                          // Update recent operation status with error
+                          // Update recent operation status with error and output
                           setRecentOperations((prev) => {
                             const updated = [...prev];
                             if (updated[0]?.title === 'Configure CAPI/CAPA Environment') {
                               updated[0] = {
                                 ...updated[0],
                                 status: `❌ Configuration failed at ${new Date().toLocaleTimeString()}: ${error.message}`,
+                                output: `Error: ${error.message}\n${error.stack || ''}`,
                               };
                             }
                             return updated;
@@ -5282,99 +5287,7 @@ export function WhatCanIHelp() {
                   {/* Provision Button */}
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={async () => {
-                        let operationId;
-                        try {
-                          // Prompt user for cluster definition file name
-                          const clusterFile = window.prompt(
-                            'Enter the YAML cluster definition file name:\n\n' +
-                              'Example: rosa-hcp-test.yml\n' +
-                              'Example: clusters/my-cluster.yaml\n\n' +
-                              'File should be in your automation-capi directory',
-                            lastRosaYamlPath || 'rosa-hcp-test.yml'
-                          );
-
-                          if (!clusterFile) return;
-
-                          const trimmedFile = clusterFile.trim();
-
-                          if (
-                            !confirm(
-                              `Provision ROSA HCP Cluster using "${trimmedFile}"?\n\nThis will:\n- Apply ROSA HCP cluster definition from ${trimmedFile} to your MCE cluster`
-                            )
-                          ) {
-                            return;
-                          }
-
-                          // Save the YAML path for next time
-                          await fetch('http://localhost:8000/api/rosa/save-yaml-path', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ path: trimmedFile }),
-                          });
-                          setLastRosaYamlPath(trimmedFile);
-
-                          operationId = Date.now();
-                          const operationTitle = `Provision ROSA Cluster: ${trimmedFile}`;
-
-                          // Add to recent operations
-                          const newOperation = {
-                            title: operationTitle,
-                            status: '⏳ Applying cluster definition...',
-                            timestamp: operationId,
-                            playbook: `oc apply -f ${trimmedFile}`,
-                          };
-                          setRecentOperations((prev) => [newOperation, ...prev].slice(0, 10));
-
-                          addNotification('🚀 Provisioning ROSA HCP cluster...', 'info', 3000);
-
-                          // Execute oc apply command
-                          const response = await fetch('http://localhost:8000/api/ocp/execute-command', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              command: `oc apply -f ${trimmedFile}`,
-                            }),
-                          });
-
-                          const data = await response.json();
-
-                          if (data.success) {
-                            setRecentOperations((prev) => {
-                              const updated = [...prev];
-                              if (updated[0]?.title === operationTitle) {
-                                updated[0] = {
-                                  ...updated[0],
-                                  status: `✅ Cluster definition applied successfully at ${new Date().toLocaleTimeString()}`,
-                                  output: data.output,
-                                };
-                              }
-                              return updated;
-                            });
-
-                            addNotification('✅ ROSA HCP cluster provisioning initiated', 'success', 3000);
-                          } else {
-                            throw new Error(data.error || 'Failed to apply cluster definition');
-                          }
-                        } catch (error) {
-                          console.error('Error provisioning ROSA cluster:', error);
-
-                          if (operationId) {
-                            setRecentOperations((prev) => {
-                              const updated = [...prev];
-                              if (updated[0]?.timestamp === operationId) {
-                                updated[0] = {
-                                  ...updated[0],
-                                  status: `❌ Provisioning failed: ${error.message}`,
-                                };
-                              }
-                              return updated;
-                            });
-                          }
-
-                          addNotification(`❌ Failed to provision cluster: ${error.message}`, 'error', 3000);
-                        }
-                      }}
+                      onClick={() => setShowProvisionModal(true)}
                       className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
                       title="Provision ROSA cluster"
                     >
@@ -6109,11 +6022,6 @@ export function WhatCanIHelp() {
         {/* Main Header with Configure Environment and Right Sidebar */}
         <div className="flex flex-col lg:flex-row items-start justify-between gap-4 lg:gap-8 mb-4 md:mb-6 animate-in fade-in duration-300">
           <div className="flex-1 w-full">
-            <p className="text-base md:text-lg text-gray-600 mb-4 leading-relaxed max-w-4xl animate-in fade-in slide-in-from-bottom duration-300">
-              Welcome to the Ansible test automation for Cluster API (CAPI) and Cluster API provider
-              AWS (CAPA).
-            </p>
-
             {/* Environment Analysis and Credentials Setup - Hidden from main page */}
             {false && (
             <div className="bg-gradient-to-br from-white to-green-50 rounded-2xl shadow-md transition-all duration-300 border border-green-200 p-3 md:p-4 mb-4">
@@ -7410,6 +7318,81 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
       <MCETerminalModal
         isOpen={showMCETerminalModal}
         onClose={() => setShowMCETerminalModal(false)}
+      />
+
+      {/* ROSA Provision Modal */}
+      <RosaProvisionModal
+        isOpen={showProvisionModal}
+        onClose={() => setShowProvisionModal(false)}
+        onSubmit={async (config) => {
+          try {
+            // Add to recent operations
+            const timestamp = new Date().toLocaleTimeString();
+            setRecentOperations((prev) => [
+              {
+                title: 'Provision ROSA HCP Cluster',
+                status: `⏳ Provisioning cluster "${config.clusterName}" at ${timestamp}...`,
+                timestamp: new Date().toISOString(),
+                output: '',
+              },
+              ...prev.slice(0, 9),
+            ]);
+
+            // Close modal
+            setShowProvisionModal(false);
+
+            // Call backend API
+            const response = await fetch('http://localhost:8000/api/ansible/run-task', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                task_file: 'create_rosa_hcp_automated.yaml',
+                description: `Provision ROSA HCP cluster: ${config.clusterName}`,
+                extra_vars: {
+                  cluster_name: config.clusterName,
+                  openshift_version: config.openShiftVersion,
+                  create_rosa_roles: config.createRosaRoleConfig,
+                  create_rosa_network: config.createRosaNetwork,
+                  network_cidr: config.vpcCidrBlock,
+                  availability_zone_count: config.availabilityZoneCount,
+                  role_prefix: config.rolePrefix || config.clusterName,
+                },
+              }),
+            });
+
+            const data = await response.json();
+
+            // Update recent operation with result
+            setRecentOperations((prev) => {
+              const updated = [...prev];
+              if (updated[0]?.title === 'Provision ROSA HCP Cluster') {
+                updated[0] = {
+                  ...updated[0],
+                  status: data.success
+                    ? `✅ Cluster "${config.clusterName}" provisioned successfully at ${new Date().toLocaleTimeString()}`
+                    : `❌ Failed to provision cluster "${config.clusterName}" at ${new Date().toLocaleTimeString()}`,
+                  output: data.output || data.error || '',
+                };
+              }
+              return updated;
+            });
+          } catch (error) {
+            console.error('Error provisioning cluster:', error);
+            setRecentOperations((prev) => {
+              const updated = [...prev];
+              if (updated[0]?.title === 'Provision ROSA HCP Cluster') {
+                updated[0] = {
+                  ...updated[0],
+                  status: `❌ Error at ${new Date().toLocaleTimeString()}`,
+                  output: `Error: ${error.message}\n${error.stack || ''}`,
+                };
+              }
+              return updated;
+            });
+          }
+        }}
       />
 
       {/* Resource Detail Modal */}

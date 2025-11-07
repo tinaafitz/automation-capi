@@ -405,14 +405,22 @@ async def create_cluster(config: ClusterConfig, background_tasks: BackgroundTask
         "logs": [],
     }
 
-    # Determine which playbook to use
-    if config.network_automation:
-        playbook = "acm21174_environment_setup.yaml"
-    else:
-        playbook = "create_rosa_hcp_cluster.yaml"
+    # Use the new automated ROSA HCP playbook
+    playbook = "create_rosa_hcp_automated.yaml"
+
+    # Map frontend config to playbook extra_vars
+    extra_vars = {
+        "cluster_name": config.name,
+        "openshift_version": config.version,
+        "aws_region": config.region,
+        "create_rosa_roles": config.role_automation,
+        "create_rosa_network": config.network_automation,
+        "network_cidr": config.cidr_block,
+        "availability_zone_count": len(config.availability_zones),
+    }
 
     # Start background task
-    background_tasks.add_task(run_ansible_playbook, playbook, config.dict(), job_id)
+    background_tasks.add_task(run_ansible_playbook, playbook, extra_vars, job_id)
 
     return {
         "cluster_id": cluster_id,
