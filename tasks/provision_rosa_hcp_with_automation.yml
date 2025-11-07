@@ -219,10 +219,10 @@
           ───────────────────────────────────────────────────────────
           This will automatically create AWS network resources:
           • VPC ({{ network_cidr }})
-          • Public Subnets ({{ availability_zone_count }} AZ{{ 's' if availability_zone_count > 1 else '' }})
-          • Private Subnets ({{ availability_zone_count }} AZ{{ 's' if availability_zone_count > 1 else '' }})
+          • Public Subnets ({{ availability_zone_count }} AZ{{ 's' if availability_zone_count | int > 1 else '' }})
+          • Private Subnets ({{ availability_zone_count }} AZ{{ 's' if availability_zone_count | int > 1 else '' }})
           • Internet Gateway
-          • NAT Gateway{{ 's' if availability_zone_count > 1 else '' }}
+          • NAT Gateway{{ 's' if availability_zone_count | int > 1 else '' }}
           • Route Tables
 
     - name: Create ROSANetwork resource
