@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
 export function RosaProvisionModal({ isOpen, onClose, onSubmit }) {
@@ -153,7 +154,9 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit }) {
                   </label>
                   <select
                     value={config.availabilityZoneCount}
-                    onChange={(e) => handleChange('availabilityZoneCount', parseInt(e.target.value))}
+                    onChange={(e) =>
+                      handleChange('availabilityZoneCount', parseInt(e.target.value))
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value={1}>1 Availability Zone</option>
@@ -195,7 +198,10 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit }) {
               <div className="flex items-center gap-2">
                 <span className="text-green-600">✓</span>
                 <span className="text-gray-700">
-                  Cluster: <span className="font-mono font-semibold">{config.clusterName || 'test-420-network-roles-test'}</span>
+                  Cluster:{' '}
+                  <span className="font-mono font-semibold">
+                    {config.clusterName || 'test-420-network-roles-test'}
+                  </span>
                 </span>
               </div>
               {config.createRosaNetwork && (
@@ -209,7 +215,9 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit }) {
               {config.createRosaRoleConfig && (
                 <div className="flex items-center gap-2">
                   <span className="text-green-600">✓</span>
-                  <span className="text-gray-700">Will create RosaRoleConfig with AWS IAM roles</span>
+                  <span className="text-gray-700">
+                    Will create RosaRoleConfig with AWS IAM roles
+                  </span>
                 </div>
               )}
             </div>
@@ -236,3 +244,9 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit }) {
     </div>
   );
 }
+
+RosaProvisionModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onSubmit: PropTypes.func.isRequired,
+};

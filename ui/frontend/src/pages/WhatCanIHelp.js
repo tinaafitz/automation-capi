@@ -442,7 +442,9 @@ export function WhatCanIHelp() {
     }
   });
   const [mceTerminalCommand, setMceTerminalCommand] = useState('');
-  const [mceTerminalOutput, setMceTerminalOutput] = useState('Welcome to MCE Terminal! Type commands or select from templates.\n');
+  const [mceTerminalOutput, setMceTerminalOutput] = useState(
+    'Welcome to MCE Terminal! Type commands or select from templates.\n'
+  );
   const [mceTerminalHistory, setMceTerminalHistory] = useState(() => {
     try {
       const saved = localStorage.getItem('mce-embedded-terminal-history');
@@ -739,16 +741,19 @@ export function WhatCanIHelp() {
         status: `⏳ Upgrading to ${targetVersion}...`,
       });
 
-      const response = await fetch(`http://localhost:8000/api/ocp/rosa-clusters/${clusterName}/upgrade`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          version: targetVersion,
-          namespace: namespace,
-        }),
-      });
+      const response = await fetch(
+        `http://localhost:8000/api/ocp/rosa-clusters/${clusterName}/upgrade`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            version: targetVersion,
+            namespace: namespace,
+          }),
+        }
+      );
 
       const data = await response.json();
 
@@ -760,7 +765,11 @@ export function WhatCanIHelp() {
           hour12: true,
         });
         updateRecentOperationStatus(operationId, `✅ Upgrade initiated at ${completionTime}`);
-        addNotification(`🎉 Cluster ${clusterName} upgrade initiated successfully!`, 'success', 3000);
+        addNotification(
+          `🎉 Cluster ${clusterName} upgrade initiated successfully!`,
+          'success',
+          3000
+        );
 
         // Refresh cluster list
         await fetchRosaClusters();
@@ -847,9 +856,7 @@ export function WhatCanIHelp() {
         );
       }
     } catch (err) {
-      setMceTerminalOutput(
-        (prev) => `${prev}Error: Failed to execute command - ${err.message}\n`
-      );
+      setMceTerminalOutput((prev) => `${prev}Error: Failed to execute command - ${err.message}\n`);
     } finally {
       setMceTerminalExecuting(false);
       setMceTerminalCommand('');
@@ -962,7 +969,11 @@ export function WhatCanIHelp() {
       const resources = [];
 
       // Fetch deployments in multicluster-engine namespace
-      const deployments = ['capi-controller-manager', 'capa-controller-manager', 'mce-capi-webhook-config'];
+      const deployments = [
+        'capi-controller-manager',
+        'capa-controller-manager',
+        'mce-capi-webhook-config',
+      ];
 
       for (const deploymentName of deployments) {
         try {
@@ -970,7 +981,7 @@ export function WhatCanIHelp() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              command: `oc get deployment ${deploymentName} -n multicluster-engine -o json`
+              command: `oc get deployment ${deploymentName} -n multicluster-engine -o json`,
             }),
           });
 
@@ -995,7 +1006,7 @@ export function WhatCanIHelp() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            command: 'oc get awsclustercontrolleridentity default -o json'
+            command: 'oc get awsclustercontrolleridentity default -o json',
           }),
         });
 
@@ -1120,7 +1131,7 @@ export function WhatCanIHelp() {
     const savedRecent = JSON.parse(localStorage.getItem('recentOperations') || '[]');
 
     // Clear old operations that don't have playbook field (one-time migration)
-    const migratedRecent = savedRecent.filter(op => op.playbook);
+    const migratedRecent = savedRecent.filter((op) => op.playbook);
 
     setDarkMode(savedDarkMode);
     setFavorites(new Set(savedFavorites));
@@ -3108,7 +3119,9 @@ export function WhatCanIHelp() {
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-900">
-                {selectedEnvironment === 'mce' ? 'MCE Test Environment' : 'Minikube Test Environment'}
+                {selectedEnvironment === 'mce'
+                  ? 'MCE Test Environment'
+                  : 'Minikube Test Environment'}
               </h2>
 
               {/* Dropdown Selector */}
@@ -3117,11 +3130,15 @@ export function WhatCanIHelp() {
                   onClick={() => setShowEnvironmentDropdown(!showEnvironmentDropdown)}
                   className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-purple-300 rounded-lg hover:border-purple-500 transition-all duration-200 shadow-sm hover:shadow-md"
                 >
-                  <span className="text-lg">{environments.find(e => e.id === selectedEnvironment)?.icon}</span>
-                  <span className="font-semibold text-gray-900">
-                    {environments.find(e => e.id === selectedEnvironment)?.name}
+                  <span className="text-lg">
+                    {environments.find((e) => e.id === selectedEnvironment)?.icon}
                   </span>
-                  <ChevronDownIcon className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${showEnvironmentDropdown ? 'rotate-180' : ''}`} />
+                  <span className="font-semibold text-gray-900">
+                    {environments.find((e) => e.id === selectedEnvironment)?.name}
+                  </span>
+                  <ChevronDownIcon
+                    className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${showEnvironmentDropdown ? 'rotate-180' : ''}`}
+                  />
                 </button>
 
                 {/* Dropdown Menu */}
@@ -3152,8 +3169,12 @@ export function WhatCanIHelp() {
                               </div>
                               <p className="text-xs text-gray-600 mt-0.5">{env.description}</p>
                               <div className="flex items-center gap-1 mt-1">
-                                <span className={`w-2 h-2 rounded-full ${env.status === 'active' ? 'bg-green-500' : 'bg-gray-300'}`}></span>
-                                <span className="text-xs text-gray-500 capitalize">{env.status}</span>
+                                <span
+                                  className={`w-2 h-2 rounded-full ${env.status === 'active' ? 'bg-green-500' : 'bg-gray-300'}`}
+                                ></span>
+                                <span className="text-xs text-gray-500 capitalize">
+                                  {env.status}
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -3170,7 +3191,6 @@ export function WhatCanIHelp() {
         {/* Test Environments Section - Minikube */}
         {selectedEnvironment === 'minikube' && verifiedMinikubeClusterInfo && (
           <div className="mb-6">
-
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Minikube Test Environment Connections */}
               <div className="bg-white rounded-lg border-2 border-purple-200 p-6 shadow-lg">
@@ -3500,399 +3520,426 @@ export function WhatCanIHelp() {
                       CAPI/CAPA Components
                     </span>
                     <span className="text-xs font-normal text-purple-600">
-                      ({Object.keys(verifiedMinikubeClusterInfo?.component_timestamps || {}).filter(key => ['capi-controller', 'capa-controller', 'rosa-crd', 'cert-manager'].includes(key)).length} configured)
+                      (
+                      {
+                        Object.keys(verifiedMinikubeClusterInfo?.component_timestamps || {}).filter(
+                          (key) =>
+                            [
+                              'capi-controller',
+                              'capa-controller',
+                              'rosa-crd',
+                              'cert-manager',
+                            ].includes(key)
+                        ).length
+                      }{' '}
+                      configured)
                     </span>
                   </h4>
                 </div>
 
                 {/* Action Buttons - Always show for verified cluster */}
                 <div className="mb-4 flex items-center justify-start space-x-2">
-                    {/* Terminal Button */}
-                    {verifiedMinikubeClusterInfo && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowMinikubeTerminalModal(true);
-                        }}
-                        className="bg-teal-600 hover:bg-teal-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
-                        title="Open terminal for verified cluster"
-                      >
-                        <CommandLineIcon className="h-3 w-3" />
-                        <span>Terminal</span>
-                      </button>
-                    )}
-
-                    {/* Provision ROSA HCP Cluster Button */}
+                  {/* Terminal Button */}
+                  {verifiedMinikubeClusterInfo && (
                     <button
-                      onClick={async () => {
-                        let operationId; // Declare outside try block for catch access
-                        try {
-                          // Prompt user for cluster definition file name
-                          const clusterFile = window.prompt(
-                            'Enter the YAML cluster definition file name:\n\n' +
-                              'Example: rosa-hcp-test.yml\n' +
-                              'Example: clusters/my-cluster.yaml\n\n' +
-                              'File should be in your automation-capi directory',
-                            lastRosaYamlPath || 'rosa-hcp-test.yml'
-                          );
-
-                          if (!clusterFile) return;
-
-                          const trimmedFile = clusterFile.trim();
-
-                          if (
-                            !confirm(
-                              `Provision ROSA HCP Cluster using "${trimmedFile}"?\n\nThis will:\n- Create namespace ns-rosa-hcp\n- Apply AWS Identity configuration\n- Create OCM client secret\n- Apply ROSA HCP cluster definition from ${trimmedFile}`
-                            )
-                          ) {
-                            return;
-                          }
-
-                          // Create unique operation ID
-                          operationId = `provision-rosa-hcp-${Date.now()}`;
-
-                          // Add to recent operations with "Provisioning..." status
-                          addToRecent({
-                            id: operationId,
-                            title: `Minikube Provision ROSA HCP: ${trimmedFile}`,
-                            color: 'bg-rose-600',
-                            status: '⏳ Provisioning...',
-                          });
-
-                          // Small delay to show the "Provisioning..." status
-                          await new Promise((resolve) => setTimeout(resolve, 100));
-
-                          // Save the file path for next time
-                          setLastRosaYamlPath(trimmedFile);
-
-                          const response = await fetch(
-                            'http://localhost:8000/api/ansible/run-task',
-                            {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                task_file: 'tasks/provision-rosa-hcp-cluster.yml',
-                                description: `Provision ROSA HCP Cluster: ${trimmedFile}`,
-                                kube_context:
-                                  verifiedMinikubeClusterInfo?.contextName ||
-                                  verifiedMinikubeClusterInfo?.name,
-                                extra_vars: {
-                                  ROSA_HCP_CLUSTER_FILE: trimmedFile,
-                                },
-                              }),
-                            }
-                          );
-
-                          const result = await response.json();
-                          const completionTime = new Date().toLocaleTimeString('en-US', {
-                            hour: 'numeric',
-                            minute: '2-digit',
-                            second: '2-digit',
-                            hour12: true,
-                          });
-
-                          console.log('[Minikube Provision ROSA HCP] Response:', {
-                            ok: response.ok,
-                            success: result.success,
-                            result: result,
-                          });
-
-                          if (result.success) {
-                            // Store successful result
-                            setAnsibleResults((prev) => ({
-                              ...prev,
-                              [operationId]: {
-                                loading: false,
-                                success: true,
-                                result: {
-                                  output: result.output,
-                                  timestamp: new Date(),
-                                  task_file: 'tasks/provision-rosa-hcp-cluster.yml',
-                                  type: 'Provision ROSA HCP Cluster',
-                                  cluster_file: trimmedFile,
-                                },
-                                timestamp: new Date(),
-                              },
-                            }));
-
-                            // Update operation status
-                            updateRecentOperationStatus(
-                              operationId,
-                              `✅ Provisioned successfully at ${completionTime}`
-                            );
-
-                            // Refresh active resources
-                            await fetchMinikubeActiveResources(
-                              verifiedMinikubeClusterInfo.name,
-                              verifiedMinikubeClusterInfo.namespace
-                            );
-                          } else {
-                            // Extract detailed error message
-                            const errorDetails = {
-                              message: result.message || 'Unknown error',
-                              error: result.error || '',
-                              return_code: result.return_code,
-                              fullResponse: result,
-                            };
-
-                            console.log(
-                              '[Minikube Provision ROSA HCP] Error details:',
-                              errorDetails
-                            );
-
-                            setAnsibleResults((prev) => ({
-                              ...prev,
-                              [operationId]: {
-                                loading: false,
-                                success: false,
-                                result: {
-                                  error: result.error || result.message || 'Provisioning failed',
-                                  output: result.output || '',
-                                  timestamp: new Date(),
-                                  task_file: 'tasks/provision-rosa-hcp-cluster.yml',
-                                  type: 'Provision ROSA HCP Cluster',
-                                  cluster_file: trimmedFile,
-                                },
-                                timestamp: new Date(),
-                              },
-                            }));
-
-                            updateRecentOperationStatus(
-                              operationId,
-                              `❌ Provisioning failed at ${completionTime}`
-                            );
-                          }
-                        } catch (error) {
-                          console.error('[Minikube Provision ROSA HCP] Exception:', error);
-                          const completionTime = new Date().toLocaleTimeString('en-US', {
-                            hour: 'numeric',
-                            minute: '2-digit',
-                            second: '2-digit',
-                            hour12: true,
-                          });
-                          if (operationId) {
-                            setAnsibleResults((prev) => ({
-                              ...prev,
-                              [operationId]: {
-                                loading: false,
-                                success: false,
-                                result: {
-                                  error: error.toString(),
-                                  timestamp: new Date(),
-                                  task_file: 'tasks/provision-rosa-hcp-cluster.yml',
-                                  type: 'Provision ROSA HCP Cluster',
-                                },
-                                timestamp: new Date(),
-                              },
-                            }));
-                            updateRecentOperationStatus(
-                              operationId,
-                              `❌ Provisioning failed at ${completionTime}`
-                            );
-                          }
-                        }
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowMinikubeTerminalModal(true);
                       }}
-                      className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                      className="bg-teal-600 hover:bg-teal-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                      title="Open terminal for verified cluster"
                     >
-                      <svg
-                        className="h-3.5 w-3.5 mr-1.5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                        />
-                      </svg>
-                      <span>Provision</span>
+                      <CommandLineIcon className="h-3 w-3" />
+                      <span>Terminal</span>
                     </button>
+                  )}
 
-                    {/* Configure AutoNode Button */}
-                    {(() => {
-                      // Check if we have ansible results with dynamic resources
-                      const hasROSACluster =
-                        parseDynamicResources(
-                          ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]
-                            ?.result?.output || ''
-                        ).filter((r) => r.type === 'ROSACluster').length > 0;
+                  {/* Provision ROSA HCP Cluster Button */}
+                  <button
+                    onClick={async () => {
+                      let operationId; // Declare outside try block for catch access
+                      try {
+                        // Prompt user for cluster definition file name
+                        const clusterFile = window.prompt(
+                          'Enter the YAML cluster definition file name:\n\n' +
+                            'Example: rosa-hcp-test.yml\n' +
+                            'Example: clusters/my-cluster.yaml\n\n' +
+                            'File should be in your automation-capi directory',
+                          lastRosaYamlPath || 'rosa-hcp-test.yml'
+                        );
 
-                      return hasROSACluster ? (
-                        <button
-                          onClick={async () => {
-                            let operationId;
-                            try {
-                              if (
-                                !confirm(
-                                  'Configure AutoNode for ROSA HCP Cluster?\n\nThis will:\n- Configure EC2NodeClass\n- Create NodePool\n- Verify AutoNode configuration'
-                                )
+                        if (!clusterFile) return;
+
+                        const trimmedFile = clusterFile.trim();
+
+                        if (
+                          !confirm(
+                            `Provision ROSA HCP Cluster using "${trimmedFile}"?\n\nThis will:\n- Create namespace ns-rosa-hcp\n- Apply AWS Identity configuration\n- Create OCM client secret\n- Apply ROSA HCP cluster definition from ${trimmedFile}`
+                          )
+                        ) {
+                          return;
+                        }
+
+                        // Create unique operation ID
+                        operationId = `provision-rosa-hcp-${Date.now()}`;
+
+                        // Add to recent operations with "Provisioning..." status
+                        addToRecent({
+                          id: operationId,
+                          title: `Minikube Provision ROSA HCP: ${trimmedFile}`,
+                          color: 'bg-rose-600',
+                          status: '⏳ Provisioning...',
+                        });
+
+                        // Small delay to show the "Provisioning..." status
+                        await new Promise((resolve) => setTimeout(resolve, 100));
+
+                        // Save the file path for next time
+                        setLastRosaYamlPath(trimmedFile);
+
+                        const response = await fetch('http://localhost:8000/api/ansible/run-task', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            task_file: 'tasks/provision-rosa-hcp-cluster.yml',
+                            description: `Provision ROSA HCP Cluster: ${trimmedFile}`,
+                            kube_context:
+                              verifiedMinikubeClusterInfo?.contextName ||
+                              verifiedMinikubeClusterInfo?.name,
+                            extra_vars: {
+                              ROSA_HCP_CLUSTER_FILE: trimmedFile,
+                            },
+                          }),
+                        });
+
+                        const result = await response.json();
+                        const completionTime = new Date().toLocaleTimeString('en-US', {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          hour12: true,
+                        });
+
+                        console.log('[Minikube Provision ROSA HCP] Response:', {
+                          ok: response.ok,
+                          success: result.success,
+                          result: result,
+                        });
+
+                        if (result.success) {
+                          // Store successful result
+                          setAnsibleResults((prev) => ({
+                            ...prev,
+                            [operationId]: {
+                              loading: false,
+                              success: true,
+                              result: {
+                                output: result.output,
+                                timestamp: new Date(),
+                                task_file: 'tasks/provision-rosa-hcp-cluster.yml',
+                                type: 'Provision ROSA HCP Cluster',
+                                cluster_file: trimmedFile,
+                              },
+                              timestamp: new Date(),
+                            },
+                          }));
+
+                          // Update operation status
+                          updateRecentOperationStatus(
+                            operationId,
+                            `✅ Provisioned successfully at ${completionTime}`
+                          );
+
+                          // Refresh active resources
+                          await fetchMinikubeActiveResources(
+                            verifiedMinikubeClusterInfo.name,
+                            verifiedMinikubeClusterInfo.namespace
+                          );
+                        } else {
+                          // Extract detailed error message
+                          const errorDetails = {
+                            message: result.message || 'Unknown error',
+                            error: result.error || '',
+                            return_code: result.return_code,
+                            fullResponse: result,
+                          };
+
+                          console.log('[Minikube Provision ROSA HCP] Error details:', errorDetails);
+
+                          setAnsibleResults((prev) => ({
+                            ...prev,
+                            [operationId]: {
+                              loading: false,
+                              success: false,
+                              result: {
+                                error: result.error || result.message || 'Provisioning failed',
+                                output: result.output || '',
+                                timestamp: new Date(),
+                                task_file: 'tasks/provision-rosa-hcp-cluster.yml',
+                                type: 'Provision ROSA HCP Cluster',
+                                cluster_file: trimmedFile,
+                              },
+                              timestamp: new Date(),
+                            },
+                          }));
+
+                          updateRecentOperationStatus(
+                            operationId,
+                            `❌ Provisioning failed at ${completionTime}`
+                          );
+                        }
+                      } catch (error) {
+                        console.error('[Minikube Provision ROSA HCP] Exception:', error);
+                        const completionTime = new Date().toLocaleTimeString('en-US', {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          hour12: true,
+                        });
+                        if (operationId) {
+                          setAnsibleResults((prev) => ({
+                            ...prev,
+                            [operationId]: {
+                              loading: false,
+                              success: false,
+                              result: {
+                                error: error.toString(),
+                                timestamp: new Date(),
+                                task_file: 'tasks/provision-rosa-hcp-cluster.yml',
+                                type: 'Provision ROSA HCP Cluster',
+                              },
+                              timestamp: new Date(),
+                            },
+                          }));
+                          updateRecentOperationStatus(
+                            operationId,
+                            `❌ Provisioning failed at ${completionTime}`
+                          );
+                        }
+                      }
+                    }}
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                  >
+                    <svg
+                      className="h-3.5 w-3.5 mr-1.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                      />
+                    </svg>
+                    <span>Provision</span>
+                  </button>
+
+                  {/* Configure AutoNode Button */}
+                  {(() => {
+                    // Check if we have ansible results with dynamic resources
+                    const hasROSACluster =
+                      parseDynamicResources(
+                        ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]
+                          ?.result?.output || ''
+                      ).filter((r) => r.type === 'ROSACluster').length > 0;
+
+                    return hasROSACluster ? (
+                      <button
+                        onClick={async () => {
+                          let operationId;
+                          try {
+                            if (
+                              !confirm(
+                                'Configure AutoNode for ROSA HCP Cluster?\n\nThis will:\n- Configure EC2NodeClass\n- Create NodePool\n- Verify AutoNode configuration'
                               )
-                                return;
+                            )
+                              return;
 
-                              operationId = `configure-autonode-${Date.now()}`;
+                            operationId = `configure-autonode-${Date.now()}`;
 
-                              addToRecent({
-                                id: operationId,
-                                title: 'Minikube Configure AutoNode',
-                                color: 'bg-violet-600',
-                                status: '⏳ Configuring...',
-                              });
+                            addToRecent({
+                              id: operationId,
+                              title: 'Minikube Configure AutoNode',
+                              color: 'bg-violet-600',
+                              status: '⏳ Configuring...',
+                            });
 
-                              await new Promise((resolve) => setTimeout(resolve, 100));
+                            await new Promise((resolve) => setTimeout(resolve, 100));
 
-                              const response = await fetch(
-                                'http://localhost:8000/api/ansible/run-playbook',
-                                {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({
+                            const response = await fetch(
+                              'http://localhost:8000/api/ansible/run-playbook',
+                              {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  playbook: 'test-autonode.yml',
+                                  description: 'Configure AutoNode',
+                                  extra_vars: {
+                                    KUBE_CONTEXT:
+                                      verifiedMinikubeClusterInfo?.contextName ||
+                                      verifiedMinikubeClusterInfo?.name,
+                                  },
+                                }),
+                              }
+                            );
+
+                            const result = await response.json();
+                            const completionTime = new Date().toLocaleTimeString('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              hour12: true,
+                            });
+
+                            if (result.success) {
+                              setAnsibleResults((prev) => ({
+                                ...prev,
+                                [operationId]: {
+                                  loading: false,
+                                  success: true,
+                                  result: {
+                                    output: result.output,
+                                    timestamp: new Date(),
                                     playbook: 'test-autonode.yml',
-                                    description: 'Configure AutoNode',
-                                    extra_vars: {
-                                      KUBE_CONTEXT:
-                                        verifiedMinikubeClusterInfo?.contextName ||
-                                        verifiedMinikubeClusterInfo?.name,
-                                    },
-                                  }),
-                                }
+                                    type: 'Configure AutoNode',
+                                  },
+                                  timestamp: new Date(),
+                                },
+                              }));
+
+                              updateRecentOperationStatus(
+                                operationId,
+                                `✅ AutoNode configured at ${completionTime}`
                               );
 
-                              const result = await response.json();
-                              const completionTime = new Date().toLocaleTimeString('en-US', {
-                                hour: 'numeric',
-                                minute: '2-digit',
-                                second: '2-digit',
-                                hour12: true,
-                              });
-
-                              if (result.success) {
-                                setAnsibleResults((prev) => ({
-                                  ...prev,
-                                  [operationId]: {
-                                    loading: false,
-                                    success: true,
-                                    result: {
-                                      output: result.output,
-                                      timestamp: new Date(),
-                                      playbook: 'test-autonode.yml',
-                                      type: 'Configure AutoNode',
-                                    },
+                              // Refresh active resources
+                              await fetchMinikubeActiveResources(
+                                verifiedMinikubeClusterInfo.name,
+                                verifiedMinikubeClusterInfo.namespace
+                              );
+                            } else {
+                              setAnsibleResults((prev) => ({
+                                ...prev,
+                                [operationId]: {
+                                  loading: false,
+                                  success: false,
+                                  result: {
+                                    error: result.error || 'Configuration failed',
+                                    output: result.output || '',
                                     timestamp: new Date(),
+                                    playbook: 'test-autonode.yml',
+                                    type: 'Configure AutoNode',
                                   },
-                                }));
+                                  timestamp: new Date(),
+                                },
+                              }));
 
-                                updateRecentOperationStatus(
-                                  operationId,
-                                  `✅ AutoNode configured at ${completionTime}`
-                                );
-
-                                // Refresh active resources
-                                await fetchMinikubeActiveResources(
-                                  verifiedMinikubeClusterInfo.name,
-                                  verifiedMinikubeClusterInfo.namespace
-                                );
-                              } else {
-                                setAnsibleResults((prev) => ({
-                                  ...prev,
-                                  [operationId]: {
-                                    loading: false,
-                                    success: false,
-                                    result: {
-                                      error: result.error || 'Configuration failed',
-                                      output: result.output || '',
-                                      timestamp: new Date(),
-                                      playbook: 'test-autonode.yml',
-                                      type: 'Configure AutoNode',
-                                    },
-                                    timestamp: new Date(),
-                                  },
-                                }));
-
-                                updateRecentOperationStatus(
-                                  operationId,
-                                  `❌ AutoNode configuration failed at ${completionTime}`
-                                );
-                              }
-                            } catch (error) {
-                              console.error('[Configure AutoNode] Exception:', error);
-                              const completionTime = new Date().toLocaleTimeString('en-US', {
-                                hour: 'numeric',
-                                minute: '2-digit',
-                                second: '2-digit',
-                                hour12: true,
-                              });
-                              if (operationId) {
-                                setAnsibleResults((prev) => ({
-                                  ...prev,
-                                  [operationId]: {
-                                    loading: false,
-                                    success: false,
-                                    result: {
-                                      error: error.toString(),
-                                      timestamp: new Date(),
-                                      playbook: 'test-autonode.yml',
-                                      type: 'Configure AutoNode',
-                                    },
-                                    timestamp: new Date(),
-                                  },
-                                }));
-                                updateRecentOperationStatus(
-                                  operationId,
-                                  `❌ AutoNode configuration failed at ${completionTime}`
-                                );
-                              }
+                              updateRecentOperationStatus(
+                                operationId,
+                                `❌ AutoNode configuration failed at ${completionTime}`
+                              );
                             }
-                          }}
-                          className="bg-violet-600 hover:bg-violet-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                          } catch (error) {
+                            console.error('[Configure AutoNode] Exception:', error);
+                            const completionTime = new Date().toLocaleTimeString('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              hour12: true,
+                            });
+                            if (operationId) {
+                              setAnsibleResults((prev) => ({
+                                ...prev,
+                                [operationId]: {
+                                  loading: false,
+                                  success: false,
+                                  result: {
+                                    error: error.toString(),
+                                    timestamp: new Date(),
+                                    playbook: 'test-autonode.yml',
+                                    type: 'Configure AutoNode',
+                                  },
+                                  timestamp: new Date(),
+                                },
+                              }));
+                              updateRecentOperationStatus(
+                                operationId,
+                                `❌ AutoNode configuration failed at ${completionTime}`
+                              );
+                            }
+                          }
+                        }}
+                        className="bg-violet-600 hover:bg-violet-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center"
+                      >
+                        <svg
+                          className="h-3.5 w-3.5 mr-1.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
                         >
-                          <svg
-                            className="h-3.5 w-3.5 mr-1.5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                            />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-                          </svg>
-                          <span>Configure AutoNode</span>
-                        </button>
-                      ) : null;
-                    })()}
-                  </div>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                          />
+                        </svg>
+                        <span>Configure AutoNode</span>
+                      </button>
+                    ) : null;
+                  })()}
+                </div>
 
                 {/* Key Components List - Show CAPI/CAPA component versions */}
                 <div className="space-y-2">
                   {(() => {
                     // Use component_timestamps to build the list
-                    const componentTimestamps = verifiedMinikubeClusterInfo?.component_timestamps || {};
+                    const componentTimestamps =
+                      verifiedMinikubeClusterInfo?.component_timestamps || {};
 
                     // Map timestamps to component display
                     const componentMap = {
-                      'capi-controller': { displayName: 'CAPI Controller', type: 'Deployment', name: 'capi-controller-manager', namespace: 'capi-system' },
-                      'capa-controller': { displayName: 'CAPA Controller', type: 'Deployment', name: 'capa-controller-manager', namespace: 'capa-system' },
-                      'rosa-crd': { displayName: 'ROSA CRD', type: 'CustomResourceDefinition', name: 'rosaclusters.infrastructure.cluster.x-k8s.io', namespace: '' },
-                      'cert-manager': { displayName: 'Cert Manager', type: 'Deployment', name: 'cert-manager', namespace: 'cert-manager' },
+                      'capi-controller': {
+                        displayName: 'CAPI Controller',
+                        type: 'Deployment',
+                        name: 'capi-controller-manager',
+                        namespace: 'capi-system',
+                      },
+                      'capa-controller': {
+                        displayName: 'CAPA Controller',
+                        type: 'Deployment',
+                        name: 'capa-controller-manager',
+                        namespace: 'capa-system',
+                      },
+                      'rosa-crd': {
+                        displayName: 'ROSA CRD',
+                        type: 'CustomResourceDefinition',
+                        name: 'rosaclusters.infrastructure.cluster.x-k8s.io',
+                        namespace: '',
+                      },
+                      'cert-manager': {
+                        displayName: 'Cert Manager',
+                        type: 'Deployment',
+                        name: 'cert-manager',
+                        namespace: 'cert-manager',
+                      },
                     };
 
                     const components = Object.keys(componentTimestamps)
-                      .filter(key => componentMap[key]) // Only show known components
-                      .map(key => ({
+                      .filter((key) => componentMap[key]) // Only show known components
+                      .map((key) => ({
                         key,
                         displayName: componentMap[key].displayName,
                         timestamp: componentTimestamps[key],
-                        resourceInfo: componentMap[key]
+                        resourceInfo: componentMap[key],
                       }));
 
                     if (components.length === 0) {
@@ -3920,7 +3967,11 @@ export function WhatCanIHelp() {
                               );
                             }
                           }}
-                          title={resourceInfo && resourceInfo.type !== 'CustomResourceDefinition' ? "Click to view YAML" : ""}
+                          title={
+                            resourceInfo && resourceInfo.type !== 'CustomResourceDefinition'
+                              ? 'Click to view YAML'
+                              : ''
+                          }
                         >
                           {/* Component Name */}
                           <div className="flex items-center space-x-2">
@@ -4521,57 +4572,57 @@ export function WhatCanIHelp() {
               {!minikubeRecentOpsCollapsed && (
                 <div className="px-6 pb-6">
                   <div className="grid grid-cols-1 gap-3">
-                {recentOperations.length > 0 ? (
-                  recentOperations.slice(0, 5).map((op, idx) => (
-                    <div
-                      key={op.id}
-                      className="flex items-center gap-3 bg-gradient-to-r from-gray-50 to-purple-50 rounded-lg px-4 py-3 border border-purple-100 hover:shadow-md hover:border-purple-300 transition-all"
-                    >
-                      <div
-                        className={`w-3 h-3 rounded-full flex-shrink-0 ${
-                          op.status.includes('✅')
-                            ? 'bg-green-500 shadow-lg shadow-green-500/50 animate-pulse'
-                            : op.status.includes('❌')
-                              ? 'bg-red-500 shadow-lg shadow-red-500/50'
-                              : op.status.includes('⏳')
-                                ? 'bg-amber-500 shadow-lg shadow-amber-500/50 animate-pulse'
-                                : 'bg-blue-500 shadow-lg shadow-blue-500/50'
-                        }`}
-                      ></div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-semibold text-gray-900 truncate">
-                            {op.title}
-                          </span>
-                          <span className="text-xs text-gray-500 flex-shrink-0">
-                            {op.timestamp ? new Date(op.timestamp).toLocaleTimeString() : ''}
-                          </span>
+                    {recentOperations.length > 0 ? (
+                      recentOperations.slice(0, 5).map((op, idx) => (
+                        <div
+                          key={op.id}
+                          className="flex items-center gap-3 bg-gradient-to-r from-gray-50 to-purple-50 rounded-lg px-4 py-3 border border-purple-100 hover:shadow-md hover:border-purple-300 transition-all"
+                        >
+                          <div
+                            className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                              op.status.includes('✅')
+                                ? 'bg-green-500 shadow-lg shadow-green-500/50 animate-pulse'
+                                : op.status.includes('❌')
+                                  ? 'bg-red-500 shadow-lg shadow-red-500/50'
+                                  : op.status.includes('⏳')
+                                    ? 'bg-amber-500 shadow-lg shadow-amber-500/50 animate-pulse'
+                                    : 'bg-blue-500 shadow-lg shadow-blue-500/50'
+                            }`}
+                          ></div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-semibold text-gray-900 truncate">
+                                {op.title}
+                              </span>
+                              <span className="text-xs text-gray-500 flex-shrink-0">
+                                {op.timestamp ? new Date(op.timestamp).toLocaleTimeString() : ''}
+                              </span>
+                            </div>
+                            <span className="text-xs text-gray-600 block mt-1">{op.status}</span>
+                          </div>
                         </div>
-                        <span className="text-xs text-gray-600 block mt-1">{op.status}</span>
+                      ))
+                    ) : (
+                      <div className="bg-gradient-to-r from-gray-50 to-purple-50 rounded-lg px-4 py-4 border border-purple-100 text-center">
+                        <svg
+                          className="h-8 w-8 text-purple-300 mx-auto mb-2"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                          />
+                        </svg>
+                        <p className="text-sm font-medium text-purple-600">No recent operations</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Operations will appear here once you start working
+                        </p>
                       </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="bg-gradient-to-r from-gray-50 to-purple-50 rounded-lg px-4 py-4 border border-purple-100 text-center">
-                    <svg
-                      className="h-8 w-8 text-purple-300 mx-auto mb-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                      />
-                    </svg>
-                    <p className="text-sm font-medium text-purple-600">No recent operations</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Operations will appear here once you start working
-                    </p>
-                  </div>
-                )}
+                    )}
                   </div>
                 </div>
               )}
@@ -4584,7 +4635,9 @@ export function WhatCanIHelp() {
                   <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg shadow-xl overflow-hidden">
                     <div
                       className="text-base font-semibold text-white p-4 cursor-pointer hover:bg-gray-700 transition-colors flex items-center justify-between"
-                      onClick={() => setMinikubeOperationsOutputCollapsed(!minikubeOperationsOutputCollapsed)}
+                      onClick={() =>
+                        setMinikubeOperationsOutputCollapsed(!minikubeOperationsOutputCollapsed)
+                      }
                     >
                       <div className="flex items-center space-x-3">
                         <svg
@@ -4713,7 +4766,11 @@ export function WhatCanIHelp() {
               <div
                 className="bg-gradient-to-r from-cyan-600 to-blue-600 text-white px-6 py-4 flex items-center justify-between cursor-pointer hover:from-cyan-700 hover:to-blue-700 transition-colors"
                 onClick={() => setMceConfigurationCollapsed(!mceConfigurationCollapsed)}
-                title={mceConfigurationCollapsed ? 'Click to expand Configuration' : 'Click to collapse Configuration'}
+                title={
+                  mceConfigurationCollapsed
+                    ? 'Click to expand Configuration'
+                    : 'Click to collapse Configuration'
+                }
               >
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">⚙️</span>
@@ -4722,11 +4779,21 @@ export function WhatCanIHelp() {
                 <div className="p-2">
                   {mceConfigurationCollapsed ? (
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
                     </svg>
                   ) : (
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 15l7-7 7 7"
+                      />
                     </svg>
                   )}
                 </div>
@@ -4736,748 +4803,919 @@ export function WhatCanIHelp() {
               {!mceConfigurationCollapsed && (
                 <div className="p-6">
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Tile 1: MCE Test Environment - Wrapper for camper pull-out */}
-              <div className={`relative transition-all duration-500 ${showClusterPanel ? 'lg:col-span-2' : ''}`}>
-                <div className="flex">
-                  {/* MCE Card */}
-                  <div className="bg-white rounded-lg border-2 border-cyan-200 p-6 shadow-lg flex flex-col h-[600px] flex-shrink-0 w-full lg:w-[400px]">
-                <div className="flex flex-col space-y-3 mb-4 flex-shrink-0">
-                  <h4 className="text-base font-semibold text-cyan-900 flex items-center">
-                    <svg
-                      className="h-5 w-5 text-cyan-600 mr-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                    {/* Tile 1: MCE Test Environment - Wrapper for camper pull-out */}
+                    <div
+                      className={`relative transition-all duration-500 ${showClusterPanel ? 'lg:col-span-2' : ''}`}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 10V3L4 14h7v7l9-11h-7z"
-                      />
-                    </svg>
-                    MCE Test Configuration
-                  </h4>
+                      <div className="flex">
+                        {/* MCE Card */}
+                        <div className="bg-white rounded-lg border-2 border-cyan-200 p-6 shadow-lg flex flex-col h-[600px] flex-shrink-0 w-full lg:w-[400px]">
+                          <div className="flex flex-col space-y-3 mb-4 flex-shrink-0">
+                            <h4 className="text-base font-semibold text-cyan-900 flex items-center">
+                              <svg
+                                className="h-5 w-5 text-cyan-600 mr-2"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                                />
+                              </svg>
+                              MCE Test Configuration
+                            </h4>
 
-                  {/* Action Buttons */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={async () => {
-                        console.log('MCE Verify button clicked');
-                        const timestamp = Date.now();
+                            {/* Action Buttons */}
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={async () => {
+                                  console.log('MCE Verify button clicked');
+                                  const timestamp = Date.now();
 
-                        // Add to recent operations
-                        const newOperation = {
-                          title: 'MCE Environment Verification',
-                          status: '⏳ Verifying...',
-                          timestamp: timestamp,
-                          playbook: 'Ansible Task: tasks/validate-capa-environment.yml',
-                        };
-                        setRecentOperations((prev) => [newOperation, ...prev].slice(0, 10));
+                                  // Add to recent operations
+                                  const newOperation = {
+                                    title: 'MCE Environment Verification',
+                                    status: '⏳ Verifying...',
+                                    timestamp: timestamp,
+                                    playbook: 'Ansible Task: tasks/validate-capa-environment.yml',
+                                  };
+                                  setRecentOperations((prev) =>
+                                    [newOperation, ...prev].slice(0, 10)
+                                  );
 
-                        try {
-                          // Set loading state
-                          setAnsibleResults((prev) => ({
-                            ...prev,
-                            'check-mce-components': { loading: true, result: null, timestamp: new Date() },
-                          }));
+                                  try {
+                                    // Set loading state
+                                    setAnsibleResults((prev) => ({
+                                      ...prev,
+                                      'check-mce-components': {
+                                        loading: true,
+                                        result: null,
+                                        timestamp: new Date(),
+                                      },
+                                    }));
 
-                          console.log('Running validation task...');
-                          // Call the Ansible task to validate CAPA environment
-                          const response = await fetch('http://localhost:8000/api/ansible/run-task', {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                              task_file: 'tasks/validate-capa-environment.yml',
-                              description: 'Validate MCE environment',
-                            }),
-                          });
+                                    console.log('Running validation task...');
+                                    // Call the Ansible task to validate CAPA environment
+                                    const response = await fetch(
+                                      'http://localhost:8000/api/ansible/run-task',
+                                      {
+                                        method: 'POST',
+                                        headers: {
+                                          'Content-Type': 'application/json',
+                                        },
+                                        body: JSON.stringify({
+                                          task_file: 'tasks/validate-capa-environment.yml',
+                                          description: 'Validate MCE environment',
+                                        }),
+                                      }
+                                    );
 
-                          const data = await response.json();
-                          console.log('Validation task response:', data);
+                                    const data = await response.json();
+                                    console.log('Validation task response:', data);
 
-                          if (data.success) {
-                            // Also refresh the UI state by fetching MCE features
-                            const mceResponse = await fetch('http://localhost:8000/api/mce/features');
-                            const mceData = await mceResponse.json();
-                            setMceFeatures(mceData.features || []);
-                            setMceInfo(mceData.mce_info || null);
-                            setMceLastVerified(new Date().toISOString());
+                                    if (data.success) {
+                                      // Also refresh the UI state by fetching MCE features
+                                      const mceResponse = await fetch(
+                                        'http://localhost:8000/api/mce/features'
+                                      );
+                                      const mceData = await mceResponse.json();
+                                      setMceFeatures(mceData.features || []);
+                                      setMceInfo(mceData.mce_info || null);
+                                      setMceLastVerified(new Date().toISOString());
 
-                            // Fetch OCP connection status for UI display
-                            const ocpResponse = await fetch(`http://localhost:8000/api/ocp/connection-status?t=${timestamp}`);
-                            const ocpData = await ocpResponse.json();
-                            setOcpStatus(ocpData);
+                                      // Fetch OCP connection status for UI display
+                                      const ocpResponse = await fetch(
+                                        `http://localhost:8000/api/ocp/connection-status?t=${timestamp}`
+                                      );
+                                      const ocpData = await ocpResponse.json();
+                                      setOcpStatus(ocpData);
 
-                            // Update results
-                            setAnsibleResults((prev) => ({
-                              ...prev,
-                              'check-mce-components': {
-                                loading: false,
-                                result: { success: true, output: data.output },
-                                timestamp: new Date()
-                              },
-                            }));
+                                      // Update results
+                                      setAnsibleResults((prev) => ({
+                                        ...prev,
+                                        'check-mce-components': {
+                                          loading: false,
+                                          result: { success: true, output: data.output },
+                                          timestamp: new Date(),
+                                        },
+                                      }));
 
-                            // Update recent operation status with playbook output
-                            setRecentOperations((prev) => {
-                              const updated = [...prev];
-                              if (updated[0]?.title === 'MCE Environment Verification') {
-                                updated[0] = {
-                                  ...updated[0],
-                                  status: `✅ Verification completed successfully at ${new Date().toLocaleTimeString()}`,
-                                  output: data.output,
-                                };
-                              }
-                              return updated;
-                            });
+                                      // Update recent operation status with playbook output
+                                      setRecentOperations((prev) => {
+                                        const updated = [...prev];
+                                        if (updated[0]?.title === 'MCE Environment Verification') {
+                                          updated[0] = {
+                                            ...updated[0],
+                                            status: `✅ Verification completed successfully at ${new Date().toLocaleTimeString()}`,
+                                            output: data.output,
+                                          };
+                                        }
+                                        return updated;
+                                      });
 
-                            addNotification(`✅ MCE environment verified successfully`, 'success', 3000);
-                          } else {
-                            throw new Error(data.error || 'Validation task failed');
-                          }
-                        } catch (error) {
-                          console.error('Error verifying MCE:', error);
-                          setAnsibleResults((prev) => ({
-                            ...prev,
-                            'check-mce-components': {
-                              loading: false,
-                              result: { success: false, output: error.message },
-                              timestamp: new Date()
-                            },
-                          }));
+                                      addNotification(
+                                        `✅ MCE environment verified successfully`,
+                                        'success',
+                                        3000
+                                      );
+                                    } else {
+                                      throw new Error(data.error || 'Validation task failed');
+                                    }
+                                  } catch (error) {
+                                    console.error('Error verifying MCE:', error);
+                                    setAnsibleResults((prev) => ({
+                                      ...prev,
+                                      'check-mce-components': {
+                                        loading: false,
+                                        result: { success: false, output: error.message },
+                                        timestamp: new Date(),
+                                      },
+                                    }));
 
-                          // Update recent operation status with error
-                          setRecentOperations((prev) => {
-                            const updated = [...prev];
-                            if (updated[0]?.title === 'MCE Environment Verification') {
-                              updated[0] = {
-                                ...updated[0],
-                                status: `❌ Verification failed at ${new Date().toLocaleTimeString()}: ${error.message}`,
-                              };
-                            }
-                            return updated;
-                          });
+                                    // Update recent operation status with error
+                                    setRecentOperations((prev) => {
+                                      const updated = [...prev];
+                                      if (updated[0]?.title === 'MCE Environment Verification') {
+                                        updated[0] = {
+                                          ...updated[0],
+                                          status: `❌ Verification failed at ${new Date().toLocaleTimeString()}: ${error.message}`,
+                                        };
+                                      }
+                                      return updated;
+                                    });
 
-                          addNotification('❌ Failed to verify MCE environment', 'error', 3000);
-                        }
-                      }}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
-                      title="Verify MCE cluster and CAPI/CAPA environment"
-                    >
-                      <ArrowPathIcon className="h-3 w-3" />
-                      <span>Verify</span>
-                    </button>
-                    <button
-                      onClick={async () => {
-                        console.log('MCE Configure button clicked');
-                        const timestamp = Date.now();
+                                    addNotification(
+                                      '❌ Failed to verify MCE environment',
+                                      'error',
+                                      3000
+                                    );
+                                  }
+                                }}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                                title="Verify MCE cluster and CAPI/CAPA environment"
+                              >
+                                <ArrowPathIcon className="h-3 w-3" />
+                                <span>Verify</span>
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  console.log('MCE Configure button clicked');
+                                  const timestamp = Date.now();
 
-                        // Add to recent operations
-                        const newOperation = {
-                          title: 'Configure CAPI/CAPA Environment',
-                          status: '⏳ Configuring...',
-                          timestamp: timestamp,
-                          playbook: 'Ansible Role: configure-capa-environment',
-                        };
-                        setRecentOperations((prev) => [newOperation, ...prev].slice(0, 10));
+                                  // Add to recent operations
+                                  const newOperation = {
+                                    title: 'Configure CAPI/CAPA Environment',
+                                    status: '⏳ Configuring...',
+                                    timestamp: timestamp,
+                                    playbook: 'Ansible Role: configure-capa-environment',
+                                  };
+                                  setRecentOperations((prev) =>
+                                    [newOperation, ...prev].slice(0, 10)
+                                  );
 
-                        try {
-                          console.log('Running configure-capa-environment role...');
-                          const response = await fetch('http://localhost:8000/api/ansible/run-role', {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                              role_name: 'configure-capa-environment',
-                            }),
-                          });
+                                  try {
+                                    console.log('Running configure-capa-environment role...');
+                                    const response = await fetch(
+                                      'http://localhost:8000/api/ansible/run-role',
+                                      {
+                                        method: 'POST',
+                                        headers: {
+                                          'Content-Type': 'application/json',
+                                        },
+                                        body: JSON.stringify({
+                                          role_name: 'configure-capa-environment',
+                                        }),
+                                      }
+                                    );
 
-                          const data = await response.json();
+                                    const data = await response.json();
 
-                          if (data.success) {
-                            // Update recent operation status with output
-                            setRecentOperations((prev) => {
-                              const updated = [...prev];
-                              if (updated[0]?.title === 'Configure CAPI/CAPA Environment') {
-                                updated[0] = {
-                                  ...updated[0],
-                                  status: `✅ Configuration completed successfully at ${new Date().toLocaleTimeString()}`,
-                                  output: data.output || '',
-                                };
-                              }
-                              return updated;
-                            });
+                                    if (data.success) {
+                                      // Update recent operation status with output
+                                      setRecentOperations((prev) => {
+                                        const updated = [...prev];
+                                        if (
+                                          updated[0]?.title === 'Configure CAPI/CAPA Environment'
+                                        ) {
+                                          updated[0] = {
+                                            ...updated[0],
+                                            status: `✅ Configuration completed successfully at ${new Date().toLocaleTimeString()}`,
+                                            output: data.output || '',
+                                          };
+                                        }
+                                        return updated;
+                                      });
 
-                            addNotification('✅ CAPI/CAPA environment configured successfully', 'success', 3000);
-                          } else {
-                            // Update recent operation status with error and output
-                            setRecentOperations((prev) => {
-                              const updated = [...prev];
-                              if (updated[0]?.title === 'Configure CAPI/CAPA Environment') {
-                                updated[0] = {
-                                  ...updated[0],
-                                  status: `❌ Configuration failed at ${new Date().toLocaleTimeString()}`,
-                                  output: data.output || data.error || '',
-                                };
-                              }
-                              return updated;
-                            });
+                                      addNotification(
+                                        '✅ CAPI/CAPA environment configured successfully',
+                                        'success',
+                                        3000
+                                      );
+                                    } else {
+                                      // Update recent operation status with error and output
+                                      setRecentOperations((prev) => {
+                                        const updated = [...prev];
+                                        if (
+                                          updated[0]?.title === 'Configure CAPI/CAPA Environment'
+                                        ) {
+                                          updated[0] = {
+                                            ...updated[0],
+                                            status: `❌ Configuration failed at ${new Date().toLocaleTimeString()}`,
+                                            output: data.output || data.error || '',
+                                          };
+                                        }
+                                        return updated;
+                                      });
 
-                            addNotification('❌ Failed to configure CAPI/CAPA environment', 'error', 3000);
-                          }
-                        } catch (error) {
-                          console.error('Error configuring CAPI/CAPA environment:', error);
+                                      addNotification(
+                                        '❌ Failed to configure CAPI/CAPA environment',
+                                        'error',
+                                        3000
+                                      );
+                                    }
+                                  } catch (error) {
+                                    console.error(
+                                      'Error configuring CAPI/CAPA environment:',
+                                      error
+                                    );
 
-                          // Update recent operation status with error and output
-                          setRecentOperations((prev) => {
-                            const updated = [...prev];
-                            if (updated[0]?.title === 'Configure CAPI/CAPA Environment') {
-                              updated[0] = {
-                                ...updated[0],
-                                status: `❌ Configuration failed at ${new Date().toLocaleTimeString()}: ${error.message}`,
-                                output: `Error: ${error.message}\n${error.stack || ''}`,
-                              };
-                            }
-                            return updated;
-                          });
+                                    // Update recent operation status with error and output
+                                    setRecentOperations((prev) => {
+                                      const updated = [...prev];
+                                      if (updated[0]?.title === 'Configure CAPI/CAPA Environment') {
+                                        updated[0] = {
+                                          ...updated[0],
+                                          status: `❌ Configuration failed at ${new Date().toLocaleTimeString()}: ${error.message}`,
+                                          output: `Error: ${error.message}\n${error.stack || ''}`,
+                                        };
+                                      }
+                                      return updated;
+                                    });
 
-                          addNotification('❌ Failed to configure CAPI/CAPA environment', 'error', 3000);
-                        }
-                      }}
-                      className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
-                      title="Configure CAPI/CAPA environment"
-                    >
-                      <Cog6ToothIcon className="h-3 w-3" />
-                      <span>Configure</span>
-                    </button>
-                  </div>
-                </div>
+                                    addNotification(
+                                      '❌ Failed to configure CAPI/CAPA environment',
+                                      'error',
+                                      3000
+                                    );
+                                  }
+                                }}
+                                className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                                title="Configure CAPI/CAPA environment"
+                              >
+                                <Cog6ToothIcon className="h-3 w-3" />
+                                <span>Configure</span>
+                              </button>
+                            </div>
+                          </div>
 
-                {/* MCE Environment Info - Scrollable content area */}
-                <div className="mb-4 bg-cyan-50 rounded-lg p-4 border border-cyan-100 flex-1 overflow-y-auto">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-base font-semibold text-cyan-900">
-                      {mceInfo?.name || 'multiclusterengine'}
-                    </div>
-                    <div className="flex items-center gap-1.5 px-2 py-1 bg-white rounded-md border border-cyan-200">
-                      <span
-                        className={`w-2 h-2 rounded-full ${
-                          mceInfo?.available ? 'bg-green-500' : 'bg-gray-400'
-                        }`}
-                      ></span>
-                      <span className="text-xs font-medium text-cyan-700">
-                        {mceInfo?.version || 'N/A'}
-                      </span>
-                    </div>
-                  </div>
+                          {/* MCE Environment Info - Scrollable content area */}
+                          <div className="mb-4 bg-cyan-50 rounded-lg p-4 border border-cyan-100 flex-1 overflow-y-auto">
+                            <div className="flex items-center justify-between mb-4">
+                              <div className="text-base font-semibold text-cyan-900">
+                                {mceInfo?.name || 'multiclusterengine'}
+                              </div>
+                              <div className="flex items-center gap-1.5 px-2 py-1 bg-white rounded-md border border-cyan-200">
+                                <span
+                                  className={`w-2 h-2 rounded-full ${
+                                    mceInfo?.available ? 'bg-green-500' : 'bg-gray-400'
+                                  }`}
+                                ></span>
+                                <span className="text-xs font-medium text-cyan-700">
+                                  {mceInfo?.version || 'N/A'}
+                                </span>
+                              </div>
+                            </div>
 
-                  <div className="grid grid-cols-3 gap-3 mb-3">
-                    {/* CAPI/CAPA */}
-                    <div className="bg-white rounded-md p-2 border border-cyan-100">
-                      <div className="text-xs text-cyan-600 mb-1">CAPI/CAPA:</div>
-                      <div className="flex items-center gap-1">
-                        {mceFeatures?.find(f => f.name === 'cluster-api')?.enabled &&
-                         mceFeatures?.find(f => f.name === 'cluster-api-provider-aws')?.enabled ? (
-                          <>
-                            <svg
-                              className="h-3.5 w-3.5 text-green-600"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                            <span className="text-sm font-medium text-green-700">Enabled</span>
-                          </>
-                        ) : (
-                          <span className="text-sm font-medium text-gray-500">Unknown</span>
+                            <div className="grid grid-cols-3 gap-3 mb-3">
+                              {/* CAPI/CAPA */}
+                              <div className="bg-white rounded-md p-2 border border-cyan-100">
+                                <div className="text-xs text-cyan-600 mb-1">CAPI/CAPA:</div>
+                                <div className="flex items-center gap-1">
+                                  {mceFeatures?.find((f) => f.name === 'cluster-api')?.enabled &&
+                                  mceFeatures?.find((f) => f.name === 'cluster-api-provider-aws')
+                                    ?.enabled ? (
+                                    <>
+                                      <svg
+                                        className="h-3.5 w-3.5 text-green-600"
+                                        fill="currentColor"
+                                        viewBox="0 0 20 20"
+                                      >
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                          clipRule="evenodd"
+                                        />
+                                      </svg>
+                                      <span className="text-sm font-medium text-green-700">
+                                        Enabled
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span className="text-sm font-medium text-gray-500">
+                                      Unknown
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Hypershift */}
+                              <div className="bg-white rounded-md p-2 border border-cyan-100">
+                                <div className="text-xs text-cyan-600 mb-1">Hypershift:</div>
+                                <div className="flex items-center gap-1">
+                                  {mceFeatures?.find((f) => f.name === 'hypershift')?.enabled ? (
+                                    <>
+                                      <svg
+                                        className="h-3.5 w-3.5 text-green-600"
+                                        fill="currentColor"
+                                        viewBox="0 0 20 20"
+                                      >
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                          clipRule="evenodd"
+                                        />
+                                      </svg>
+                                      <span className="text-sm font-medium text-green-700">
+                                        Enabled
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span className="text-sm font-medium text-red-600">
+                                      Disabled
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Clusters */}
+                              <div className="bg-white rounded-md p-2 border border-cyan-100">
+                                <div className="text-xs text-cyan-600 mb-1">Clusters:</div>
+                                <div className="text-sm font-bold text-cyan-900">
+                                  {(() => {
+                                    const clusterCount = parseDynamicResources(
+                                      ansibleResults['check-mce-components']?.result?.output || ''
+                                    ).filter((r) => r.type === 'ROSACluster').length;
+
+                                    return clusterCount > 0 ? (
+                                      <button
+                                        onClick={async () => {
+                                          await fetchRosaClusters();
+                                          setShowClusterPanel(true);
+                                        }}
+                                        className="font-bold text-cyan-900 bg-cyan-100 hover:bg-cyan-200 px-2 py-1 rounded-full transition-colors duration-200 cursor-pointer"
+                                        title="Click to view ROSA clusters"
+                                      >
+                                        {clusterCount}
+                                      </button>
+                                    ) : (
+                                      <span>{clusterCount}</span>
+                                    );
+                                  })()}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              {/* API Server */}
+                              <div className="bg-white rounded-md p-2 border border-cyan-100">
+                                <div className="text-xs font-medium text-cyan-600 mb-1">
+                                  API Server
+                                </div>
+                                <div className="text-xs text-cyan-900 font-mono break-all">
+                                  {ocpStatus?.api_url ||
+                                    ocpStatus?.configured_url ||
+                                    ocpStatus?.detected_values?.api_url ||
+                                    'N/A'}
+                                </div>
+                              </div>
+
+                              {/* Last Verified */}
+                              <div className="bg-white rounded-md p-2 border border-cyan-100">
+                                <div className="text-xs font-medium text-cyan-600 mb-1">
+                                  Last Verified
+                                </div>
+                                {mceLastVerified ? (
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                      <span className="text-xs font-medium text-green-700">
+                                        Verified
+                                      </span>
+                                    </div>
+                                    <div className="text-xs text-cyan-900">
+                                      {new Date(mceLastVerified).toLocaleString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        year: 'numeric',
+                                        hour: 'numeric',
+                                        minute: '2-digit',
+                                        hour12: true,
+                                      })}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                                    <span className="text-xs font-medium text-gray-500">
+                                      Not Verified
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Camper Pull-Out Panel - ROSA Clusters */}
+                        {showClusterPanel && (
+                          <div className="ml-4 transition-all duration-500 ease-out transform translate-x-0 w-[500px] flex-shrink-0">
+                            <div className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-lg shadow-2xl h-[600px] flex flex-col overflow-hidden border-2 border-blue-200">
+                              {/* Header */}
+                              <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white px-6 py-4 shadow-lg flex-shrink-0">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex items-start gap-3">
+                                    <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
+                                      <span className="text-2xl">🌩️</span>
+                                    </div>
+                                    <div>
+                                      <h3 className="text-2xl font-bold">ROSA Clusters</h3>
+                                      <p className="text-blue-100 text-xs mt-0.5">
+                                        Provisioned via OpenShift/MCE
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={async () => {
+                                        await fetchRosaClusters();
+                                      }}
+                                      disabled={rosaClustersLoading}
+                                      className="p-1.5 bg-white/20 hover:bg-white/30 rounded-md backdrop-blur-sm transition-colors disabled:opacity-50"
+                                      title="Refresh clusters"
+                                    >
+                                      <svg
+                                        className={`h-4 w-4 ${rosaClustersLoading ? 'animate-spin' : ''}`}
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                        />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      onClick={() => setShowClusterPanel(false)}
+                                      className="p-1.5 bg-white/20 hover:bg-white/30 rounded-md backdrop-blur-sm transition-colors"
+                                      title="Close panel"
+                                    >
+                                      <svg
+                                        className="h-4 w-4"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M6 18L18 6M6 6l12 12"
+                                        />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Content */}
+                              <div className="flex-1 overflow-y-auto p-4">
+                                {rosaClustersLoading ? (
+                                  <div className="flex items-center justify-center h-full">
+                                    <div className="text-center">
+                                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                                      <p className="text-gray-600">Loading ROSA clusters...</p>
+                                    </div>
+                                  </div>
+                                ) : rosaClusters.length === 0 ? (
+                                  <div className="flex items-center justify-center h-full">
+                                    <div className="text-center">
+                                      <div className="text-6xl mb-4">🌩️</div>
+                                      <p className="text-gray-600 font-medium">
+                                        No ROSA clusters found
+                                      </p>
+                                      <p className="text-gray-500 text-sm mt-2">
+                                        Provision a cluster to get started
+                                      </p>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-4">
+                                    {rosaClusters.map((cluster, idx) => (
+                                      <div
+                                        key={idx}
+                                        className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow"
+                                      >
+                                        {/* Cluster Header */}
+                                        <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
+                                          <div className="flex items-start justify-between">
+                                            <div>
+                                              <h4 className="font-bold text-lg text-gray-900">
+                                                {cluster.name}
+                                              </h4>
+                                              {cluster.rosa_cluster_name &&
+                                                cluster.rosa_cluster_name !== cluster.name && (
+                                                  <p className="text-xs text-gray-500 mt-0.5">
+                                                    ROSA: {cluster.rosa_cluster_name}
+                                                  </p>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              {cluster.ready ? (
+                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                                  <svg
+                                                    className="w-3 h-3 mr-1"
+                                                    fill="currentColor"
+                                                    viewBox="0 0 20 20"
+                                                  >
+                                                    <path
+                                                      fillRule="evenodd"
+                                                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                                      clipRule="evenodd"
+                                                    />
+                                                  </svg>
+                                                  Ready
+                                                </span>
+                                              ) : cluster.status === 'Error' ? (
+                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                                                  <svg
+                                                    className="w-3 h-3 mr-1"
+                                                    fill="currentColor"
+                                                    viewBox="0 0 20 20"
+                                                  >
+                                                    <path
+                                                      fillRule="evenodd"
+                                                      d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                                      clipRule="evenodd"
+                                                    />
+                                                  </svg>
+                                                  Error
+                                                </span>
+                                              ) : (
+                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                                                  <svg
+                                                    className="w-3 h-3 mr-1 animate-spin"
+                                                    fill="none"
+                                                    viewBox="0 0 24 24"
+                                                  >
+                                                    <circle
+                                                      className="opacity-25"
+                                                      cx="12"
+                                                      cy="12"
+                                                      r="10"
+                                                      stroke="currentColor"
+                                                      strokeWidth="4"
+                                                    ></circle>
+                                                    <path
+                                                      className="opacity-75"
+                                                      fill="currentColor"
+                                                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                                    ></path>
+                                                  </svg>
+                                                  Provisioning
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        {/* Cluster Details Grid */}
+                                        <div className="p-4">
+                                          <div className="grid grid-cols-2 gap-3">
+                                            {/* Version */}
+                                            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-100">
+                                              <div className="text-xs font-medium text-blue-600 mb-1">
+                                                Version
+                                              </div>
+                                              <div className="text-sm font-bold text-blue-900">
+                                                {cluster.version}
+                                              </div>
+                                            </div>
+
+                                            {/* Region */}
+                                            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-3 border border-purple-100">
+                                              <div className="text-xs font-medium text-purple-600 mb-1">
+                                                Region
+                                              </div>
+                                              <div className="text-sm font-bold text-purple-900">
+                                                {cluster.region}
+                                              </div>
+                                            </div>
+
+                                            {/* Nodes */}
+                                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-3 border border-green-100">
+                                              <div className="text-xs font-medium text-green-600 mb-1">
+                                                Nodes
+                                              </div>
+                                              <div className="text-sm font-bold text-green-900">
+                                                {cluster.nodes}
+                                              </div>
+                                            </div>
+
+                                            {/* Instance Type */}
+                                            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg p-3 border border-amber-100">
+                                              <div className="text-xs font-medium text-amber-600 mb-1">
+                                                Instance
+                                              </div>
+                                              <div className="text-sm font-bold text-amber-900">
+                                                {cluster.instance_type}
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          {/* Age */}
+                                          {cluster.age && (
+                                            <div className="mt-3 text-xs text-gray-500">
+                                              Created {cluster.age} ago
+                                            </div>
+                                          )}
+
+                                          {/* Action Buttons */}
+                                          {cluster.console_url && (
+                                            <div className="mt-3 flex gap-2">
+                                              <a
+                                                href={cluster.console_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex-1 inline-flex items-center justify-center px-3 py-2 text-xs font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-md transition-all shadow-sm"
+                                              >
+                                                <svg
+                                                  className="w-3 h-3 mr-1.5"
+                                                  fill="none"
+                                                  stroke="currentColor"
+                                                  viewBox="0 0 24 24"
+                                                >
+                                                  <path
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    strokeWidth={2}
+                                                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                                  />
+                                                </svg>
+                                                Open Console
+                                              </a>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
 
-                    {/* Hypershift */}
-                    <div className="bg-white rounded-md p-2 border border-cyan-100">
-                      <div className="text-xs text-cyan-600 mb-1">Hypershift:</div>
-                      <div className="flex items-center gap-1">
-                        {mceFeatures?.find(f => f.name === 'hypershift')?.enabled ? (
-                          <>
-                            <svg
-                              className="h-3.5 w-3.5 text-green-600"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                            <span className="text-sm font-medium text-green-700">Enabled</span>
-                          </>
-                        ) : (
-                          <span className="text-sm font-medium text-red-600">Disabled</span>
-                        )}
-                      </div>
-                    </div>
+                    {/* Tile 2: CAPI/CAPA Components */}
+                    <div className="bg-white rounded-lg border-2 border-cyan-200 p-6 shadow-lg flex flex-col h-[600px]">
+                      <div className="flex flex-col space-y-3 mb-4 flex-shrink-0">
+                        <h4 className="text-base font-semibold text-cyan-900 flex items-center justify-between">
+                          <span className="flex items-center">
+                            <CubeIcon className="h-5 w-5 text-cyan-600 mr-2" />
+                            CAPI/CAPA Components
+                          </span>
+                          <span className="text-xs font-normal text-cyan-600">
+                            (
+                            {mceFeatures?.filter(
+                              (f) =>
+                                f.name === 'cluster-api' || f.name === 'cluster-api-provider-aws'
+                            ).length || 0}{' '}
+                            configured)
+                          </span>
+                        </h4>
 
-                    {/* Clusters */}
-                    <div className="bg-white rounded-md p-2 border border-cyan-100">
-                      <div className="text-xs text-cyan-600 mb-1">Clusters:</div>
-                      <div className="text-sm font-bold text-cyan-900">
+                        {/* Provision Button */}
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setShowProvisionModal(true)}
+                            className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                            title="Provision ROSA cluster"
+                          >
+                            <WrenchScrewdriverIcon className="h-3 w-3" />
+                            <span>Provision</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Component List - Scrollable content area */}
+                      <div className="space-y-2 flex-1 overflow-y-auto">
                         {(() => {
-                          const clusterCount = parseDynamicResources(
-                            ansibleResults['check-mce-components']?.result?.output || ''
-                          ).filter((r) => r.type === 'ROSACluster').length;
+                          const capiComponents =
+                            mceFeatures?.filter(
+                              (f) =>
+                                f.name === 'cluster-api' || f.name === 'cluster-api-provider-aws'
+                            ) || [];
 
-                          return clusterCount > 0 ? (
-                            <button
-                              onClick={async () => {
-                                await fetchRosaClusters();
-                                setShowClusterPanel(true);
-                              }}
-                              className="font-bold text-cyan-900 bg-cyan-100 hover:bg-cyan-200 px-2 py-1 rounded-full transition-colors duration-200 cursor-pointer"
-                              title="Click to view ROSA clusters"
-                            >
-                              {clusterCount}
-                            </button>
-                          ) : (
-                            <span>{clusterCount}</span>
+                          if (capiComponents.length === 0) {
+                            return (
+                              <div className="text-xs text-cyan-600/70 px-3 py-2 text-center">
+                                No components found. Click Verify to detect components.
+                              </div>
+                            );
+                          }
+
+                          // Map component names to deployment information
+                          const componentDeploymentMap = {
+                            'cluster-api': {
+                              resourceType: 'Deployment',
+                              resourceName: 'capi-controller-manager',
+                              namespace: 'multicluster-engine',
+                            },
+                            'cluster-api-provider-aws': {
+                              resourceType: 'Deployment',
+                              resourceName: 'capa-controller-manager',
+                              namespace: 'multicluster-engine',
+                            },
+                          };
+
+                          return capiComponents.map((component, idx) => {
+                            const deploymentInfo = componentDeploymentMap[component.name];
+                            const isClickable = deploymentInfo && component.enabled;
+
+                            return (
+                              <div
+                                key={idx}
+                                className={`flex items-center justify-between p-2 bg-cyan-50 rounded-md border border-cyan-100 ${
+                                  isClickable
+                                    ? 'hover:bg-cyan-100 transition-colors cursor-pointer'
+                                    : ''
+                                }`}
+                                onClick={() => {
+                                  if (isClickable) {
+                                    fetchOcpResourceDetail(
+                                      deploymentInfo.resourceType,
+                                      deploymentInfo.resourceName,
+                                      deploymentInfo.namespace
+                                    );
+                                  }
+                                }}
+                                title={isClickable ? 'Click to view YAML' : ''}
+                              >
+                                {/* Component Name */}
+                                <div className="flex items-center space-x-2">
+                                  {component.enabled ? (
+                                    <svg
+                                      className="h-4 w-4 text-green-500"
+                                      fill="currentColor"
+                                      viewBox="0 0 20 20"
+                                    >
+                                      <path
+                                        fillRule="evenodd"
+                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                        clipRule="evenodd"
+                                      />
+                                    </svg>
+                                  ) : (
+                                    <svg
+                                      className="h-4 w-4 text-gray-400"
+                                      fill="currentColor"
+                                      viewBox="0 0 20 20"
+                                    >
+                                      <path
+                                        fillRule="evenodd"
+                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                        clipRule="evenodd"
+                                      />
+                                    </svg>
+                                  )}
+                                  <div className="text-xs font-medium text-cyan-900">
+                                    {component.name}
+                                  </div>
+                                </div>
+
+                                {/* Status Badge */}
+                                <div className="flex-shrink-0">
+                                  <span
+                                    className={`text-xs font-mono px-2 py-1 rounded ${
+                                      component.enabled
+                                        ? 'text-green-700 bg-green-100'
+                                        : 'text-gray-600 bg-gray-100'
+                                    }`}
+                                  >
+                                    {component.enabled ? 'Enabled' : 'Disabled'}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Tile 3: Active Resources */}
+                    <div className="bg-white rounded-lg border-2 border-cyan-200 p-6 shadow-lg flex flex-col h-[600px]">
+                      <div className="flex flex-col space-y-3 mb-4 flex-shrink-0">
+                        <h4 className="text-base font-semibold text-cyan-900 flex items-center">
+                          <ChartBarIcon className="h-5 w-5 text-cyan-600 mr-2" />
+                          Active Resources
+                        </h4>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2">
+                          <button
+                            className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5 disabled:opacity-50"
+                            disabled={mceResourcesLoading}
+                          >
+                            Export
+                          </button>
+                          <button
+                            className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5 disabled:opacity-50"
+                            onClick={fetchMceActiveResources}
+                            disabled={mceResourcesLoading}
+                          >
+                            {mceResourcesLoading ? 'Loading...' : 'Refresh'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Resources List - Scrollable content area */}
+                      <div className="space-y-2 flex-1 overflow-y-auto">
+                        {(() => {
+                          if (mceResourcesLoading) {
+                            return (
+                              <div className="text-center py-8 text-cyan-600 text-sm">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600 mx-auto mb-2"></div>
+                                Loading resources...
+                              </div>
+                            );
+                          }
+
+                          if (mceActiveResources.length === 0) {
+                            return (
+                              <div className="text-center py-8 text-cyan-600/70 text-sm">
+                                No resources found. Click Refresh to fetch CAPI/CAPA resources.
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className="bg-cyan-50 rounded-lg p-3 border border-cyan-100">
+                              <div className="text-xs font-semibold text-cyan-800 mb-2">
+                                Active Resources ({mceActiveResources.length})
+                              </div>
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="border-b border-cyan-200">
+                                      <th className="text-left py-2 px-2 font-semibold text-cyan-900">
+                                        Name
+                                      </th>
+                                      <th className="text-left py-2 px-2 font-semibold text-cyan-900">
+                                        Type
+                                      </th>
+                                      <th className="text-left py-2 px-2 font-semibold text-cyan-900">
+                                        Namespace
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {mceActiveResources.map((resource, idx) => (
+                                      <tr
+                                        key={idx}
+                                        className="border-b border-cyan-100 last:border-0 hover:bg-cyan-100 transition-colors cursor-pointer"
+                                        onClick={() => {
+                                          fetchOcpResourceDetail(
+                                            resource.type,
+                                            resource.name,
+                                            resource.namespace || ''
+                                          );
+                                        }}
+                                        title="Click to view YAML"
+                                      >
+                                        <td className="py-2 px-2 font-medium text-cyan-900">
+                                          {resource.name}
+                                        </td>
+                                        <td className="py-2 px-2 text-cyan-700">{resource.type}</td>
+                                        <td className="py-2 px-2 text-cyan-700">
+                                          {resource.namespace || '(cluster-scoped)'}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
                           );
                         })()}
                       </div>
                     </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    {/* API Server */}
-                    <div className="bg-white rounded-md p-2 border border-cyan-100">
-                      <div className="text-xs font-medium text-cyan-600 mb-1">API Server</div>
-                      <div className="text-xs text-cyan-900 font-mono break-all">
-                        {ocpStatus?.api_url || ocpStatus?.configured_url || ocpStatus?.detected_values?.api_url || 'N/A'}
-                      </div>
-                    </div>
-
-                    {/* Last Verified */}
-                    <div className="bg-white rounded-md p-2 border border-cyan-100">
-                      <div className="text-xs font-medium text-cyan-600 mb-1">Last Verified</div>
-                      {mceLastVerified ? (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                            <span className="text-xs font-medium text-green-700">Verified</span>
-                          </div>
-                          <div className="text-xs text-cyan-900">
-                            {new Date(mceLastVerified).toLocaleString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                              hour: 'numeric',
-                              minute: '2-digit',
-                              hour12: true,
-                            })}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-gray-400"></span>
-                          <span className="text-xs font-medium text-gray-500">Not Verified</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-                  {/* Camper Pull-Out Panel - ROSA Clusters */}
-                  {showClusterPanel && (
-                    <div className="ml-4 transition-all duration-500 ease-out transform translate-x-0 w-[500px] flex-shrink-0">
-                      <div className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-lg shadow-2xl h-[600px] flex flex-col overflow-hidden border-2 border-blue-200">
-                    {/* Header */}
-                    <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white px-6 py-4 shadow-lg flex-shrink-0">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-3">
-                          <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
-                            <span className="text-2xl">🌩️</span>
-                          </div>
-                          <div>
-                            <h3 className="text-2xl font-bold">ROSA Clusters</h3>
-                            <p className="text-blue-100 text-xs mt-0.5">Provisioned via OpenShift/MCE</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={async () => {
-                              await fetchRosaClusters();
-                            }}
-                            disabled={rosaClustersLoading}
-                            className="p-1.5 bg-white/20 hover:bg-white/30 rounded-md backdrop-blur-sm transition-colors disabled:opacity-50"
-                            title="Refresh clusters"
-                          >
-                            <svg
-                              className={`h-4 w-4 ${rosaClustersLoading ? 'animate-spin' : ''}`}
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                              />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => setShowClusterPanel(false)}
-                            className="p-1.5 bg-white/20 hover:bg-white/30 rounded-md backdrop-blur-sm transition-colors"
-                            title="Close panel"
-                          >
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 overflow-y-auto p-4">
-                      {rosaClustersLoading ? (
-                        <div className="flex items-center justify-center h-full">
-                          <div className="text-center">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                            <p className="text-gray-600">Loading ROSA clusters...</p>
-                          </div>
-                        </div>
-                      ) : rosaClusters.length === 0 ? (
-                        <div className="flex items-center justify-center h-full">
-                          <div className="text-center">
-                            <div className="text-6xl mb-4">🌩️</div>
-                            <p className="text-gray-600 font-medium">No ROSA clusters found</p>
-                            <p className="text-gray-500 text-sm mt-2">Provision a cluster to get started</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          {rosaClusters.map((cluster, idx) => (
-                            <div
-                              key={idx}
-                              className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow"
-                            >
-                              {/* Cluster Header */}
-                              <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
-                                <div className="flex items-start justify-between">
-                                  <div>
-                                    <h4 className="font-bold text-lg text-gray-900">{cluster.name}</h4>
-                                    {cluster.rosa_cluster_name && cluster.rosa_cluster_name !== cluster.name && (
-                                      <p className="text-xs text-gray-500 mt-0.5">ROSA: {cluster.rosa_cluster_name}</p>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    {cluster.ready ? (
-                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                        </svg>
-                                        Ready
-                                      </span>
-                                    ) : cluster.status === 'Error' ? (
-                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
-                                        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                                        </svg>
-                                        Error
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                                        <svg className="w-3 h-3 mr-1 animate-spin" fill="none" viewBox="0 0 24 24">
-                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        Provisioning
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Cluster Details Grid */}
-                              <div className="p-4">
-                                <div className="grid grid-cols-2 gap-3">
-                                  {/* Version */}
-                                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-100">
-                                    <div className="text-xs font-medium text-blue-600 mb-1">Version</div>
-                                    <div className="text-sm font-bold text-blue-900">{cluster.version}</div>
-                                  </div>
-
-                                  {/* Region */}
-                                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-3 border border-purple-100">
-                                    <div className="text-xs font-medium text-purple-600 mb-1">Region</div>
-                                    <div className="text-sm font-bold text-purple-900">{cluster.region}</div>
-                                  </div>
-
-                                  {/* Nodes */}
-                                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-3 border border-green-100">
-                                    <div className="text-xs font-medium text-green-600 mb-1">Nodes</div>
-                                    <div className="text-sm font-bold text-green-900">{cluster.nodes}</div>
-                                  </div>
-
-                                  {/* Instance Type */}
-                                  <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg p-3 border border-amber-100">
-                                    <div className="text-xs font-medium text-amber-600 mb-1">Instance</div>
-                                    <div className="text-sm font-bold text-amber-900">{cluster.instance_type}</div>
-                                  </div>
-                                </div>
-
-                                {/* Age */}
-                                {cluster.age && (
-                                  <div className="mt-3 text-xs text-gray-500">
-                                    Created {cluster.age} ago
-                                  </div>
-                                )}
-
-                                {/* Action Buttons */}
-                                {cluster.console_url && (
-                                  <div className="mt-3 flex gap-2">
-                                    <a
-                                      href={cluster.console_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex-1 inline-flex items-center justify-center px-3 py-2 text-xs font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-md transition-all shadow-sm"
-                                    >
-                                      <svg className="w-3 h-3 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                      </svg>
-                                      Open Console
-                                    </a>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Tile 2: CAPI/CAPA Components */}
-              <div className="bg-white rounded-lg border-2 border-cyan-200 p-6 shadow-lg flex flex-col h-[600px]">
-                <div className="flex flex-col space-y-3 mb-4 flex-shrink-0">
-                  <h4 className="text-base font-semibold text-cyan-900 flex items-center justify-between">
-                    <span className="flex items-center">
-                      <CubeIcon className="h-5 w-5 text-cyan-600 mr-2" />
-                      CAPI/CAPA Components
-                    </span>
-                    <span className="text-xs font-normal text-cyan-600">
-                      ({mceFeatures?.filter(f => f.name === 'cluster-api' || f.name === 'cluster-api-provider-aws').length || 0} configured)
-                    </span>
-                  </h4>
-
-                  {/* Provision Button */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setShowProvisionModal(true)}
-                      className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
-                      title="Provision ROSA cluster"
-                    >
-                      <WrenchScrewdriverIcon className="h-3 w-3" />
-                      <span>Provision</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Component List - Scrollable content area */}
-                <div className="space-y-2 flex-1 overflow-y-auto">
-                  {(() => {
-                    const capiComponents = mceFeatures?.filter(f =>
-                      f.name === 'cluster-api' ||
-                      f.name === 'cluster-api-provider-aws'
-                    ) || [];
-
-                    if (capiComponents.length === 0) {
-                      return (
-                        <div className="text-xs text-cyan-600/70 px-3 py-2 text-center">
-                          No components found. Click Verify to detect components.
-                        </div>
-                      );
-                    }
-
-                    // Map component names to deployment information
-                    const componentDeploymentMap = {
-                      'cluster-api': { resourceType: 'Deployment', resourceName: 'capi-controller-manager', namespace: 'multicluster-engine' },
-                      'cluster-api-provider-aws': { resourceType: 'Deployment', resourceName: 'capa-controller-manager', namespace: 'multicluster-engine' },
-                    };
-
-                    return capiComponents.map((component, idx) => {
-                      const deploymentInfo = componentDeploymentMap[component.name];
-                      const isClickable = deploymentInfo && component.enabled;
-
-                      return (
-                        <div
-                          key={idx}
-                          className={`flex items-center justify-between p-2 bg-cyan-50 rounded-md border border-cyan-100 ${
-                            isClickable ? 'hover:bg-cyan-100 transition-colors cursor-pointer' : ''
-                          }`}
-                          onClick={() => {
-                            if (isClickable) {
-                              fetchOcpResourceDetail(
-                                deploymentInfo.resourceType,
-                                deploymentInfo.resourceName,
-                                deploymentInfo.namespace
-                              );
-                            }
-                          }}
-                          title={isClickable ? "Click to view YAML" : ""}
-                        >
-                          {/* Component Name */}
-                          <div className="flex items-center space-x-2">
-                            {component.enabled ? (
-                              <svg
-                                className="h-4 w-4 text-green-500"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            ) : (
-                              <svg
-                                className="h-4 w-4 text-gray-400"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            )}
-                            <div className="text-xs font-medium text-cyan-900">
-                              {component.name}
-                            </div>
-                          </div>
-
-                          {/* Status Badge */}
-                          <div className="flex-shrink-0">
-                            <span className={`text-xs font-mono px-2 py-1 rounded ${
-                              component.enabled
-                                ? 'text-green-700 bg-green-100'
-                                : 'text-gray-600 bg-gray-100'
-                            }`}>
-                              {component.enabled ? 'Enabled' : 'Disabled'}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              </div>
-
-              {/* Tile 3: Active Resources */}
-              <div className="bg-white rounded-lg border-2 border-cyan-200 p-6 shadow-lg flex flex-col h-[600px]">
-                <div className="flex flex-col space-y-3 mb-4 flex-shrink-0">
-                  <h4 className="text-base font-semibold text-cyan-900 flex items-center">
-                    <ChartBarIcon className="h-5 w-5 text-cyan-600 mr-2" />
-                    Active Resources
-                  </h4>
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5 disabled:opacity-50"
-                      disabled={mceResourcesLoading}
-                    >
-                      Export
-                    </button>
-                    <button
-                      className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5 disabled:opacity-50"
-                      onClick={fetchMceActiveResources}
-                      disabled={mceResourcesLoading}
-                    >
-                      {mceResourcesLoading ? 'Loading...' : 'Refresh'}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Resources List - Scrollable content area */}
-                <div className="space-y-2 flex-1 overflow-y-auto">
-                  {(() => {
-                    if (mceResourcesLoading) {
-                      return (
-                        <div className="text-center py-8 text-cyan-600 text-sm">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600 mx-auto mb-2"></div>
-                          Loading resources...
-                        </div>
-                      );
-                    }
-
-                    if (mceActiveResources.length === 0) {
-                      return (
-                        <div className="text-center py-8 text-cyan-600/70 text-sm">
-                          No resources found. Click Refresh to fetch CAPI/CAPA resources.
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div className="bg-cyan-50 rounded-lg p-3 border border-cyan-100">
-                        <div className="text-xs font-semibold text-cyan-800 mb-2">
-                          Active Resources ({mceActiveResources.length})
-                        </div>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="border-b border-cyan-200">
-                                <th className="text-left py-2 px-2 font-semibold text-cyan-900">Name</th>
-                                <th className="text-left py-2 px-2 font-semibold text-cyan-900">Type</th>
-                                <th className="text-left py-2 px-2 font-semibold text-cyan-900">Namespace</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {mceActiveResources.map((resource, idx) => (
-                                <tr
-                                  key={idx}
-                                  className="border-b border-cyan-100 last:border-0 hover:bg-cyan-100 transition-colors cursor-pointer"
-                                  onClick={() => {
-                                    fetchOcpResourceDetail(
-                                      resource.type,
-                                      resource.name,
-                                      resource.namespace || ''
-                                    );
-                                  }}
-                                  title="Click to view YAML"
-                                >
-                                  <td className="py-2 px-2 font-medium text-cyan-900">{resource.name}</td>
-                                  <td className="py-2 px-2 text-cyan-700">{resource.type}</td>
-                                  <td className="py-2 px-2 text-cyan-700">
-                                    {resource.namespace || '(cluster-scoped)'}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
                   </div>
                 </div>
               )}
@@ -5491,539 +5729,570 @@ export function WhatCanIHelp() {
             <div className="bg-white rounded-2xl shadow-xl max-w-md w-full animate-in fade-in zoom-in-95 duration-200">
               {/* Modal Header */}
               <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-4 rounded-t-2xl">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">⬆️</span>
-                        <h3 className="text-xl font-bold">Upgrade Cluster</h3>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setShowUpgradeModal(false);
-                          setSelectedClusterForUpgrade(null);
-                        }}
-                        className="p-1 hover:bg-white/20 rounded-lg transition-colors"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">⬆️</span>
+                    <h3 className="text-xl font-bold">Upgrade Cluster</h3>
                   </div>
+                  <button
+                    onClick={() => {
+                      setShowUpgradeModal(false);
+                      setSelectedClusterForUpgrade(null);
+                    }}
+                    className="p-1 hover:bg-white/20 rounded-lg transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
 
-                  {/* Modal Content */}
-                  <div className="p-6">
-                    <div className="mb-6">
-                      <p className="text-gray-700 mb-2">
-                        <span className="font-semibold">Cluster:</span> {selectedClusterForUpgrade.rosa_cluster_name}
-                      </p>
-                      <p className="text-gray-700 mb-4">
-                        <span className="font-semibold">Current Version:</span> {selectedClusterForUpgrade.version}
-                      </p>
-                      <p className="text-sm text-gray-600 mb-4">
-                        Select the version you want to upgrade to:
-                      </p>
-                    </div>
+              {/* Modal Content */}
+              <div className="p-6">
+                <div className="mb-6">
+                  <p className="text-gray-700 mb-2">
+                    <span className="font-semibold">Cluster:</span>{' '}
+                    {selectedClusterForUpgrade.rosa_cluster_name}
+                  </p>
+                  <p className="text-gray-700 mb-4">
+                    <span className="font-semibold">Current Version:</span>{' '}
+                    {selectedClusterForUpgrade.version}
+                  </p>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Select the version you want to upgrade to:
+                  </p>
+                </div>
 
-                    {/* Version Selection */}
-                    <div className="space-y-2 mb-6">
-                      {selectedClusterForUpgrade.available_upgrades.map((version) => (
-                        <button
-                          key={version}
-                          onClick={() =>
-                            handleUpgradeCluster(
-                              selectedClusterForUpgrade.name,
-                              selectedClusterForUpgrade.namespace,
-                              version
-                            )
-                          }
-                          className="w-full px-4 py-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg hover:from-blue-100 hover:to-purple-100 transition-colors flex items-center justify-between group"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="text-2xl">📦</span>
-                            <div className="text-left">
-                              <p className="font-semibold text-gray-900">OpenShift {version}</p>
-                              <p className="text-xs text-gray-600">
-                                Upgrade from {selectedClusterForUpgrade.version}
-                              </p>
-                            </div>
-                          </div>
-                          <svg
-                            className="w-5 h-5 text-blue-600 group-hover:translate-x-1 transition-transform"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M13 7l5 5m0 0l-5 5m5-5H6"
-                            />
-                          </svg>
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Cancel Button */}
+                {/* Version Selection */}
+                <div className="space-y-2 mb-6">
+                  {selectedClusterForUpgrade.available_upgrades.map((version) => (
                     <button
-                      onClick={() => {
-                        setShowUpgradeModal(false);
-                        setSelectedClusterForUpgrade(null);
-                      }}
-                      className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                      key={version}
+                      onClick={() =>
+                        handleUpgradeCluster(
+                          selectedClusterForUpgrade.name,
+                          selectedClusterForUpgrade.namespace,
+                          version
+                        )
+                      }
+                      className="w-full px-4 py-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg hover:from-blue-100 hover:to-purple-100 transition-colors flex items-center justify-between group"
                     >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Embedded MCE Terminal Section - Always visible, closeable */}
-            <div className="mt-6 bg-gradient-to-br from-cyan-50 to-blue-50 rounded-2xl shadow-md border border-cyan-200 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
-              {/* Terminal Header - Click anywhere to toggle */}
-              <div
-                className="bg-gradient-to-r from-cyan-600 to-blue-600 text-white px-6 py-4 flex items-center justify-between cursor-pointer hover:from-cyan-700 hover:to-blue-700 transition-colors"
-                onClick={() => setMceTerminalCollapsed(!mceTerminalCollapsed)}
-                title={mceTerminalCollapsed ? 'Click to expand Terminal' : 'Click to collapse Terminal'}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">💻</span>
-                  <h3 className="text-xl font-bold">Terminal</h3>
-                </div>
-                <div className="p-2">
-                  {mceTerminalCollapsed ? (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                    </svg>
-                  )}
-                </div>
-              </div>
-
-              {/* Terminal Content - Shortened with max height */}
-              {!mceTerminalCollapsed && (
-                <div className="p-6 max-h-96 overflow-hidden">
-                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full">
-                    {/* Command Templates Sidebar - Scrollable */}
-                    <div className="lg:col-span-1 flex flex-col max-h-80">
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2 flex-shrink-0">
-                        <span>📋</span>
-                        Command Templates
-                      </h4>
-                      <div className="space-y-3 overflow-y-auto pr-2 flex-1">
-                        {/* Cluster Info Category */}
-                        <div>
-                          <div className="text-xs font-semibold text-gray-500 uppercase mb-2">
-                            Cluster Info
-                          </div>
-                          <div className="space-y-1">
-                            <button
-                              onClick={() => setMceTerminalCommand('oc cluster-info')}
-                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
-                            >
-                              Cluster Info
-                            </button>
-                            <button
-                              onClick={() => setMceTerminalCommand('oc version')}
-                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
-                            >
-                              OpenShift Version
-                            </button>
-                            <button
-                              onClick={() => setMceTerminalCommand('oc get nodes')}
-                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
-                            >
-                              List Nodes
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* MCE/CAPI/CAPA Category */}
-                        <div>
-                          <div className="text-xs font-semibold text-gray-500 uppercase mb-2">
-                            MCE/CAPI/CAPA
-                          </div>
-                          <div className="space-y-1">
-                            <button
-                              onClick={() => setMceTerminalCommand('oc get mce -A')}
-                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
-                            >
-                              Get MCE
-                            </button>
-                            <button
-                              onClick={() => setMceTerminalCommand('oc get deploy -n capi-system')}
-                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
-                            >
-                              CAPI Deployments
-                            </button>
-                            <button
-                              onClick={() => setMceTerminalCommand('oc get deploy -n capa-system')}
-                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
-                            >
-                              CAPA Deployments
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* ROSA Resources Category */}
-                        <div>
-                          <div className="text-xs font-semibold text-gray-500 uppercase mb-2">
-                            ROSA Resources
-                          </div>
-                          <div className="space-y-1">
-                            <button
-                              onClick={() => setMceTerminalCommand('oc get rosacluster -A')}
-                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
-                            >
-                              ROSA Clusters
-                            </button>
-                            <button
-                              onClick={() => setMceTerminalCommand('oc get rosacontrolplane -A')}
-                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
-                            >
-                              Control Planes
-                            </button>
-                            <button
-                              onClick={() => setMceTerminalCommand('oc get rosanetwork -A')}
-                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
-                            >
-                              ROSA Networks
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Secrets & Config Category */}
-                        <div>
-                          <div className="text-xs font-semibold text-gray-500 uppercase mb-2">
-                            Secrets & Config
-                          </div>
-                          <div className="space-y-1">
-                            <button
-                              onClick={() => setMceTerminalCommand('oc get secret -n capa-system')}
-                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
-                            >
-                              CAPA Secrets
-                            </button>
-                            <button
-                              onClick={() => setMceTerminalCommand('oc get awsclustercontrolleridentity')}
-                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
-                            >
-                              AWS Identity
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Troubleshooting Category */}
-                        <div>
-                          <div className="text-xs font-semibold text-gray-500 uppercase mb-2">
-                            Troubleshooting
-                          </div>
-                          <div className="space-y-1">
-                            <button
-                              onClick={() => setMceTerminalCommand('oc get events -A --sort-by=".lastTimestamp" | tail -20')}
-                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
-                            >
-                              Recent Events
-                            </button>
-                            <button
-                              onClick={() => setMceTerminalCommand('oc get pods -A | grep -v Running | grep -v Completed')}
-                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
-                            >
-                              Problem Pods
-                            </button>
-                          </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">📦</span>
+                        <div className="text-left">
+                          <p className="font-semibold text-gray-900">OpenShift {version}</p>
+                          <p className="text-xs text-gray-600">
+                            Upgrade from {selectedClusterForUpgrade.version}
+                          </p>
                         </div>
                       </div>
-                    </div>
-
-                    {/* Terminal Output and Input */}
-                    <div className="lg:col-span-3 flex flex-col">
-                      {/* Terminal Output */}
-                      <div
-                        className="bg-black text-green-400 font-mono text-sm p-4 rounded-lg h-64 overflow-y-auto mb-4 flex-shrink-0"
-                        style={{ fontFamily: 'Monaco, Courier, monospace' }}
+                      <svg
+                        className="w-5 h-5 text-blue-600 group-hover:translate-x-1 transition-transform"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
                       >
-                        <pre className="whitespace-pre-wrap">{mceTerminalOutput}</pre>
-                      </div>
-
-                      {/* Command Input */}
-                      <div className="flex gap-2">
-                        <div className="flex-1 relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-mono">
-                            $
-                          </span>
-                          <input
-                            type="text"
-                            value={mceTerminalCommand}
-                            onChange={(e) => setMceTerminalCommand(e.target.value)}
-                            onKeyDown={handleMceTerminalKeyDown}
-                            placeholder="Enter command... (↑/↓ for history)"
-                            disabled={mceTerminalExecuting}
-                            className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent font-mono text-sm disabled:bg-gray-100"
-                          />
-                        </div>
-                        <button
-                          onClick={executeMceTerminalCommand}
-                          disabled={mceTerminalExecuting || !mceTerminalCommand.trim()}
-                          className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:from-cyan-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                        >
-                          {mceTerminalExecuting ? 'Running...' : 'Execute'}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setMceTerminalOutput('Terminal cleared.\n');
-                            setMceTerminalCommand('');
-                          }}
-                          className="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-                          title="Clear Terminal"
-                        >
-                          🗑️ Clear
-                        </button>
-                      </div>
-
-                      {/* Command History */}
-                      {mceTerminalHistory.length > 0 && (
-                        <div className="mt-4">
-                          <details className="bg-gray-50 rounded-lg p-4">
-                            <summary className="cursor-pointer font-medium text-sm text-gray-700">
-                              Command History ({mceTerminalHistory.length})
-                            </summary>
-                            <div className="mt-3 space-y-2 max-h-48 overflow-y-auto">
-                              {mceTerminalHistory.slice(0, 20).map((item, idx) => (
-                                <div
-                                  key={idx}
-                                  className="flex items-center justify-between p-2 bg-white rounded border border-gray-200 hover:bg-cyan-50 cursor-pointer"
-                                  onClick={() => setMceTerminalCommand(item.command)}
-                                >
-                                  <span className="font-mono text-xs flex-1 text-gray-700">
-                                    {item.command}
-                                  </span>
-                                  <span className="text-xs text-gray-500 ml-2">
-                                    {item.timestampFormatted}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </details>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13 7l5 5m0 0l-5 5m5-5H6"
+                        />
+                      </svg>
+                    </button>
+                  ))}
                 </div>
+
+                {/* Cancel Button */}
+                <button
+                  onClick={() => {
+                    setShowUpgradeModal(false);
+                    setSelectedClusterForUpgrade(null);
+                  }}
+                  className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Embedded MCE Terminal Section - Always visible, closeable */}
+        <div className="mt-6 bg-gradient-to-br from-cyan-50 to-blue-50 rounded-2xl shadow-md border border-cyan-200 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
+          {/* Terminal Header - Click anywhere to toggle */}
+          <div
+            className="bg-gradient-to-r from-cyan-600 to-blue-600 text-white px-6 py-4 flex items-center justify-between cursor-pointer hover:from-cyan-700 hover:to-blue-700 transition-colors"
+            onClick={() => setMceTerminalCollapsed(!mceTerminalCollapsed)}
+            title={mceTerminalCollapsed ? 'Click to expand Terminal' : 'Click to collapse Terminal'}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">💻</span>
+              <h3 className="text-xl font-bold">Terminal</h3>
+            </div>
+            <div className="p-2">
+              {mceTerminalCollapsed ? (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 15l7-7 7 7"
+                  />
+                </svg>
               )}
             </div>
+          </div>
 
-            {/* Recent Operations and Output - Second Row */}
-            <div className="grid grid-cols-1 gap-6 mt-6">
-              {/* Recent Operations */}
-              <div className="bg-white rounded-xl shadow-lg border-2 border-cyan-200 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-cyan-600 to-teal-600 px-6 py-4 cursor-pointer hover:from-cyan-700 hover:to-teal-700 transition-all"
-                  onClick={() => setMceRecentOpsCollapsed(!mceRecentOpsCollapsed)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="bg-white/20 rounded-full p-2">
-                        <ClockIcon className="h-6 w-6 text-white" />
+          {/* Terminal Content - Shortened with max height */}
+          {!mceTerminalCollapsed && (
+            <div className="p-6 max-h-96 overflow-hidden">
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full">
+                {/* Command Templates Sidebar - Scrollable */}
+                <div className="lg:col-span-1 flex flex-col max-h-80">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2 flex-shrink-0">
+                    <span>📋</span>
+                    Command Templates
+                  </h4>
+                  <div className="space-y-3 overflow-y-auto pr-2 flex-1">
+                    {/* Cluster Info Category */}
+                    <div>
+                      <div className="text-xs font-semibold text-gray-500 uppercase mb-2">
+                        Cluster Info
                       </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-white">Recent Operations</h3>
+                      <div className="space-y-1">
+                        <button
+                          onClick={() => setMceTerminalCommand('oc cluster-info')}
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          Cluster Info
+                        </button>
+                        <button
+                          onClick={() => setMceTerminalCommand('oc version')}
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          OpenShift Version
+                        </button>
+                        <button
+                          onClick={() => setMceTerminalCommand('oc get nodes')}
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          List Nodes
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      {recentOperations.length > 0 && (
+
+                    {/* MCE/CAPI/CAPA Category */}
+                    <div>
+                      <div className="text-xs font-semibold text-gray-500 uppercase mb-2">
+                        MCE/CAPI/CAPA
+                      </div>
+                      <div className="space-y-1">
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setRecentOperations([]);
-                            localStorage.removeItem('recentOperations');
-                            addNotification('🗑️ Recent operations cleared', 'success', 2000);
-                          }}
-                          className="bg-red-500/30 hover:bg-red-500/50 text-white px-3 py-1.5 rounded-lg transition-colors duration-200 flex items-center space-x-1 text-sm font-medium"
+                          onClick={() => setMceTerminalCommand('oc get mce -A')}
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
                         >
-                          <TrashIcon className="h-4 w-4" />
-                          <span>Clear</span>
+                          Get MCE
                         </button>
-                      )}
-                      <div className="p-0.5">
-                        {mceRecentOpsCollapsed ? (
-                          <ChevronDownIcon className="h-5 w-5 text-white" />
-                        ) : (
-                          <ChevronUpIcon className="h-5 w-5 text-white" />
-                        )}
+                        <button
+                          onClick={() => setMceTerminalCommand('oc get deploy -n capi-system')}
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          CAPI Deployments
+                        </button>
+                        <button
+                          onClick={() => setMceTerminalCommand('oc get deploy -n capa-system')}
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          CAPA Deployments
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* ROSA Resources Category */}
+                    <div>
+                      <div className="text-xs font-semibold text-gray-500 uppercase mb-2">
+                        ROSA Resources
+                      </div>
+                      <div className="space-y-1">
+                        <button
+                          onClick={() => setMceTerminalCommand('oc get rosacluster -A')}
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          ROSA Clusters
+                        </button>
+                        <button
+                          onClick={() => setMceTerminalCommand('oc get rosacontrolplane -A')}
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          Control Planes
+                        </button>
+                        <button
+                          onClick={() => setMceTerminalCommand('oc get rosanetwork -A')}
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          ROSA Networks
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Secrets & Config Category */}
+                    <div>
+                      <div className="text-xs font-semibold text-gray-500 uppercase mb-2">
+                        Secrets & Config
+                      </div>
+                      <div className="space-y-1">
+                        <button
+                          onClick={() => setMceTerminalCommand('oc get secret -n capa-system')}
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          CAPA Secrets
+                        </button>
+                        <button
+                          onClick={() =>
+                            setMceTerminalCommand('oc get awsclustercontrolleridentity')
+                          }
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          AWS Identity
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Troubleshooting Category */}
+                    <div>
+                      <div className="text-xs font-semibold text-gray-500 uppercase mb-2">
+                        Troubleshooting
+                      </div>
+                      <div className="space-y-1">
+                        <button
+                          onClick={() =>
+                            setMceTerminalCommand(
+                              'oc get events -A --sort-by=".lastTimestamp" | tail -20'
+                            )
+                          }
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          Recent Events
+                        </button>
+                        <button
+                          onClick={() =>
+                            setMceTerminalCommand(
+                              'oc get pods -A | grep -v Running | grep -v Completed'
+                            )
+                          }
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          Problem Pods
+                        </button>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {!mceRecentOpsCollapsed && (
-                  <div className="p-6">
-                  {recentOperations.length === 0 ? (
-                    <div className="text-center py-4">
-                      <p className="text-gray-500 text-sm">No recent operations</p>
+                {/* Terminal Output and Input */}
+                <div className="lg:col-span-3 flex flex-col">
+                  {/* Terminal Output */}
+                  <div
+                    className="bg-black text-green-400 font-mono text-sm p-4 rounded-lg h-64 overflow-y-auto mb-4 flex-shrink-0"
+                    style={{ fontFamily: 'Monaco, Courier, monospace' }}
+                  >
+                    <pre className="whitespace-pre-wrap">{mceTerminalOutput}</pre>
+                  </div>
+
+                  {/* Command Input */}
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-mono">
+                        $
+                      </span>
+                      <input
+                        type="text"
+                        value={mceTerminalCommand}
+                        onChange={(e) => setMceTerminalCommand(e.target.value)}
+                        onKeyDown={handleMceTerminalKeyDown}
+                        placeholder="Enter command... (↑/↓ for history)"
+                        disabled={mceTerminalExecuting}
+                        className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent font-mono text-sm disabled:bg-gray-100"
+                      />
                     </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {recentOperations.map((op, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() => {
-                            // Ensure the output section is expanded
-                            setRecentOperationsOutputCollapsed(false);
-                            // Scroll to the output section
-                            setTimeout(() => {
-                              const outputSection = document.querySelector('.bg-gradient-to-br.from-gray-900');
-                              if (outputSection) {
-                                outputSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                              }
-                            }, 100);
-                          }}
-                          className="flex items-center justify-between p-4 bg-gradient-to-r from-cyan-50 to-teal-50 rounded-lg border border-cyan-200 hover:shadow-md hover:cursor-pointer transition-all duration-200"
-                        >
-                          <div className="flex items-center space-x-3 flex-1 min-w-0">
-                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                              op.status?.includes('✅') || op.status?.toLowerCase().includes('success')
-                                ? 'bg-green-500'
-                                : op.status?.includes('❌') || op.status?.toLowerCase().includes('failed')
-                                ? 'bg-red-500'
-                                : 'bg-blue-500 animate-pulse'
-                            }`}></div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-semibold text-cyan-900 truncate">{op.title}</div>
-                              <div className="text-sm text-cyan-700 mt-1">{op.status}</div>
+                    <button
+                      onClick={executeMceTerminalCommand}
+                      disabled={mceTerminalExecuting || !mceTerminalCommand.trim()}
+                      className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:from-cyan-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                    >
+                      {mceTerminalExecuting ? 'Running...' : 'Execute'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setMceTerminalOutput('Terminal cleared.\n');
+                        setMceTerminalCommand('');
+                      }}
+                      className="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                      title="Clear Terminal"
+                    >
+                      🗑️ Clear
+                    </button>
+                  </div>
+
+                  {/* Command History */}
+                  {mceTerminalHistory.length > 0 && (
+                    <div className="mt-4">
+                      <details className="bg-gray-50 rounded-lg p-4">
+                        <summary className="cursor-pointer font-medium text-sm text-gray-700">
+                          Command History ({mceTerminalHistory.length})
+                        </summary>
+                        <div className="mt-3 space-y-2 max-h-48 overflow-y-auto">
+                          {mceTerminalHistory.slice(0, 20).map((item, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between p-2 bg-white rounded border border-gray-200 hover:bg-cyan-50 cursor-pointer"
+                              onClick={() => setMceTerminalCommand(item.command)}
+                            >
+                              <span className="font-mono text-xs flex-1 text-gray-700">
+                                {item.command}
+                              </span>
+                              <span className="text-xs text-gray-500 ml-2">
+                                {item.timestampFormatted}
+                              </span>
                             </div>
-                          </div>
-                          <div className="text-xs text-cyan-600 ml-4 flex-shrink-0">
-                            {typeof op.timestamp === 'number'
-                              ? new Date(op.timestamp).toLocaleDateString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  year: 'numeric',
-                                })
-                              : op.timestamp}
-                          </div>
+                          ))}
                         </div>
-                      ))}
+                      </details>
                     </div>
                   )}
                 </div>
-                )}
               </div>
+            </div>
+          )}
+        </div>
 
-              {/* Recent Operations Output */}
-              <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-xl shadow-2xl border-2 border-cyan-300 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-cyan-600 to-teal-600 px-6 py-4 flex items-center justify-between cursor-pointer hover:from-cyan-700 hover:to-teal-700 transition-all"
-                  onClick={() => setRecentOperationsOutputCollapsed(!recentOperationsOutputCollapsed)}
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="bg-white/20 rounded-full p-2">
-                      <DocumentTextIcon className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-white">Recent Operations Output</h3>
-                    </div>
+        {/* Recent Operations and Output - Second Row */}
+        <div className="grid grid-cols-1 gap-6 mt-6">
+          {/* Recent Operations */}
+          <div className="bg-white rounded-xl shadow-lg border-2 border-cyan-200 overflow-hidden">
+            <div
+              className="bg-gradient-to-r from-cyan-600 to-teal-600 px-6 py-4 cursor-pointer hover:from-cyan-700 hover:to-teal-700 transition-all"
+              onClick={() => setMceRecentOpsCollapsed(!mceRecentOpsCollapsed)}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-white/20 rounded-full p-2">
+                    <ClockIcon className="h-6 w-6 text-white" />
                   </div>
-                  <div className="flex items-center space-x-2">
-                    {recentOperations.length > 0 && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const outputText = recentOperations
-                            .map(op => {
-                              const lines = [op.title];
-                              if (op.playbook) lines.push(`📋 ${op.playbook}`);
-                              lines.push(op.status);
-                              lines.push(typeof op.timestamp === 'number'
-                                ? new Date(op.timestamp).toLocaleString('en-US', {
-                                    month: 'short',
-                                    day: 'numeric',
-                                    year: 'numeric',
-                                    hour: 'numeric',
-                                    minute: '2-digit',
-                                    second: '2-digit',
-                                    hour12: true,
-                                  })
-                                : op.timestamp);
-                              return lines.join('\n');
-                            })
-                            .join('\n\n');
-                          navigator.clipboard.writeText(outputText);
-                          addNotification('📋 Output copied to clipboard', 'success', 2000);
-                        }}
-                        className="bg-white/20 hover:bg-white/30 text-white px-4 py-1.5 rounded-lg transition-colors duration-200 flex items-center space-x-2 text-sm font-medium"
-                      >
-                        <DocumentDuplicateIcon className="h-4 w-4" />
-                        <span>Copy</span>
-                      </button>
-                    )}
-                    <div className="p-0.5">
-                      {recentOperationsOutputCollapsed ? (
-                        <ChevronDownIcon className="h-5 w-5 text-white" />
-                      ) : (
-                        <ChevronUpIcon className="h-5 w-5 text-white" />
-                      )}
-                    </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Recent Operations</h3>
                   </div>
                 </div>
+                <div className="flex items-center space-x-2">
+                  {recentOperations.length > 0 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRecentOperations([]);
+                        localStorage.removeItem('recentOperations');
+                        addNotification('🗑️ Recent operations cleared', 'success', 2000);
+                      }}
+                      className="bg-red-500/30 hover:bg-red-500/50 text-white px-3 py-1.5 rounded-lg transition-colors duration-200 flex items-center space-x-1 text-sm font-medium"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                      <span>Clear</span>
+                    </button>
+                  )}
+                  <div className="p-0.5">
+                    {mceRecentOpsCollapsed ? (
+                      <ChevronDownIcon className="h-5 w-5 text-white" />
+                    ) : (
+                      <ChevronUpIcon className="h-5 w-5 text-white" />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
 
-                {!recentOperationsOutputCollapsed && (
-                  <div className="p-6 font-mono text-sm text-green-400 max-h-96 overflow-y-auto">
-                  {recentOperations.length === 0 ? (
-                    <div className="text-center py-4 text-gray-500 text-sm">
-                      No operations output yet
-                    </div>
-                  ) : (
-                    recentOperations.map((op, idx) => (
-                      <div key={idx} className="mb-4 pb-4 border-b border-gray-700 last:border-0">
-                        <div className="text-cyan-400 font-semibold mb-1">
-                          {op.title}
-                        </div>
-                        {op.playbook && (
-                          <div className="text-yellow-400 ml-4 text-xs mb-1">
-                            📋 {op.playbook}
+            {!mceRecentOpsCollapsed && (
+              <div className="p-6">
+                {recentOperations.length === 0 ? (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500 text-sm">No recent operations</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {recentOperations.map((op, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => {
+                          // Ensure the output section is expanded
+                          setRecentOperationsOutputCollapsed(false);
+                          // Scroll to the output section
+                          setTimeout(() => {
+                            const outputSection = document.querySelector(
+                              '.bg-gradient-to-br.from-gray-900'
+                            );
+                            if (outputSection) {
+                              outputSection.scrollIntoView({
+                                behavior: 'smooth',
+                                block: 'nearest',
+                              });
+                            }
+                          }, 100);
+                        }}
+                        className="flex items-center justify-between p-4 bg-gradient-to-r from-cyan-50 to-teal-50 rounded-lg border border-cyan-200 hover:shadow-md hover:cursor-pointer transition-all duration-200"
+                      >
+                        <div className="flex items-center space-x-3 flex-1 min-w-0">
+                          <div
+                            className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                              op.status?.includes('✅') ||
+                              op.status?.toLowerCase().includes('success')
+                                ? 'bg-green-500'
+                                : op.status?.includes('❌') ||
+                                    op.status?.toLowerCase().includes('failed')
+                                  ? 'bg-red-500'
+                                  : 'bg-blue-500 animate-pulse'
+                            }`}
+                          ></div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-cyan-900 truncate">{op.title}</div>
+                            <div className="text-sm text-cyan-700 mt-1">{op.status}</div>
                           </div>
-                        )}
-                        <div className="text-green-300 ml-4">
-                          {op.status}
                         </div>
-                        {op.output && (
-                          <div className="text-gray-400 ml-4 mt-2 text-xs whitespace-pre-wrap">
-                            {op.output}
-                          </div>
-                        )}
-                        <div className="text-gray-500 text-xs ml-4 mt-1">
+                        <div className="text-xs text-cyan-600 ml-4 flex-shrink-0">
                           {typeof op.timestamp === 'number'
-                            ? new Date(op.timestamp).toLocaleString('en-US', {
+                            ? new Date(op.timestamp).toLocaleDateString('en-US', {
                                 month: 'short',
                                 day: 'numeric',
                                 year: 'numeric',
-                                hour: 'numeric',
-                                minute: '2-digit',
-                                second: '2-digit',
-                                hour12: true,
                               })
                             : op.timestamp}
                         </div>
                       </div>
-                    ))
-                  )}
+                    ))}
                   </div>
                 )}
               </div>
-            </div>
-
+            )}
           </div>
 
-        {/* Main Header with Configure Environment and Right Sidebar */}
-        <div className="flex flex-col lg:flex-row items-start justify-between gap-4 lg:gap-8 mb-4 md:mb-6 animate-in fade-in duration-300">
-          <div className="flex-1 w-full">
-            {/* Environment Analysis and Credentials Setup - Hidden from main page */}
-            {false && (
+          {/* Recent Operations Output */}
+          <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-xl shadow-2xl border-2 border-cyan-300 overflow-hidden">
+            <div
+              className="bg-gradient-to-r from-cyan-600 to-teal-600 px-6 py-4 flex items-center justify-between cursor-pointer hover:from-cyan-700 hover:to-teal-700 transition-all"
+              onClick={() => setRecentOperationsOutputCollapsed(!recentOperationsOutputCollapsed)}
+            >
+              <div className="flex items-center space-x-3">
+                <div className="bg-white/20 rounded-full p-2">
+                  <DocumentTextIcon className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Recent Operations Output</h3>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                {recentOperations.length > 0 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const outputText = recentOperations
+                        .map((op) => {
+                          const lines = [op.title];
+                          if (op.playbook) lines.push(`📋 ${op.playbook}`);
+                          lines.push(op.status);
+                          lines.push(
+                            typeof op.timestamp === 'number'
+                              ? new Date(op.timestamp).toLocaleString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                  hour12: true,
+                                })
+                              : op.timestamp
+                          );
+                          return lines.join('\n');
+                        })
+                        .join('\n\n');
+                      navigator.clipboard.writeText(outputText);
+                      addNotification('📋 Output copied to clipboard', 'success', 2000);
+                    }}
+                    className="bg-white/20 hover:bg-white/30 text-white px-4 py-1.5 rounded-lg transition-colors duration-200 flex items-center space-x-2 text-sm font-medium"
+                  >
+                    <DocumentDuplicateIcon className="h-4 w-4" />
+                    <span>Copy</span>
+                  </button>
+                )}
+                <div className="p-0.5">
+                  {recentOperationsOutputCollapsed ? (
+                    <ChevronDownIcon className="h-5 w-5 text-white" />
+                  ) : (
+                    <ChevronUpIcon className="h-5 w-5 text-white" />
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {!recentOperationsOutputCollapsed && (
+              <div className="p-6 font-mono text-sm text-green-400 max-h-96 overflow-y-auto">
+                {recentOperations.length === 0 ? (
+                  <div className="text-center py-4 text-gray-500 text-sm">
+                    No operations output yet
+                  </div>
+                ) : (
+                  recentOperations.map((op, idx) => (
+                    <div key={idx} className="mb-4 pb-4 border-b border-gray-700 last:border-0">
+                      <div className="text-cyan-400 font-semibold mb-1">{op.title}</div>
+                      {op.playbook && (
+                        <div className="text-yellow-400 ml-4 text-xs mb-1">📋 {op.playbook}</div>
+                      )}
+                      <div className="text-green-300 ml-4">{op.status}</div>
+                      {op.output && (
+                        <div className="text-gray-400 ml-4 mt-2 text-xs whitespace-pre-wrap">
+                          {op.output}
+                        </div>
+                      )}
+                      <div className="text-gray-500 text-xs ml-4 mt-1">
+                        {typeof op.timestamp === 'number'
+                          ? new Date(op.timestamp).toLocaleString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              hour12: true,
+                            })
+                          : op.timestamp}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Header with Configure Environment and Right Sidebar */}
+      <div className="flex flex-col lg:flex-row items-start justify-between gap-4 lg:gap-8 mb-4 md:mb-6 animate-in fade-in duration-300">
+        <div className="flex-1 w-full">
+          {/* Environment Analysis and Credentials Setup - Hidden from main page */}
+          {false && (
             <div className="bg-gradient-to-br from-white to-green-50 rounded-2xl shadow-md transition-all duration-300 border border-green-200 p-3 md:p-4 mb-4">
               <h2
                 className="text-sm font-semibold text-gray-900 mb-3 flex items-center cursor-pointer hover:bg-green-50 rounded-lg p-2 -m-2 transition-colors"
@@ -6734,18 +7003,15 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 </>
               )}
             </div>
-            )}
+          )}
 
-            {/* Main Content Sections */}
-            <div className="space-y-6">
-
-            </div>
-          </div>
-
-          {/* Right Sidebar with Environment Status and Getting Started */}
-          <div className="space-y-3 min-w-64 max-w-72 lg:sticky lg:top-4 animate-in slide-in-from-right duration-300">
-          </div>
+          {/* Main Content Sections */}
+          <div className="space-y-6"></div>
         </div>
+
+        {/* Right Sidebar with Environment Status and Getting Started */}
+        <div className="space-y-3 min-w-64 max-w-72 lg:sticky lg:top-4 animate-in slide-in-from-right duration-300"></div>
+      </div>
 
       {/* Command Palette Modal */}
       {showCommandPalette && (
@@ -8387,7 +8653,12 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                     title="Close panel"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </button>
                 </div>
@@ -8404,7 +8675,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
               ) : rosaClusters.length === 0 ? (
                 <div className="text-center py-16 bg-white rounded-2xl border-2 border-dashed border-blue-200 shadow-sm">
                   <span className="text-6xl mb-4 block">🌥️</span>
-                  <p className="mt-6 text-gray-700 font-semibold text-xl">No ROSA clusters provisioned yet</p>
+                  <p className="mt-6 text-gray-700 font-semibold text-xl">
+                    No ROSA clusters provisioned yet
+                  </p>
                   <p className="mt-3 text-gray-500 max-w-md mx-auto">
                     Provision your first cluster using the ROSA HCP provisioning tool
                   </p>
@@ -8425,7 +8698,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                             </div>
                             <div>
                               <h4 className="font-bold text-xl">{cluster.rosa_cluster_name}</h4>
-                              <p className="text-blue-100 text-xs mt-0.5">Resource: {cluster.name}</p>
+                              <p className="text-blue-100 text-xs mt-0.5">
+                                Resource: {cluster.name}
+                              </p>
                             </div>
                           </div>
                           <span
@@ -8433,11 +8708,15 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               cluster.status === 'Ready'
                                 ? 'bg-green-500/30 text-green-100'
                                 : cluster.status === 'Provisioning'
-                                ? 'bg-yellow-500/30 text-yellow-100'
-                                : 'bg-red-500/30 text-red-100'
+                                  ? 'bg-yellow-500/30 text-yellow-100'
+                                  : 'bg-red-500/30 text-red-100'
                             }`}
                           >
-                            {cluster.status === 'Ready' ? '✓ ' : cluster.status === 'Error' ? '✗ ' : '⋯ '}
+                            {cluster.status === 'Ready'
+                              ? '✓ '
+                              : cluster.status === 'Error'
+                                ? '✗ '
+                                : '⋯ '}
                             {cluster.status}
                           </span>
                         </div>
@@ -8450,19 +8729,24 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
                             <div className="text-xs font-medium text-blue-600 mb-2">VERSION</div>
                             <div className="flex items-center gap-2">
-                              <span className="text-lg font-bold text-gray-900">{cluster.version}</span>
-                              {cluster.available_upgrades && cluster.available_upgrades.length > 0 && (
-                                <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded-full font-semibold">
-                                  ⬆ {cluster.available_upgrades.length}
-                                </span>
-                              )}
+                              <span className="text-lg font-bold text-gray-900">
+                                {cluster.version}
+                              </span>
+                              {cluster.available_upgrades &&
+                                cluster.available_upgrades.length > 0 && (
+                                  <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded-full font-semibold">
+                                    ⬆ {cluster.available_upgrades.length}
+                                  </span>
+                                )}
                             </div>
                           </div>
 
                           {/* Region */}
                           <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-100">
                             <div className="text-xs font-medium text-purple-600 mb-2">REGION</div>
-                            <span className="text-lg font-bold text-gray-900">{cluster.region}</span>
+                            <span className="text-lg font-bold text-gray-900">
+                              {cluster.region}
+                            </span>
                           </div>
 
                           {/* Nodes */}
@@ -8473,15 +8757,29 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                           {/* Instance Type */}
                           <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-100">
-                            <div className="text-xs font-medium text-amber-600 mb-2">INSTANCE TYPE</div>
-                            <span className="text-lg font-bold text-gray-900">{cluster.instance_type}</span>
+                            <div className="text-xs font-medium text-amber-600 mb-2">
+                              INSTANCE TYPE
+                            </div>
+                            <span className="text-lg font-bold text-gray-900">
+                              {cluster.instance_type}
+                            </span>
                           </div>
                         </div>
 
                         {/* Age Badge */}
                         <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
                           </svg>
                           <span>Created {cluster.age} ago</span>
                         </div>
@@ -8495,7 +8793,12 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               rel="noopener noreferrer"
                               className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all flex items-center justify-center gap-2 font-semibold shadow-md hover:shadow-lg"
                             >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg
+                                className="w-5 h-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
                                 <path
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
@@ -8514,7 +8817,12 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                               }}
                               className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all flex items-center justify-center gap-2 font-semibold shadow-md hover:shadow-lg"
                             >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg
+                                className="w-5 h-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
                                 <path
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
@@ -8647,7 +8955,8 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 {!collapsedSections.has('credentials-environment') && (
                   <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <p className="text-sm text-gray-700">
-                      Click on the sections below to configure your AWS, OCM, and OCP Hub credentials.
+                      Click on the sections below to configure your AWS, OCM, and OCP Hub
+                      credentials.
                     </p>
                     <p className="text-xs text-gray-500 mt-2">
                       Note: Full credentials form will appear here when you expand this section.
