@@ -26,6 +26,7 @@ import {
   ChevronUpIcon,
   ClockIcon,
   DocumentDuplicateIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { ROSAStatus } from '../components/ROSAStatus';
 import { ConfigStatus } from '../components/ConfigStatus';
@@ -303,6 +304,7 @@ export function WhatCanIHelp() {
   const [minikubeOperationsOutputCollapsed, setMinikubeOperationsOutputCollapsed] = useState(false);
   const [minikubeRecentOpsCollapsed, setMinikubeRecentOpsCollapsed] = useState(false);
   const [mceRecentOpsCollapsed, setMceRecentOpsCollapsed] = useState(false);
+  const [settingsPanelOpen, setSettingsPanelOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [rosaStatus, setRosaStatus] = useState(null);
   const [configStatus, setConfigStatus] = useState(null);
@@ -449,6 +451,16 @@ export function WhatCanIHelp() {
   });
   const [mceTerminalHistoryIndex, setMceTerminalHistoryIndex] = useState(-1);
   const [mceTerminalExecuting, setMceTerminalExecuting] = useState(false);
+
+  // MCE Configuration section collapse state
+  const [mceConfigurationCollapsed, setMceConfigurationCollapsed] = useState(() => {
+    try {
+      const saved = localStorage.getItem('mceConfigurationCollapsed');
+      return saved === 'true';
+    } catch (error) {
+      return false; // Default: expanded
+    }
+  });
 
   // MCE Features modal state
   const [showMCEFeaturesModal, setShowMCEFeaturesModal] = useState(false);
@@ -1160,6 +1172,11 @@ export function WhatCanIHelp() {
   useEffect(() => {
     localStorage.setItem('mceTerminalCollapsed', mceTerminalCollapsed.toString());
   }, [mceTerminalCollapsed]);
+
+  // Save MCE configuration collapsed state to localStorage
+  useEffect(() => {
+    localStorage.setItem('mceConfigurationCollapsed', mceConfigurationCollapsed.toString());
+  }, [mceConfigurationCollapsed]);
 
   // Save MCE terminal history to localStorage
   useEffect(() => {
@@ -2981,302 +2998,6 @@ export function WhatCanIHelp() {
       role="main"
       aria-label="ROSA CAPI/CAPA Test Automation Dashboard"
     >
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 shadow-lg backdrop-blur-sm bg-white/95">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center">
-              <span className="text-xl font-semibold text-gray-900">CAPI/CAPA Test Automation</span>
-            </div>
-            <div className="flex items-center space-x-6">
-              {/* Search Bar */}
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search operations..."
-                  className="pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-gray-50 w-64 focus:outline-none"
-                  aria-label="Search operations"
-                />
-                <svg
-                  className="absolute left-3 top-2.5 h-4 w-4 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              </div>
-
-              {/* Status */}
-              <div className="flex items-center space-x-3">
-                <div className="flex items-center space-x-1 bg-green-50 text-green-700 px-3 py-1 rounded-full text-sm">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="font-medium">Connected</span>
-                </div>
-                <span className="text-sm text-gray-500">
-                  Testing Version {systemStats.testingVersion}
-                </span>
-              </div>
-
-              {/* User Profile */}
-              <div className="flex items-center space-x-3">
-                {/* Dark Mode Toggle */}
-                <button
-                  onClick={() => setDarkMode(!darkMode)}
-                  className="relative p-2 text-gray-400 hover:text-gray-600 transition-all duration-300 group hover:bg-gray-100 rounded-lg hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                  title="Toggle dark mode"
-                  aria-label={`Switch to ${darkMode ? 'light' : 'dark'} mode`}
-                >
-                  {darkMode ? (
-                    <svg
-                      className="h-5 w-5 text-yellow-500 group-hover:text-yellow-400"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z" />
-                    </svg>
-                  ) : (
-                    <svg
-                      className="h-5 w-5 text-gray-600 group-hover:text-gray-800"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 003.463-.69.75.75 0 01.981.98 10.503 10.503 0 01-9.694 6.46c-5.799 0-10.5-4.701-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 01.818.162z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  )}
-                </button>
-
-                {/* Command Palette Trigger */}
-                <button
-                  onClick={() => setShowCommandPalette(true)}
-                  className="relative p-2 text-gray-400 hover:text-gray-600 transition-all duration-300 group hover:bg-gray-100 rounded-lg hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                  title="Command palette (⌘K)"
-                  aria-label="Open command palette"
-                >
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
-                </button>
-
-                {/* Help Button */}
-                <button
-                  onClick={() => setShowHelp(true)}
-                  className="relative p-2 text-gray-400 hover:text-gray-600 transition-all duration-300 group hover:bg-gray-100 rounded-lg hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                  title="Keyboard shortcuts (⌘/)"
-                  aria-label="Show keyboard shortcuts"
-                >
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                </button>
-
-                {/* Feedback Button */}
-                <button
-                  onClick={() => setShowFeedback(true)}
-                  className="relative p-2 text-gray-400 hover:text-gray-600 transition-all duration-300 group hover:bg-gray-100 rounded-lg hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                  title="Send feedback (⌘.)"
-                  aria-label="Send feedback"
-                >
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                    />
-                  </svg>
-                </button>
-                <div className="flex items-center space-x-2 cursor-pointer group hover:bg-gray-50 p-2 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95">
-                  <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center text-white text-sm font-bold group-hover:shadow-lg transition-shadow">
-                    U
-                  </div>
-                  <div className="hidden lg:block">
-                    <div className="text-sm font-medium text-gray-700">User</div>
-                    <div className="text-xs text-gray-500">Admin</div>
-                  </div>
-                  <svg
-                    className="h-4 w-4 text-gray-400 group-hover:text-gray-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Stats Bar */}
-      <div className="border-b border-gray-200 bg-gradient-to-r from-purple-50 via-white to-pink-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-3 flex flex-wrap items-center justify-between gap-3 text-sm">
-            {/* Environment Status */}
-            <div className="flex items-center space-x-2">
-              <span className="text-gray-600 font-medium">Environment:</span>
-              <div className="flex items-center space-x-1 bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="font-medium">Online</span>
-              </div>
-            </div>
-
-            {/* Cluster Count - Clickable when clusters exist */}
-            <div className="flex items-center space-x-2">
-              <CubeIcon className="h-4 w-4 text-purple-600" />
-              <span className="text-gray-600">Clusters:</span>
-              {(() => {
-                // Count clusters from Minikube active resources
-                const minikubeResources = verifiedMinikubeClusterInfo
-                  ? parseDynamicResources(
-                      ansibleResults[`check-components-${verifiedMinikubeClusterInfo.name}`]
-                        ?.result?.output || ''
-                    )
-                  : [];
-                const minikubeClusters = minikubeResources.filter(
-                  (r) =>
-                    r.type === 'ROSACluster' ||
-                    r.type === 'RosaControlPlane' ||
-                    r.type.toLowerCase().includes('cluster')
-                );
-
-                // Count clusters from MCE active resources
-                const mceResources = ocpStatus?.connected
-                  ? parseDynamicResources(
-                      ansibleResults['check-mce-components']?.result?.output || ''
-                    )
-                  : [];
-                const mceClusters = mceResources.filter(
-                  (r) =>
-                    r.type === 'ROSACluster' ||
-                    r.type === 'RosaControlPlane' ||
-                    r.type.toLowerCase().includes('cluster')
-                );
-
-                const totalClusters = minikubeClusters.length + mceClusters.length;
-                const readyClusters = [...minikubeClusters, ...mceClusters].filter((r) =>
-                  r.status?.toLowerCase().includes('ready')
-                ).length;
-
-                const clusterCount = totalClusters > 0 ? `${readyClusters}/${totalClusters}` : '0';
-                const hasRosaClusters = rosaClusters && rosaClusters.length > 0;
-
-                return hasRosaClusters ? (
-                  <button
-                    onClick={() => setShowClusterPanel(true)}
-                    className="font-semibold text-purple-900 bg-purple-100 hover:bg-purple-200 px-2 py-1 rounded-full transition-colors duration-200 cursor-pointer"
-                    title="Click to view ROSA clusters"
-                  >
-                    {clusterCount}
-                  </button>
-                ) : (
-                  <span className="font-semibold text-purple-900">{clusterCount}</span>
-                );
-              })()}
-            </div>
-
-            {/* Last Operation */}
-            <div className="flex items-center space-x-2">
-              <CommandLineIcon className="h-4 w-4 text-blue-600" />
-              <span className="text-gray-600">Last Operation:</span>
-              {recentOperations.length > 0 ? (
-                <div className="flex items-center space-x-1">
-                  {recentOperations[0].status === 'success' ? (
-                    <CheckCircleIcon className="h-4 w-4 text-green-600" />
-                  ) : recentOperations[0].status === 'error' ? (
-                    <svg className="h-4 w-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  ) : (
-                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                  )}
-                  <span className="font-medium text-gray-900 max-w-xs truncate">
-                    {recentOperations[0].operation}
-                  </span>
-                  <span className="text-gray-500">
-                    (
-                    {(() => {
-                      const timestamp = new Date(recentOperations[0].timestamp);
-                      const now = new Date();
-                      const diffMs = now - timestamp;
-                      const seconds = Math.floor(diffMs / 1000);
-                      const minutes = Math.floor(seconds / 60);
-                      const hours = Math.floor(minutes / 60);
-
-                      if (hours > 0) return `${hours}h ago`;
-                      if (minutes > 0) return `${minutes}m ago`;
-                      if (seconds > 10) return `${seconds}s ago`;
-                      return 'just now';
-                    })()}
-                    )
-                  </span>
-                </div>
-              ) : (
-                <span className="text-gray-500 italic">None</span>
-              )}
-            </div>
-
-            {/* Issues Count */}
-            <div className="flex items-center space-x-2">
-              <span className="text-gray-600">Issues:</span>
-              {(() => {
-                // Count failed operations
-                const failedOps = recentOperations.filter((op) => op.status === 'error').length;
-                return failedOps > 0 ? (
-                  <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full font-semibold">
-                    {failedOps}
-                  </span>
-                ) : (
-                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold flex items-center space-x-1">
-                    <CheckCircleIcon className="h-3 w-3" />
-                    <span>0</span>
-                  </span>
-                );
-              })()}
-            </div>
-
-            {/* Refresh Button */}
-            <button
-              onClick={() => window.location.reload()}
-              className="flex items-center space-x-1 text-gray-600 hover:text-purple-600 transition-colors px-2 py-1 rounded-lg hover:bg-purple-50"
-              title="Refresh dashboard"
-            >
-              <ArrowPathIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">Refresh</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Testing Command Center Header */}
       <div className="border-b border-purple-200 bg-gradient-to-r from-purple-100 via-pink-50 to-purple-100 shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -4974,8 +4695,45 @@ export function WhatCanIHelp() {
 
         {/* Test Environments Section - MCE */}
         {selectedEnvironment === 'mce' && (
-          <div className="mb-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="mb-6 relative">
+            {/* Floating Settings Button */}
+            <button
+              onClick={() => setSettingsPanelOpen(true)}
+              className="fixed top-24 right-8 z-40 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-110"
+              title="Open Settings"
+            >
+              <Cog6ToothIcon className="h-6 w-6" />
+            </button>
+
+            {/* Configuration Section - Styled and Collapsible */}
+            <div className="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-2xl shadow-md border border-cyan-200 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
+              {/* Configuration Header - Click anywhere to toggle */}
+              <div
+                className="bg-gradient-to-r from-cyan-600 to-blue-600 text-white px-6 py-4 flex items-center justify-between cursor-pointer hover:from-cyan-700 hover:to-blue-700 transition-colors"
+                onClick={() => setMceConfigurationCollapsed(!mceConfigurationCollapsed)}
+                title={mceConfigurationCollapsed ? 'Click to expand Configuration' : 'Click to collapse Configuration'}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">⚙️</span>
+                  <h3 className="text-xl font-bold">Configuration</h3>
+                </div>
+                <div className="p-2">
+                  {mceConfigurationCollapsed ? (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+
+              {/* Configuration Content - Collapsible Tiles */}
+              {!mceConfigurationCollapsed && (
+                <div className="p-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Tile 1: MCE Test Environment - Wrapper for camper pull-out */}
               <div className={`relative transition-all duration-500 ${showClusterPanel ? 'lg:col-span-2' : ''}`}>
                 <div className="flex">
@@ -5807,6 +5565,9 @@ export function WhatCanIHelp() {
                   })()}
                 </div>
               </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -5916,9 +5677,6 @@ export function WhatCanIHelp() {
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">💻</span>
                   <h3 className="text-xl font-bold">Terminal</h3>
-                  <span className="text-sm bg-cyan-500/30 px-3 py-1 rounded-full">
-                    Interactive Shell
-                  </span>
                 </div>
                 <div className="p-2">
                   {mceTerminalCollapsed ? (
@@ -6161,11 +5919,6 @@ export function WhatCanIHelp() {
                       </div>
                       <div>
                         <h3 className="text-lg font-bold text-white">Recent Operations</h3>
-                        <p className="text-cyan-100 text-sm">
-                          {recentOperations.length > 0
-                            ? `Latest ${recentOperations.length} operation${recentOperations.length !== 1 ? 's' : ''}`
-                            : 'No operations yet'}
-                        </p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -6197,26 +5950,8 @@ export function WhatCanIHelp() {
                 {!mceRecentOpsCollapsed && (
                   <div className="p-6">
                   {recentOperations.length === 0 ? (
-                    <div className="text-center py-12">
-                      <div className="inline-flex items-center justify-center w-16 h-16 bg-cyan-100 rounded-full mb-4">
-                        <svg
-                          className="h-8 w-8 text-cyan-600"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                          />
-                        </svg>
-                      </div>
-                      <p className="text-gray-500 font-medium">No recent operations</p>
-                      <p className="text-gray-400 text-sm mt-1">
-                        Operations will appear here once you start working
-                      </p>
+                    <div className="text-center py-4">
+                      <p className="text-gray-500 text-sm">No recent operations</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -6269,17 +6004,15 @@ export function WhatCanIHelp() {
               {/* Recent Operations Output */}
               <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-xl shadow-2xl border-2 border-cyan-300 overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-cyan-600 to-teal-600 px-6 py-3 flex items-center justify-between cursor-pointer hover:from-cyan-700 hover:to-teal-700 transition-all"
+                  className="bg-gradient-to-r from-cyan-600 to-teal-600 px-6 py-4 flex items-center justify-between cursor-pointer hover:from-cyan-700 hover:to-teal-700 transition-all"
                   onClick={() => setRecentOperationsOutputCollapsed(!recentOperationsOutputCollapsed)}
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="bg-white/20 rounded-lg px-3 py-1">
-                      <span className="text-white font-mono text-sm font-semibold">
-                        Recent Operations Output
-                      </span>
+                    <div className="bg-white/20 rounded-full p-2">
+                      <DocumentTextIcon className="h-6 w-6 text-white" />
                     </div>
-                    <div className="bg-teal-700 text-teal-100 text-xs px-2 py-1 rounded font-mono">
-                      MCE CAPI/CAPA
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Recent Operations Output</h3>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -6328,8 +6061,8 @@ export function WhatCanIHelp() {
                 {!recentOperationsOutputCollapsed && (
                   <div className="p-6 font-mono text-sm text-green-400 max-h-96 overflow-y-auto">
                   {recentOperations.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      No operations output yet. Run Verify or Configure to see output here.
+                    <div className="text-center py-4 text-gray-500 text-sm">
+                      No operations output yet
                     </div>
                   ) : (
                     recentOperations.map((op, idx) => (
@@ -6372,7 +6105,6 @@ export function WhatCanIHelp() {
             </div>
 
           </div>
-        )}
 
         {/* Main Header with Configure Environment and Right Sidebar */}
         <div className="flex flex-col lg:flex-row items-start justify-between gap-4 lg:gap-8 mb-4 md:mb-6 animate-in fade-in duration-300">
@@ -6382,8 +6114,9 @@ export function WhatCanIHelp() {
               AWS (CAPA).
             </p>
 
-            {/* Environment Analysis and Credentials Setup */}
-            <div className="bg-gradient-to-br from-white to-green-50 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-green-200 p-3 md:p-4 mb-4 backdrop-blur-sm hover:-translate-y-1 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            {/* Environment Analysis and Credentials Setup - Hidden from main page */}
+            {false && (
+            <div className="bg-gradient-to-br from-white to-green-50 rounded-2xl shadow-md transition-all duration-300 border border-green-200 p-3 md:p-4 mb-4">
               <h2
                 className="text-sm font-semibold text-gray-900 mb-3 flex items-center cursor-pointer hover:bg-green-50 rounded-lg p-2 -m-2 transition-colors"
                 onClick={() => toggleSection('credentials-environment')}
@@ -7093,6 +6826,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 </>
               )}
             </div>
+            )}
 
             {/* Main Content Sections */}
             <div className="space-y-6">
@@ -8814,6 +8548,130 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Settings Side Panel */}
+      {settingsPanelOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 transition-opacity duration-300"
+            onClick={() => setSettingsPanelOpen(false)}
+          />
+
+          {/* Side Panel */}
+          <div className="fixed top-0 right-0 h-full w-full md:w-2/3 lg:w-1/2 xl:w-1/3 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out overflow-y-auto">
+            {/* Panel Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-cyan-600 to-blue-600 text-white px-6 py-4 flex items-center justify-between shadow-lg z-10">
+              <div className="flex items-center gap-3">
+                <Cog6ToothIcon className="h-6 w-6" />
+                <h2 className="text-xl font-bold">Settings</h2>
+              </div>
+              <button
+                onClick={() => setSettingsPanelOpen(false)}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                title="Close Settings"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Panel Content */}
+            <div className="p-6 space-y-6">
+              <p className="text-gray-600 text-sm">
+                Configure your environment credentials and preferences.
+              </p>
+
+              {/* Credentials Section - Duplicated here for settings panel */}
+              <div className="bg-gradient-to-br from-white to-green-50 rounded-2xl shadow-md transition-all duration-300 border border-green-200 p-3 md:p-4">
+                <h2
+                  className="text-sm font-semibold text-gray-900 mb-3 flex items-center cursor-pointer hover:bg-green-50 rounded-lg p-2 -m-2 transition-colors"
+                  onClick={() => toggleSection('credentials-environment')}
+                >
+                  <div className="bg-green-600 rounded-full p-1 mr-2">
+                    <svg
+                      className="h-3 w-3 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                      />
+                    </svg>
+                  </div>
+                  <span>User Credentials</span>
+                  <div className="flex items-center ml-auto gap-2">
+                    <div
+                      className={`text-xs px-3 py-1.5 rounded-full font-semibold border ${(() => {
+                        const requiredFields = [
+                          'AWS_REGION',
+                          'AWS_ACCESS_KEY_ID',
+                          'AWS_SECRET_ACCESS_KEY',
+                          'OCM_CLIENT_ID',
+                          'OCM_CLIENT_SECRET',
+                        ];
+                        const hasAllRequiredFields =
+                          configStatus?.configured_fields &&
+                          requiredFields.every((field) =>
+                            configStatus.configured_fields.some((f) => f.field === field)
+                          );
+                        return rosaStatus?.authenticated && hasAllRequiredFields
+                          ? 'bg-green-100 text-green-800 border-green-300'
+                          : 'bg-orange-100 text-orange-800 border-orange-300';
+                      })()}`}
+                    >
+                      {(() => {
+                        const requiredFields = [
+                          'AWS_REGION',
+                          'AWS_ACCESS_KEY_ID',
+                          'AWS_SECRET_ACCESS_KEY',
+                          'OCM_CLIENT_ID',
+                          'OCM_CLIENT_SECRET',
+                        ];
+                        const hasAllRequiredFields =
+                          configStatus?.configured_fields &&
+                          requiredFields.every((field) =>
+                            configStatus.configured_fields.some((f) => f.field === field)
+                          );
+                        return rosaStatus?.authenticated && hasAllRequiredFields
+                          ? '✓ Ready'
+                          : '⚠ Needs Setup';
+                      })()}
+                    </div>
+                    <svg
+                      className={`h-4 w-4 text-green-600 transition-transform duration-200 ${collapsedSections.has('credentials-environment') ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </div>
+                </h2>
+
+                {!collapsedSections.has('credentials-environment') && (
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-gray-700">
+                      Click on the sections below to configure your AWS, OCM, and OCP Hub credentials.
+                    </p>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Note: Full credentials form will appear here when you expand this section.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </>
