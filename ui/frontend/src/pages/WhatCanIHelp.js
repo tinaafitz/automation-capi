@@ -26,6 +26,7 @@ import {
   ChevronUpIcon,
   ClockIcon,
   DocumentDuplicateIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { ROSAStatus } from '../components/ROSAStatus';
 import { ConfigStatus } from '../components/ConfigStatus';
@@ -303,6 +304,7 @@ export function WhatCanIHelp() {
   const [minikubeOperationsOutputCollapsed, setMinikubeOperationsOutputCollapsed] = useState(false);
   const [minikubeRecentOpsCollapsed, setMinikubeRecentOpsCollapsed] = useState(false);
   const [mceRecentOpsCollapsed, setMceRecentOpsCollapsed] = useState(false);
+  const [settingsPanelOpen, setSettingsPanelOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [rosaStatus, setRosaStatus] = useState(null);
   const [configStatus, setConfigStatus] = useState(null);
@@ -4693,7 +4695,16 @@ export function WhatCanIHelp() {
 
         {/* Test Environments Section - MCE */}
         {selectedEnvironment === 'mce' && (
-          <div className="mb-6">
+          <div className="mb-6 relative">
+            {/* Floating Settings Button */}
+            <button
+              onClick={() => setSettingsPanelOpen(true)}
+              className="fixed top-24 right-8 z-40 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-110"
+              title="Open Settings"
+            >
+              <Cog6ToothIcon className="h-6 w-6" />
+            </button>
+
             {/* Configuration Section - Styled and Collapsible */}
             <div className="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-2xl shadow-md border border-cyan-200 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
               {/* Configuration Header - Click anywhere to toggle */}
@@ -6094,7 +6105,6 @@ export function WhatCanIHelp() {
             </div>
 
           </div>
-        )}
 
         {/* Main Header with Configure Environment and Right Sidebar */}
         <div className="flex flex-col lg:flex-row items-start justify-between gap-4 lg:gap-8 mb-4 md:mb-6 animate-in fade-in duration-300">
@@ -6104,8 +6114,9 @@ export function WhatCanIHelp() {
               AWS (CAPA).
             </p>
 
-            {/* Environment Analysis and Credentials Setup */}
-            <div className="bg-gradient-to-br from-white to-green-50 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-green-200 p-3 md:p-4 mb-4 backdrop-blur-sm hover:-translate-y-1 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            {/* Environment Analysis and Credentials Setup - Hidden from main page */}
+            {false && (
+            <div className="bg-gradient-to-br from-white to-green-50 rounded-2xl shadow-md transition-all duration-300 border border-green-200 p-3 md:p-4 mb-4">
               <h2
                 className="text-sm font-semibold text-gray-900 mb-3 flex items-center cursor-pointer hover:bg-green-50 rounded-lg p-2 -m-2 transition-colors"
                 onClick={() => toggleSection('credentials-environment')}
@@ -6815,6 +6826,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 </>
               )}
             </div>
+            )}
 
             {/* Main Content Sections */}
             <div className="space-y-6">
@@ -8536,6 +8548,130 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Settings Side Panel */}
+      {settingsPanelOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 transition-opacity duration-300"
+            onClick={() => setSettingsPanelOpen(false)}
+          />
+
+          {/* Side Panel */}
+          <div className="fixed top-0 right-0 h-full w-full md:w-2/3 lg:w-1/2 xl:w-1/3 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out overflow-y-auto">
+            {/* Panel Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-cyan-600 to-blue-600 text-white px-6 py-4 flex items-center justify-between shadow-lg z-10">
+              <div className="flex items-center gap-3">
+                <Cog6ToothIcon className="h-6 w-6" />
+                <h2 className="text-xl font-bold">Settings</h2>
+              </div>
+              <button
+                onClick={() => setSettingsPanelOpen(false)}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                title="Close Settings"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Panel Content */}
+            <div className="p-6 space-y-6">
+              <p className="text-gray-600 text-sm">
+                Configure your environment credentials and preferences.
+              </p>
+
+              {/* Credentials Section - Duplicated here for settings panel */}
+              <div className="bg-gradient-to-br from-white to-green-50 rounded-2xl shadow-md transition-all duration-300 border border-green-200 p-3 md:p-4">
+                <h2
+                  className="text-sm font-semibold text-gray-900 mb-3 flex items-center cursor-pointer hover:bg-green-50 rounded-lg p-2 -m-2 transition-colors"
+                  onClick={() => toggleSection('credentials-environment')}
+                >
+                  <div className="bg-green-600 rounded-full p-1 mr-2">
+                    <svg
+                      className="h-3 w-3 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                      />
+                    </svg>
+                  </div>
+                  <span>User Credentials</span>
+                  <div className="flex items-center ml-auto gap-2">
+                    <div
+                      className={`text-xs px-3 py-1.5 rounded-full font-semibold border ${(() => {
+                        const requiredFields = [
+                          'AWS_REGION',
+                          'AWS_ACCESS_KEY_ID',
+                          'AWS_SECRET_ACCESS_KEY',
+                          'OCM_CLIENT_ID',
+                          'OCM_CLIENT_SECRET',
+                        ];
+                        const hasAllRequiredFields =
+                          configStatus?.configured_fields &&
+                          requiredFields.every((field) =>
+                            configStatus.configured_fields.some((f) => f.field === field)
+                          );
+                        return rosaStatus?.authenticated && hasAllRequiredFields
+                          ? 'bg-green-100 text-green-800 border-green-300'
+                          : 'bg-orange-100 text-orange-800 border-orange-300';
+                      })()}`}
+                    >
+                      {(() => {
+                        const requiredFields = [
+                          'AWS_REGION',
+                          'AWS_ACCESS_KEY_ID',
+                          'AWS_SECRET_ACCESS_KEY',
+                          'OCM_CLIENT_ID',
+                          'OCM_CLIENT_SECRET',
+                        ];
+                        const hasAllRequiredFields =
+                          configStatus?.configured_fields &&
+                          requiredFields.every((field) =>
+                            configStatus.configured_fields.some((f) => f.field === field)
+                          );
+                        return rosaStatus?.authenticated && hasAllRequiredFields
+                          ? '✓ Ready'
+                          : '⚠ Needs Setup';
+                      })()}
+                    </div>
+                    <svg
+                      className={`h-4 w-4 text-green-600 transition-transform duration-200 ${collapsedSections.has('credentials-environment') ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </div>
+                </h2>
+
+                {!collapsedSections.has('credentials-environment') && (
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-gray-700">
+                      Click on the sections below to configure your AWS, OCM, and OCP Hub credentials.
+                    </p>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Note: Full credentials form will appear here when you expand this section.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </>
