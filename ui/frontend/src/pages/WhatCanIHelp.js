@@ -4705,9 +4705,6 @@ export function WhatCanIHelp() {
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">⚙️</span>
                   <h3 className="text-xl font-bold">Configuration</h3>
-                  <span className="text-sm bg-cyan-500/30 px-3 py-1 rounded-full">
-                    MCE Test Environment
-                  </span>
                 </div>
                 <div className="p-2">
                   {mceConfigurationCollapsed ? (
@@ -5669,9 +5666,6 @@ export function WhatCanIHelp() {
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">💻</span>
                   <h3 className="text-xl font-bold">Terminal</h3>
-                  <span className="text-sm bg-cyan-500/30 px-3 py-1 rounded-full">
-                    Interactive Shell
-                  </span>
                 </div>
                 <div className="p-2">
                   {mceTerminalCollapsed ? (
@@ -5914,11 +5908,6 @@ export function WhatCanIHelp() {
                       </div>
                       <div>
                         <h3 className="text-lg font-bold text-white">Recent Operations</h3>
-                        <p className="text-cyan-100 text-sm">
-                          {recentOperations.length > 0
-                            ? `Latest ${recentOperations.length} operation${recentOperations.length !== 1 ? 's' : ''}`
-                            : 'No operations yet'}
-                        </p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -5950,26 +5939,8 @@ export function WhatCanIHelp() {
                 {!mceRecentOpsCollapsed && (
                   <div className="p-6">
                   {recentOperations.length === 0 ? (
-                    <div className="text-center py-12">
-                      <div className="inline-flex items-center justify-center w-16 h-16 bg-cyan-100 rounded-full mb-4">
-                        <svg
-                          className="h-8 w-8 text-cyan-600"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                          />
-                        </svg>
-                      </div>
-                      <p className="text-gray-500 font-medium">No recent operations</p>
-                      <p className="text-gray-400 text-sm mt-1">
-                        Operations will appear here once you start working
-                      </p>
+                    <div className="text-center py-4">
+                      <p className="text-gray-500 text-sm">No recent operations</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -6022,17 +5993,15 @@ export function WhatCanIHelp() {
               {/* Recent Operations Output */}
               <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-xl shadow-2xl border-2 border-cyan-300 overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-cyan-600 to-teal-600 px-6 py-3 flex items-center justify-between cursor-pointer hover:from-cyan-700 hover:to-teal-700 transition-all"
+                  className="bg-gradient-to-r from-cyan-600 to-teal-600 px-6 py-4 flex items-center justify-between cursor-pointer hover:from-cyan-700 hover:to-teal-700 transition-all"
                   onClick={() => setRecentOperationsOutputCollapsed(!recentOperationsOutputCollapsed)}
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="bg-white/20 rounded-lg px-3 py-1">
-                      <span className="text-white font-mono text-sm font-semibold">
-                        Recent Operations Output
-                      </span>
+                    <div className="bg-white/20 rounded-full p-2">
+                      <DocumentTextIcon className="h-6 w-6 text-white" />
                     </div>
-                    <div className="bg-teal-700 text-teal-100 text-xs px-2 py-1 rounded font-mono">
-                      MCE CAPI/CAPA
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Recent Operations Output</h3>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -6081,8 +6050,8 @@ export function WhatCanIHelp() {
                 {!recentOperationsOutputCollapsed && (
                   <div className="p-6 font-mono text-sm text-green-400 max-h-96 overflow-y-auto">
                   {recentOperations.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      No operations output yet. Run Verify or Configure to see output here.
+                    <div className="text-center py-4 text-gray-500 text-sm">
+                      No operations output yet
                     </div>
                   ) : (
                     recentOperations.map((op, idx) => (
