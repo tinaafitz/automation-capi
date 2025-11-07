@@ -1,17 +1,21 @@
 # Template Resolver Tasks
 # Handles smart template lookup with fallback logic for versioned OpenShift deployments
 
-- name: Validate OpenShift version
+- name: Extract major.minor version from OpenShift version
+  set_fact:
+    ocp_major_minor: "{{ openshift_version.split('.')[0] }}.{{ openshift_version.split('.')[1] }}"
+
+- name: Validate OpenShift version (major.minor)
   fail:
-    msg: "OpenShift version '{{ openshift_version }}' is not supported. Supported versions: {{ supported_versions | join(', ') }}"
-  when: openshift_version not in supported_versions
+    msg: "OpenShift version '{{ openshift_version }}' ({{ ocp_major_minor }}) is not supported. Supported versions: {{ supported_versions | join(', ') }}"
+  when: ocp_major_minor not in supported_versions
 
 - name: Set template resolver variables
   set_fact:
     template_name: "{{ template_name | default('') }}"
     template_category: "{{ template_category | default('cluster-configs') }}"
     template_extension: "{{ template_extension | default('.yaml.j2') }}"
-    version_templates: "templates/versions/{{ openshift_version }}"
+    version_templates: "templates/versions/{{ ocp_major_minor }}"
     common_templates: "templates/common"
 
 - name: Construct template paths
