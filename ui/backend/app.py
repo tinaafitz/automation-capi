@@ -3147,7 +3147,9 @@ async def run_ansible_playbook_endpoint(request: dict, background_tasks: Backgro
         }
 
         # Run playbook in background
-        background_tasks.add_task(run_playbook_background, playbook, extra_vars, job_id, description)
+        background_tasks.add_task(
+            run_playbook_background, playbook, extra_vars, job_id, description
+        )
 
         return {
             "job_id": job_id,
