@@ -12,20 +12,20 @@ metadata:
     cluster.x-k8s.io/cluster-name: {{ cluster_name }}
     automation.acm.redhat.com/test-case: "ACM-21162"
     automation.acm.redhat.com/created-by: "ansible-automation"
-{%- if additional_labels is defined %}
-{%- for key, value in additional_labels.items() %}
+{% if additional_labels is defined %}
+{% for key, value in additional_labels.items() %}
     {{ key }}: "{{ value }}"
-{%- endfor %}
-{%- endif %}
+{% endfor %}
+{% endif %}
   annotations:
     automation.acm.redhat.com/description: "Automated ROSARoleConfig for {{ cluster_name }}"
     automation.acm.redhat.com/timestamp: "{{ ansible_date_time.iso8601 }}"
     automation.acm.redhat.com/version: "{{ openshift_version | default('4.20') }}"
-{%- if additional_annotations is defined %}
-{%- for key, value in additional_annotations.items() %}
+{% if additional_annotations is defined %}
+{% for key, value in additional_annotations.items() %}
     {{ key }}: "{{ value }}"
-{%- endfor %}
-{%- endif %}
+{% endfor %}
+{% endif %}
 spec:
   # AWS Account Configuration
   awsAccountId: "{{ aws_account_id }}"
@@ -59,19 +59,19 @@ spec:
         }
       managedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/ROSAInstallerPolicy"
-        {%- if custom_installer_policies is defined %}
-        {%- for policy in custom_installer_policies %}
+{% if custom_installer_policies is defined %}
+{% for policy in custom_installer_policies %}
         - "{{ policy }}"
-        {%- endfor %}
-        {%- endif %}
-      {%- if inline_installer_policies is defined %}
+{% endfor %}
+{% endif %}
+{% if inline_installer_policies is defined %}
       inlinePolicies:
-        {%- for policy_name, policy_doc in inline_installer_policies.items() %}
+{% for policy_name, policy_doc in inline_installer_policies.items() %}
         - name: "{{ policy_name }}"
           document: |
 {{ policy_doc | indent(12, True) }}
-        {%- endfor %}
-      {%- endif %}
+{% endfor %}
+{% endif %}
 
     # Support Role
     - name: "{{ support_role_name | default(cluster_name + '-support-role') }}"
@@ -97,19 +97,19 @@ spec:
         }
       managedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/ROSASupportPolicy"
-        {%- if custom_support_policies is defined %}
-        {%- for policy in custom_support_policies %}
+{% if custom_support_policies is defined %}
+{% for policy in custom_support_policies %}
         - "{{ policy }}"
-        {%- endfor %}
-        {%- endif %}
-      {%- if inline_support_policies is defined %}
+{% endfor %}
+{% endif %}
+{% if inline_support_policies is defined %}
       inlinePolicies:
-        {%- for policy_name, policy_doc in inline_support_policies.items() %}
+{% for policy_name, policy_doc in inline_support_policies.items() %}
         - name: "{{ policy_name }}"
           document: |
 {{ policy_doc | indent(12, True) }}
-        {%- endfor %}
-      {%- endif %}
+{% endfor %}
+{% endif %}
 
     # Worker Role
     - name: "{{ worker_role_name | default(cluster_name + '-worker-role') }}"
@@ -132,41 +132,41 @@ spec:
         - "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
         - "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
         - "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-        {%- if custom_worker_policies is defined %}
-        {%- for policy in custom_worker_policies %}
+{% if custom_worker_policies is defined %}
+{% for policy in custom_worker_policies %}
         - "{{ policy }}"
-        {%- endfor %}
-        {%- endif %}
-      {%- if inline_worker_policies is defined %}
+{% endfor %}
+{% endif %}
+{% if inline_worker_policies is defined %}
       inlinePolicies:
-        {%- for policy_name, policy_doc in inline_worker_policies.items() %}
+{% for policy_name, policy_doc in inline_worker_policies.items() %}
         - name: "{{ policy_name }}"
           document: |
 {{ policy_doc | indent(12, True) }}
-        {%- endfor %}
-      {%- endif %}
+{% endfor %}
+{% endif %}
 
   # OIDC Provider Configuration
-  {%- if create_oidc_provider | default(true) %}
+{% if create_oidc_provider | default(true) %}
   oidcProvider:
     issuerUrl: "{{ oidc_issuer_url | default('https://oidc.eks.' + aws_region + '.amazonaws.com/id/' + cluster_name) }}"
     thumbprints:
-      {%- if oidc_thumbprints is defined %}
-      {%- for thumbprint in oidc_thumbprints %}
+{% if oidc_thumbprints is defined %}
+{% for thumbprint in oidc_thumbprints %}
       - "{{ thumbprint }}"
-      {%- endfor %}
-      {% else %}
+{% endfor %}
+{% else %}
       - "9e99a48a9960b14926bb7f3b02e22da2b0ab7280"
       - "a9d53002e97e00e043244f3d170d6f4c414104fd"
-      {%- endif %}
+{% endif %}
     clientIds:
       - "sts.amazonaws.com"
-      {%- if additional_client_ids is defined %}
-      {%- for client_id in additional_client_ids %}
+{% if additional_client_ids is defined %}
+{% for client_id in additional_client_ids %}
       - "{{ client_id }}"
-      {%- endfor %}
-      {%- endif %}
-  {%- endif %}
+{% endfor %}
+{% endif %}
+{% endif %}
 
   # Credential Request Configuration
   credentialRequests:
@@ -220,29 +220,29 @@ spec:
           ]
         }
 
-    {%- if additional_credential_requests is defined %}
-    {%- for cr in additional_credential_requests %}
+{% if additional_credential_requests is defined %}
+{% for cr in additional_credential_requests %}
     - name: "{{ cr.name }}"
       namespace: "{{ cr.namespace }}"
       serviceAccount: "{{ cr.service_account }}"
       secretName: "{{ cr.secret_name }}"
       policyDocument: |
 {{ cr.policy_document | indent(8, True) }}
-    {%- endfor %}
-    {%- endif %}
+{% endfor %}
+{% endif %}
 
   # Optional Configuration
-  {%- if role_path is defined %}
+{% if role_path is defined %}
   rolePath: "{{ role_path }}"
-  {%- endif %}
+{% endif %}
 
-  {%- if permission_boundary is defined %}
+{% if permission_boundary is defined %}
   permissionBoundary: "{{ permission_boundary }}"
-  {%- endif %}
+{% endif %}
 
-  {%- if enable_deletion_protection | default(false) %}
+{% if enable_deletion_protection | default(false) %}
   deletionProtection: true
-  {%- endif %}
+{% endif %}
 
   # Tags for AWS Resources
   tags:
@@ -252,8 +252,8 @@ spec:
     ClusterName: "{{ cluster_name }}"
     CreatedBy: "ansible-automation"
     OpenShiftVersion: "{{ openshift_version | default('4.20') }}"
-    {%- if additional_tags is defined %}
-    {%- for key, value in additional_tags.items() %}
+{% if additional_tags is defined %}
+{% for key, value in additional_tags.items() %}
     {{ key }}: "{{ value }}"
-    {%- endfor %}
-    {%- endif %}
+{% endfor %}
+{% endif %}
