@@ -1,0 +1,128 @@
+---
+# ================================================================
+# Create ROSA HCP Cluster with Optional Automation
+# ================================================================
+# This playbook provisions a ROSA HCP cluster with optional
+# automated creation of RosaRoleConfig and ROSANetwork resources.
+#
+# Usage Examples:
+#
+# 1. Basic cluster (manual roles and network):
+#    ansible-playbook create_rosa_hcp_automated.yaml
+#
+# 2. With automated roles only:
+#    ansible-playbook create_rosa_hcp_automated.yaml \
+#      -e create_rosa_roles=true
+#
+# 3. With automated network only:
+#    ansible-playbook create_rosa_hcp_automated.yaml \
+#      -e create_rosa_network=true
+#
+# 4. Fully automated (roles + network):
+#    ansible-playbook create_rosa_hcp_automated.yaml \
+#      -e create_rosa_roles=true \
+#      -e create_rosa_network=true
+#
+# 5. Custom configuration:
+#    ansible-playbook create_rosa_hcp_automated.yaml \
+#      -e create_rosa_roles=true \
+#      -e create_rosa_network=true \
+#      -e rosa_role_prefix=myprefix \
+#      -e network_cidr=172.16.0.0/16 \
+#      -e availability_zone_count=2
+# ================================================================
+
+- name: Create ROSA HCP cluster with optional automation
+  hosts: localhost
+  connection: local
+  any_errors_fatal: true
+  vars_files:
+    - vars/vars.yml
+    - vars/user_vars.yml
+
+  vars:
+    # These variables should be passed via -e extra_vars
+    # Defaults are handled in the included task file
+
+  tasks:
+    - name: Set cluster credentials
+      set_fact:
+        ocp_user: "{{ OCP_HUB_CLUSTER_USER }}"
+        ocp_password: "{{ OCP_HUB_CLUSTER_PASSWORD }}"
+        api_url: "{{ OCP_HUB_API_URL }}"
+        mce_namespace: "{{ MCE_NAMESPACE }}"
+
+    - name: Login to OCP cluster
+      include_tasks: tasks/login_ocp.yml
+
+    - name: Display automation configuration
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                                                               ║
+          ║       🚀 ROSA HCP Cluster Provisioning with Automation        ║
+          ║                                                               ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          Cluster Configuration:
+          • Name: {{ cluster_name | default('not-specified') }}
+          • Version: {{ openshift_version | default('4.20') }}
+          • Region: {{ aws_region | default('us-west-2') }}
+          • Namespace: {{ capi_namespace | default('ns-rosa-hcp') }}
+
+          Automation Settings:
+          • Create RosaRoleConfig: {{ '✓ Yes' if (create_rosa_roles | default(false)) else '✗ No' }}
+          {% if create_rosa_roles | default(false) %}
+            └─ Prefix: {{ rosa_role_prefix | default(cluster_name) | default('rosa') }}
+          {% endif %}
+          • Create ROSANetwork: {{ '✓ Yes' if (create_rosa_network | default(false)) else '✗ No' }}
+          {% if create_rosa_network | default(false) %}
+            ├─ CIDR: {{ network_cidr | default('10.0.0.0/16') }}
+            └─ AZs: {{ availability_zone_count | default(1) }}
+          {% endif %}
+
+          {% if not (create_rosa_roles | default(false)) and not (create_rosa_network | default(false)) %}
+          ⚠️  Manual Setup Required:
+          You will need to provide existing:
+          • AWS IAM roles or manual role references
+          • VPC ID and subnet IDs
+          {% endif %}
+
+    - name: Provision ROSA HCP cluster with automation
+      include_tasks: tasks/provision_rosa_hcp_with_automation.yml
+      # Note: Variables are passed as-is. Defaults are handled in the included task file.
+
+    - name: Provisioning complete
+      debug:
+        msg: |
+
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                                                               ║
+          ║           ✅  PROVISIONING COMPLETE!                          ║
+          ║                                                               ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          Your ROSA HCP cluster is being created:
+          • Cluster: {{ cluster_name }}
+          • Namespace: {{ capi_namespace }}
+
+          Monitor Progress:
+          oc get rosacontrolplane {{ cluster_name }} -n {{ capi_namespace }} -w
+
+          View Details:
+          oc describe rosacontrolplane {{ cluster_name }} -n {{ capi_namespace }}
+
+          Check Events:
+          oc get events -n {{ capi_namespace }} --sort-by='.lastTimestamp'
+
+          {% if create_rosa_roles %}
+          View Roles:
+          oc get rosaroleconfig -n {{ capi_namespace }}
+          {% endif %}
+
+          {% if create_rosa_network %}
+          View Network:
+          oc get rosanetwork -n {{ capi_namespace }}
+          {% endif %}
+
+          🎉 Happy cluster provisioning!

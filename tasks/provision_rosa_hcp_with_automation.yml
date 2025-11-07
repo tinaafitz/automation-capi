@@ -1,0 +1,369 @@
+---
+# ================================================================
+# Provision ROSA HCP Cluster with Conditional Automation
+# ================================================================
+# This task orchestrates ROSA HCP cluster provisioning with optional
+# automated creation of RosaRoleConfig and ROSANetwork resources.
+#
+# Variables:
+#   - cluster_name: Name of the cluster to create (required)
+#   - create_rosa_roles: Boolean to create RosaRoleConfig (default: false)
+#   - create_rosa_network: Boolean to create ROSANetwork (default: false)
+#   - rosa_role_prefix: Prefix for AWS role names (default: cluster_name)
+#   - network_cidr: CIDR block for VPC (default: 10.0.0.0/16)
+#   - availability_zones: List of AZs (default: auto-detected from region)
+# ================================================================
+
+- name: Set default value for cluster_name
+  set_fact:
+    cluster_name: "test-cluster"
+  when: cluster_name is not defined
+
+- name: Set default value for rosa_role_prefix
+  set_fact:
+    rosa_role_prefix: "{{ cluster_name }}"
+  when: rosa_role_prefix is not defined
+
+- name: Set default value for rosa_role_config_name
+  set_fact:
+    rosa_role_config_name: "{{ cluster_name }}-roles"
+  when: rosa_role_config_name is not defined
+
+- name: Set default value for rosa_network_name
+  set_fact:
+    rosa_network_name: "{{ cluster_name }}-network"
+  when: rosa_network_name is not defined
+
+- name: Set default value for network_cidr
+  set_fact:
+    network_cidr: "10.0.0.0/16"
+  when: network_cidr is not defined
+
+- name: Set default value for availability_zone_count
+  set_fact:
+    availability_zone_count: 1
+  when: availability_zone_count is not defined
+
+- name: Set default value for create_rosa_roles
+  set_fact:
+    create_rosa_roles: false
+  when: create_rosa_roles is not defined
+
+- name: Set default value for create_rosa_network
+  set_fact:
+    create_rosa_network: false
+  when: create_rosa_network is not defined
+
+- name: Ensure boolean types for flags
+  set_fact:
+    create_rosa_roles: "{{ create_rosa_roles | bool }}"
+    create_rosa_network: "{{ create_rosa_network | bool }}"
+
+- name: Set default value for aws_region
+  set_fact:
+    aws_region: "us-west-2"
+  when: aws_region is not defined
+
+- name: Set default value for openshift_version
+  set_fact:
+    openshift_version: "4.20"
+  when: openshift_version is not defined
+
+- name: Set default value for capi_namespace
+  set_fact:
+    capi_namespace: "ns-rosa-hcp"
+  when: capi_namespace is not defined
+
+- name: Display provisioning plan
+  debug:
+    msg: |
+      ═══════════════════════════════════════════════════════════════
+      🚀 ROSA HCP Cluster Provisioning Plan
+      ═══════════════════════════════════════════════════════════════
+
+      Cluster Name: {{ cluster_name }}
+      Namespace: {{ capi_namespace }}
+      AWS Region: {{ aws_region }}
+      OpenShift Version: {{ openshift_version }}
+
+      Automation Options:
+      ├─ Create RosaRoleConfig: {{ '✓ Enabled' if (create_rosa_roles | bool) else '✗ Disabled' }}
+      {% if create_rosa_roles | bool %}
+      │  ├─ Role Config Name: {{ rosa_role_config_name }}
+      │  └─ Role Prefix: {{ rosa_role_prefix }}
+      {% endif %}
+      │
+      └─ Create ROSANetwork: {{ '✓ Enabled' if (create_rosa_network | bool) else '✗ Disabled' }}
+      {% if create_rosa_network | bool %}
+         ├─ Network Name: {{ rosa_network_name }}
+         ├─ CIDR Block: {{ network_cidr }}
+         └─ Availability Zones: {{ availability_zone_count }}
+      {% endif %}
+
+      ═══════════════════════════════════════════════════════════════
+
+# ================================================================
+# PRE-STEP: Get AWS Account ID (if automation is enabled)
+# ================================================================
+- name: Get AWS account ID from STS
+  when: create_rosa_roles | bool or create_rosa_network | bool
+  block:
+    - name: Get AWS caller identity
+      shell: |
+        if [ -n "$AWS_ACCESS_KEY_ID" ]; then
+          aws sts get-caller-identity --query Account --output text
+        else
+          echo "NO_AWS_CREDS"
+        fi
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ AWS_ACCESS_KEY_ID | default('') }}"
+        AWS_SECRET_ACCESS_KEY: "{{ AWS_SECRET_ACCESS_KEY | default('') }}"
+        AWS_REGION: "{{ AWS_REGION | default('us-west-2') }}"
+      register: aws_account_result
+      changed_when: false
+      failed_when: false
+
+    - name: Set AWS account ID fact
+      set_fact:
+        aws_account_id: "{{ aws_account_result.stdout | trim }}"
+      when:
+        - aws_account_result.rc == 0
+        - aws_account_result.stdout != "NO_AWS_CREDS"
+        - aws_account_result.stdout | trim != ""
+
+    - name: Fail if AWS credentials are invalid or missing
+      fail:
+        msg: |
+          ❌ AWS Automation Failed: Invalid or missing AWS credentials
+
+          RosaRoleConfig and ROSANetwork require valid AWS credentials.
+
+          Current error: {{ aws_account_result.stderr | default('No AWS credentials found') }}
+
+          To use automation features, ensure AWS credentials are configured:
+          1. Set environment variables:
+             - AWS_ACCESS_KEY_ID
+             - AWS_SECRET_ACCESS_KEY
+             - AWS_REGION (optional, defaults to us-west-2)
+
+          2. Or configure AWS CLI: aws configure
+
+          3. Verify credentials: aws sts get-caller-identity
+
+          Alternatively, disable automation and provide existing infrastructure:
+          - Uncheck "Create RosaRoleConfig"
+          - Uncheck "Create ROSANetwork"
+          - Manually provide AWS IAM roles, OIDC, and VPC/subnets
+      when:
+        - (aws_account_result.rc != 0) or
+          (aws_account_result.stdout == "NO_AWS_CREDS") or
+          (aws_account_result.stdout | trim == "")
+
+# ================================================================
+# STEP 1: Create RosaRoleConfig (if requested)
+# ================================================================
+- name: Create RosaRoleConfig for automated AWS role creation
+  when: create_rosa_roles | bool
+  block:
+    - name: Display RosaRoleConfig creation message
+      debug:
+        msg: |
+
+          ⏳ STEP 1/3: Creating RosaRoleConfig
+          ───────────────────────────────────────────────────────────
+          This will automatically create AWS IAM roles:
+          • Installer Role
+          • Support Role
+          • Worker Role
+          • OIDC Provider
+
+    - name: Create RosaRoleConfig resource
+      include_tasks: tasks/create_rosa_role_config.yml
+
+    - name: Wait for RosaRoleConfig to be ready
+      include_tasks: tasks/wait_for_rosa_roles.yml
+      vars:
+        wait_timeout: 600
+
+    - name: RosaRoleConfig creation complete
+      debug:
+        msg: |
+          ✅ STEP 1 COMPLETE: RosaRoleConfig created successfully
+
+          AWS Resources Created:
+          • Installer Role ARN: {{ installer_role_arn | default('N/A') }}
+          • Support Role ARN: {{ support_role_arn | default('N/A') }}
+          • Worker Role ARN: {{ worker_role_arn | default('N/A') }}
+          • OIDC Provider ARN: {{ oidc_provider_arn | default('N/A') }}
+
+- name: Skip RosaRoleConfig creation
+  when: not (create_rosa_roles | bool)
+  debug:
+    msg: |
+
+      ⏩ STEP 1/3: Skipping RosaRoleConfig creation
+      ───────────────────────────────────────────────────────────
+      Using existing AWS roles or manual role configuration.
+
+# ================================================================
+# STEP 2: Create ROSANetwork (if requested)
+# ================================================================
+- name: Create ROSANetwork for automated VPC/subnet creation
+  when: create_rosa_network | bool
+  block:
+    - name: Display ROSANetwork creation message
+      debug:
+        msg: |
+
+          ⏳ STEP 2/3: Creating ROSANetwork
+          ───────────────────────────────────────────────────────────
+          This will automatically create AWS network resources:
+          • VPC ({{ network_cidr }})
+          • Public Subnets ({{ availability_zone_count }} AZ{{ 's' if availability_zone_count > 1 else '' }})
+          • Private Subnets ({{ availability_zone_count }} AZ{{ 's' if availability_zone_count > 1 else '' }})
+          • Internet Gateway
+          • NAT Gateway{{ 's' if availability_zone_count > 1 else '' }}
+          • Route Tables
+
+    - name: Create ROSANetwork resource
+      include_tasks: tasks/create_rosa_network.yml
+      vars:
+        rosa_network_config_name: "{{ rosa_network_name }}"
+        vpc_cidr_block: "{{ network_cidr }}"
+
+    - name: Wait for ROSANetwork to be ready
+      include_tasks: tasks/wait_for_rosa_network.yml
+      vars:
+        wait_timeout: 900
+
+    - name: ROSANetwork creation complete
+      debug:
+        msg: |
+          ✅ STEP 2 COMPLETE: ROSANetwork created successfully
+
+          AWS Network Resources Created:
+          • VPC ID: {{ vpc_id | default('N/A') }}
+          • Public Subnets: {{ public_subnets | length if public_subnets is defined else 0 }}
+          • Private Subnets: {{ private_subnets | length if private_subnets is defined else 0 }}
+          • CloudFormation Stack: {{ cloudformation_stack | default('N/A') }}
+
+- name: Skip ROSANetwork creation
+  when: not (create_rosa_network | bool)
+  debug:
+    msg: |
+
+      ⏩ STEP 2/3: Skipping ROSANetwork creation
+      ───────────────────────────────────────────────────────────
+      Using existing VPC/subnets or manual network configuration.
+
+# ================================================================
+# STEP 3: Create RosaControlPlane
+# ================================================================
+- name: Create RosaControlPlane with references to automated resources
+  block:
+    - name: Display RosaControlPlane creation message
+      debug:
+        msg: |
+
+          ⏳ STEP 3/3: Creating RosaControlPlane
+          ───────────────────────────────────────────────────────────
+          Creating ROSA HCP cluster with:
+          {% if create_rosa_roles | bool %}
+          • RosaRoleConfig reference: {{ rosa_role_config_name }}
+          {% endif %}
+          {% if create_rosa_network | bool %}
+          • ROSANetwork reference: {{ rosa_network_name }}
+          {% endif %}
+
+    - name: Determine which template to use
+      set_fact:
+        cluster_template_name: >-
+          {%- if (create_rosa_roles | bool) and (create_rosa_network | bool) -%}
+          rosa-combined-automation
+          {%- elif (create_rosa_roles | bool) -%}
+          rosa-capi-roles-cluster
+          {%- elif (create_rosa_network | bool) -%}
+          rosa-capi-network-cluster
+          {%- else -%}
+          rosa-control-plane
+          {%- endif -%}
+        selected_template_category: >-
+          {%- if (create_rosa_roles | bool) or (create_rosa_network | bool) -%}
+          features
+          {%- else -%}
+          cluster-configs
+          {%- endif -%}
+
+    - name: Display selected template
+      debug:
+        msg: |
+          Selected template: {{ cluster_template_name }}
+          Template category: {{ selected_template_category }}
+          Template path: templates/versions/{{ openshift_version }}/{{ selected_template_category }}/{{ cluster_template_name }}.yaml.j2
+
+    - name: Set template variables for cluster creation
+      set_fact:
+        template_vars:
+          cluster_name: "{{ cluster_name }}"
+          rcp_version: "{{ openshift_version }}"
+          rosa_role_config_ref: "{{ rosa_role_config_name if (create_rosa_roles | bool) else omit }}"
+          rosa_network_ref: "{{ rosa_network_name if (create_rosa_network | bool) else omit }}"
+          create_rosa_roles: "{{ create_rosa_roles | bool }}"
+          create_rosa_network: "{{ create_rosa_network | bool }}"
+
+    - name: Create RosaControlPlane from template
+      include_tasks: tasks/create_rosa_control_plane_versioned.yml
+      vars:
+        template_name: "{{ cluster_template_name }}"
+        template_category: "{{ selected_template_category }}"
+        rcp_version: "{{ openshift_version }}"
+        apply_immediately: true
+
+    - name: RosaControlPlane creation complete
+      debug:
+        msg: |
+          ✅ STEP 3 COMPLETE: RosaControlPlane created successfully
+
+          Cluster: {{ cluster_name }}
+          Namespace: {{ capi_namespace }}
+          {% if create_rosa_roles | bool %}
+          RosaRoleConfig: {{ rosa_role_config_name }} ✓
+          {% endif %}
+          {% if create_rosa_network | bool %}
+          ROSANetwork: {{ rosa_network_name }} ✓
+          {% endif %}
+
+# ================================================================
+# FINAL: Provisioning Complete
+# ================================================================
+- name: Display final provisioning summary
+  debug:
+    msg: |
+
+      ✅ ✅ ✅ ROSA HCP CLUSTER PROVISIONING COMPLETE! ✅ ✅ ✅
+
+      Cluster Name: {{ cluster_name }}
+      Namespace: {{ capi_namespace }}
+
+      Resources Created:
+      {% if create_rosa_roles | bool %}
+      ✓ RosaRoleConfig: {{ rosa_role_config_name }}
+        ├─ Installer Role
+        ├─ Support Role
+        ├─ Worker Role
+        └─ OIDC Provider
+      {% endif %}
+      {% if create_rosa_network | bool %}
+      ✓ ROSANetwork: {{ rosa_network_name }}
+        ├─ VPC: {{ vpc_id | default('N/A') }}
+        ├─ Public Subnets: {{ public_subnets | length if public_subnets is defined else 0 }}
+        └─ Private Subnets: {{ private_subnets | length if private_subnets is defined else 0 }}
+      {% endif %}
+      ✓ RosaControlPlane: {{ cluster_name }}
+
+      Next Steps:
+      1. Monitor cluster status: oc get rosacontrolplane {{ cluster_name }} -n {{ capi_namespace }}
+      2. Check events: oc get events -n {{ capi_namespace }} --sort-by='.lastTimestamp'
+      3. View cluster details in UI
+
+      🚀 Your ROSA HCP cluster is being provisioned!
