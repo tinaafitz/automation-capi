@@ -11,6 +11,9 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit }) {
     vpcCidrBlock: '10.0.0.0/16',
     availabilityZoneCount: 1,
     rolePrefix: '',
+    domainPrefix: '',
+    channelGroup: 'stable',
+    awsRegion: 'us-west-2',
   });
 
   if (!isOpen) return null;
@@ -84,6 +87,73 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit }) {
               <option value="4.15.9">4.15.9</option>
               <option value="4.15.0">4.15.0</option>
             </select>
+          </div>
+
+          {/* Cluster Configuration Section */}
+          <div className="border-t pt-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Cluster Configuration</h3>
+
+            <div className="space-y-4">
+              {/* Domain Prefix */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Domain Prefix <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={config.domainPrefix}
+                  onChange={(e) => handleChange('domainPrefix', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="my-cluster"
+                  maxLength={15}
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Unique domain prefix for the cluster (max 15 characters). Will be used for the
+                  cluster's API URL.
+                </p>
+              </div>
+
+              {/* AWS Region */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">AWS Region</label>
+                <select
+                  value={config.awsRegion}
+                  onChange={(e) => handleChange('awsRegion', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="us-east-1">US East (N. Virginia) - us-east-1</option>
+                  <option value="us-east-2">US East (Ohio) - us-east-2</option>
+                  <option value="us-west-1">US West (N. California) - us-west-1</option>
+                  <option value="us-west-2">US West (Oregon) - us-west-2</option>
+                  <option value="eu-west-1">Europe (Ireland) - eu-west-1</option>
+                  <option value="eu-west-2">Europe (London) - eu-west-2</option>
+                  <option value="eu-central-1">Europe (Frankfurt) - eu-central-1</option>
+                  <option value="ap-southeast-1">Asia Pacific (Singapore) - ap-southeast-1</option>
+                  <option value="ap-southeast-2">Asia Pacific (Sydney) - ap-southeast-2</option>
+                  <option value="ap-northeast-1">Asia Pacific (Tokyo) - ap-northeast-1</option>
+                </select>
+              </div>
+
+              {/* Channel Group */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Channel Group
+                </label>
+                <select
+                  value={config.channelGroup}
+                  onChange={(e) => handleChange('channelGroup', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="stable">Stable (Recommended)</option>
+                  <option value="fast">Fast</option>
+                  <option value="candidate">Candidate</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Update channel for OpenShift releases. Stable is recommended for production.
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Automation Options */}
@@ -236,7 +306,7 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit }) {
               type="submit"
               className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-md hover:from-blue-700 hover:to-cyan-700 font-medium transition-colors shadow-md"
             >
-              Provision Cluster
+              Preview & Provision
             </button>
           </div>
         </form>

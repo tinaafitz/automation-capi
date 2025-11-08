@@ -40,6 +40,7 @@ import { MCETerminalModal } from '../components/MCETerminalModal';
 import TestEnvironmentCard from '../components/TestEnvironmentCard';
 import TestActivityFeed from '../components/TestActivityFeed';
 import { RosaProvisionModal } from '../components/RosaProvisionModal';
+import { YamlEditorModal } from '../components/YamlEditorModal';
 
 // Helper function to calculate age from ISO timestamp
 function calculateAge(isoTimestamp) {
@@ -314,6 +315,8 @@ export function WhatCanIHelp() {
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
   const [showKindClusterModal, setShowKindClusterModal] = useState(false);
   const [showProvisionModal, setShowProvisionModal] = useState(false);
+  const [showYamlEditorModal, setShowYamlEditorModal] = useState(false);
+  const [yamlEditorData, setYamlEditorData] = useState(null);
   const [kindClusters, setKindClusters] = useState([]);
   const [selectedKindCluster, setSelectedKindCluster] = useState('');
   const [kindClusterInput, setKindClusterInput] = useState('');
@@ -3792,14 +3795,23 @@ export function WhatCanIHelp() {
                             }
 
                             const jobId = result.job_id;
-                            console.log('[Configure AutoNode] Job created, polling for status. Job ID:', jobId);
+                            console.log(
+                              '[Configure AutoNode] Job created, polling for status. Job ID:',
+                              jobId
+                            );
 
                             // Poll for job status
                             const pollInterval = setInterval(async () => {
                               try {
-                                const jobResponse = await fetch(`http://localhost:8000/api/jobs/${jobId}`);
+                                const jobResponse = await fetch(
+                                  `http://localhost:8000/api/jobs/${jobId}`
+                                );
                                 const jobData = await jobResponse.json();
-                                console.log('[Configure AutoNode] Job status update:', jobData.status, jobData.message);
+                                console.log(
+                                  '[Configure AutoNode] Job status update:',
+                                  jobData.status,
+                                  jobData.message
+                                );
 
                                 const completionTime = new Date().toLocaleTimeString('en-US', {
                                   hour: 'numeric',
@@ -3868,7 +3880,10 @@ export function WhatCanIHelp() {
                                   );
                                 }
                               } catch (pollError) {
-                                console.error('[Configure AutoNode] Error polling job status:', pollError);
+                                console.error(
+                                  '[Configure AutoNode] Error polling job status:',
+                                  pollError
+                                );
                                 clearInterval(pollInterval);
                                 const completionTime = new Date().toLocaleTimeString('en-US', {
                                   hour: 'numeric',
@@ -7624,66 +7639,106 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
         onSubmit={async (config) => {
           console.log('🚀 [PROVISION] onSubmit handler called with config:', config);
           try {
-            // Add to recent operations with unique ID
-            const operationId = `provision-rosa-hcp-${Date.now()}`;
-            const timestamp = new Date().toLocaleTimeString();
-            console.log('📝 [PROVISION] Adding task to Recent Operations at', timestamp, 'with ID:', operationId);
+            // Call generate-yaml API to get YAML preview
+            console.log('📤 [GENERATE-YAML] Calling API to generate YAML preview');
+            const generateResponse = await fetch(
+              'http://localhost:8000/api/provisioning/generate-yaml',
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ config }),
+              }
+            );
+
+            const generateData = await generateResponse.json();
+            console.log('📦 [GENERATE-YAML] Response:', generateData);
+
+            if (!generateData.success) {
+              throw new Error(generateData.message || 'Failed to generate YAML');
+            }
+
+            // Close the provision modal AFTER we get the YAML
+            setShowProvisionModal(false);
+
+            // Open YAML editor modal with generated YAML
+            setYamlEditorData({
+              yaml_content: generateData.yaml_content,
+              cluster_name: generateData.cluster_name,
+              feature_type: generateData.feature_type,
+              file_paths: generateData.file_paths,
+              config: config, // Store original config for later use
+            });
+            setShowYamlEditorModal(true);
+            console.log('✅ [GENERATE-YAML] Opening YAML editor modal');
+          } catch (error) {
+            console.error('❌ [PROVISION] Error generating YAML:', error);
+            alert(`Error generating YAML: ${error.message}`);
+            // Re-open the modal if there was an error
+            setShowProvisionModal(true);
+          }
+        }}
+      />
+
+      {/* YAML Editor Modal */}
+      <YamlEditorModal
+        isOpen={showYamlEditorModal}
+        onClose={() => setShowYamlEditorModal(false)}
+        yamlData={yamlEditorData}
+        onProvision={async (editedYaml) => {
+          console.log('🚀 [APPLY-YAML] Provisioning with edited YAML');
+
+          // Define operationId outside try block so it's accessible in catch
+          const operationId = `provision-rosa-hcp-${Date.now()}`;
+          const timestamp = new Date().toLocaleTimeString();
+          const config = yamlEditorData?.config;
+
+          try {
+            // Close YAML editor modal
+            setShowYamlEditorModal(false);
+
+            // Add to recent operations
             setRecentOperations((prev) => [
               {
                 id: operationId,
                 title: 'Provision ROSA HCP Cluster',
-                status: `⏳ Provisioning cluster "${config.clusterName}" at ${timestamp}...`,
+                status: `⏳ Applying YAML for cluster "${config?.clusterName}" at ${timestamp}...`,
                 timestamp: Date.now(),
                 output: '',
               },
               ...prev.slice(0, 9),
             ]);
 
-            // Close modal
-            console.log('🔒 [PROVISION] Closing modal');
-            setShowProvisionModal(false);
-
-            // Call backend API
-            const requestBody = {
-              playbook: 'create_rosa_hcp_automated.yaml',
-              description: `Provision ROSA HCP cluster: ${config.clusterName}`,
-              extra_vars: {
-                cluster_name: config.clusterName,
-                openshift_version: config.openShiftVersion,
-                create_rosa_roles: config.createRosaRoleConfig,
-                create_rosa_network: config.createRosaNetwork,
-                network_cidr: config.vpcCidrBlock,
-                availability_zone_count: config.availabilityZoneCount,
-                role_prefix: config.rolePrefix || config.clusterName,
-              },
-            };
-            console.log('📤 [PROVISION] Sending request to backend:', requestBody);
-
-            const response = await fetch('http://localhost:8000/api/ansible/run-playbook', {
+            // Call apply-yaml API
+            const applyResponse = await fetch('http://localhost:8000/api/provisioning/apply-yaml', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify(requestBody),
+              body: JSON.stringify({
+                yaml_content: editedYaml,
+                cluster_name: yamlEditorData?.cluster_name,
+                feature_type: yamlEditorData?.feature_type,
+              }),
             });
 
-            console.log('📥 [PROVISION] Received response, status:', response.status, response.statusText);
-            const data = await response.json();
-            console.log('📦 [PROVISION] Response data:', data);
+            const applyData = await applyResponse.json();
+            console.log('📦 [APPLY-YAML] Response:', applyData);
 
-            if (!data.job_id) {
+            if (!applyData.job_id) {
               throw new Error('No job_id returned from server');
             }
 
-            const jobId = data.job_id;
-            console.log('🔄 [PROVISION] Job created, polling for status. Job ID:', jobId);
+            const jobId = applyData.job_id;
+            console.log('🔄 [APPLY-YAML] Job created, polling for status. Job ID:', jobId);
 
             // Poll for job status
             const pollInterval = setInterval(async () => {
               try {
                 const jobResponse = await fetch(`http://localhost:8000/api/jobs/${jobId}`);
                 const jobData = await jobResponse.json();
-                console.log('📊 [PROVISION] Job status update:', jobData.status, jobData.message);
+                console.log('📊 [APPLY-YAML] Job status update:', jobData.status, jobData.message);
 
                 // Update recent operation with progress
                 setRecentOperations((prev) => {
@@ -7692,7 +7747,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       let statusText = `⏳ ${jobData.message || 'In progress...'}`;
 
                       if (jobData.status === 'completed') {
-                        statusText = `✅ Cluster "${config.clusterName}" provisioned successfully at ${new Date().toLocaleTimeString()}`;
+                        statusText = `✅ Cluster "${config?.clusterName}" provisioned successfully at ${new Date().toLocaleTimeString()}`;
                       } else if (jobData.status === 'failed') {
                         statusText = `❌ Failed: ${jobData.message} at ${new Date().toLocaleTimeString()}`;
                       }
@@ -7710,10 +7765,18 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 // Stop polling if job is complete
                 if (jobData.status === 'completed' || jobData.status === 'failed') {
                   clearInterval(pollInterval);
-                  console.log('✅ [PROVISION] Job completed with status:', jobData.status);
+                  console.log('✅ [APPLY-YAML] Job completed with status:', jobData.status);
+
+                  // Redirect to clusters page on successful completion to monitor progress
+                  if (jobData.status === 'completed') {
+                    console.log(
+                      '🔀 [NAVIGATE] Redirecting to /clusters page to monitor cluster progress'
+                    );
+                    setTimeout(() => navigate('/clusters'), 1500); // Small delay to show success message
+                  }
                 }
               } catch (pollError) {
-                console.error('❌ [PROVISION] Error polling job status:', pollError);
+                console.error('❌ [APPLY-YAML] Error polling job status:', pollError);
                 clearInterval(pollInterval);
                 setRecentOperations((prev) => {
                   return prev.map((op) => {
@@ -7733,11 +7796,10 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
             // Set timeout to stop polling after 30 minutes
             setTimeout(() => {
               clearInterval(pollInterval);
-              console.log('⏱️ [PROVISION] Polling timeout reached');
+              console.log('⏱️ [APPLY-YAML] Polling timeout reached');
             }, 1800000);
           } catch (error) {
-            console.error('❌ [PROVISION] Error provisioning cluster:', error);
-            console.error('❌ [PROVISION] Error stack:', error.stack);
+            console.error('❌ [APPLY-YAML] Error applying YAML:', error);
             setRecentOperations((prev) => {
               return prev.map((op) => {
                 if (op.id === operationId) {
