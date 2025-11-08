@@ -5059,6 +5059,156 @@ async def apply_provisioning_yaml(request: Request, background_tasks: Background
         raise HTTPException(status_code=500, detail=error_msg)
 
 
+@app.get("/api/clusters")
+async def list_clusters():
+    """List all ROSA HCP clusters with their status"""
+    try:
+        result = subprocess.run(
+            ["kubectl", "get", "rosacontrolplane", "-n", "ns-rosa-hcp", "-o", "json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        if result.returncode != 0:
+            return {
+                "success": False,
+                "clusters": [],
+                "message": f"Error fetching clusters: {result.stderr}",
+            }
+
+        import json
+        data = json.loads(result.stdout)
+
+        clusters = []
+        for item in data.get("items", []):
+            metadata = item.get("metadata", {})
+            spec = item.get("spec", {})
+            status = item.get("status", {})
+
+            # Determine overall status
+            ready = status.get("ready", False)
+            conditions = status.get("conditions", [])
+
+            # Get error message if any
+            error_message = None
+            for condition in conditions:
+                if condition.get("type") == "Ready" and condition.get("status") == "False":
+                    error_message = condition.get("message", "Unknown error")
+
+            # Calculate progress percentage
+            progress = 0
+            if ready:
+                progress = 100
+            else:
+                # Check sub-resources
+                network_ready = any(c.get("type") == "ROSANetworkReady" and c.get("status") == "True" for c in conditions)
+                role_ready = any(c.get("type") == "ROSARoleConfigReady" and c.get("status") == "True" for c in conditions)
+                cp_valid = any(c.get("type") == "ROSAControlPlaneValid" and c.get("status") == "True" for c in conditions)
+
+                if cp_valid:
+                    progress += 25
+                if role_ready:
+                    progress += 25
+                if network_ready:
+                    progress += 25
+                if ready:
+                    progress += 25
+
+            region = spec.get("region", "N/A")
+            cluster_info = {
+                "name": metadata.get("name"),
+                "namespace": metadata.get("namespace", "ns-rosa-hcp"),
+                "created_at": metadata.get("creationTimestamp"),
+                "domain_prefix": spec.get("domainPrefix", "N/A"),
+                "version": spec.get("version", "N/A"),
+                "region": region,
+                "ready": ready,
+                "progress": progress,
+                "status": "ready" if ready else ("failed" if error_message else "provisioning"),
+                "error_message": error_message,
+                "console_url": status.get("consoleURL"),
+                "api_url": f"https://api.{spec.get('domainPrefix', 'unknown')}.{region}.openshiftapps.com" if spec.get('domainPrefix') else None,
+            }
+
+            clusters.append(cluster_info)
+
+        # Sort by creation time (newest first)
+        clusters.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+        return {
+            "success": True,
+            "clusters": clusters,
+            "count": len(clusters),
+        }
+
+    except Exception as e:
+        import traceback
+        print(f"❌ [LIST-CLUSTERS] Error: {str(e)}")
+        print(traceback.format_exc())
+        return {
+            "success": False,
+            "clusters": [],
+            "message": f"Error listing clusters: {str(e)}",
+        }
+
+
+@app.get("/api/clusters/{cluster_name}/status")
+async def get_cluster_status(cluster_name: str):
+    """Get detailed status for a specific cluster"""
+    try:
+        # Get ROSAControlPlane
+        result = subprocess.run(
+            ["kubectl", "get", "rosacontrolplane", cluster_name, "-n", "ns-rosa-hcp", "-o", "json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        if result.returncode != 0:
+            raise HTTPException(status_code=404, detail=f"Cluster {cluster_name} not found")
+
+        import json
+        cp_data = json.loads(result.stdout)
+
+        # Get ROSANetwork if it exists
+        network_data = None
+        network_result = subprocess.run(
+            ["kubectl", "get", "rosanetwork", f"{cluster_name}-network", "-n", "ns-rosa-hcp", "-o", "json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if network_result.returncode == 0:
+            network_data = json.loads(network_result.stdout)
+
+        # Get ROSARoleConfig if it exists
+        role_data = None
+        role_result = subprocess.run(
+            ["kubectl", "get", "rosaroleconfig", f"{cluster_name}-roles", "-n", "ns-rosa-hcp", "-o", "json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if role_result.returncode == 0:
+            role_data = json.loads(role_result.stdout)
+
+        return {
+            "success": True,
+            "control_plane": cp_data,
+            "network": network_data,
+            "roles": role_data,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"❌ [GET-CLUSTER-STATUS] Error: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Error getting cluster status: {str(e)}")
+
+
 if __name__ == "__main__":
     import uvicorn
 
