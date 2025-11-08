@@ -109,15 +109,14 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit }) {
                   maxLength={15}
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  Unique domain prefix for the cluster (max 15 characters). Will be used for the cluster's API URL.
+                  Unique domain prefix for the cluster (max 15 characters). Will be used for the
+                  cluster's API URL.
                 </p>
               </div>
 
               {/* AWS Region */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  AWS Region
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">AWS Region</label>
                 <select
                   value={config.awsRegion}
                   onChange={(e) => handleChange('awsRegion', e.target.value)}

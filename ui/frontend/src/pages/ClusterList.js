@@ -175,12 +175,8 @@ export function ClusterList() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {cluster.name}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {cluster.domain_prefix}
-                          </div>
+                          <div className="text-sm font-medium text-gray-900">{cluster.name}</div>
+                          <div className="text-sm text-gray-500">{cluster.domain_prefix}</div>
                         </div>
                       </div>
                     </td>
@@ -201,8 +197,8 @@ export function ClusterList() {
                               cluster.status === 'ready'
                                 ? 'bg-green-600'
                                 : cluster.status === 'failed'
-                                ? 'bg-red-600'
-                                : 'bg-yellow-600'
+                                  ? 'bg-red-600'
+                                  : 'bg-yellow-600'
                             }`}
                             style={{ width: `${cluster.progress}%` }}
                           />
@@ -227,7 +223,9 @@ export function ClusterList() {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => alert(`View details for ${cluster.name} (Not yet implemented)`)}
+                          onClick={() =>
+                            alert(`View details for ${cluster.name} (Not yet implemented)`)
+                          }
                           className="text-blue-600 hover:text-blue-900"
                           title="View Details"
                         >
@@ -260,7 +258,9 @@ export function ClusterList() {
               </code>
             </div>
             <div>
-              <p className="text-sm text-blue-800 mb-2">Get detailed status for a specific cluster:</p>
+              <p className="text-sm text-blue-800 mb-2">
+                Get detailed status for a specific cluster:
+              </p>
               <code className="block bg-blue-900 text-blue-100 p-3 rounded text-sm font-mono">
                 kubectl describe rosacontrolplane &lt;cluster-name&gt; -n ns-rosa-hcp
               </code>

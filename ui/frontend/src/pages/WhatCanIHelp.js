@@ -3795,14 +3795,23 @@ export function WhatCanIHelp() {
                             }
 
                             const jobId = result.job_id;
-                            console.log('[Configure AutoNode] Job created, polling for status. Job ID:', jobId);
+                            console.log(
+                              '[Configure AutoNode] Job created, polling for status. Job ID:',
+                              jobId
+                            );
 
                             // Poll for job status
                             const pollInterval = setInterval(async () => {
                               try {
-                                const jobResponse = await fetch(`http://localhost:8000/api/jobs/${jobId}`);
+                                const jobResponse = await fetch(
+                                  `http://localhost:8000/api/jobs/${jobId}`
+                                );
                                 const jobData = await jobResponse.json();
-                                console.log('[Configure AutoNode] Job status update:', jobData.status, jobData.message);
+                                console.log(
+                                  '[Configure AutoNode] Job status update:',
+                                  jobData.status,
+                                  jobData.message
+                                );
 
                                 const completionTime = new Date().toLocaleTimeString('en-US', {
                                   hour: 'numeric',
@@ -3871,7 +3880,10 @@ export function WhatCanIHelp() {
                                   );
                                 }
                               } catch (pollError) {
-                                console.error('[Configure AutoNode] Error polling job status:', pollError);
+                                console.error(
+                                  '[Configure AutoNode] Error polling job status:',
+                                  pollError
+                                );
                                 clearInterval(pollInterval);
                                 const completionTime = new Date().toLocaleTimeString('en-US', {
                                   hour: 'numeric',
@@ -7629,13 +7641,16 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
           try {
             // Call generate-yaml API to get YAML preview
             console.log('📤 [GENERATE-YAML] Calling API to generate YAML preview');
-            const generateResponse = await fetch('http://localhost:8000/api/provisioning/generate-yaml', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ config }),
-            });
+            const generateResponse = await fetch(
+              'http://localhost:8000/api/provisioning/generate-yaml',
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ config }),
+              }
+            );
 
             const generateData = await generateResponse.json();
             console.log('📦 [GENERATE-YAML] Response:', generateData);
@@ -7657,7 +7672,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
             });
             setShowYamlEditorModal(true);
             console.log('✅ [GENERATE-YAML] Opening YAML editor modal');
-
           } catch (error) {
             console.error('❌ [PROVISION] Error generating YAML:', error);
             alert(`Error generating YAML: ${error.message}`);
@@ -7755,7 +7769,9 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                   // Redirect to clusters page on successful completion to monitor progress
                   if (jobData.status === 'completed') {
-                    console.log('🔀 [NAVIGATE] Redirecting to /clusters page to monitor cluster progress');
+                    console.log(
+                      '🔀 [NAVIGATE] Redirecting to /clusters page to monitor cluster progress'
+                    );
                     setTimeout(() => navigate('/clusters'), 1500); // Small delay to show success message
                   }
                 }
@@ -7782,7 +7798,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
               clearInterval(pollInterval);
               console.log('⏱️ [APPLY-YAML] Polling timeout reached');
             }, 1800000);
-
           } catch (error) {
             console.error('❌ [APPLY-YAML] Error applying YAML:', error);
             setRecentOperations((prev) => {
