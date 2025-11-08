@@ -4691,6 +4691,374 @@ async def save_rosa_yaml_path(request: Request):
         }
 
 
+@app.post("/api/provisioning/generate-yaml")
+async def generate_provisioning_yaml(request: Request):
+    """Generate provisioning YAML without applying it (preview mode) - Direct Jinja2 rendering"""
+    try:
+        body = await request.json()
+        config = body.get("config", {})
+
+        # Extract configuration
+        cluster_name = config.get("clusterName")
+        openshift_version = config.get("openShiftVersion", "4.19.10")
+        create_rosa_network = config.get("createRosaNetwork", True)
+        create_rosa_roles = config.get("createRosaRoleConfig", True)
+        vpc_cidr_block = config.get("vpcCidrBlock", "10.0.0.0/16")
+        availability_zone_count = config.get("availabilityZoneCount", 1)
+        role_prefix = config.get("rolePrefix", cluster_name)
+        domain_prefix = config.get("domainPrefix", "")
+        channel_group = config.get("channelGroup", "stable")
+        aws_region = config.get("awsRegion", "us-west-2")
+
+        if not cluster_name:
+            raise HTTPException(status_code=400, detail="cluster_name is required")
+
+        if not domain_prefix:
+            raise HTTPException(status_code=400, detail="domain_prefix is required")
+
+        if len(domain_prefix) > 15:
+            raise HTTPException(status_code=400, detail="domain_prefix must be 15 characters or less")
+
+        print(f"🔍 [PREVIEW-DIRECT] Rendering templates directly for {cluster_name}")
+
+        project_root = os.environ.get("AUTOMATION_PATH") or os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+
+        # Parse version to get major.minor
+        version_parts = openshift_version.split(".")
+        major_minor = f"{version_parts[0]}.{version_parts[1]}" if len(version_parts) >= 2 else openshift_version
+
+        from jinja2 import Environment, FileSystemLoader, select_autoescape
+        import re
+        from datetime import datetime
+
+        # Custom Jinja2 filters to match Ansible functionality
+        def regex_replace(value, pattern, replacement):
+            """Ansible-compatible regex_replace filter"""
+            return re.sub(pattern, replacement, str(value))
+
+        def ansible_lookup(lookup_type, command):
+            """Ansible-compatible lookup filter - simplified for preview mode"""
+            if lookup_type == 'pipe' and 'date' in command:
+                # Return current UTC timestamp
+                return datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+            return ""
+
+        yaml_contents = []
+        yaml_files = []
+
+        # Template variables
+        template_vars = {
+            "cluster_name": cluster_name,
+            "cluster_name_prefix": cluster_name[:32],  # Truncate to 32 chars for AWS limits
+            "rcp_version": openshift_version,
+            "aws_account_id": "123456789012",  # Placeholder for preview
+            "aws_region": aws_region,
+            "capi_namespace": "ns-rosa-hcp",
+            "rosa_role_config_name": f"{cluster_name}-roles",
+            "rosa_role_prefix": role_prefix,
+            "rosa_network_name": f"{cluster_name}-network",
+            "network_cidr": vpc_cidr_block,
+            "vpc_cidr_block": vpc_cidr_block,
+            "availability_zone_count": availability_zone_count,
+            "aws_availability_zones": [f"{aws_region}a", f"{aws_region}b", f"{aws_region}c"][:availability_zone_count],
+            "openshift_version": openshift_version,
+            "rosa_creds_secret": "rosa-creds-secret",
+            "environment_tag": "test",
+            "purpose_tag": "rosa-preview",
+            "domain_prefix": domain_prefix if domain_prefix else f"rosa-{cluster_name[:15]}",
+            "channel_group": channel_group,
+            "cluster_network": {
+                "pod_cidr": "10.128.0.0/14",
+                "service_cidr": "172.30.0.0/16",
+                "machine_cidr": vpc_cidr_block
+            },
+            "rosa_network_config": {
+                "name": f"{cluster_name}-network",
+                "cidr_block": vpc_cidr_block,
+                "availability_zones": [f"us-west-2a", f"us-west-2b"][:availability_zone_count],
+                "identity_name": "default",
+                "enabled": create_rosa_network,
+                "tags": {"Environment": "test", "CreatedBy": "automation-ui"}
+            },
+            "rosa_role_config": {
+                "prefix": role_prefix[:4],
+                "version": openshift_version,
+                "identity_name": "default",
+                "enabled": create_rosa_roles
+            },
+            "machine_pool": {
+                "instance_type": "m5.xlarge",
+                "min_replicas": 2,
+                "max_replicas": 3,
+                "replicas": 2
+            },
+        }
+
+        # Determine which template to use based on automation options
+        if create_rosa_network and create_rosa_roles:
+            # Use combined template that includes everything (ROSARoleConfig, ROSANetwork, and all cluster resources)
+            cp_template_name = "rosa-combined-automation.yaml.j2"
+            use_combined_template = True
+        elif create_rosa_network:
+            cp_template_name = "rosa-capi-network-cluster.yaml.j2"
+            use_combined_template = True  # Network template also includes ROSANetwork
+        elif create_rosa_roles:
+            cp_template_name = "rosa-capi-roles-cluster.yaml.j2"
+            use_combined_template = True  # Roles template also includes ROSARoleConfig
+        else:
+            cp_template_name = "rosa-control-plane.yaml.j2"
+            use_combined_template = False
+
+        # If NOT using a combined template, render individual resources first
+        if not use_combined_template:
+            # Render ROSARoleConfig if needed (only for manual mode)
+            if create_rosa_roles:
+                role_template_path = os.path.join(project_root, f"templates/versions/{major_minor}/features/rosa-role-config.yaml.j2")
+                if not os.path.exists(role_template_path):
+                    role_template_path = os.path.join(project_root, f"templates/versions/{major_minor}/4.20/features/rosa-role-config.yaml.j2")
+                if not os.path.exists(role_template_path):
+                    role_template_path = os.path.join(project_root, f"templates/features/rosa-role-config.yaml.j2")
+
+                if os.path.exists(role_template_path):
+                    env = Environment(loader=FileSystemLoader(os.path.dirname(role_template_path)))
+                    env.filters['regex_replace'] = regex_replace
+                    env.globals['lookup'] = ansible_lookup
+                    template = env.get_template(os.path.basename(role_template_path))
+                    rendered = template.render(**template_vars)
+                    yaml_contents.append(rendered)
+                    yaml_files.append(role_template_path)
+
+            # Render ROSANetwork if needed (only for manual mode)
+            if create_rosa_network:
+                network_template_path = os.path.join(project_root, f"templates/versions/{major_minor}/features/rosa-network-config.yaml.j2")
+                if not os.path.exists(network_template_path):
+                    network_template_path = os.path.join(project_root, f"templates/versions/{major_minor}/4.20/features/rosa-network-config.yaml.j2")
+                if not os.path.exists(network_template_path):
+                    network_template_path = os.path.join(project_root, f"templates/features/rosa-network-config.yaml.j2")
+
+                if os.path.exists(network_template_path):
+                    env = Environment(loader=FileSystemLoader(os.path.dirname(network_template_path)))
+                    env.filters['regex_replace'] = regex_replace
+                    env.globals['lookup'] = ansible_lookup
+                    template = env.get_template(os.path.basename(network_template_path))
+                    rendered = template.render(**template_vars)
+                    yaml_contents.append(rendered)
+                    yaml_files.append(network_template_path)
+
+        # Render main cluster template (combined or control-plane-only)
+        cp_template_path = os.path.join(project_root, f"templates/versions/{major_minor}/features/{cp_template_name}")
+        if not os.path.exists(cp_template_path):
+            # Try version/4.20/features fallback (e.g., 4.19/4.20/features)
+            cp_template_path = os.path.join(project_root, f"templates/versions/{major_minor}/4.20/features/{cp_template_name}")
+        if not os.path.exists(cp_template_path):
+            cp_template_path = os.path.join(project_root, f"templates/versions/{major_minor}/cluster-configs/{cp_template_name}")
+        if not os.path.exists(cp_template_path):
+            cp_template_path = os.path.join(project_root, f"templates/features/{cp_template_name}")
+
+        if os.path.exists(cp_template_path):
+            env = Environment(loader=FileSystemLoader(os.path.dirname(cp_template_path)))
+            env.filters['regex_replace'] = regex_replace
+            env.globals['lookup'] = ansible_lookup
+            template = env.get_template(os.path.basename(cp_template_path))
+            rendered = template.render(
+                **template_vars,
+                rosa_role_config_ref=template_vars["rosa_role_config_name"] if create_rosa_roles else None,
+                rosa_network_ref=template_vars["rosa_network_name"] if create_rosa_network else None,
+            )
+            yaml_contents.append(rendered)
+            yaml_files.append(cp_template_path)
+            print(f"✅ [PREVIEW-DIRECT] Rendered template: {cp_template_name} (combined={use_combined_template})")
+        else:
+            print(f"⚠️  Control plane template not found at {cp_template_path}")
+
+        # Combine all YAML documents
+        combined_yaml = "\n---\n".join(yaml_contents)
+
+        # Determine feature type for filename
+        if create_rosa_network and create_rosa_roles:
+            feature_type = "network-roles"
+            automation_suffix = "full-automation"  # Complete cluster with automated network and roles
+        elif create_rosa_network:
+            feature_type = "network"
+            automation_suffix = "network-automation"  # Complete cluster with automated network
+        elif create_rosa_roles:
+            feature_type = "roles"
+            automation_suffix = "roles-automation"  # Complete cluster with automated roles
+        else:
+            feature_type = "manual"
+            automation_suffix = "manual-config"  # Complete cluster with manual network and roles
+
+        # Create a meaningful file path for the combined YAML
+        # Use the pattern: {cluster-name}-complete-{automation-type}.yaml
+        combined_filename = f"{cluster_name}-complete-{automation_suffix}.yaml"
+        combined_file_path = f"generated-yamls/{datetime.now().strftime('%Y-%m-%d')}/{combined_filename}"
+
+        print(f"✅ [PREVIEW-DIRECT] Generated {len(yaml_contents)} YAML document(s)")
+        print(f"📄 [PREVIEW-DIRECT] File will be saved as: {combined_file_path}")
+
+        return {
+            "success": True,
+            "yaml_content": combined_yaml,
+            "file_paths": [combined_file_path],  # Single combined file path
+            "feature_type": feature_type,
+            "cluster_name": cluster_name,
+            "message": f"Generated YAML for {len(yaml_contents)} resource(s)",
+        }
+
+    except Exception as e:
+        import traceback
+        print(f"❌ [PREVIEW-DIRECT] Error: {str(e)}")
+        print(traceback.format_exc())
+        return {
+            "success": False,
+            "message": f"Error generating YAML: {str(e)}",
+            "error": traceback.format_exc(),
+        }
+
+
+@app.post("/api/provisioning/apply-yaml")
+async def apply_provisioning_yaml(request: Request, background_tasks: BackgroundTasks):
+    """Save and apply user-edited provisioning YAML"""
+    try:
+        body = await request.json()
+        yaml_content = body.get("yaml_content")
+        cluster_name = body.get("cluster_name")
+        feature_type = body.get("feature_type", "manual")
+
+        if not yaml_content or not cluster_name:
+            raise HTTPException(status_code=400, detail="yaml_content and cluster_name are required")
+
+        project_root = os.environ.get("AUTOMATION_PATH") or os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+
+        # Create dated directory: generated-yamls/YYYY-MM-DD/
+        from datetime import date
+        today = date.today().strftime("%Y-%m-%d")
+        saved_yamls_dir = os.path.join(project_root, "generated-yamls", today)
+        os.makedirs(saved_yamls_dir, exist_ok=True)
+
+        # Save to dated directory with feature type naming
+        saved_yaml_filename = f"{cluster_name}-{feature_type}.yaml"
+        saved_yaml_path = os.path.join(saved_yamls_dir, saved_yaml_filename)
+
+        with open(saved_yaml_path, 'w') as f:
+            f.write(yaml_content)
+
+        print(f"💾 [APPLY] Saved edited YAML to: {saved_yaml_path}")
+
+        # Also copy to ~/output for Ansible compatibility
+        output_dir = os.path.expanduser("~/output")
+        os.makedirs(output_dir, exist_ok=True)
+        output_yaml_path = os.path.join(output_dir, f"{cluster_name}-combined.yaml")
+
+        with open(output_yaml_path, 'w') as f:
+            f.write(yaml_content)
+
+        # Generate job ID
+        job_id = str(uuid.uuid4())
+
+        # Create job
+        jobs[job_id] = {
+            "id": job_id,
+            "status": "pending",
+            "progress": 0,
+            "message": "Queued: Applying provisioning YAML",
+            "logs": [],
+            "created_at": datetime.now(),
+            "yaml_file": saved_yaml_path,
+            "description": f"Apply ROSA provisioning YAML for {cluster_name}",
+        }
+
+        # Run application in background
+        async def apply_yaml_background():
+            try:
+                jobs[job_id]["status"] = "running"
+                jobs[job_id]["progress"] = 10
+                jobs[job_id]["message"] = "Parsing YAML resources"
+
+                # Split multi-document YAML by ---
+                import yaml
+                yaml_documents = list(yaml.safe_load_all(yaml_content))
+
+                jobs[job_id]["progress"] = 20
+                jobs[job_id]["message"] = f"Found {len(yaml_documents)} resource(s) to apply"
+                jobs[job_id]["logs"].append(f"📄 Parsed {len(yaml_documents)} YAML document(s)")
+
+                # Apply each resource using oc apply
+                progress_increment = 70 / max(len(yaml_documents), 1)
+                current_progress = 20
+
+                for idx, doc in enumerate(yaml_documents, 1):
+                    if not doc:  # Skip empty documents
+                        continue
+
+                    kind = doc.get("kind", "Unknown")
+                    name = doc.get("metadata", {}).get("name", "Unknown")
+
+                    jobs[job_id]["logs"].append(f"\n[{idx}/{len(yaml_documents)}] Applying {kind}/{name}...")
+
+                    # Save individual document to temp file
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as temp_file:
+                        yaml.dump(doc, temp_file)
+                        temp_path = temp_file.name
+
+                    try:
+                        result = subprocess.run(
+                            ["oc", "apply", "-f", temp_path],
+                            cwd=project_root,
+                            capture_output=True,
+                            text=True,
+                            timeout=120,
+                        )
+
+                        if result.returncode == 0:
+                            jobs[job_id]["logs"].append(f"✅ {result.stdout.strip()}")
+                        else:
+                            jobs[job_id]["logs"].append(f"❌ Failed: {result.stderr.strip()}")
+                            raise Exception(f"Failed to apply {kind}/{name}: {result.stderr}")
+
+                    finally:
+                        os.unlink(temp_path)
+
+                    current_progress += progress_increment
+                    jobs[job_id]["progress"] = int(current_progress)
+
+                jobs[job_id]["status"] = "completed"
+                jobs[job_id]["progress"] = 100
+                jobs[job_id]["message"] = f"Successfully applied {len(yaml_documents)} resource(s)"
+                jobs[job_id]["logs"].append(f"\n✅ All resources applied successfully!")
+                jobs[job_id]["completed_at"] = datetime.now()
+                jobs[job_id]["return_code"] = 0
+
+            except Exception as e:
+                jobs[job_id]["status"] = "failed"
+                jobs[job_id]["message"] = f"Error applying YAML: {str(e)}"
+                jobs[job_id]["logs"].append(f"\n❌ ERROR: {str(e)}")
+                jobs[job_id]["completed_at"] = datetime.now()
+                jobs[job_id]["return_code"] = 1
+
+        # Start background task
+        background_tasks.add_task(apply_yaml_background)
+
+        return {
+            "job_id": job_id,
+            "status": "pending",
+            "message": "YAML queued for application",
+            "saved_path": saved_yaml_path,
+        }
+
+    except Exception as e:
+        import traceback
+        error_msg = f"Error applying YAML: {str(e)}"
+        print(f"❌ [APPLY] {error_msg}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=error_msg)
+
+
 if __name__ == "__main__":
     import uvicorn
 
