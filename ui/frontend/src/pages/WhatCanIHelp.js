@@ -469,6 +469,12 @@ export function WhatCanIHelp() {
     }
   });
 
+  // Cluster Status section state
+  const [clusterStatusCollapsed, setClusterStatusCollapsed] = useState(true);
+  const [clusters, setClusters] = useState([]);
+  const [clustersLoading, setClustersLoading] = useState(false);
+  const [clustersError, setClustersError] = useState(null);
+
   // MCE Features modal state
   const [showMCEFeaturesModal, setShowMCEFeaturesModal] = useState(false);
   const [mceFeatures, setMceFeatures] = useState(null);
@@ -728,6 +734,37 @@ export function WhatCanIHelp() {
       setRosaClusters([]);
     } finally {
       setRosaClustersLoading(false);
+    }
+  };
+
+  // Fetch clusters for monitoring dashboard
+  const fetchClusters = async () => {
+    setClustersLoading(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/clusters');
+      const data = await response.json();
+
+      if (data.success) {
+        setClusters(data.clusters);
+        setClustersError(null);
+      } else {
+        setClustersError(data.message || 'Failed to fetch clusters');
+      }
+    } catch (err) {
+      setClustersError(`Error fetching clusters: ${err.message}`);
+    } finally {
+      setClustersLoading(false);
+    }
+  };
+
+  // Handle cluster status section toggle
+  const handleToggleClusterStatus = async () => {
+    const newState = !clusterStatusCollapsed;
+    setClusterStatusCollapsed(newState);
+
+    // Only fetch clusters when expanding the section
+    if (!newState && clusters.length === 0) {
+      await fetchClusters();
     }
   };
 
@@ -5573,6 +5610,18 @@ export function WhatCanIHelp() {
                             <WrenchScrewdriverIcon className="h-3 w-3" />
                             <span>Provision</span>
                           </button>
+                          <button
+                            onClick={handleToggleClusterStatus}
+                            className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                            title={clusterStatusCollapsed ? "Show cluster status" : "Hide cluster status"}
+                          >
+                            {clusterStatusCollapsed ? (
+                              <ChevronDownIcon className="h-3 w-3" />
+                            ) : (
+                              <ChevronUpIcon className="h-3 w-3" />
+                            )}
+                            <span>Cluster Status</span>
+                          </button>
                         </div>
                       </div>
 
@@ -5784,6 +5833,148 @@ export function WhatCanIHelp() {
             </div>
           </div>
         )}
+
+        {/* Cluster Status Section */}
+        <div className="rounded-lg shadow-lg overflow-hidden mt-6">
+          {/* Section Header - Clickable */}
+          <div
+            onClick={handleToggleClusterStatus}
+            className="flex items-center justify-between p-4 cursor-pointer bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <ChartBarIcon className="h-5 w-5 text-white" />
+              <h3 className="text-lg font-semibold text-white">ROSA HCP Clusters</h3>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fetchClusters();
+                }}
+                disabled={clustersLoading}
+                className="flex items-center gap-2 px-3 py-1.5 bg-white/20 text-white text-sm rounded-lg hover:bg-white/30 disabled:opacity-50 font-medium transition-colors backdrop-blur-sm"
+              >
+                <ArrowPathIcon className={`h-4 w-4 ${clustersLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+              {clusterStatusCollapsed ? (
+                <ChevronDownIcon className="h-5 w-5 text-white" />
+              ) : (
+                <ChevronUpIcon className="h-5 w-5 text-white" />
+              )}
+            </div>
+          </div>
+
+          {/* Collapsible Content */}
+          {!clusterStatusCollapsed && (
+            <div className="bg-white p-6">
+
+            {clustersError && (
+              <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-red-800">{clustersError}</p>
+              </div>
+            )}
+
+            {clustersLoading && clusters.length === 0 ? (
+              <div className="text-center py-12">
+                <ArrowPathIcon className="h-12 w-12 text-cyan-400 animate-spin mx-auto mb-4" />
+                <p className="text-gray-600">Loading clusters...</p>
+              </div>
+            ) : clusters.length === 0 ? (
+              <div className="bg-cyan-50 rounded-lg border border-cyan-200 p-12 text-center">
+                <p className="text-gray-600 text-lg">No clusters found</p>
+                <p className="text-gray-500 mt-2">
+                  Provision your first ROSA HCP cluster to get started
+                </p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg border border-cyan-200 overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gradient-to-r from-cyan-600 to-blue-600">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        Cluster Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        Progress
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        Version
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        Region
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        Created
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {clusters.map((cluster) => (
+                      <tr key={cluster.name} className="hover:bg-cyan-50 transition-colors duration-150">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-semibold text-gray-900">{cluster.name}</div>
+                          <div className="text-xs text-gray-500 font-mono">{cluster.domain_prefix}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              cluster.status === 'ready'
+                                ? 'bg-green-100 text-green-800'
+                                : cluster.status === 'provisioning'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : cluster.status === 'failed'
+                                    ? 'bg-red-100 text-red-800'
+                                    : 'bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            {cluster.status === 'ready' ? '✅' : cluster.status === 'provisioning' ? '⏳' : cluster.status === 'failed' ? '❌' : '⬜'}{' '}
+                            {cluster.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <div className="w-24 bg-gray-200 rounded-full h-2">
+                              <div
+                                className={`h-2 rounded-full ${
+                                  cluster.status === 'ready'
+                                    ? 'bg-green-600'
+                                    : cluster.status === 'failed'
+                                      ? 'bg-red-600'
+                                      : 'bg-yellow-600'
+                                }`}
+                                style={{ width: `${cluster.progress || 0}%` }}
+                              />
+                            </div>
+                            <span className="text-sm text-gray-600">{cluster.progress || 0}%</span>
+                          </div>
+                          {cluster.error_message && (
+                            <div className="text-xs text-red-600 mt-1 max-w-xs truncate">
+                              {cluster.error_message}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {cluster.version}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {cluster.region}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {cluster.created_at ? new Date(cluster.created_at).toLocaleString() : 'N/A'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            </div>
+          )}
+        </div>
 
         {/* Upgrade Modal */}
         {showUpgradeModal && selectedClusterForUpgrade && (
@@ -6158,7 +6349,7 @@ export function WhatCanIHelp() {
                     <ClockIcon className="h-6 w-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-white">Recent Operations</h3>
+                    <h3 className="text-lg font-bold text-white">Task Summary</h3>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -6245,7 +6436,7 @@ export function WhatCanIHelp() {
                   <DocumentTextIcon className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white">Recent Operations Output</h3>
+                  <h3 className="text-lg font-bold text-white">Task Detail</h3>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
