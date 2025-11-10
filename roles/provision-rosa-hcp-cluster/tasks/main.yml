@@ -11,6 +11,23 @@
       debug:
         msg: "Namespace ns-rosa-hcp: {{ ns_result.stdout }}"
 
+    - name: Copy rosa-creds-secret from multicluster-engine to ns-rosa-hcp namespace
+      shell: |
+        if oc get secret rosa-creds-secret -n multicluster-engine &>/dev/null; then
+          oc get secret rosa-creds-secret -n multicluster-engine -o yaml | \
+          sed 's/namespace: multicluster-engine/namespace: ns-rosa-hcp/' | \
+          oc apply -f -
+          echo "rosa-creds-secret copied to ns-rosa-hcp"
+        else
+          echo "rosa-creds-secret not found in multicluster-engine namespace - skipping"
+        fi
+      register: copy_secret_result
+      changed_when: "'rosa-creds-secret copied' in copy_secret_result.stdout"
+
+    - name: Display secret copy result
+      debug:
+        msg: "{{ copy_secret_result.stdout }}"
+
     - name: Apply AWS Identity configuration
       shell: |
         oc apply -f {{ automation_path }}/awsIdentity.yaml

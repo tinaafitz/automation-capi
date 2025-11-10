@@ -3025,15 +3025,20 @@ async def run_ansible_role(request: dict):
             except OSError:
                 pass
 
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as e:
         error_msg = f"Role {role_name} timed out after 10 minutes"
         print(error_msg)
+        # Try to get partial output from timeout exception
+        partial_output = getattr(e, 'stdout', '') or ''
+        partial_error = getattr(e, 'stderr', '') or ''
         return {
             "success": False,
             "error": error_msg,
             "message": "Role timed out",
             "role_name": role_name,
             "description": description,
+            "output": partial_output,
+            "return_code": -1,
         }
     except Exception as e:
         error_msg = f"Error running role {role_name}: {str(e)}"
@@ -5143,6 +5148,9 @@ async def list_clusters():
             # Determine overall status
             ready = status.get("ready", False)
             conditions = status.get("conditions", [])
+            
+            # Check if resource is being deleted
+            is_deleting = metadata.get("deletionTimestamp") is not None
 
             # Get error message if any
             error_message = None
@@ -5188,7 +5196,7 @@ async def list_clusters():
                 "region": region,
                 "ready": ready,
                 "progress": progress,
-                "status": "ready" if ready else ("failed" if error_message else "provisioning"),
+                "status": "deleting" if is_deleting else ("ready" if ready else ("failed" if error_message else "provisioning")),
                 "error_message": error_message,
                 "console_url": status.get("consoleURL"),
                 "api_url": (
