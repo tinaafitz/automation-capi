@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowPathIcon, EyeIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { useNavigate } from 'react-router-dom';
+import { ArrowPathIcon, EyeIcon, TrashIcon, ArrowLeftIcon, HomeIcon } from '@heroicons/react/24/outline';
 
 export function ClusterList() {
+  const navigate = useNavigate();
   const [clusters, setClusters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -87,34 +89,56 @@ export function ClusterList() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 p-8">
       <div className="max-w-7xl mx-auto">
+        {/* Navigation Bar */}
+        <div className="mb-6 flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm"
+            title="Go back"
+          >
+            <ArrowLeftIcon className="h-4 w-4" />
+            <span className="font-medium">Back</span>
+          </button>
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm"
+            title="Go to home"
+          >
+            <HomeIcon className="h-4 w-4" />
+            <span className="font-medium">Home</span>
+          </button>
+        </div>
+
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-              ROSA HCP Clusters
-            </h1>
-            <p className="text-gray-700 mt-2">
-              Monitor and manage your ROSA HCP cluster deployments
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-sm text-gray-700">
-              <input
-                type="checkbox"
-                checked={autoRefresh}
-                onChange={(e) => setAutoRefresh(e.target.checked)}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              Auto-refresh (30s)
-            </label>
-            <button
-              onClick={fetchClusters}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-            >
-              <ArrowPathIcon className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
+        <div className="mb-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl shadow-xl p-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-4xl font-bold text-white mb-2">
+                ROSA HCP Clusters
+              </h1>
+              <p className="text-purple-100 text-lg">
+                Real-time cluster monitoring and management dashboard
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 text-sm text-white bg-white/20 px-4 py-2 rounded-lg backdrop-blur-sm">
+                <input
+                  type="checkbox"
+                  checked={autoRefresh}
+                  onChange={(e) => setAutoRefresh(e.target.checked)}
+                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                />
+                Auto-refresh (30s)
+              </label>
+              <button
+                onClick={fetchClusters}
+                disabled={loading}
+                className="flex items-center gap-2 px-5 py-2.5 bg-white text-purple-600 rounded-lg hover:bg-purple-50 disabled:opacity-50 font-semibold shadow-lg transition-all"
+              >
+                <ArrowPathIcon className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
           </div>
         </div>
 
@@ -142,41 +166,41 @@ export function ClusterList() {
             </p>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-purple-100">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-gradient-to-r from-purple-600 to-blue-600">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
                     Cluster Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
                     Progress
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
                     Version
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
                     Region
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
                     Created
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-right text-xs font-bold text-white uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {clusters.map((cluster) => (
-                  <tr key={cluster.name} className="hover:bg-gray-50">
+                  <tr key={cluster.name} className="hover:bg-purple-50 transition-colors duration-150">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{cluster.name}</div>
-                          <div className="text-sm text-gray-500">{cluster.domain_prefix}</div>
+                          <div className="text-sm font-semibold text-gray-900">{cluster.name}</div>
+                          <div className="text-xs text-gray-500 font-mono">{cluster.domain_prefix}</div>
                         </div>
                       </div>
                     </td>
@@ -226,14 +250,14 @@ export function ClusterList() {
                           onClick={() =>
                             alert(`View details for ${cluster.name} (Not yet implemented)`)
                           }
-                          className="text-blue-600 hover:text-blue-900"
+                          className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
                           title="View Details"
                         >
                           <EyeIcon className="h-5 w-5" />
                         </button>
                         <button
                           onClick={() => handleDeleteCluster(cluster.name)}
-                          className="text-red-600 hover:text-red-900"
+                          className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
                           title="Delete Cluster"
                         >
                           <TrashIcon className="h-5 w-5" />
@@ -246,27 +270,6 @@ export function ClusterList() {
             </table>
           </div>
         )}
-
-        {/* CLI Commands */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-blue-900 mb-3">Monitor from CLI</h3>
-          <div className="space-y-3">
-            <div>
-              <p className="text-sm text-blue-800 mb-2">Watch cluster status:</p>
-              <code className="block bg-blue-900 text-blue-100 p-3 rounded text-sm font-mono">
-                kubectl get rosacontrolplane -n ns-rosa-hcp -w
-              </code>
-            </div>
-            <div>
-              <p className="text-sm text-blue-800 mb-2">
-                Get detailed status for a specific cluster:
-              </p>
-              <code className="block bg-blue-900 text-blue-100 p-3 rounded text-sm font-mono">
-                kubectl describe rosacontrolplane &lt;cluster-name&gt; -n ns-rosa-hcp
-              </code>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

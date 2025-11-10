@@ -2857,6 +2857,7 @@ async def get_mce_features():
                         "name": name,
                         "enabled": enabled,
                         "description": feature_descriptions.get(name, ""),
+                        "version": mce_version if enabled else None,
                     }
                 )
 
