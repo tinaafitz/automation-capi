@@ -1064,6 +1064,62 @@ export function WhatCanIHelp() {
         console.warn('Failed to fetch AWSClusterControllerIdentity:', error);
       }
 
+      // Fetch ROSANetwork resources (all namespaces)
+      try {
+        const response = await fetch('http://localhost:8000/api/ocp/execute-command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            command: 'oc get rosanetwork --all-namespaces -o json',
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success && result.output) {
+          const data = JSON.parse(result.output);
+          if (data.items && data.items.length > 0) {
+            data.items.forEach((item) => {
+              resources.push({
+                type: 'ROSANetwork',
+                name: item.metadata.name,
+                namespace: item.metadata.namespace,
+              });
+            });
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch ROSANetwork resources:', error);
+      }
+
+      // Fetch ROSARoleConfig resources (all namespaces)
+      try {
+        const response = await fetch('http://localhost:8000/api/ocp/execute-command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            command: 'oc get rosaroleconfig --all-namespaces -o json',
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success && result.output) {
+          const data = JSON.parse(result.output);
+          if (data.items && data.items.length > 0) {
+            data.items.forEach((item) => {
+              resources.push({
+                type: 'ROSARoleConfig',
+                name: item.metadata.name,
+                namespace: item.metadata.namespace,
+              });
+            });
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch ROSARoleConfig resources:', error);
+      }
+
       console.log(`✅ Fetched ${resources.length} MCE CAPI/CAPA resources`);
       setMceActiveResources(resources);
     } catch (error) {
@@ -3342,10 +3398,18 @@ export function WhatCanIHelp() {
                                 hour12: true,
                               });
 
-                              updateRecentOperationStatus(
-                                verifyId,
-                                `❌ Verification failed at ${completionTime}: ${verifyData.message || 'Unknown error'}`
-                              );
+                              setRecentOperations((prev) => {
+                                const updated = [...prev];
+                                const index = updated.findIndex(op => op.id === verifyId);
+                                if (index !== -1) {
+                                  updated[index] = {
+                                    ...updated[index],
+                                    status: `❌ Verification failed at ${completionTime}: ${verifyData.message || 'Unknown error'}`,
+                                    output: verifyData.output || 'No output available'
+                                  };
+                                }
+                                return updated;
+                              });
                             }
                           } catch (error) {
                             // Update operation status with error and timestamp (including seconds)
@@ -3357,10 +3421,18 @@ export function WhatCanIHelp() {
                             });
                             console.log('Verification failed at:', completionTime, error);
 
-                            updateRecentOperationStatus(
-                              verifyId,
-                              `❌ Verification failed at ${completionTime}: ${error.message || error.toString()}`
-                            );
+                            setRecentOperations((prev) => {
+                              const updated = [...prev];
+                              const index = updated.findIndex(op => op.id === verifyId);
+                              if (index !== -1) {
+                                updated[index] = {
+                                  ...updated[index],
+                                  status: `❌ Verification failed at ${completionTime}: ${error.message || error.toString()}`,
+                                  output: error.output || 'No output available'
+                                };
+                              }
+                              return updated;
+                            });
                           }
                         }
                       }}
@@ -5041,6 +5113,7 @@ export function WhatCanIHelp() {
                                         updated[0] = {
                                           ...updated[0],
                                           status: `❌ Verification failed at ${new Date().toLocaleTimeString()}: ${error.message}`,
+                                          output: error.output || 'No output available',
                                         };
                                       }
                                       return updated;
@@ -5092,6 +5165,11 @@ export function WhatCanIHelp() {
 
                                     const data = await response.json();
 
+                                    console.log('🔍 Configuration API response:', data);
+                                    console.log('🔍 Available fields:', Object.keys(data));
+                                    console.log('🔍 data.output:', data.output);
+                                    console.log('🔍 data.error:', data.error);
+
                                     if (data.success) {
                                       // Update recent operation status with output
                                       setRecentOperations((prev) => {
@@ -5123,7 +5201,7 @@ export function WhatCanIHelp() {
                                           updated[0] = {
                                             ...updated[0],
                                             status: `❌ Configuration failed at ${new Date().toLocaleTimeString()}`,
-                                            output: data.output || data.error || '',
+                                            output: data.output || data.error || data.stderr || 'No ansible output available',
                                           };
                                         }
                                         return updated;
@@ -7958,12 +8036,15 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   clearInterval(pollInterval);
                   console.log('✅ [APPLY-YAML] Job completed with status:', jobData.status);
 
-                  // Redirect to clusters page on successful completion to monitor progress
+                  // Expand ROSA HCP Clusters section on successful completion to monitor progress
                   if (jobData.status === 'completed') {
                     console.log(
-                      '🔀 [NAVIGATE] Redirecting to /clusters page to monitor cluster progress'
+                      '🔀 [EXPAND] Expanding ROSA HCP Clusters section to monitor cluster progress'
                     );
-                    setTimeout(() => navigate('/clusters'), 1500); // Small delay to show success message
+                    setTimeout(() => {
+                      setClusterStatusCollapsed(false); // Expand the section
+                      fetchClusters(); // Refresh cluster data
+                    }, 1500); // Small delay to show success message
                   }
                 }
               } catch (pollError) {
