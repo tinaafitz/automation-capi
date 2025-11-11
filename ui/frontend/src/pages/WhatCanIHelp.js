@@ -4924,6 +4924,7 @@ export function WhatCanIHelp() {
         {/* Test Environments Section - MCE */}
         {selectedEnvironment === 'mce' && (
           <div className="mb-6 relative max-w-[1800px] mx-auto space-y-6">
+            <>
             {/* Floating Settings Button */}
             <button
               onClick={() => setSettingsPanelOpen(true)}
@@ -6151,12 +6152,9 @@ export function WhatCanIHelp() {
                     </div>
                 </div>
               )}
-            </div>
-          </div>
-        )}
 
-        {/* Cluster Status Section */}
-        <div className="rounded-lg shadow-lg overflow-hidden mt-6">
+            {/* Cluster Status Section */}
+            <div className="rounded-lg shadow-lg overflow-hidden mt-6">
           {/* Section Header - Clickable */}
           <div
             onClick={handleToggleClusterStatus}
@@ -6845,6 +6843,9 @@ export function WhatCanIHelp() {
           </div>
         </div>
       </div>
+            </>
+          </div>
+        )}
 
       {/* Main Header with Configure Environment and Right Sidebar */}
       <div className="flex flex-col lg:flex-row items-start justify-between gap-4 lg:gap-8 mb-4 md:mb-6 animate-in fade-in duration-300">
