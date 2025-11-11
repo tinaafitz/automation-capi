@@ -323,7 +323,7 @@ export function WhatCanIHelp() {
   const [kindVerificationResult, setKindVerificationResult] = useState(null);
   const [kindLoading, setKindLoading] = useState(false);
   const [mceLoading, setMceLoading] = useState(false);
-  // Sorting states for Active Resources tables
+  // Sorting states for Provisioned Resources tables
   const [minikubeSortField, setMinikubeSortField] = useState('type');
   const [minikubeSortDirection, setMinikubeSortDirection] = useState('asc');
   const [mceSortField, setMceSortField] = useState('type');
@@ -4177,7 +4177,7 @@ export function WhatCanIHelp() {
                 </div>
               </div>
 
-              {/* Active Resources */}
+              {/* Provisioned Resources */}
               <div className="bg-white rounded-lg border-2 border-purple-200 p-6 shadow-lg">
                 {console.log('🎯 ACTIVE RESOURCES TILE IS RENDERING', {
                   activeResourcesLength: activeResources.length,
@@ -4199,7 +4199,7 @@ export function WhatCanIHelp() {
                         d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
                       />
                     </svg>
-                    Active Resources
+                    Provisioned Resources
                   </div>
                   <span className="text-xs font-normal text-purple-600">
                     (
@@ -4234,7 +4234,7 @@ export function WhatCanIHelp() {
                         }
 
                         const includeComponents = window.confirm(
-                          'Export Active Resources\n\n' +
+                          'Export Provisioned Resources\n\n' +
                             'Do you want to include Key Component information in the export?\n\n' +
                             '✓ Yes - Include component versions and status\n' +
                             '✗ No - Export only active resources'
@@ -4246,7 +4246,7 @@ export function WhatCanIHelp() {
 
                           addToRecent({
                             id: operationId,
-                            title: 'Minikube Export Active Resources',
+                            title: 'Minikube Export Provisioned Resources',
                             color: 'bg-indigo-600',
                             status: '⏳ Exporting...',
                           });
@@ -4302,7 +4302,7 @@ export function WhatCanIHelp() {
                           if (yamls.length > 0) {
                             let exportContent =
                               '# ==============================================================================\n' +
-                              '# ROSA Automation - Active Resources Export (REDACTED)\n' +
+                              '# ROSA Automation - Provisioned Resources Export (REDACTED)\n' +
                               '# ==============================================================================\n' +
                               '#\n' +
                               `# Cluster: ${verifiedMinikubeClusterInfo.name}\n` +
@@ -4413,7 +4413,7 @@ export function WhatCanIHelp() {
                         try {
                           addToRecent({
                             id: operationId,
-                            title: 'Minikube Refresh Active Resources',
+                            title: 'Minikube Refresh Provisioned Resources',
                             color: 'bg-cyan-600',
                             status: '🔄 Refreshing...',
                           });
@@ -5584,6 +5584,7 @@ export function WhatCanIHelp() {
                           CAPI/CAPA Components
                         </h4>
 
+
                         {/* Configure and Refresh Buttons */}
                         <div className="flex items-center gap-2">
                           <button
@@ -5914,7 +5915,7 @@ export function WhatCanIHelp() {
                       </div>
                     </div>
 
-                    {/* Tile 3: Active Resources */}
+                    {/* Tile 3: Provisioned Resources */}
                     <div className="bg-white rounded-lg border-2 border-cyan-200 p-6 shadow-lg flex flex-col h-[600px]">
                       <div className="flex flex-col space-y-3 mb-4 flex-shrink-0">
                         <h4 className="text-base font-semibold text-cyan-900 flex items-center">
@@ -5923,6 +5924,7 @@ export function WhatCanIHelp() {
                         </h4>
 
                         {/* Action Buttons */}
+
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => setShowProvisionModal(true)}
@@ -5933,231 +5935,220 @@ export function WhatCanIHelp() {
                             <span>Provision</span>
                           </button>
                           <button
-                            className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5 disabled:opacity-50"
-                            disabled={mceResourcesLoading}
+
                             onClick={async () => {
-                              if (!mceActiveResources || mceActiveResources.length === 0) {
-                                alert('No MCE active resources to export');
-                                return;
-                              }
-
-                              const includeComponents = window.confirm(
-                                'Export MCE Active Resources\n\n' +
-                                  'Do you want to include Key Component information in the export?\n\n' +
-                                  '✓ Yes - Include component versions and status\n' +
-                                  '✗ No - Export only MCE active resources'
-                              );
-
-                              let operationId;
+                              setMceFeaturesLoading(true);
                               try {
-                                operationId = `export-mce-resources-${Date.now()}`;
-
-                                addToRecent({
-                                  id: operationId,
-                                  title: 'MCE Active Resources Export',
-                                  color: 'bg-cyan-600',
-                                  status: '⏳ Exporting...',
-                                });
-
-                                console.log(
-                                  `Exporting ${mceActiveResources.length} MCE active resources${includeComponents ? ' with key components' : ''}...`
-                                );
-
-                                const redactSensitiveData = (yamlContent) => {
-                                  yamlContent = yamlContent.replace(
-                                    /^(\s*)(data|stringData):\s*\n((?:\s+.+\n)*)/gm,
-                                    (match, indent, fieldName, dataBlock) => {
-                                      return `${indent}${fieldName}:\n${indent}  # [SENSITIVE DATA REMOVED - All secret data redacted]\n`;
-                                    }
-                                  );
-
-                                  yamlContent = yamlContent.replace(
-                                    /^(\s+)(password|token|apiKey|secretKey|accessKey|privateKey|certificate|clientSecret|clientID|ocmClientSecret|ocmClientID|ocmApiUrl|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|aws_access_key_id|aws_secret_access_key):\s+(.+)$/gim,
-                                    (match, indent, key, value) => {
-                                      return `${indent}${key}: "[SENSITIVE DATA REMOVED]"`;
-                                    }
-                                  );
-
-                                  return yamlContent;
-                                };
-
-                                const yamls = [];
-                                for (const resource of mceActiveResources) {
-                                  try {
-                                    const response = await fetch('http://localhost:8000/api/ocp/execute-command', {
-                                      method: 'POST',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({
-                                        command: `oc get ${resource.type} ${resource.name} ${resource.namespace ? `-n ${resource.namespace}` : ''} -o yaml`,
-                                      }),
-                                    });
-
-                                    const result = await response.json();
-                                    if (result.success && result.output) {
-                                      const redactedYaml = redactSensitiveData(result.output);
-                                      yamls.push({
-                                        filename: `${resource.type.toLowerCase()}-${resource.name}.yaml`,
-                                        content: redactedYaml,
-                                      });
-                                    }
-                                  } catch (error) {
-                                    console.error(`Failed to export ${resource.type} ${resource.name}:`, error);
-                                  }
-                                }
-
-                                let exportContent = 
-                                  '# MCE Active Resources Export (REDACTED)\n' +
-                                  '# This export contains redacted versions of MCE active resources\n' +
-                                  '# All sensitive data has been removed for security\n' +
-                                  '# \n' +
-                                  `# Exported: ${new Date().toLocaleString()}\n` +
-                                  `# Total MCE Resources: ${yamls.length}\n` +
-                                  '# \n' +
-                                  '---\n\n';
-
-                                if (includeComponents && mceFeatures && mceFeatures.length > 0) {
-                                  exportContent += '# MCE Key Components\n';
-                                  mceFeatures.forEach(feature => {
-                                    exportContent += `# ${feature.name}: ${feature.enabled ? 'Enabled' : 'Disabled'}${feature.version ? ` (${feature.version})` : ''}\n`;
-                                  });
-                                  exportContent += '# \n---\n\n';
-                                }
-
-                                yamls.forEach((yaml, index) => {
-                                  exportContent += `# File: ${yaml.filename}\n`;
-                                  exportContent += yaml.content;
-                                  if (index < yamls.length - 1) {
-                                    exportContent += '\n---\n\n';
-                                  }
-                                });
-
-                                const blob = new Blob([exportContent], { type: 'text/plain' });
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = `mce-active-resources-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.yaml`;
-                                document.body.appendChild(a);
-                                a.click();
-                                document.body.removeChild(a);
-                                URL.revokeObjectURL(url);
-
-                                const completionTime = new Date().toLocaleString();
-                                updateRecentOperation(operationId, {
-                                  status: '✅ Completed',
-                                  message: `Exported ${yamls.length} MCE resources successfully at ${completionTime}`
-                                });
-
-                                setTimeout(() => {
-                                  updateRecentOperation(operationId, {
-                                    status: `✅ Exported ${yamls.length} MCE resources at ${completionTime}`
-                                  });
-                                }, 2000);
-
+                                const response = await fetch('http://localhost:8000/api/mce/features');
+                                const data = await response.json();
+                                setMceFeatures(data.features || []);
+                                setMceInfo(data.mce_info || null);
+                                setMceLastVerified(new Date().toISOString());
                               } catch (error) {
-                                console.error('MCE Export error:', error);
-                                const completionTime = new Date().toLocaleString();
-                                
-                                if (operationId) {
-                                  updateRecentOperation(operationId, {
-                                    status: '❌ Failed',
-                                    message: `MCE Export failed at ${completionTime}`
-                                  });
-
-                                  setTimeout(() => {
-                                    updateRecentOperation(operationId, {
-                                      status: `❌ MCE Export failed at ${completionTime}`
-                                    });
-                                  }, 2000);
-                                }
-
-                                alert(`Export failed: ${error.message}`);
+                                console.error('Error refreshing MCE features:', error);
+                              } finally {
+                                setMceFeaturesLoading(false);
                               }
                             }}
-                          >
-                            Export
-                          </button>
-                          <button
+                            disabled={mceFeaturesLoading}
                             className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5 disabled:opacity-50"
-                            onClick={fetchMceActiveResources}
-                            disabled={mceResourcesLoading}
+                            title="Refresh CAPI/CAPA components"
                           >
-                            {mceResourcesLoading ? 'Loading...' : 'Refresh'}
+                            <ArrowPathIcon className={`h-3 w-3 ${mceFeaturesLoading ? 'animate-spin' : ''}`} />
+                            <span>Refresh</span>
                           </button>
                         </div>
                       </div>
 
-                      {/* Resources List - Scrollable content area */}
+                      {/* Component List - Scrollable content area */}
                       <div className="space-y-2 flex-1 overflow-y-auto">
-                        {(() => {
-                          if (mceResourcesLoading) {
-                            return (
-                              <div className="text-center py-8 text-cyan-600 text-sm">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600 mx-auto mb-2"></div>
-                                Loading resources...
-                              </div>
-                            );
-                          }
+                        <div className="space-y-4">
+                          {/* Original CAPI/CAPA Components with versions */}
+                          {(() => {
+                            const capiComponents =
+                              mceFeatures?.filter(
+                                (f) =>
+                                  f.name === 'cluster-api' || f.name === 'cluster-api-provider-aws'
+                              ) || [];
 
-                          if (mceActiveResources.length === 0) {
-                            return (
-                              <div className="text-center py-8 text-cyan-600/70 text-sm">
-                                No resources found. Click Refresh to fetch CAPI/CAPA resources.
-                              </div>
-                            );
-                          }
+                            if (capiComponents.length === 0) {
+                              return (
+                                <div className="text-xs text-cyan-600/70 px-3 py-2 text-center">
+                                  No components found. Click Refresh to detect components.
+                                </div>
+                              );
+                            }
 
-                          return (
-                            <div className="bg-cyan-50 rounded-lg p-3 border border-cyan-100">
-                              <div className="text-xs font-semibold text-cyan-800 mb-2">
-                                Active Resources ({mceActiveResources.length})
-                              </div>
-                              <div className="overflow-x-auto">
-                                <table className="w-full text-xs">
-                                  <thead>
-                                    <tr className="border-b border-cyan-200">
-                                      <th className="text-left py-2 px-2 font-semibold text-cyan-900">
-                                        Name
-                                      </th>
-                                      <th className="text-left py-2 px-2 font-semibold text-cyan-900">
-                                        Type
-                                      </th>
-                                      <th className="text-left py-2 px-2 font-semibold text-cyan-900">
-                                        Namespace
-                                      </th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {mceActiveResources.map((resource, idx) => (
-                                      <tr
-                                        key={idx}
-                                        className="border-b border-cyan-100 last:border-0 hover:bg-cyan-100 transition-colors cursor-pointer"
-                                        onClick={() => {
-                                          fetchOcpResourceDetail(
-                                            resource.type,
-                                            resource.name,
-                                            resource.namespace || ''
-                                          );
-                                        }}
-                                        title="Click to view YAML"
+                            // Map component names to deployment information
+                            const componentDeploymentMap = {
+                              'cluster-api': {
+                                resourceType: 'Deployment',
+                                resourceName: 'capi-controller-manager',
+                                namespace: 'multicluster-engine',
+                              },
+                              'cluster-api-provider-aws': {
+                                resourceType: 'Deployment',
+                                resourceName: 'capa-controller-manager',
+                                namespace: 'multicluster-engine',
+                              },
+                            };
+
+                            return capiComponents.map((component, idx) => {
+                              const deploymentInfo = componentDeploymentMap[component.name];
+                              const isClickable = deploymentInfo && component.enabled;
+
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`flex items-center justify-between p-2 bg-cyan-50 rounded-md border border-cyan-100 ${
+                                    isClickable
+                                      ? 'hover:bg-cyan-100 transition-colors cursor-pointer'
+                                      : ''
+                                  }`}
+                                  onClick={() => {
+                                    if (isClickable) {
+                                      fetchOcpResourceDetail(
+                                        deploymentInfo.resourceType,
+                                        deploymentInfo.resourceName,
+                                        deploymentInfo.namespace
+                                      );
+                                    }
+                                  }}
+                                  title={isClickable ? 'Click to view YAML' : ''}
+                                >
+                                  {/* Component Name */}
+                                  <div className="flex items-center space-x-2">
+                                    {component.enabled ? (
+                                      <svg
+                                        className="h-4 w-4 text-green-500"
+                                        fill="currentColor"
+                                        viewBox="0 0 20 20"
                                       >
-                                        <td className="py-2 px-2 font-medium text-cyan-900">
-                                          {resource.name}
-                                        </td>
-                                        <td className="py-2 px-2 text-cyan-700">{resource.type}</td>
-                                        <td className="py-2 px-2 text-cyan-700">
-                                          {resource.namespace || '(cluster-scoped)'}
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                          );
-                        })()}
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                          clipRule="evenodd"
+                                        />
+                                      </svg>
+                                    ) : (
+                                      <svg
+                                        className="h-4 w-4 text-gray-400"
+                                        fill="currentColor"
+                                        viewBox="0 0 20 20"
+                                      >
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                          clipRule="evenodd"
+                                        />
+                                      </svg>
+                                    )}
+                                    <div className="text-xs font-medium text-cyan-900">
+                                      {component.name}
+                                    </div>
+                                  </div>
+
+                                  {/* Status Badge */}
+                                  <div className="flex-shrink-0">
+                                    <span
+                                      className={`text-xs font-mono px-2 py-1 rounded ${
+                                        component.enabled && component.version
+                                          ? 'text-blue-700 bg-blue-100'
+                                          : 'text-gray-600 bg-gray-100'
+                                      }`}
+                                    >
+                                      {component.enabled && component.version 
+                                        ? `v${component.version}` 
+                                        : 'Disabled'}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            });
+                          })()}
+
+                          {/* Additional Components Status Lists */}
+                          {(() => {
+                            const capiComponents = (mceFeatures?.filter((f) => 
+                              f.name.startsWith('cluster-api')
+                            ) || []).sort((a, b) => (b.enabled ? 1 : 0) - (a.enabled ? 1 : 0));
+                            const hypershiftComponents = (mceFeatures?.filter((f) => 
+                              f.name.startsWith('hypershift')
+                            ) || []).sort((a, b) => (b.enabled ? 1 : 0) - (a.enabled ? 1 : 0));
+                            
+                            return (
+                              <>
+                                {/* CAPI Components Box */}
+                                <div className="bg-white rounded-md p-3 border border-cyan-100">
+                                  <div className="text-sm font-medium text-cyan-700 mb-2">All CAPI Components Status</div>
+                                  <div className="space-y-1">
+                                    {capiComponents.length > 0 ? capiComponents.map((component, index) => (
+                                      <div key={index} className="flex items-center justify-between text-xs">
+                                        <span className="text-gray-700">{component.name}</span>
+                                        <svg
+                                          className={`h-4 w-4 ${component.enabled ? 'text-green-600' : 'text-red-600'}`}
+                                          fill="currentColor"
+                                          viewBox="0 0 20 20"
+                                        >
+                                          {component.enabled ? (
+                                            <path
+                                              fillRule="evenodd"
+                                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                              clipRule="evenodd"
+                                            />
+                                          ) : (
+                                            <path
+                                              fillRule="evenodd"
+                                              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                              clipRule="evenodd"
+                                            />
+                                          )}
+                                        </svg>
+                                      </div>
+                                    )) : (
+                                      <div className="text-xs text-gray-500 text-center py-2">No CAPI components found</div>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                {/* Hypershift Components Box */}
+                                <div className="bg-white rounded-md p-3 border border-cyan-100">
+                                  <div className="text-sm font-medium text-cyan-700 mb-2">Hypershift Components Status</div>
+                                  <div className="space-y-1">
+                                    {hypershiftComponents.length > 0 ? hypershiftComponents.map((component, index) => (
+                                      <div key={index} className="flex items-center justify-between text-xs">
+                                        <span className="text-gray-700">{component.name}</span>
+                                        <svg
+                                          className={`h-4 w-4 ${component.enabled ? 'text-green-600' : 'text-red-600'}`}
+                                          fill="currentColor"
+                                          viewBox="0 0 20 20"
+                                        >
+                                          {component.enabled ? (
+                                            <path
+                                              fillRule="evenodd"
+                                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                              clipRule="evenodd"
+                                            />
+                                          ) : (
+                                            <path
+                                              fillRule="evenodd"
+                                              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                              clipRule="evenodd"
+                                            />
+                                          )}
+                                        </svg>
+                                      </div>
+                                    )) : (
+                                      <div className="text-xs text-gray-500 text-center py-2">No Hypershift components found</div>
+                                    )}
+                                  </div>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
                       </div>
                     </div>
-                  </div>
                 </div>
               )}
             </div>
