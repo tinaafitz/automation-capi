@@ -416,6 +416,8 @@ export function WhatCanIHelp() {
   const [showKindTerminalModal, setShowKindTerminalModal] = useState(false);
   const [showResourceDetailModal, setShowResourceDetailModal] = useState(false);
   const [selectedResourceDetail, setSelectedResourceDetail] = useState(null);
+  const [showMceYamlModal, setShowMceYamlModal] = useState(false);
+  const [mceYamlData, setMceYamlData] = useState(null);
   const [showAnsibleModal, setShowAnsibleModal] = useState(false);
   const [ansibleOutput, setAnsibleOutput] = useState(null);
 
@@ -4996,7 +4998,7 @@ export function WhatCanIHelp() {
                                   d="M13 10V3L4 14h7v7l9-11h-7z"
                                 />
                               </svg>
-                              MCE Test Configuration
+                              MCE Environment
                             </h4>
 
                             {/* Action Buttons */}
@@ -5093,7 +5095,87 @@ export function WhatCanIHelp() {
                                         3000
                                       );
                                     } else {
-                                      throw new Error(data.error || 'Validation task failed');
+                                      // Handle validation failure with detailed output
+                                      console.log('Validation failed with detailed output:', data);
+                                      
+                                      // Update results with failure info including detailed output
+                                      setAnsibleResults((prev) => ({
+                                        ...prev,
+                                        'check-mce-components': {
+                                          loading: false,
+                                          result: { 
+                                            success: false, 
+                                            output: data.output || data.error || 'Validation failed',
+                                            error: data.error || 'Validation task failed',
+                                            return_code: data.return_code,
+                                            stderr: data.stderr,
+                                            stdout_lines: data.stdout_lines
+                                          },
+                                          timestamp: new Date(),
+                                        },
+                                      }));
+
+                                      // Update recent operation status with detailed playbook output
+                                      setRecentOperations((prev) => {
+                                        const updated = [...prev];
+                                        if (updated[0]?.title === 'MCE Environment Verification') {
+                                          // Extract the actual error message from Ansible output
+                                          let errorSummary = 'Validation failed';
+                                          
+                                          if (data.output) {
+                                            // Look for the actual failure message in the output
+                                            const lines = data.output.split('\n');
+                                            for (const line of lines) {
+                                              // Look for the fail task message
+                                              if (line.includes('❌ ENVIRONMENT NEEDS TO BE CONFIGURED') || 
+                                                  line.includes('❌ OCP LOGIN FAILED') ||
+                                                  line.includes('CAPI controller') ||
+                                                  line.includes('CAPA controller')) {
+                                                errorSummary = line.trim().replace(/^.*"msg":\s*"([^"]+)".*$/, '$1') || line.trim();
+                                                // Clean up JSON formatting if present
+                                                errorSummary = errorSummary.replace(/^"(.*)"$/, '$1');
+                                                // Take just the first line of multi-line messages
+                                                errorSummary = errorSummary.split('\\n')[0];
+                                                break;
+                                              }
+                                            }
+                                            
+                                            // If we couldn't find a specific error, look for the "FAILED!" line
+                                            if (errorSummary === 'Validation failed') {
+                                              for (const line of lines) {
+                                                if (line.includes('FAILED!') && line.includes('"msg":')) {
+                                                  const msgMatch = line.match(/"msg":\s*"([^"]+)"/);
+                                                  if (msgMatch) {
+                                                    errorSummary = msgMatch[1].split('\\n')[0];
+                                                    break;
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                          
+                                          // Fallback to data.error if we still don't have a good message
+                                          if (errorSummary === 'Validation failed' && data.error) {
+                                            errorSummary = data.error;
+                                          }
+                                          
+                                          updated[0] = {
+                                            ...updated[0],
+                                            status: `❌ Verification failed at ${new Date().toLocaleTimeString()}: ${errorSummary}`,
+                                            output: data.output || data.error || 'Validation failed - see details below',
+                                            playbook: `📋 Ansible Task: tasks/validate-capa-environment.yml\n\n${data.output || data.error || 'No detailed output available'}`,
+                                          };
+                                        }
+                                        return updated;
+                                      });
+
+                                      addNotification(
+                                        `❌ MCE environment validation failed`,
+                                        'error',
+                                        5000
+                                      );
+                                      
+                                      // Don't throw error here since we've handled the failure state properly
                                     }
                                   } catch (error) {
                                     console.error('Error verifying MCE:', error);
@@ -5132,128 +5214,50 @@ export function WhatCanIHelp() {
                                 <ArrowPathIcon className="h-3 w-3" />
                                 <span>Verify</span>
                               </button>
-                              <button
-                                onClick={async () => {
-                                  console.log('MCE Configure button clicked');
-                                  const timestamp = Date.now();
-
-                                  // Add to recent operations
-                                  const newOperation = {
-                                    title: 'Configure CAPI/CAPA Environment',
-                                    status: '⏳ Configuring...',
-                                    timestamp: timestamp,
-                                    playbook: 'Ansible Role: configure-capa-environment',
-                                  };
-                                  setRecentOperations((prev) =>
-                                    [newOperation, ...prev].slice(0, 10)
-                                  );
-
-                                  try {
-                                    console.log('Running configure-capa-environment role...');
-                                    const response = await fetch(
-                                      'http://localhost:8000/api/ansible/run-role',
-                                      {
-                                        method: 'POST',
-                                        headers: {
-                                          'Content-Type': 'application/json',
-                                        },
-                                        body: JSON.stringify({
-                                          role_name: 'configure-capa-environment',
-                                        }),
-                                      }
-                                    );
-
-                                    const data = await response.json();
-
-                                    console.log('🔍 Configuration API response:', data);
-                                    console.log('🔍 Available fields:', Object.keys(data));
-                                    console.log('🔍 data.output:', data.output);
-                                    console.log('🔍 data.error:', data.error);
-
-                                    if (data.success) {
-                                      // Update recent operation status with output
-                                      setRecentOperations((prev) => {
-                                        const updated = [...prev];
-                                        if (
-                                          updated[0]?.title === 'Configure CAPI/CAPA Environment'
-                                        ) {
-                                          updated[0] = {
-                                            ...updated[0],
-                                            status: `✅ Configuration completed successfully at ${new Date().toLocaleTimeString()}`,
-                                            output: data.output || '',
-                                          };
-                                        }
-                                        return updated;
-                                      });
-
-                                      addNotification(
-                                        '✅ CAPI/CAPA environment configured successfully',
-                                        'success',
-                                        3000
-                                      );
-                                    } else {
-                                      // Update recent operation status with error and output
-                                      setRecentOperations((prev) => {
-                                        const updated = [...prev];
-                                        if (
-                                          updated[0]?.title === 'Configure CAPI/CAPA Environment'
-                                        ) {
-                                          updated[0] = {
-                                            ...updated[0],
-                                            status: `❌ Configuration failed at ${new Date().toLocaleTimeString()}`,
-                                            output: data.output || data.error || data.stderr || 'No ansible output available',
-                                          };
-                                        }
-                                        return updated;
-                                      });
-
-                                      addNotification(
-                                        '❌ Failed to configure CAPI/CAPA environment',
-                                        'error',
-                                        3000
-                                      );
-                                    }
-                                  } catch (error) {
-                                    console.error(
-                                      'Error configuring CAPI/CAPA environment:',
-                                      error
-                                    );
-
-                                    // Update recent operation status with error and output
-                                    setRecentOperations((prev) => {
-                                      const updated = [...prev];
-                                      if (updated[0]?.title === 'Configure CAPI/CAPA Environment') {
-                                        updated[0] = {
-                                          ...updated[0],
-                                          status: `❌ Configuration failed at ${new Date().toLocaleTimeString()}: ${error.message}`,
-                                          output: `Error: ${error.message}\n${error.stack || ''}`,
-                                        };
-                                      }
-                                      return updated;
-                                    });
-
-                                    addNotification(
-                                      '❌ Failed to configure CAPI/CAPA environment',
-                                      'error',
-                                      3000
-                                    );
-                                  }
-                                }}
-                                className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
-                                title="Configure CAPI/CAPA environment"
-                              >
-                                <Cog6ToothIcon className="h-3 w-3" />
-                                <span>Configure</span>
-                              </button>
                             </div>
                           </div>
 
                           {/* MCE Environment Info - Scrollable content area */}
                           <div className="mb-4 bg-cyan-50 rounded-lg p-4 border border-cyan-100 flex-1 overflow-y-auto">
                             <div className="flex items-center justify-between mb-4">
-                              <div className="text-base font-semibold text-cyan-900">
+                              <button
+                                className="text-base font-semibold text-cyan-900 hover:text-cyan-700 hover:underline cursor-pointer"
+                                onClick={async () => {
+                                  try {
+                                    console.log('Fetching MCE YAML...');
+                                    const response = await fetch('http://localhost:8000/api/ocp/execute-command', {
+                                      method: 'POST',
+                                      headers: {
+                                        'Content-Type': 'application/json',
+                                      },
+                                      body: JSON.stringify({
+                                        command: `oc get multiclusterengine ${mceInfo?.name || 'multiclusterengine'} -o yaml`,
+                                        description: 'Get MCE YAML'
+                                      }),
+                                    });
+
+                                    const data = await response.json();
+                                    
+                                    if (response.ok && data.output) {
+                                      // Show in modal
+                                      setMceYamlData({
+                                        type: 'MultiClusterEngine',
+                                        name: mceInfo?.name || 'multiclusterengine',
+                                        namespace: 'N/A (Cluster-scoped)',
+                                        yaml: data.output
+                                      });
+                                      setShowMceYamlModal(true);
+                                    } else {
+                                      alert(`Failed to fetch MCE YAML: ${data.error || 'Unknown error'}`);
+                                    }
+                                  } catch (error) {
+                                    console.error('Error fetching MCE YAML:', error);
+                                    alert('Error fetching MCE YAML');
+                                  }
+                                }}
+                              >
                                 {mceInfo?.name || 'multiclusterengine'}
-                              </div>
+                              </button>
                               <div className="flex items-center gap-1.5 px-2 py-1 bg-white rounded-md border border-cyan-200">
                                 <span
                                   className={`w-2 h-2 rounded-full ${
@@ -5575,30 +5579,125 @@ export function WhatCanIHelp() {
                     {/* Tile 2: CAPI/CAPA Components */}
                     <div className="bg-white rounded-lg border-2 border-cyan-200 p-6 shadow-lg flex flex-col h-[600px]">
                       <div className="flex flex-col space-y-3 mb-4 flex-shrink-0">
-                        <h4 className="text-base font-semibold text-cyan-900 flex items-center justify-between">
-                          <span className="flex items-center">
-                            <CubeIcon className="h-5 w-5 text-cyan-600 mr-2" />
-                            CAPI/CAPA Components
-                          </span>
-                          <span className="text-xs font-normal text-cyan-600">
-                            (
-                            {mceFeatures?.filter(
-                              (f) =>
-                                f.name === 'cluster-api' || f.name === 'cluster-api-provider-aws'
-                            ).length || 0}{' '}
-                            configured)
-                          </span>
+                        <h4 className="text-base font-semibold text-cyan-900 flex items-center">
+                          <CubeIcon className="h-5 w-5 text-cyan-600 mr-2" />
+                          CAPI/CAPA Components
                         </h4>
 
-                        {/* Provision and Refresh Buttons */}
+                        {/* Configure and Refresh Buttons */}
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => setShowProvisionModal(true)}
+                            onClick={async () => {
+                              console.log('MCE Configure button clicked');
+                              const timestamp = Date.now();
+
+                              // Add to recent operations
+                              const newOperation = {
+                                title: 'Configure CAPI/CAPA Environment',
+                                status: '⏳ Configuring...',
+                                timestamp: timestamp,
+                                playbook: 'Ansible Role: configure-capa-environment',
+                              };
+                              setRecentOperations((prev) =>
+                                [newOperation, ...prev].slice(0, 10)
+                              );
+
+                              try {
+                                console.log('Running configure-capa-environment role...');
+                                const response = await fetch(
+                                  'http://localhost:8000/api/ansible/run-role',
+                                  {
+                                    method: 'POST',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                      role_name: 'configure-capa-environment',
+                                    }),
+                                  }
+                                );
+
+                                const data = await response.json();
+
+                                console.log('🔍 Configuration API response:', data);
+                                console.log('🔍 Available fields:', Object.keys(data));
+                                console.log('🔍 data.output:', data.output);
+                                console.log('🔍 data.error:', data.error);
+
+                                if (data.success) {
+                                  // Update recent operation status with output
+                                  setRecentOperations((prev) => {
+                                    const updated = [...prev];
+                                    if (
+                                      updated[0]?.title === 'Configure CAPI/CAPA Environment'
+                                    ) {
+                                      updated[0] = {
+                                        ...updated[0],
+                                        status: `✅ Configuration completed successfully at ${new Date().toLocaleTimeString()}`,
+                                        output: data.output || '',
+                                      };
+                                    }
+                                    return updated;
+                                  });
+
+                                  addNotification(
+                                    '✅ CAPI/CAPA environment configured successfully',
+                                    'success',
+                                    3000
+                                  );
+                                } else {
+                                  // Update recent operation status with error and output
+                                  setRecentOperations((prev) => {
+                                    const updated = [...prev];
+                                    if (
+                                      updated[0]?.title === 'Configure CAPI/CAPA Environment'
+                                    ) {
+                                      updated[0] = {
+                                        ...updated[0],
+                                        status: `❌ Configuration failed at ${new Date().toLocaleTimeString()}`,
+                                        output: data.output || data.error || data.stderr || 'No ansible output available',
+                                      };
+                                    }
+                                    return updated;
+                                  });
+
+                                  addNotification(
+                                    '❌ Failed to configure CAPI/CAPA environment',
+                                    'error',
+                                    3000
+                                  );
+                                }
+                              } catch (error) {
+                                console.error(
+                                  'Error configuring CAPI/CAPA environment:',
+                                  error
+                                );
+
+                                // Update recent operation status with error and output
+                                setRecentOperations((prev) => {
+                                  const updated = [...prev];
+                                  if (updated[0]?.title === 'Configure CAPI/CAPA Environment') {
+                                    updated[0] = {
+                                      ...updated[0],
+                                      status: `❌ Configuration failed at ${new Date().toLocaleTimeString()}: ${error.message}`,
+                                      output: `Error: ${error.message}\n${error.stack || ''}`,
+                                    };
+                                  }
+                                  return updated;
+                                });
+
+                                addNotification(
+                                  '❌ Failed to configure CAPI/CAPA environment',
+                                  'error',
+                                  3000
+                                );
+                              }
+                            }}
                             className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
-                            title="Provision ROSA cluster"
+                            title="Configure CAPI/CAPA environment"
                           >
-                            <WrenchScrewdriverIcon className="h-3 w-3" />
-                            <span>Provision</span>
+                            <Cog6ToothIcon className="h-3 w-3" />
+                            <span>Configure</span>
                           </button>
                           <button
                             onClick={async () => {
@@ -5820,14 +5919,160 @@ export function WhatCanIHelp() {
                       <div className="flex flex-col space-y-3 mb-4 flex-shrink-0">
                         <h4 className="text-base font-semibold text-cyan-900 flex items-center">
                           <ChartBarIcon className="h-5 w-5 text-cyan-600 mr-2" />
-                          Active Resources
+                          Provisioned Resources
                         </h4>
 
                         {/* Action Buttons */}
                         <div className="flex items-center gap-2">
                           <button
+                            onClick={() => setShowProvisionModal(true)}
+                            className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                            title="Provision ROSA cluster"
+                          >
+                            <WrenchScrewdriverIcon className="h-3 w-3" />
+                            <span>Provision</span>
+                          </button>
+                          <button
                             className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5 disabled:opacity-50"
                             disabled={mceResourcesLoading}
+                            onClick={async () => {
+                              if (!mceActiveResources || mceActiveResources.length === 0) {
+                                alert('No MCE active resources to export');
+                                return;
+                              }
+
+                              const includeComponents = window.confirm(
+                                'Export MCE Active Resources\n\n' +
+                                  'Do you want to include Key Component information in the export?\n\n' +
+                                  '✓ Yes - Include component versions and status\n' +
+                                  '✗ No - Export only MCE active resources'
+                              );
+
+                              let operationId;
+                              try {
+                                operationId = `export-mce-resources-${Date.now()}`;
+
+                                addToRecent({
+                                  id: operationId,
+                                  title: 'MCE Active Resources Export',
+                                  color: 'bg-cyan-600',
+                                  status: '⏳ Exporting...',
+                                });
+
+                                console.log(
+                                  `Exporting ${mceActiveResources.length} MCE active resources${includeComponents ? ' with key components' : ''}...`
+                                );
+
+                                const redactSensitiveData = (yamlContent) => {
+                                  yamlContent = yamlContent.replace(
+                                    /^(\s*)(data|stringData):\s*\n((?:\s+.+\n)*)/gm,
+                                    (match, indent, fieldName, dataBlock) => {
+                                      return `${indent}${fieldName}:\n${indent}  # [SENSITIVE DATA REMOVED - All secret data redacted]\n`;
+                                    }
+                                  );
+
+                                  yamlContent = yamlContent.replace(
+                                    /^(\s+)(password|token|apiKey|secretKey|accessKey|privateKey|certificate|clientSecret|clientID|ocmClientSecret|ocmClientID|ocmApiUrl|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|aws_access_key_id|aws_secret_access_key):\s+(.+)$/gim,
+                                    (match, indent, key, value) => {
+                                      return `${indent}${key}: "[SENSITIVE DATA REMOVED]"`;
+                                    }
+                                  );
+
+                                  return yamlContent;
+                                };
+
+                                const yamls = [];
+                                for (const resource of mceActiveResources) {
+                                  try {
+                                    const response = await fetch('http://localhost:8000/api/ocp/execute-command', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({
+                                        command: `oc get ${resource.type} ${resource.name} ${resource.namespace ? `-n ${resource.namespace}` : ''} -o yaml`,
+                                      }),
+                                    });
+
+                                    const result = await response.json();
+                                    if (result.success && result.output) {
+                                      const redactedYaml = redactSensitiveData(result.output);
+                                      yamls.push({
+                                        filename: `${resource.type.toLowerCase()}-${resource.name}.yaml`,
+                                        content: redactedYaml,
+                                      });
+                                    }
+                                  } catch (error) {
+                                    console.error(`Failed to export ${resource.type} ${resource.name}:`, error);
+                                  }
+                                }
+
+                                let exportContent = 
+                                  '# MCE Active Resources Export (REDACTED)\n' +
+                                  '# This export contains redacted versions of MCE active resources\n' +
+                                  '# All sensitive data has been removed for security\n' +
+                                  '# \n' +
+                                  `# Exported: ${new Date().toLocaleString()}\n` +
+                                  `# Total MCE Resources: ${yamls.length}\n` +
+                                  '# \n' +
+                                  '---\n\n';
+
+                                if (includeComponents && mceFeatures && mceFeatures.length > 0) {
+                                  exportContent += '# MCE Key Components\n';
+                                  mceFeatures.forEach(feature => {
+                                    exportContent += `# ${feature.name}: ${feature.enabled ? 'Enabled' : 'Disabled'}${feature.version ? ` (${feature.version})` : ''}\n`;
+                                  });
+                                  exportContent += '# \n---\n\n';
+                                }
+
+                                yamls.forEach((yaml, index) => {
+                                  exportContent += `# File: ${yaml.filename}\n`;
+                                  exportContent += yaml.content;
+                                  if (index < yamls.length - 1) {
+                                    exportContent += '\n---\n\n';
+                                  }
+                                });
+
+                                const blob = new Blob([exportContent], { type: 'text/plain' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `mce-active-resources-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.yaml`;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(url);
+
+                                const completionTime = new Date().toLocaleString();
+                                updateRecentOperation(operationId, {
+                                  status: '✅ Completed',
+                                  message: `Exported ${yamls.length} MCE resources successfully at ${completionTime}`
+                                });
+
+                                setTimeout(() => {
+                                  updateRecentOperation(operationId, {
+                                    status: `✅ Exported ${yamls.length} MCE resources at ${completionTime}`
+                                  });
+                                }, 2000);
+
+                              } catch (error) {
+                                console.error('MCE Export error:', error);
+                                const completionTime = new Date().toLocaleString();
+                                
+                                if (operationId) {
+                                  updateRecentOperation(operationId, {
+                                    status: '❌ Failed',
+                                    message: `MCE Export failed at ${completionTime}`
+                                  });
+
+                                  setTimeout(() => {
+                                    updateRecentOperation(operationId, {
+                                      status: `❌ MCE Export failed at ${completionTime}`
+                                    });
+                                  }, 2000);
+                                }
+
+                                alert(`Export failed: ${error.message}`);
+                              }
+                            }}
                           >
                             Export
                           </button>
@@ -8159,6 +8404,92 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
             <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
               <button
                 onClick={() => setShowResourceDetailModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MCE YAML Modal */}
+      {showMceYamlModal && mceYamlData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowMceYamlModal(false)}
+          />
+          <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-5xl max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center">
+                  <DocumentTextIcon className="h-6 w-6 mr-2 text-cyan-600" />
+                  Resource Details
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  <span className="font-medium">{mceYamlData.type}</span>
+                  {' / '}
+                  <span className="font-mono text-cyan-600">{mceYamlData.name}</span>
+                  {' in namespace '}
+                  <span className="font-mono">{mceYamlData.namespace}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setShowMceYamlModal(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-hidden p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-lg font-medium text-gray-900 dark:text-white">
+                  YAML Definition
+                </h4>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const element = document.createElement('a');
+                      const file = new Blob([mceYamlData.yaml], { type: 'text/yaml' });
+                      element.href = URL.createObjectURL(file);
+                      element.download = `${mceYamlData.name}-multiclusterengine.yaml`;
+                      document.body.appendChild(element);
+                      element.click();
+                      document.body.removeChild(element);
+                      addNotification('YAML file downloaded', 'success', 2000);
+                    }}
+                    className="text-sm bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Download
+                  </button>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(mceYamlData.yaml);
+                      addNotification('YAML copied to clipboard', 'success', 2000);
+                    }}
+                    className="text-sm bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <DocumentTextIcon className="h-4 w-4" />
+                    Copy YAML
+                  </button>
+                </div>
+              </div>
+              <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-auto text-xs font-mono whitespace-pre-wrap break-words max-h-96">
+                {mceYamlData.yaml}
+              </pre>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setShowMceYamlModal(false)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 Close
