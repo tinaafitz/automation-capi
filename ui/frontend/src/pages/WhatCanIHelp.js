@@ -6843,7 +6843,6 @@ export function WhatCanIHelp() {
           </div>
         </div>
       </div>
-            </>
           </div>
         )}
 
