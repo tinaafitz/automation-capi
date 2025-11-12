@@ -6042,15 +6042,10 @@ export function WhatCanIHelp() {
                                 URL.revokeObjectURL(url);
 
                                 const completionTime = new Date().toLocaleString();
-                                updateRecentOperation(operationId, {
-                                  status: '✅ Completed',
-                                  message: `Exported ${yamls.length} MCE resources successfully at ${completionTime}`
-                                });
+                                updateRecentOperationStatus(operationId, `✅ Exported ${yamls.length} MCE resources successfully at ${completionTime}`);
 
                                 setTimeout(() => {
-                                  updateRecentOperation(operationId, {
-                                    status: `✅ Exported ${yamls.length} MCE resources at ${completionTime}`
-                                  });
+                                  updateRecentOperationStatus(operationId, `✅ Exported ${yamls.length} MCE resources at ${completionTime}`);
                                 }, 2000);
 
                               } catch (error) {
@@ -6058,15 +6053,10 @@ export function WhatCanIHelp() {
                                 const completionTime = new Date().toLocaleString();
                                 
                                 if (operationId) {
-                                  updateRecentOperation(operationId, {
-                                    status: '❌ Failed',
-                                    message: `MCE Export failed at ${completionTime}`
-                                  });
+                                  updateRecentOperationStatus(operationId, `❌ MCE Export failed at ${completionTime}`);
 
                                   setTimeout(() => {
-                                    updateRecentOperation(operationId, {
-                                      status: `❌ MCE Export failed at ${completionTime}`
-                                    });
+                                    updateRecentOperationStatus(operationId, `❌ MCE Export failed at ${completionTime}`);
                                   }, 2000);
                                 }
 
