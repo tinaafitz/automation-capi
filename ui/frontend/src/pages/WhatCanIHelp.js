@@ -722,7 +722,7 @@ export function WhatCanIHelp() {
   const fetchRosaClusters = async () => {
     setRosaClustersLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/ocp/rosa-clusters');
+      const response = await fetch('http://localhost:8000/api/clusters');
       const data = await response.json();
 
       if (data.success) {
@@ -1241,7 +1241,8 @@ export function WhatCanIHelp() {
     const fetchOcpStatus = async () => {
       try {
         console.log('🔍 Fetching OCP status on mount...');
-        const response = await fetch('http://localhost:8000/api/ocp/connection-status');
+        const timestamp = Date.now();
+        const response = await fetch(`http://localhost:8000/api/ocp/connection-status?t=${timestamp}`);
         const data = await response.json();
         console.log('✅ OCP status received:', data);
         setOcpStatus(data);
@@ -5159,9 +5160,22 @@ export function WhatCanIHelp() {
                                             errorSummary = data.error;
                                           }
                                           
+                                          // Use cleaner message for environment configuration issues
+                                          let statusMessage;
+                                          if (errorSummary.includes('❌ ENVIRONMENT NEEDS TO BE CONFIGURED') || 
+                                              errorSummary.includes('CAPI controller not found') ||
+                                              errorSummary.includes('CAPA controller not found') ||
+                                              errorSummary.includes('Fail if CAPI controller not found')) {
+                                            statusMessage = '❌ ENVIRONMENT NEEDS TO BE CONFIGURED ❌';
+                                          } else if (errorSummary.includes('❌ OCP LOGIN FAILED')) {
+                                            statusMessage = '❌ OCP LOGIN FAILED ❌';
+                                          } else {
+                                            statusMessage = `❌ Verification failed at ${new Date().toLocaleTimeString()}: ${errorSummary}`;
+                                          }
+                                          
                                           updated[0] = {
                                             ...updated[0],
-                                            status: `❌ Verification failed at ${new Date().toLocaleTimeString()}: ${errorSummary}`,
+                                            status: statusMessage,
                                             output: data.output || data.error || 'Validation failed - see details below',
                                             playbook: `📋 Ansible Task: tasks/validate-capa-environment.yml\n\n${data.output || data.error || 'No detailed output available'}`,
                                           };
@@ -5213,6 +5227,83 @@ export function WhatCanIHelp() {
                               >
                                 <ArrowPathIcon className="h-3 w-3" />
                                 <span>Verify</span>
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  console.log('MCE Refresh button clicked');
+                                  const timestamp = Date.now();
+
+                                  // Add to recent operations
+                                  const newOperation = {
+                                    title: 'MCE Environment Data Refresh',
+                                    status: '⏳ Refreshing...',
+                                    timestamp: timestamp,
+                                    playbook: 'API Refresh: MCE Features & OCP Status',
+                                  };
+                                  setRecentOperations((prev) =>
+                                    [newOperation, ...prev].slice(0, 10)
+                                  );
+
+                                  try {
+                                    // Refresh MCE features data
+                                    const mceResponse = await fetch(
+                                      `http://localhost:8000/api/mce/features?t=${timestamp}`
+                                    );
+                                    const mceData = await mceResponse.json();
+                                    setMceFeatures(mceData.features || []);
+                                    setMceInfo(mceData.mce_info || null);
+
+                                    // Refresh OCP connection status
+                                    const ocpResponse = await fetch(
+                                      `http://localhost:8000/api/ocp/connection-status?t=${timestamp}`
+                                    );
+                                    const ocpData = await ocpResponse.json();
+                                    setOcpStatus(ocpData);
+
+                                    // Update recent operation status
+                                    setRecentOperations((prev) => {
+                                      const updated = [...prev];
+                                      if (updated[0]?.title === 'MCE Environment Data Refresh') {
+                                        updated[0] = {
+                                          ...updated[0],
+                                          status: `✅ Data refreshed successfully at ${new Date().toLocaleTimeString()}`,
+                                        };
+                                      }
+                                      return updated;
+                                    });
+
+                                    addNotification(
+                                      `✅ MCE environment data refreshed`,
+                                      'success',
+                                      2000
+                                    );
+                                  } catch (error) {
+                                    console.error('Error refreshing MCE data:', error);
+                                    
+                                    // Update recent operation status with error
+                                    setRecentOperations((prev) => {
+                                      const updated = [...prev];
+                                      if (updated[0]?.title === 'MCE Environment Data Refresh') {
+                                        updated[0] = {
+                                          ...updated[0],
+                                          status: `❌ Refresh failed at ${new Date().toLocaleTimeString()}`,
+                                        };
+                                      }
+                                      return updated;
+                                    });
+
+                                    addNotification(
+                                      `❌ Failed to refresh MCE environment data`,
+                                      'error',
+                                      3000
+                                    );
+                                  }
+                                }}
+                                className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                                title="Refresh MCE environment data and OCP connection status"
+                              >
+                                <ArrowPathIcon className="h-3 w-3" />
+                                <span>Refresh</span>
                               </button>
                             </div>
                           </div>
@@ -5409,7 +5500,7 @@ export function WhatCanIHelp() {
                                   </div>
                                 ) : (
                                   <div className="space-y-4">
-                                    {rosaClusters.map((cluster, idx) => (
+                                    {rosaClusters.filter(cluster => cluster.status !== 'deleting').map((cluster, idx) => (
                                       <div
                                         key={idx}
                                         className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow"
@@ -5635,6 +5726,7 @@ export function WhatCanIHelp() {
                                         ...updated[0],
                                         status: `✅ Configuration completed successfully at ${new Date().toLocaleTimeString()}`,
                                         output: data.output || '',
+                                        playbook: `📋 Ansible Role: configure-capa-environment\n\n${data.output || 'Configuration completed successfully'}`,
                                       };
                                     }
                                     return updated;
@@ -5656,6 +5748,7 @@ export function WhatCanIHelp() {
                                         ...updated[0],
                                         status: `❌ Configuration failed at ${new Date().toLocaleTimeString()}`,
                                         output: data.output || data.error || data.stderr || 'No ansible output available',
+                                        playbook: `📋 Ansible Role: configure-capa-environment\n\n${data.output || data.error || data.stderr || 'No detailed output available'}`,
                                       };
                                     }
                                     return updated;
@@ -5681,6 +5774,7 @@ export function WhatCanIHelp() {
                                       ...updated[0],
                                       status: `❌ Configuration failed at ${new Date().toLocaleTimeString()}: ${error.message}`,
                                       output: `Error: ${error.message}\n${error.stack || ''}`,
+                                      playbook: `📋 Ansible Role: configure-capa-environment\n\n❌ Network/Connection Error:\n${error.message}\n\n${error.stack || 'No additional details available'}`,
                                     };
                                   }
                                   return updated;
@@ -5816,14 +5910,14 @@ export function WhatCanIHelp() {
                                   <div className="flex-shrink-0">
                                     <span
                                       className={`text-xs font-mono px-2 py-1 rounded ${
-                                        component.enabled && component.version
-                                          ? 'text-blue-700 bg-blue-100'
+                                        component.version
+                                          ? (component.enabled ? 'text-blue-700 bg-blue-100' : 'text-amber-700 bg-amber-100')
                                           : 'text-gray-600 bg-gray-100'
                                       }`}
                                     >
-                                      {component.enabled && component.version 
+                                      {component.version 
                                         ? `v${component.version}` 
-                                        : 'Disabled'}
+                                        : (component.enabled ? 'Enabled' : 'Disabled')}
                                     </span>
                                   </div>
                                 </div>
@@ -6233,7 +6327,7 @@ export function WhatCanIHelp() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {clusters.map((cluster) => (
+                    {clusters.filter(cluster => cluster.status !== 'deleting').map((cluster) => (
                       <tr key={cluster.name} className="hover:bg-cyan-50 transition-colors duration-150">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-semibold text-gray-900">{cluster.name}</div>
@@ -9439,7 +9533,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {rosaClusters.map((cluster) => (
+                  {rosaClusters.filter(cluster => cluster.status !== 'deleting').map((cluster) => (
                     <div
                       key={cluster.name}
                       className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden hover:shadow-xl transition-all hover:scale-[1.01] duration-200"

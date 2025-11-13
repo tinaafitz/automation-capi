@@ -15,7 +15,7 @@
   vars:
     enable: "false"
 
-# Now enable CAPI components
+# Now enable CAPI components for newer MCE versions (no -preview suffix)
 - set_fact:
     component: "cluster-api"
 
