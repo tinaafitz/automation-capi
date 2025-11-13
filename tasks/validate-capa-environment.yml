@@ -1,15 +1,20 @@
 # ======================================================
-# CAPI/CAPA Environment Validation Task
+# CAPI/CAPA Environment Validation Tasks
 # ======================================================
-# This task validates the MCE environment in sequential steps:
+# This file contains tasks to validate the MCE environment:
 # 1. Check OCP login succeeded
 # 2. Check CAPI/CAPA controllers are deployed
-# 3. Check for cluster resources (only if above pass)
 # ======================================================
 
 # ======================================================
 # STEP 1: Verify OCP Login
 # ======================================================
+- name: Get current OCP context
+  shell: oc config current-context
+  register: ocp_context_result
+  failed_when: false
+  changed_when: false
+
 - name: Verify OCP context is set (from login)
   fail:
     msg: |
@@ -27,24 +32,24 @@
          - OCP_HUB_CLUSTER_PASSWORD
 
       2. Verify the cluster is accessible:
-         oc login {{ api_url | default('your-cluster-api-url') }}
+         oc login {{ OCP_HUB_API_URL | default('your-cluster-api-url') }}
 
       3. Check network connectivity to the OpenShift Hub cluster
 
       4. Retry the validation after fixing login issues
-  when: ocp_context is not defined or ocp_context == ''
+  when: ocp_context_result.rc != 0 or ocp_context_result.stdout == ''
 
 - name: OCP Login Check
   debug:
-    msg: "✅ Step 1/3: OCP login successful - Context: {{ ocp_context }}"
+    msg: "✅ Step 1/3: OCP login successful - Context: {{ ocp_context_result.stdout }}"
+  when: ocp_context_result.rc == 0 and ocp_context_result.stdout != ''
 
 # ======================================================
 # STEP 2: Verify CAPI/CAPA Controllers are Deployed
 # ======================================================
 - name: Check for capi-controller-manager deployment
   shell: |
-    oc --context='{{ ocp_context }}' get deploy -n multicluster-engine -ojson |\
-    jq -c '.items[] | select(.metadata.name | contains("capi-controller-manager")) | {name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
+    oc get deploy -n multicluster-engine capi-controller-manager -o name
   register: capi_controller_manager
   failed_when: false
   changed_when: false
@@ -60,27 +65,14 @@
 
       ⚠️  REQUIRED ACTION:
 
-      1. Click the "Configure Environment" button to set up CAPI/CAPA
-
-      2. Or manually run the configuration:
-         - From the UI: Click "Configure Environment"
-         - From CLI: Run the configure-capa-environment role
-
-      3. Wait for the controllers to be deployed
-
-      4. Retry validation after configuration completes
-
-      📝 Note: This is expected if you haven't run the initial setup yet.
-  when: capi_controller_manager.stdout | length == 0
-
-- name: CAPI Controller Check
-  debug:
-    msg: "✅ Step 2a/3: CAPI controller deployed - {{ capi_controller_manager.stdout }}"
+      1. Enable the CAPI feature in MCE
+      2. Wait for the controller to be deployed
+      3. Retry validation
+  when: capi_controller_manager.rc != 0
 
 - name: Check for capa-controller-manager deployment
   shell: |
-    oc --context='{{ ocp_context }}' get deploy -n multicluster-engine -ojson |\
-    jq -c '.items[] | select(.metadata.name | contains("capa-controller-manager")) | {name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
+    oc get deploy -n multicluster-engine capa-controller-manager -o name
   register: capa_controller_manager
   failed_when: false
   changed_when: false
@@ -92,231 +84,42 @@
 
       CAPA controller (capa-controller-manager) is not deployed.
 
-      The Cluster API Provider AWS controller is required for provisioning on AWS.
+      The Cluster API Provider AWS controller is required for managing ROSA HCP clusters.
 
       ⚠️  REQUIRED ACTION:
 
-      1. Click the "Configure Environment" button to set up CAPI/CAPA
+      1. Enable the CAPA feature in MCE
+      2. Wait for the controller to be deployed
+      3. Retry validation
+  when: capa_controller_manager.rc != 0
 
-      2. Or manually run the configuration:
-         - From the UI: Click "Configure Environment"
-         - From CLI: Run the configure-capa-environment role
-
-      3. Wait for the controllers to be deployed
-
-      4. Retry validation after configuration completes
-
-      📝 Note: CAPI controller is present but CAPA (AWS provider) is missing.
-  when: capa_controller_manager.stdout | length == 0
-
-- name: CAPA Controller Check
+- name: CAPI/CAPA Controllers Check
   debug:
-    msg: "✅ Step 2b/3: CAPA controller deployed - {{ capa_controller_manager.stdout }}"
+    msg: "✅ Step 2/3: CAPI/CAPA controllers are deployed and ready"
+  when: capi_controller_manager.rc == 0 and capa_controller_manager.rc == 0
 
 # ======================================================
-# STEP 3: Check Configuration Resources (Non-Critical)
+# STEP 3: Environment Summary
 # ======================================================
-# These checks are informational - they don't cause failure
-# because they may not exist yet if no clusters have been created
-# ======================================================
-
-- name: Get ClusterManager registration configuration
-  shell: |
-    oc --context='{{ ocp_context }}' get clusterManager -n multicluster-engine -ojson |\
-    jq -c '.items[] | select(.spec.registrationConfiguration) | {name: "ClusterManager", creationTimestamp: .metadata.creationTimestamp}'
-  register: registration_configuration_applied
-  failed_when: false
-  changed_when: false
-
-- name: Check for ClusterManager registration configuration
-  debug:
-    msg: "✓ ClusterManager registration configuration found - {{ registration_configuration_applied.stdout }}"
-  when: registration_configuration_applied.stdout | length > 0
-
-- name: Info if registration configuration not found
-  debug:
-    msg: "ℹ ClusterManager registration configuration not found (will be created during configuration)"
-  when: registration_configuration_applied.stdout | length == 0
-
-- name: Get ClusterRoleBinding
-  shell: |
-    oc --context='{{ ocp_context }}' get ClusterRoleBinding cluster-manager-registration-capi -ojson | jq -c '{name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
-  register: cluster_role_binding_applied
-  failed_when: false
-  changed_when: false
-
-- name: Check for ClusterRoleBinding
-  debug:
-    msg: "✓ ClusterRoleBinding cluster-manager-registration-capi found - {{ cluster_role_binding_applied.stdout }}"
-  when: cluster_role_binding_applied.stdout | length > 0
-
-- name: Info if ClusterRoleBinding not found
-  debug:
-    msg: "ℹ ClusterRoleBinding cluster-manager-registration-capi not found (will be created during configuration)"
-  when: cluster_role_binding_applied.stdout | length == 0
-
-- name: Get AWS credentials secret (capa-manager-bootstrap-credentials)
-  shell: |
-    oc --context='{{ ocp_context }}' get secret -n multicluster-engine capa-manager-bootstrap-credentials -ojson | jq -c '{name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
-  register: capa_manager_bootstrap_credentials_exists
-  failed_when: false
-  changed_when: false
-
-- name: Check for AWS credentials secret
-  debug:
-    msg: "✓ Secret capa-manager-bootstrap-credentials found - {{ capa_manager_bootstrap_credentials_exists.stdout }}"
-  when: capa_manager_bootstrap_credentials_exists.stdout | length > 0
-
-- name: Info if AWS credentials secret not found
-  debug:
-    msg: "ℹ Secret capa-manager-bootstrap-credentials not found (will be created during configuration)"
-  when: capa_manager_bootstrap_credentials_exists.stdout | length == 0
-
-- name: Get ROSA credentials secret
-  shell: |
-    oc --context='{{ ocp_context }}' get secret -n multicluster-engine rosa-creds-secret -ojson | jq -c '{name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
-  register: rosa_creds_secret_exists
-  failed_when: false
-  changed_when: false
-
-- name: Check for ROSA credentials secret
-  debug:
-    msg: "✓ Secret rosa-creds-secret found - {{ rosa_creds_secret_exists.stdout }}"
-  when: rosa_creds_secret_exists.stdout | length > 0
-
-- name: Info if ROSA credentials secret not found
-  debug:
-    msg: "ℹ Secret rosa-creds-secret not found (will be created during configuration)"
-  when: rosa_creds_secret_exists.stdout | length == 0
-
-- name: Get AWSClusterControllerIdentity
-  shell: |
-    oc --context='{{ ocp_context }}' get AWSClusterControllerIdentity default -ojson | jq -c '{name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
-  register: aws_cluster_controller_identity_exists
-  failed_when: false
-  changed_when: false
-
-- name: Check for AWSClusterControllerIdentity
-  debug:
-    msg: "✓ AWSClusterControllerIdentity default found - {{ aws_cluster_controller_identity_exists.stdout }}"
-  when: aws_cluster_controller_identity_exists.stdout | length > 0
-
-- name: Info if AWSClusterControllerIdentity not found
-  debug:
-    msg: "ℹ AWSClusterControllerIdentity default not found (will be created during configuration)"
-  when: aws_cluster_controller_identity_exists.stdout | length == 0
-
-# ======================================================
-# STEP 4: Check for ROSA Cluster Resources (Informational)
-# ======================================================
-# These are purely informational - they show what clusters exist
-# ======================================================
-
-- name: Get ROSA-related namespaces
-  shell: |
-    oc --context='{{ ocp_context }}' get namespace -ojson | jq -c '.items[] | select(.metadata.name | test("rosa|capi")) | {name: .metadata.name, creationTimestamp: .metadata.creationTimestamp}'
-  register: rosa_namespaces
-  failed_when: false
-  changed_when: false
-
-- name: Check for ROSA namespaces
-  debug:
-    msg: "✓ Namespace found - {{ item }}"
-  loop: "{{ rosa_namespaces.stdout_lines }}"
-  when: rosa_namespaces.stdout_lines | length > 0
-
-- name: Get ROSACluster resources (all namespaces)
-  shell: |
-    oc --context='{{ ocp_context }}' get rosacluster --all-namespaces -ojson | jq -c '.items[] | {namespace: .metadata.namespace, name: .metadata.name, creationTimestamp: .metadata.creationTimestamp, status: (if .metadata.deletionTimestamp then "Uninstalling" elif .status.ready then "Ready" else "Provisioning" end)}'
-  register: rosa_clusters
-  failed_when: false
-  changed_when: false
-
-- name: Check for ROSACluster resources
-  debug:
-    msg: "✓ ROSACluster found - {{ item }}"
-  loop: "{{ rosa_clusters.stdout_lines }}"
-  when: rosa_clusters.stdout_lines | length > 0
-
-- name: Info if no ROSACluster resources found
-  debug:
-    msg: "ℹ No ROSACluster resources found (this is normal if you haven't created any clusters yet)"
-  when: rosa_clusters.stdout_lines | length == 0
-
-- name: Get RosaControlPlane resources (all namespaces)
-  shell: |
-    oc --context='{{ ocp_context }}' get rosacontrolplane --all-namespaces -ojson | jq -c '.items[] | {namespace: .metadata.namespace, name: .metadata.name, creationTimestamp: .metadata.creationTimestamp, status: (if .metadata.deletionTimestamp then "Uninstalling" elif .status.ready then "Ready" else "Provisioning" end)}'
-  register: rosa_control_planes
-  failed_when: false
-  changed_when: false
-
-- name: Check for RosaControlPlane resources
-  debug:
-    msg: "✓ RosaControlPlane found - {{ item }}"
-  loop: "{{ rosa_control_planes.stdout_lines }}"
-  when: rosa_control_planes.stdout_lines | length > 0
-
-- name: Info if no RosaControlPlane resources found
-  debug:
-    msg: "ℹ No RosaControlPlane resources found (this is normal if you haven't created any clusters yet)"
-  when: rosa_control_planes.stdout_lines | length == 0
-
-- name: Get RosaNetwork resources (all namespaces)
-  shell: |
-    oc --context='{{ ocp_context }}' get rosanetwork --all-namespaces -ojson | jq -c '.items[] | {namespace: .metadata.namespace, name: .metadata.name, creationTimestamp: .metadata.creationTimestamp, status: (if .metadata.deletionTimestamp then "Deleting" elif .status.ready then "Ready" else "Configuring" end)}'
-  register: rosa_networks
-  failed_when: false
-  changed_when: false
-
-- name: Check for RosaNetwork resources
-  debug:
-    msg: "✓ RosaNetwork found - {{ item }}"
-  loop: "{{ rosa_networks.stdout_lines }}"
-  when: rosa_networks.stdout_lines | length > 0
-
-- name: Info if no RosaNetwork resources found
-  debug:
-    msg: "ℹ No RosaNetwork resources found (this is normal if you haven't created any clusters yet)"
-  when: rosa_networks.stdout_lines | length == 0
-
-- name: Get Cluster resources (all namespaces)
-  shell: |
-    oc --context='{{ ocp_context }}' get cluster --all-namespaces -ojson | jq -c '.items[] | {namespace: .metadata.namespace, name: .metadata.name, creationTimestamp: .metadata.creationTimestamp, status: (if .status.phase then .status.phase else "Active" end)}'
-  register: capi_clusters
-  failed_when: false
-  changed_when: false
-
-- name: Check for CAPI Cluster resources
-  debug:
-    msg: "✓ Cluster found - {{ item }}"
-  loop: "{{ capi_clusters.stdout_lines }}"
-  when: capi_clusters.stdout_lines | length > 0
-
-- name: Info if no CAPI Cluster resources found
-  debug:
-    msg: "ℹ No Cluster resources found (this is normal if you haven't created any clusters yet)"
-  when: capi_clusters.stdout_lines | length == 0
-
-# ======================================================
-# SUCCESS: Environment is Fully Configured
-# ======================================================
-- name: Environment validation complete
+- name: Environment validation summary
   debug:
     msg: |
+      ✅ MCE ENVIRONMENT VALIDATION SUCCESSFUL ✅
 
-      ✅ ✅ ✅ ENVIRONMENT CONFIGURED AND READY TO GO! ✅ ✅ ✅
+      All required components are properly configured:
 
-      All required components are in place:
+      ✅ OpenShift Hub Login: Connected
+      ✅ CAPI Controller: Deployed
+      ✅ CAPA Controller: Deployed
 
-      ✓ OCP Hub Connection: {{ ocp_context }}
-      ✓ CAPI Controller: Deployed and running
-      ✓ CAPA Controller: Deployed and running
-
-      🎉 Your MCE environment is ready for ROSA HCP cluster provisioning!
+      🚀 Environment is ready for ROSA HCP cluster provisioning!
 
       Next steps:
-      - Create ROSA HCP clusters using the UI
-      - Upload YAML templates to provision clusters
-      - Monitor cluster status and resources
-
-      Happy cluster provisioning! 🚀
+      1. Configure AWS credentials (if not done)
+      2. Create ROSA HCP cluster definitions
+      3. Deploy clusters using the automation
+  when: 
+    - ocp_context_result.rc == 0 
+    - ocp_context_result.stdout != ''
+    - capi_controller_manager.rc == 0 
+    - capa_controller_manager.rc == 0
