@@ -5675,8 +5675,16 @@ export function WhatCanIHelp() {
                           CAPI/CAPA Components
                         </h4>
 
-                        {/* Configure and Refresh Buttons */}
+                        {/* Provision, Configure and Refresh Buttons */}
                         <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setShowProvisionModal(true)}
+                            className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                            title="Provision ROSA cluster"
+                          >
+                            <WrenchScrewdriverIcon className="h-3 w-3" />
+                            <span>Provision</span>
+                          </button>
                           <button
                             onClick={async () => {
                               console.log('MCE Configure button clicked');
@@ -6016,7 +6024,6 @@ export function WhatCanIHelp() {
                           Provisioned Resources
                         </h4>
 
-                        {/* Action Buttons */}
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => setShowProvisionModal(true)}
@@ -6026,6 +6033,231 @@ export function WhatCanIHelp() {
                             <WrenchScrewdriverIcon className="h-3 w-3" />
                             <span>Provision</span>
                           </button>
+                          <button
+                            onClick={async () => {
+                              setMceFeaturesLoading(true);
+                              try {
+                                const response = await fetch('http://localhost:8000/api/mce/features');
+                                const data = await response.json();
+                                setMceFeatures(data.features || []);
+                                setMceInfo(data.mce_info || null);
+                                setMceLastVerified(new Date().toISOString());
+                              } catch (error) {
+                                console.error('Error refreshing MCE features:', error);
+                              } finally {
+                                setMceFeaturesLoading(false);
+                              }
+                            }}
+                            disabled={mceFeaturesLoading}
+                            className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5 disabled:opacity-50"
+                            title="Refresh CAPI/CAPA components"
+                          >
+                            <ArrowPathIcon className={`h-3 w-3 ${mceFeaturesLoading ? 'animate-spin' : ''}`} />
+                            <span>Refresh</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Component List - Scrollable content area */}
+                      <div className="space-y-2 flex-1 overflow-y-auto">
+                        <div className="space-y-4">
+                          {/* Original CAPI/CAPA Components with versions */}
+                          {(() => {
+                            const capiComponents =
+                              mceFeatures?.filter(
+                                (f) =>
+                                  f.name === 'cluster-api' || f.name === 'cluster-api-provider-aws'
+                              ) || [];
+
+                            if (capiComponents.length === 0) {
+                              return (
+                                <div className="text-xs text-cyan-600/70 px-3 py-2 text-center">
+                                  No components found. Click Refresh to detect components.
+                                </div>
+                              );
+                            }
+
+                            // Map component names to deployment information
+                            const componentDeploymentMap = {
+                              'cluster-api': {
+                                resourceType: 'Deployment',
+                                resourceName: 'capi-controller-manager',
+                                namespace: 'multicluster-engine',
+                              },
+                              'cluster-api-provider-aws': {
+                                resourceType: 'Deployment',
+                                resourceName: 'capa-controller-manager',
+                                namespace: 'multicluster-engine',
+                              },
+                            };
+
+                            return capiComponents.map((component, idx) => {
+                              const deploymentInfo = componentDeploymentMap[component.name];
+                              const isClickable = deploymentInfo && component.enabled;
+
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`flex items-center justify-between p-2 bg-cyan-50 rounded-md border border-cyan-100 ${
+                                    isClickable
+                                      ? 'hover:bg-cyan-100 transition-colors cursor-pointer'
+                                      : ''
+                                  }`}
+                                  onClick={() => {
+                                    if (isClickable) {
+                                      fetchOcpResourceDetail(
+                                        deploymentInfo.resourceType,
+                                        deploymentInfo.resourceName,
+                                        deploymentInfo.namespace
+                                      );
+                                    }
+                                  }}
+                                  title={isClickable ? 'Click to view YAML' : ''}
+                                >
+                                  {/* Component Name */}
+                                  <div className="flex items-center space-x-2">
+                                    {component.enabled ? (
+                                      <svg
+                                        className="h-4 w-4 text-green-500"
+                                        fill="currentColor"
+                                        viewBox="0 0 20 20"
+                                      >
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                          clipRule="evenodd"
+                                        />
+                                      </svg>
+                                    ) : (
+                                      <svg
+                                        className="h-4 w-4 text-gray-400"
+                                        fill="currentColor"
+                                        viewBox="0 0 20 20"
+                                      >
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                          clipRule="evenodd"
+                                        />
+                                      </svg>
+                                    )}
+                                    <div className="text-xs font-medium text-cyan-900">
+                                      {component.name}
+                                    </div>
+                                  </div>
+
+                                  {/* Status Badge */}
+                                  <div className="flex-shrink-0">
+                                    <span
+                                      className={`text-xs font-mono px-2 py-1 rounded ${
+                                        component.enabled && component.version
+                                          ? 'text-blue-700 bg-blue-100'
+                                          : 'text-gray-600 bg-gray-100'
+                                      }`}
+                                    >
+                                      {component.enabled && component.version 
+                                        ? `v${component.version}` 
+                                        : 'Disabled'}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            });
+                          })()}
+
+                          {/* Additional Components Status Lists */}
+                          {(() => {
+                            const capiComponents = (mceFeatures?.filter((f) => 
+                              f.name.startsWith('cluster-api')
+                            ) || []).sort((a, b) => (b.enabled ? 1 : 0) - (a.enabled ? 1 : 0));
+                            const hypershiftComponents = (mceFeatures?.filter((f) => 
+                              f.name.startsWith('hypershift')
+                            ) || []).sort((a, b) => (b.enabled ? 1 : 0) - (a.enabled ? 1 : 0));
+                            
+                            return (
+                              <>
+                                {/* CAPI Components Box */}
+                                <div className="bg-white rounded-md p-3 border border-cyan-100">
+                                  <div className="text-sm font-medium text-cyan-700 mb-2">All CAPI Components Status</div>
+                                  <div className="space-y-1">
+                                    {capiComponents.length > 0 ? capiComponents.map((component, index) => (
+                                      <div key={index} className="flex items-center justify-between text-xs">
+                                        <span className="text-gray-700">{component.name}</span>
+                                        <svg
+                                          className={`h-4 w-4 ${component.enabled ? 'text-green-600' : 'text-red-600'}`}
+                                          fill="currentColor"
+                                          viewBox="0 0 20 20"
+                                        >
+                                          {component.enabled ? (
+                                            <path
+                                              fillRule="evenodd"
+                                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                              clipRule="evenodd"
+                                            />
+                                          ) : (
+                                            <path
+                                              fillRule="evenodd"
+                                              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                              clipRule="evenodd"
+                                            />
+                                          )}
+                                        </svg>
+                                      </div>
+                                    )) : (
+                                      <div className="text-xs text-gray-500 text-center py-2">No CAPI components found</div>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                {/* Hypershift Components Box */}
+                                <div className="bg-white rounded-md p-3 border border-cyan-100">
+                                  <div className="text-sm font-medium text-cyan-700 mb-2">Hypershift Components Status</div>
+                                  <div className="space-y-1">
+                                    {hypershiftComponents.length > 0 ? hypershiftComponents.map((component, index) => (
+                                      <div key={index} className="flex items-center justify-between text-xs">
+                                        <span className="text-gray-700">{component.name}</span>
+                                        <svg
+                                          className={`h-4 w-4 ${component.enabled ? 'text-green-600' : 'text-red-600'}`}
+                                          fill="currentColor"
+                                          viewBox="0 0 20 20"
+                                        >
+                                          {component.enabled ? (
+                                            <path
+                                              fillRule="evenodd"
+                                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                              clipRule="evenodd"
+                                            />
+                                          ) : (
+                                            <path
+                                              fillRule="evenodd"
+                                              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                              clipRule="evenodd"
+                                            />
+                                          )}
+                                        </svg>
+                                      </div>
+                                    )) : (
+                                      <div className="text-xs text-gray-500 text-center py-2">No Hypershift components found</div>
+                                    )}
+                                  </div>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Tile 3: Active Resources */}
+                    <div className="bg-white rounded-lg border-2 border-cyan-200 p-6 shadow-lg flex flex-col h-[600px]">
+                      <div className="flex flex-col space-y-3 mb-4 flex-shrink-0">
+                        <h4 className="text-base font-semibold text-cyan-900 flex items-center">
+                          <ChartBarIcon className="h-5 w-5 text-cyan-600 mr-2" />
+                          Active Resources
+                        </h4>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2">
                           <button
                             className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5 disabled:opacity-50"
                             disabled={mceResourcesLoading}
