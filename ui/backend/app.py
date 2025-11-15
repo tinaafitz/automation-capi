@@ -5303,7 +5303,7 @@ async def list_clusters():
                 "region": region,
                 "ready": ready,
                 "progress": progress,
-                "status": "deleting" if is_deleting else ("ready" if ready else ("failed" if error_message else "provisioning")),
+                "status": "ready" if ready else ("deleting" if is_deleting else ("failed" if error_message else "provisioning")),
                 "error_message": error_message,
                 "console_url": status.get("consoleURL"),
                 "api_url": (

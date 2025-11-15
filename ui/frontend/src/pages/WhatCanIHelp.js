@@ -1677,6 +1677,11 @@ export function WhatCanIHelp() {
     }
   }, [ocpStatus?.connected]);
 
+  // Also fetch ROSA clusters on component mount to ensure they show up
+  useEffect(() => {
+    fetchRosaClusters();
+  }, []);
+
   // Real-time data updates
   useEffect(() => {
     const updateStats = () => {
@@ -5494,7 +5499,7 @@ export function WhatCanIHelp() {
                                   </div>
                                 ) : (
                                   <div className="space-y-4">
-                                    {rosaClusters.filter(cluster => cluster.status !== 'deleting').map((cluster, idx) => (
+                                    {rosaClusters.map((cluster, idx) => (
                                       <div
                                         key={idx}
                                         className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow"
@@ -9579,7 +9584,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {rosaClusters.filter(cluster => cluster.status !== 'deleting').map((cluster) => (
+                  {rosaClusters.map((cluster) => (
                     <div
                       key={cluster.name}
                       className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden hover:shadow-xl transition-all hover:scale-[1.01] duration-200"
