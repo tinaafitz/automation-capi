@@ -2257,6 +2257,7 @@ async def get_ocp_connection_status():
             # Clear cache on failure - don't cache failed login attempts
             ocp_status_cache["data"] = None
             ocp_status_cache["timestamp"] = 0
+            ocp_status_cache["ttl"] = 60
 
             return response_data
 
