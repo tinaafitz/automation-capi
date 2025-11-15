@@ -482,7 +482,13 @@ export function WhatCanIHelp() {
   const [mceFeatures, setMceFeatures] = useState(null);
   const [mceInfo, setMceInfo] = useState(null);
   const [mceLastVerified, setMceLastVerified] = useState(null);
-  const [credentialWarning, setCredentialWarning] = useState(null); // { type: 'placeholder' | 'invalid', message: string }
+
+  // MCE Credentials modal state
+  const [showMceCredentialsModal, setShowMceCredentialsModal] = useState(false);
+  const [mceCredentials, setMceCredentials] = useState({
+    apiServer: '',
+    password: ''
+  });
   const [mceFeaturesLoading, setMceFeaturesLoading] = useState(false);
 
   // Last used ROSA YAML path for ROSA HCP provisioning
@@ -5232,6 +5238,55 @@ export function WhatCanIHelp() {
                                 <span>Verify</span>
                               </button>
                               <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  // Load existing credentials from backend and localStorage when modal opens
+                                  try {
+                                    // First try to load from backend/current configuration
+                                    const response = await fetch('http://localhost:8000/api/ocp/connection-status');
+                                    const ocpData = await response.json();
+                                    
+                                    if (ocpData.api_url) {
+                                      setMceCredentials({
+                                        apiServer: ocpData.api_url || '',
+                                        password: '' // Don't pre-fill password for security
+                                      });
+                                    } else {
+                                      // Fallback to localStorage
+                                      const savedCredentials = localStorage.getItem('mceCredentials');
+                                      if (savedCredentials) {
+                                        const parsed = JSON.parse(savedCredentials);
+                                        setMceCredentials({
+                                          apiServer: parsed.apiServer || '',
+                                          password: '' // Don't pre-fill password for security
+                                        });
+                                      }
+                                    }
+                                  } catch (error) {
+                                    console.error('Failed to load existing credentials:', error);
+                                    // Try localStorage as fallback
+                                    try {
+                                      const savedCredentials = localStorage.getItem('mceCredentials');
+                                      if (savedCredentials) {
+                                        const parsed = JSON.parse(savedCredentials);
+                                        setMceCredentials({
+                                          apiServer: parsed.apiServer || '',
+                                          password: ''
+                                        });
+                                      }
+                                    } catch (localError) {
+                                      console.error('Failed to load from localStorage:', localError);
+                                    }
+                                  }
+                                  setShowMceCredentialsModal(true);
+                                }}
+                                className="bg-orange-600 hover:bg-orange-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                                title="Update MCE connection credentials"
+                              >
+                                <KeyIcon className="h-3 w-3" />
+                                <span>Credentials</span>
+                              </button>
+                              <button
                                 onClick={async () => {
                                   console.log('MCE Refresh button clicked');
                                   const timestamp = Date.now();
@@ -9871,6 +9926,166 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
             </div>
           </div>
         </>
+      )}
+
+      {/* MCE Credentials Modal */}
+      {showMceCredentialsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowMceCredentialsModal(false)}
+          />
+          <div className="relative bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex-shrink-0 bg-gradient-to-r from-orange-600 to-red-600 px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <KeyIcon className="h-6 w-6 text-white" />
+                  <h3 className="text-lg font-semibold text-white">MCE Credentials</h3>
+                </div>
+                <button
+                  onClick={() => setShowMceCredentialsModal(false)}
+                  className="text-white/80 hover:text-white transition-colors"
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 p-6 overflow-y-auto min-h-0">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    API Server URL
+                  </label>
+                  <input
+                    type="text"
+                    value={mceCredentials.apiServer}
+                    onChange={(e) => setMceCredentials(prev => ({ ...prev, apiServer: e.target.value }))}
+                    placeholder="https://api.your-cluster.example.com:6443"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    value={mceCredentials.password}
+                    onChange={(e) => setMceCredentials(prev => ({ ...prev, password: e.target.value }))}
+                    placeholder="Enter your cluster password"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-colors"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex-shrink-0 px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={() => setShowMceCredentialsModal(false)}
+                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    console.log('Updating MCE credentials:', mceCredentials);
+                    
+                    // Basic validation
+                    if (!mceCredentials.apiServer || !mceCredentials.password) {
+                      alert('Please fill in both API Server URL and Password');
+                      return;
+                    }
+
+                    // Add to recent operations
+                    const newOperation = {
+                      title: 'MCE Credentials Update',
+                      status: '⏳ Updating...',
+                      timestamp: Date.now(),
+                      playbook: 'API Update: MCE Connection Credentials',
+                    };
+                    setRecentOperations((prev) =>
+                      [newOperation, ...prev].slice(0, 10)
+                    );
+
+                    // Call the backend API to update credentials in user_vars.yml
+                    const updateResponse = await fetch('http://localhost:8000/api/ocp/credentials', {
+                      method: 'PUT',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        api_server: mceCredentials.apiServer,
+                        password: mceCredentials.password,
+                      }),
+                    });
+
+                    const updateResult = await updateResponse.json();
+                    
+                    if (!updateResult.success) {
+                      alert(`Failed to update credentials: ${updateResult.message}`);
+                      return;
+                    }
+
+                    // Also store in localStorage for immediate UI updates
+                    const credentialsData = {
+                      apiServer: mceCredentials.apiServer,
+                      password: mceCredentials.password,
+                      updatedAt: new Date().toISOString()
+                    };
+                    
+                    localStorage.setItem('mceCredentials', JSON.stringify(credentialsData));
+                    
+                    // Update recent operation status
+                    setTimeout(() => {
+                      setRecentOperations((prev) => {
+                        const updated = [...prev];
+                        if (updated[0]?.title === 'MCE Credentials Update') {
+                          updated[0] = {
+                            ...updated[0],
+                            status: `✅ Credentials updated successfully at ${new Date().toLocaleTimeString()}`,
+                          };
+                        }
+                        return updated;
+                      });
+                    }, 500);
+
+                    // Show success notification
+                    addNotification('✅ MCE credentials updated successfully', 'success', 3000);
+                    
+                    // Close modal and reset form
+                    setShowMceCredentialsModal(false);
+                    setMceCredentials({ apiServer: '', password: '' });
+                    
+                  } catch (error) {
+                    console.error('Failed to update credentials:', error);
+                    
+                    // Update recent operation status with error
+                    setRecentOperations((prev) => {
+                      const updated = [...prev];
+                      if (updated[0]?.title === 'MCE Credentials Update') {
+                        updated[0] = {
+                          ...updated[0],
+                          status: `❌ Update failed at ${new Date().toLocaleTimeString()}: ${error.message}`,
+                        };
+                      }
+                      return updated;
+                    });
+                    
+                    alert(`Failed to update credentials: ${error.message}`);
+                  }
+                }}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+              >
+                Update
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

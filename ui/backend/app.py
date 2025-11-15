@@ -2310,6 +2310,75 @@ async def get_ocp_connection_status():
         }
 
 
+@app.put("/api/ocp/credentials")
+async def update_ocp_credentials(request: dict):
+    """Update OCP credentials in user_vars.yml"""
+    try:
+        # Get the credentials from request
+        api_server = request.get('api_server', '').strip()
+        password = request.get('password', '').strip()
+        
+        if not api_server or not password:
+            return {
+                "success": False,
+                "message": "Both API server and password are required",
+                "updated": False
+            }
+        
+        # Path to user_vars.yml
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        config_path = os.path.join(project_root, "vars", "user_vars.yml")
+        
+        if not os.path.exists(config_path):
+            return {
+                "success": False,
+                "message": "Configuration file not found",
+                "updated": False,
+                "suggestion": "Create vars/user_vars.yml file first"
+            }
+        
+        # Read current configuration
+        with open(config_path, "r") as file:
+            config = yaml.safe_load(file) or {}
+        
+        # Update the OCP credentials
+        config['OCP_HUB_API_URL'] = api_server
+        config['OCP_HUB_CLUSTER_PASSWORD'] = password
+        
+        # Keep existing username if not provided
+        if 'OCP_HUB_CLUSTER_USER' not in config:
+            config['OCP_HUB_CLUSTER_USER'] = 'kubeadmin'
+        
+        # Write the updated configuration back
+        with open(config_path, "w") as file:
+            yaml.dump(config, file, default_flow_style=False, sort_keys=False)
+        
+        # Clear the OCP status cache so next check will use new credentials
+        global ocp_status_cache
+        ocp_status_cache = {"data": None, "timestamp": 0, "ttl": 60}
+        
+        return {
+            "success": True,
+            "message": "OCP credentials updated successfully",
+            "updated": True,
+            "api_url": api_server,
+            "updated_at": datetime.now().isoformat()
+        }
+        
+    except yaml.YAMLError as e:
+        return {
+            "success": False,
+            "message": f"Invalid YAML format: {str(e)}",
+            "updated": False
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error updating credentials: {str(e)}",
+            "updated": False
+        }
+
+
 @app.get("/api/aws/credentials-status")
 async def get_aws_credentials_status():
     """Check AWS credentials validity and provide detailed guidance"""
