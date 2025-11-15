@@ -207,6 +207,81 @@ def run_ansible_playbook(playbook: str, config: dict, job_id: str):
         jobs[job_id]["message"] = f"Error: {str(e)}"
 
 
+def delete_cluster_resources(cluster_id: str, job_id: str):
+    """Delete cluster resources using kubectl"""
+    try:
+        jobs[job_id]["status"] = "running"
+        jobs[job_id]["progress"] = 25
+        jobs[job_id]["message"] = "Starting cluster deletion"
+        
+        # Delete the main cluster resource - this will trigger cascading deletion
+        result = subprocess.run([
+            "kubectl", "delete", "cluster", cluster_id, "-n", "ns-rosa-hcp", "--wait=false"
+        ], capture_output=True, text=True, timeout=60)
+        
+        if result.returncode == 0:
+            jobs[job_id]["progress"] = 50
+            jobs[job_id]["message"] = "Cluster deletion initiated"
+            jobs[job_id]["logs"].append(f"✓ Started deletion of cluster {cluster_id}")
+        else:
+            # Try deleting individual resources if cluster delete fails
+            resources_to_delete = [
+                ("rosacontrolplane", cluster_id),
+                ("rosanetwork", f"{cluster_id}-network"), 
+                ("rosaroleconfig", f"{cluster_id}-roles"),
+                ("awscluster", cluster_id)
+            ]
+            
+            jobs[job_id]["progress"] = 25
+            jobs[job_id]["message"] = "Deleting individual cluster resources"
+            
+            for resource_type, resource_name in resources_to_delete:
+                try:
+                    result = subprocess.run([
+                        "kubectl", "delete", resource_type, resource_name, "-n", "ns-rosa-hcp", "--ignore-not-found=true"
+                    ], capture_output=True, text=True, timeout=30)
+                    
+                    if result.returncode == 0:
+                        jobs[job_id]["logs"].append(f"✓ Deleted {resource_type}/{resource_name}")
+                    else:
+                        jobs[job_id]["logs"].append(f"ℹ {resource_type}/{resource_name} not found or already deleted")
+                        
+                except subprocess.TimeoutExpired:
+                    jobs[job_id]["logs"].append(f"⚠ Timeout deleting {resource_type}/{resource_name}")
+                except Exception as e:
+                    jobs[job_id]["logs"].append(f"⚠ Error deleting {resource_type}/{resource_name}: {str(e)}")
+            
+            jobs[job_id]["progress"] = 75
+            jobs[job_id]["message"] = "Resource deletion completed"
+        
+        # Check if cluster still exists
+        check_result = subprocess.run([
+            "kubectl", "get", "rosacontrolplane", cluster_id, "-n", "ns-rosa-hcp"
+        ], capture_output=True, text=True, timeout=30)
+        
+        if check_result.returncode != 0:
+            jobs[job_id]["status"] = "completed"
+            jobs[job_id]["progress"] = 100
+            jobs[job_id]["message"] = "Cluster deletion completed successfully"
+            jobs[job_id]["logs"].append(f"✓ Cluster {cluster_id} has been deleted")
+        else:
+            jobs[job_id]["status"] = "completed"  
+            jobs[job_id]["progress"] = 90
+            jobs[job_id]["message"] = "Cluster deletion initiated - resources are being removed"
+            jobs[job_id]["logs"].append(f"ℹ Cluster {cluster_id} deletion in progress (may take a few minutes)")
+            
+        jobs[job_id]["completed_at"] = datetime.now()
+        
+    except subprocess.TimeoutExpired:
+        jobs[job_id]["status"] = "failed"
+        jobs[job_id]["message"] = "Cluster deletion timed out"
+        jobs[job_id]["completed_at"] = datetime.now()
+    except Exception as e:
+        jobs[job_id]["status"] = "failed"
+        jobs[job_id]["message"] = f"Error deleting cluster: {str(e)}"
+        jobs[job_id]["completed_at"] = datetime.now()
+
+
 # API Routes
 @app.get("/")
 async def root():
@@ -448,29 +523,56 @@ async def get_cluster(cluster_id: str):
 @app.delete("/api/clusters/{cluster_id}")
 async def delete_cluster(cluster_id: str, background_tasks: BackgroundTasks):
     """Delete a ROSA cluster"""
-    if cluster_id not in clusters:
-        raise HTTPException(status_code=404, detail="Cluster not found")
+    try:
+        # Check if cluster exists in Kubernetes
+        result = subprocess.run(
+            ["kubectl", "get", "rosacontrolplane", cluster_id, "-n", "ns-rosa-hcp", "-o", "json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
 
-    cluster = clusters[cluster_id]
-    job_id = str(uuid.uuid4())
+        if result.returncode != 0:
+            raise HTTPException(status_code=404, detail="Cluster not found")
 
-    # Create deletion job
-    jobs[job_id] = {
-        "id": job_id,
-        "cluster_id": cluster_id,
-        "status": "pending",
-        "progress": 0,
-        "message": "Cluster deletion queued",
-        "started_at": datetime.now(),
-        "logs": [],
-    }
+        import json
+        cluster_data = json.loads(result.stdout)
+        
+        # Extract cluster information
+        spec = cluster_data.get("spec", {})
+        cluster_config = {
+            "cluster_name": cluster_id,
+            "region": spec.get("region", "us-west-2"),
+            "version": spec.get("version", ""),
+            "networking": spec.get("networking", {}),
+        }
 
-    # Start deletion task
-    background_tasks.add_task(
-        run_ansible_playbook, "delete_rosa_hcp_cluster.yaml", cluster["config"], job_id
-    )
+        job_id = str(uuid.uuid4())
 
-    return {"job_id": job_id, "message": "Cluster deletion started"}
+        # Create deletion job
+        jobs[job_id] = {
+            "id": job_id,
+            "cluster_id": cluster_id,
+            "status": "pending",
+            "progress": 0,
+            "message": "Cluster deletion queued",
+            "started_at": datetime.now(),
+            "logs": [],
+        }
+
+        # Start deletion task
+        background_tasks.add_task(
+            delete_cluster_resources, cluster_id, job_id
+        )
+
+        return {"job_id": job_id, "message": "Cluster deletion started"}
+        
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=500, detail="Timeout checking cluster status")
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Error parsing cluster data")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting cluster: {str(e)}")
 
 
 @app.get("/api/jobs/{job_id}")
@@ -5159,33 +5261,37 @@ async def list_clusters():
                 if condition.get("type") == "Ready" and condition.get("status") == "False":
                     error_message = condition.get("message", "Unknown error")
 
-            # Calculate progress percentage
+            # Calculate progress percentage with enhanced detection
+            def get_condition_progress(conditions, condition_type, weight=25):
+                """Calculate progress for a specific condition type"""
+                for condition in conditions:
+                    if condition.get("type") == condition_type:
+                        if condition.get("status") == "True":
+                            return weight  # Completed
+                        elif condition.get("status") == "False":
+                            reason = condition.get("reason", "").lower()
+                            message = condition.get("message", "").lower()
+                            # Check for in-progress indicators
+                            if any(keyword in reason or keyword in message 
+                                   for keyword in ["installing", "creating", "provisioning", "inprogress", "pending"]):
+                                return weight // 2  # Half progress for in-progress
+                return 0  # Not found or not started
+
             progress = 0
             if ready:
                 progress = 100
             else:
-                # Check sub-resources
-                network_ready = any(
-                    c.get("type") == "ROSANetworkReady" and c.get("status") == "True"
-                    for c in conditions
-                )
-                role_ready = any(
-                    c.get("type") == "ROSARoleConfigReady" and c.get("status") == "True"
-                    for c in conditions
-                )
-                cp_valid = any(
-                    c.get("type") == "ROSAControlPlaneValid" and c.get("status") == "True"
-                    for c in conditions
-                )
-
-                if cp_valid:
-                    progress += 25
-                if role_ready:
-                    progress += 25
-                if network_ready:
-                    progress += 25
-                if ready:
-                    progress += 25
+                # Check sub-resources with enhanced progress detection
+                role_progress = get_condition_progress(conditions, "ROSARoleConfigReady", 25)
+                cp_valid_progress = get_condition_progress(conditions, "ROSAControlPlaneValid", 25)
+                cp_ready_progress = get_condition_progress(conditions, "ROSAControlPlaneReady", 25)
+                network_progress = get_condition_progress(conditions, "ROSANetworkReady", 25)
+                
+                progress = role_progress + cp_valid_progress + min(cp_ready_progress, 25) + network_progress
+                
+                # Cap at 95% until cluster is fully ready
+                if progress > 0 and not ready:
+                    progress = min(progress, 95)
 
             region = spec.get("region", "N/A")
             cluster_info = {

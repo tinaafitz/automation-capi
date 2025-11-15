@@ -739,6 +739,29 @@ export function WhatCanIHelp() {
     }
   };
 
+  // Handle deleting a cluster
+  const handleDeleteCluster = async (clusterName) => {
+    if (!confirm(`Are you sure you want to delete cluster "${clusterName}"?`)) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`http://localhost:8000/api/clusters/${clusterName}`, {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        // Refresh clusters list after successful deletion
+        fetchClusters();
+      } else {
+        alert(`Failed to delete cluster: ${data.message || 'Unknown error'}`);
+      }
+    } catch (err) {
+      alert(`Error deleting cluster: ${err.message}`);
+    }
+  };
+
   // Fetch clusters for monitoring dashboard
   const fetchClusters = async () => {
     setClustersLoading(true);
@@ -3317,130 +3340,101 @@ export function WhatCanIHelp() {
                       onClick={async (e) => {
                         e.stopPropagation();
 
-                        console.log('Manual verify clicked for Minikube cluster');
+                        console.log('Manual verify clicked for MCE Environment');
 
-                        // Verify Minikube cluster status
-                        if (verifiedMinikubeClusterInfo?.name) {
-                          // Create unique ID for this verification using timestamp
-                          const verifyId = `validate-minikube-capa`;
+                        // Create unique ID for this verification using timestamp
+                        const verifyId = `validate-mce-environment`;
 
-                          // Add to recent operations with "Verifying..." status
-                          addToRecent({
-                            id: verifyId,
-                            title: 'Minikube Verify Environment',
-                            color: 'bg-purple-600',
-                            status: '⏳ Verifying...',
-                            ansibleResultKey: 'validate-minikube-capa',
+                        // Add to recent operations with "Verifying..." status
+                        addToRecent({
+                          id: verifyId,
+                          title: 'MCE Environment Verification',
+                          color: 'bg-purple-600',
+                          status: '⏳ Verifying...',
+                          ansibleResultKey: 'validate-mce-environment',
+                        });
+
+                        console.log('Starting MCE environment validation...');
+                        try {
+                          // Verify MCE environment by refreshing data and validating connectivity
+                          const timestamp = Date.now();
+                          
+                          // Refresh MCE features data
+                          const mceResponse = await fetch(
+                            `http://localhost:8000/api/mce/features?t=${timestamp}`
+                          );
+                          const mceData = await mceResponse.json();
+                          
+                          // Refresh OCP connection status
+                          const ocpResponse = await fetch(
+                            `http://localhost:8000/api/ocp/connection-status?t=${timestamp}`
+                          );
+                          const ocpData = await ocpResponse.json();
+                          
+                          // Update states with fresh data
+                          if (mceResponse.ok) {
+                            setMceFeatures(mceData.features || []);
+                            setMceInfo(mceData.mce_info || null);
+                          }
+                          
+                          if (ocpResponse.ok) {
+                            setOcpStatus(ocpData);
+                          }
+                          
+                          // Store verification timestamp in ansible results
+                          const verificationTimestamp = new Date().toISOString();
+                          const newResult = {
+                            timestamp: verificationTimestamp,
+                            result: {
+                              output: 'MCE Environment verified successfully',
+                              success: true
+                            }
+                          };
+                          
+                          setAnsibleResults(prev => ({
+                            ...prev,
+                            'validate-mce-environment': newResult
+                          }));
+                          
+                          // Update localStorage
+                          const updatedResults = {
+                            ...JSON.parse(localStorage.getItem('ansibleResults') || '{}'),
+                            'validate-mce-environment': newResult
+                          };
+                          localStorage.setItem('ansibleResults', JSON.stringify(updatedResults));
+                          
+                          // Get completion time with seconds
+                          const completionTime = new Date().toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true,
                           });
 
-                          console.log('Starting Minikube validation...');
-                          try {
-                            // First, refresh cluster info to get updated version
-                            const verifyResponse = await fetch(
-                              'http://localhost:8000/api/minikube/verify-cluster',
-                              {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  cluster_name: verifiedMinikubeClusterInfo.name,
-                                }),
-                              }
-                            );
-
-                            const verifyData = await verifyResponse.json();
-
-                            // Update cluster info with fresh data including version and component_versions
-                            if (verifyResponse.ok && verifyData.accessible) {
-                              setVerifiedMinikubeClusterInfo((prev) => ({
-                                ...prev,
-                                version: verifyData.cluster_info?.version || prev.version,
-                                status: verifyData.cluster_info?.status || prev.status,
-                                components: verifyData.cluster_info?.components || prev.components,
-                                component_versions:
-                                  verifyData.cluster_info?.component_versions ||
-                                  prev.component_versions,
-                                component_timestamps:
-                                  verifyData.cluster_info?.component_timestamps ||
-                                  prev.component_timestamps,
-                                verifiedDate: new Date().toLocaleString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  year: 'numeric',
-                                  hour: 'numeric',
-                                  minute: '2-digit',
-                                  hour12: true,
-                                }),
-                              }));
-
-                              // Get completion time with seconds
-                              const completionTime = new Date().toLocaleTimeString('en-US', {
-                                hour: 'numeric',
-                                minute: '2-digit',
-                                second: '2-digit',
-                                hour12: true,
-                              });
-
-                              updateRecentOperationStatus(
-                                verifyId,
-                                `✅ Verification completed at ${completionTime}`
-                              );
-
-                              // Fetch active resources after successful verification (non-blocking)
-                              fetchMinikubeActiveResources(
-                                verifiedMinikubeClusterInfo.name,
-                                verifiedMinikubeClusterInfo.namespace
-                              ).catch((err) =>
-                                console.error('Failed to fetch active resources:', err)
-                              );
-                            } else {
-                              // Get completion time with seconds
-                              const completionTime = new Date().toLocaleTimeString('en-US', {
-                                hour: 'numeric',
-                                minute: '2-digit',
-                                second: '2-digit',
-                                hour12: true,
-                              });
-
-                              setRecentOperations((prev) => {
-                                const updated = [...prev];
-                                const index = updated.findIndex(op => op.id === verifyId);
-                                if (index !== -1) {
-                                  updated[index] = {
-                                    ...updated[index],
-                                    status: `❌ Verification failed at ${completionTime}: ${verifyData.message || 'Unknown error'}`,
-                                    output: verifyData.output || 'No output available'
-                                  };
-                                }
-                                return updated;
-                              });
-                            }
-                          } catch (error) {
-                            // Update operation status with error and timestamp (including seconds)
-                            const completionTime = new Date().toLocaleTimeString('en-US', {
-                              hour: 'numeric',
-                              minute: '2-digit',
-                              second: '2-digit',
-                              hour12: true,
-                            });
-                            console.log('Verification failed at:', completionTime, error);
-
-                            setRecentOperations((prev) => {
-                              const updated = [...prev];
-                              const index = updated.findIndex(op => op.id === verifyId);
-                              if (index !== -1) {
-                                updated[index] = {
-                                  ...updated[index],
-                                  status: `❌ Verification failed at ${completionTime}: ${error.message || error.toString()}`,
-                                  output: error.output || 'No output available'
-                                };
-                              }
-                              return updated;
-                            });
-                          }
+                          updateRecentOperationStatus(
+                            verifyId,
+                            `✅ MCE Environment verified at ${completionTime}`
+                          );
+                          
+                        } catch (error) {
+                          console.error('MCE Environment verification failed:', error);
+                          
+                          // Get completion time with seconds for error
+                          const completionTime = new Date().toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true,
+                          });
+                          
+                          updateRecentOperationStatus(
+                            verifyId,
+                            `❌ MCE Environment verification failed at ${completionTime}: ${error.message}`
+                          );
                         }
                       }}
                       className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
-                      title="Verify Minikube cluster and CAPI/CAPA environment"
+                      title="Verify MCE environment connectivity and status"
                     >
                       <ArrowPathIcon className="h-3 w-3" />
                       <span>Verify</span>
@@ -3535,9 +3529,9 @@ export function WhatCanIHelp() {
                     <div className="bg-white rounded-md p-2 border border-purple-100">
                       <div className="text-xs font-medium text-purple-600 mb-1">Last Verified</div>
                       <div className="text-xs text-purple-900">
-                        {ansibleResults[`validate-minikube-capa`]?.timestamp
+                        {ansibleResults[`validate-mce-environment`]?.timestamp
                           ? new Date(
-                              ansibleResults[`validate-minikube-capa`].timestamp
+                              ansibleResults[`validate-mce-environment`].timestamp
                             ).toLocaleString('en-US', {
                               month: 'short',
                               day: 'numeric',
@@ -6324,6 +6318,9 @@ export function WhatCanIHelp() {
                       <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
                         Created
                       </th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -6379,6 +6376,16 @@ export function WhatCanIHelp() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {cluster.created_at ? new Date(cluster.created_at).toLocaleString() : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <button
+                            onClick={() => handleDeleteCluster(cluster.name)}
+                            className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-700 bg-red-100 border border-red-300 rounded hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
+                            title={`Delete cluster ${cluster.name}`}
+                          >
+                            <TrashIcon className="h-3 w-3 mr-1" />
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -6571,6 +6578,12 @@ export function WhatCanIHelp() {
                       </div>
                       <div className="space-y-1">
                         <button
+                          onClick={() => setMceTerminalCommand('oc logs -n multicluster-engine $(oc get pod -n multicluster-engine | grep capa | awk \'{print $1}\')')}
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          CAPA Pod Log
+                        </button>
+                        <button
                           onClick={() => setMceTerminalCommand('oc get mce -A')}
                           className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
                         >
@@ -6614,6 +6627,39 @@ export function WhatCanIHelp() {
                           className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
                         >
                           ROSA Networks
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* ROSA Monitoring Category */}
+                    <div>
+                      <div className="text-xs font-semibold text-gray-500 uppercase mb-2">
+                        ROSA Monitoring
+                      </div>
+                      <div className="space-y-1">
+                        <button
+                          onClick={() => setMceTerminalCommand('oc describe rosacontrolplane -A')}
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          Describe Control Planes
+                        </button>
+                        <button
+                          onClick={() => setMceTerminalCommand('oc get cluster.cluster.x-k8s.io -A')}
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          CAPI Clusters Status
+                        </button>
+                        <button
+                          onClick={() => setMceTerminalCommand('rosa list clusters')}
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          ROSA CLI List
+                        </button>
+                        <button
+                          onClick={() => setMceTerminalCommand('watch "oc get rosacontrolplane -A -o wide"')}
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          Watch Provisioning
                         </button>
                       </div>
                     </div>

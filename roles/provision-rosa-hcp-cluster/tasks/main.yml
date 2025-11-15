@@ -11,22 +11,20 @@
       debug:
         msg: "Namespace ns-rosa-hcp: {{ ns_result.stdout }}"
 
+    - name: Check if rosa-creds-secret exists in multicluster-engine namespace
+      shell: oc get secret rosa-creds-secret -n multicluster-engine
+      register: mce_secret_check
+      failed_when: false
+      changed_when: false
+
     - name: Copy rosa-creds-secret from multicluster-engine to ns-rosa-hcp namespace
       shell: |
-        if oc get secret rosa-creds-secret -n multicluster-engine &>/dev/null; then
-          oc get secret rosa-creds-secret -n multicluster-engine -o yaml | \
-          sed 's/namespace: multicluster-engine/namespace: ns-rosa-hcp/' | \
-          oc apply -f -
-          echo "rosa-creds-secret copied to ns-rosa-hcp"
-        else
-          echo "rosa-creds-secret not found in multicluster-engine namespace - skipping"
-        fi
+        oc get secret rosa-creds-secret -n multicluster-engine -o yaml | \
+        sed 's/namespace: multicluster-engine/namespace: ns-rosa-hcp/' | \
+        oc apply -f -
       register: copy_secret_result
-      changed_when: "'rosa-creds-secret copied' in copy_secret_result.stdout"
-
-    - name: Display secret copy result
-      debug:
-        msg: "{{ copy_secret_result.stdout }}"
+      changed_when: "'created' in copy_secret_result.stdout or 'configured' in copy_secret_result.stdout"
+      when: mce_secret_check.rc == 0
 
     - name: Apply AWS Identity configuration
       shell: |
@@ -48,10 +46,12 @@
       register: secret_result
       changed_when: "'created' in secret_result.stdout or 'configured' in secret_result.stdout"
       no_log: true
+      when: mce_secret_check.rc != 0
 
     - name: Display secret creation result (without sensitive data)
       debug:
-        msg: "OCM secret created in ns-rosa-hcp namespace"
+        msg: |
+          Rosa credentials secret: {{ 'Copied from multicluster-engine' if mce_secret_check.rc == 0 else 'Created from OCM variables' }}
 
     - name: Check if ROSA HCP cluster definition file exists
       stat:
