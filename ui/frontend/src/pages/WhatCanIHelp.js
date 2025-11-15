@@ -3242,8 +3242,8 @@ export function WhatCanIHelp() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-900">
                 {selectedEnvironment === 'mce'
-                  ? 'MCE Test Environment'
-                  : 'Minikube Test Environment'}
+                  ? 'MCE Test Environment (Downstream)'
+                  : 'Minikube Test Environment (Upstream)'}
               </h2>
 
               {/* Dropdown Selector */}
@@ -6251,7 +6251,7 @@ export function WhatCanIHelp() {
           >
             <div className="flex items-center gap-3">
               <ChartBarIcon className="h-5 w-5 text-white" />
-              <h3 className="text-lg font-semibold text-white">ROSA HCP Clusters</h3>
+              <h3 className="text-lg font-semibold text-white">CAPI-Managed ROSA HCP Clusters</h3>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -8418,10 +8418,10 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   clearInterval(pollInterval);
                   console.log('✅ [APPLY-YAML] Job completed with status:', jobData.status);
 
-                  // Expand ROSA HCP Clusters section on successful completion to monitor progress
+                  // Expand CAPI-Managed ROSA HCP Clusters section on successful completion to monitor progress
                   if (jobData.status === 'completed') {
                     console.log(
-                      '🔀 [EXPAND] Expanding ROSA HCP Clusters section to monitor cluster progress'
+                      '🔀 [EXPAND] Expanding CAPI-Managed ROSA HCP Clusters section to monitor cluster progress'
                     );
                     setTimeout(() => {
                       setClusterStatusCollapsed(false); // Expand the section
