@@ -725,7 +725,9 @@ export function WhatCanIHelp() {
       const response = await fetch('http://localhost:8000/api/clusters');
       const data = await response.json();
 
+      console.log('🔍 ROSA Clusters API Response:', data);
       if (data.success) {
+        console.log('✅ Setting ROSA clusters:', data.clusters);
         setRosaClusters(data.clusters);
       } else {
         setRosaClusters([]);
@@ -768,8 +770,10 @@ export function WhatCanIHelp() {
     try {
       const response = await fetch('http://localhost:8000/api/clusters');
       const data = await response.json();
+      console.log('🔍 Clusters (main) API Response:', data);
 
       if (data.success) {
+        console.log('✅ Setting clusters (main):', data.clusters);
         setClusters(data.clusters);
         setClustersError(null);
       } else {
@@ -6329,7 +6333,7 @@ export function WhatCanIHelp() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {clusters.filter(cluster => cluster.status !== 'deleting').map((cluster) => (
+                    {clusters.map((cluster) => (
                       <tr key={cluster.name} className="hover:bg-cyan-50 transition-colors duration-150">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-semibold text-gray-900">{cluster.name}</div>
