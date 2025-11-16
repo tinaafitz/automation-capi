@@ -5015,7 +5015,9 @@ export function WhatCanIHelp() {
               {/* Configuration Content - Collapsible Tiles */}
               {!mceConfigurationCollapsed && (
                 <div className="p-6">
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                  {/* Flow Container with Animated Arrows */}
+                  <div className="relative">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-4">
                     {/* Tile 1: MCE Test Environment - Wrapper for camper pull-out */}
                     <div
                       className={`relative transition-all duration-500 ${showClusterPanel ? 'lg:col-span-2' : ''}`}
@@ -6323,6 +6325,9 @@ export function WhatCanIHelp() {
                         })()}
                       </div>
                     </div>
+
+
+                  </div>
                   </div>
                 </div>
               )}
