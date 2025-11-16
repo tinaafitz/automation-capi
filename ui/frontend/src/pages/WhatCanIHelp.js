@@ -759,8 +759,10 @@ export function WhatCanIHelp() {
       });
       const data = await response.json();
       
-      if (data.success) {
-        // Refresh clusters list after successful deletion
+      if (data.job_id) {
+        // Show success message that deletion has started
+        alert(`✅ Cluster deletion started successfully!\n\nJob ID: ${data.job_id}\n\nThe cluster will be deleted in the background. You can monitor progress in the cluster list.`);
+        // Refresh clusters list after successful deletion start
         fetchClusters();
       } else {
         alert(`Failed to delete cluster: ${data.message || 'Unknown error'}`);
@@ -1153,6 +1155,34 @@ export function WhatCanIHelp() {
         }
       } catch (error) {
         console.warn('Failed to fetch ROSARoleConfig resources:', error);
+      }
+
+      // Fetch ROSAControlPlane resources (all namespaces)
+      try {
+        const response = await fetch('http://localhost:8000/api/ocp/execute-command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            command: 'oc get rosacontrolplane --all-namespaces -o json',
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success && result.output) {
+          const data = JSON.parse(result.output);
+          if (data.items && data.items.length > 0) {
+            data.items.forEach((item) => {
+              resources.push({
+                type: 'ROSAControlPlane',
+                name: item.metadata.name,
+                namespace: item.metadata.namespace,
+              });
+            });
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch ROSAControlPlane resources:', error);
       }
 
       console.log(`✅ Fetched ${resources.length} MCE CAPI/CAPA resources`);
@@ -6094,7 +6124,7 @@ export function WhatCanIHelp() {
                               }
 
                               const includeComponents = window.confirm(
-                                'Export MCE Active Resources\n\n' +
+                                'Export MCE Provisioned Resources\n\n' +
                                   'Do you want to include Key Component information in the export?\n\n' +
                                   '✓ Yes - Include component versions and status\n' +
                                   '✗ No - Export only MCE active resources'
@@ -6251,7 +6281,7 @@ export function WhatCanIHelp() {
                           return (
                             <div className="bg-cyan-50 rounded-lg p-3 border border-cyan-100">
                               <div className="text-xs font-semibold text-cyan-800 mb-2">
-                                Active Resources ({mceActiveResources.length})
+                                Provisioned Resources ({mceActiveResources.length})
                               </div>
                               <div className="overflow-x-auto">
                                 <table className="w-full text-xs">
@@ -6262,9 +6292,6 @@ export function WhatCanIHelp() {
                                       </th>
                                       <th className="text-left py-2 px-2 font-semibold text-cyan-900">
                                         Type
-                                      </th>
-                                      <th className="text-left py-2 px-2 font-semibold text-cyan-900">
-                                        Namespace
                                       </th>
                                     </tr>
                                   </thead>
@@ -6286,9 +6313,6 @@ export function WhatCanIHelp() {
                                           {resource.name}
                                         </td>
                                         <td className="py-2 px-2 text-cyan-700">{resource.type}</td>
-                                        <td className="py-2 px-2 text-cyan-700">
-                                          {resource.namespace || '(cluster-scoped)'}
-                                        </td>
                                       </tr>
                                     ))}
                                   </tbody>

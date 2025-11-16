@@ -70,6 +70,7 @@
       - AWS credentials secret (capa-manager-bootstrap-credentials)
       - ROSA credentials secret (rosa-creds-secret)
       - AWSClusterControllerIdentity
+      - Prerequisite secrets for ROSA HCP target namespaces
 
 - name: Create output folder
   include_tasks: "{{ automation_path }}/tasks/create_output_folder.yml"
@@ -95,6 +96,9 @@
 
 - name: Set the AWSClusterControllerIdentity
   include_tasks: "{{ automation_path }}/tasks/set_aws_identity.yml"
+
+- name: Setup prerequisite secrets for ROSA HCP namespaces
+  include_tasks: "{{ automation_path }}/tasks/setup_prerequisite_secrets.yml"
 
 - name: Configuration objects created
   debug:
