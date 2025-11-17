@@ -8486,7 +8486,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       let statusText = `⏳ ${jobData.message || 'In progress...'}`;
 
                       if (jobData.status === 'completed') {
-                        statusText = `✅ Cluster "${config?.clusterName}" provisioned successfully at ${new Date().toLocaleTimeString()}`;
+                        statusText = `✅ Cluster "${config?.clusterName}" provisioning successfully initiated at ${new Date().toLocaleTimeString()}`;
                       } else if (jobData.status === 'failed') {
                         statusText = `❌ Failed: ${jobData.message} at ${new Date().toLocaleTimeString()}`;
                       }
