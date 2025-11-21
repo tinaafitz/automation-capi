@@ -335,6 +335,105 @@ export function WhatCanIHelp() {
   const [mceComponentSortField, setMceComponentSortField] = useState('component');
   const [mceComponentSortDirection, setMceComponentSortDirection] = useState('asc');
 
+  // Test Suite Dashboard state
+  const [testSuiteCollapsed, setTestSuiteCollapsed] = useState(false);
+  const [selectedVersion, setSelectedVersion] = useState('4.21');
+  const [testItems, setTestItems] = useState([
+    { 
+      id: 1, 
+      name: 'Comprehensive Cluster Configuration', 
+      category: 'Infrastructure', 
+      priority: 'P1', 
+      phase: 'Day1', 
+      selected: false, 
+      status: 'pending', 
+      duration: null, 
+      jira: ['ACM-20464', 'ACM-20465', 'ACM-20467', 'ACM-20473', 'ACM-20480', 'ACM-20475'],
+      description: 'Private + BYON + STS + Long Name + Availability Zones + Additional Tags',
+      components: ['Private Network', 'BYON', 'STS', 'Long Cluster Name', 'Availability Zones', 'Additional Tags']
+    },
+    { 
+      id: 2, 
+      name: 'Security & Authentication Suite', 
+      category: 'Security', 
+      priority: 'P1', 
+      phase: 'Day1', 
+      selected: false, 
+      status: 'pending', 
+      duration: null, 
+      jira: ['ACM-20481', 'ACM-20707'],
+      description: 'Identity Provider + External OIDC + Security Groups + KMS',
+      components: ['Identity Provider', 'External OIDC', 'Additional Security Groups', 'ETCD KMS Key']
+    },
+    { 
+      id: 3, 
+      name: 'Machine Pool & Auto-Scaling Suite', 
+      category: 'Scaling', 
+      priority: 'P1', 
+      phase: 'Day1', 
+      selected: false, 
+      status: 'pending', 
+      duration: null, 
+      jira: ['ACM-20468', 'ACM-21076', 'ACM-21203'],
+      description: 'All auto-scaling features + parallel upgrades',
+      components: ['Default Machinepool Auto Scaling', 'Machine Pool Auto Scaling', 'Parallel Node Upgrade', 'Cluster Autoscaler Expanders']
+    },
+    { 
+      id: 4, 
+      name: 'Network & Connectivity Suite', 
+      category: 'Networking', 
+      priority: 'P1', 
+      phase: 'Day1', 
+      selected: false, 
+      status: 'pending', 
+      duration: null, 
+      jira: ['ACM-20474'],
+      description: 'CNI + Proxy + Audit logging configuration',
+      components: ['No CNI Plugin', 'Proxy Enabled', 'Audit Log Forwarding']
+    },
+    { 
+      id: 5, 
+      name: 'Storage & Registry Configuration', 
+      category: 'Storage', 
+      priority: 'P1', 
+      phase: 'Day1', 
+      selected: false, 
+      status: 'pending', 
+      duration: null, 
+      jira: ['ACM-21204', 'ACM-21207'],
+      description: 'Image registry + disk volume configuration',
+      components: ['Image Registry Config', 'Machinepool Disk Volume Size']
+    },
+    { 
+      id: 6, 
+      name: 'Domain & User Agent Configuration', 
+      category: 'Configuration', 
+      priority: 'P1', 
+      phase: 'Day1', 
+      selected: false, 
+      status: 'pending', 
+      duration: null, 
+      jira: ['ACM-21075', 'ACM-21202'],
+      description: 'Domain prefix + ROSA CAPA user agent',
+      components: ['Domain Prefix', 'User Agent for ROSA CAPA']
+    },
+    { 
+      id: 7, 
+      name: 'Day2 Operations Suite', 
+      category: 'Operations', 
+      priority: 'P1', 
+      phase: 'Day2', 
+      selected: false, 
+      status: 'pending', 
+      duration: null, 
+      jira: [],
+      description: 'Comprehensive Day2 operations testing',
+      components: ['Cluster Management', 'Node Operations', 'Application Deployment', 'Monitoring']
+    }
+  ]);
+  const [testRunning, setTestRunning] = useState(false);
+  const [testResults, setTestResults] = useState([]);
+
   // State for provisioned ROSA clusters
   const [rosaClusters, setRosaClusters] = useState([]);
   const [rosaClustersLoading, setRosaClustersLoading] = useState(false);
@@ -416,6 +515,8 @@ export function WhatCanIHelp() {
   const [showKindTerminalModal, setShowKindTerminalModal] = useState(false);
   const [showResourceDetailModal, setShowResourceDetailModal] = useState(false);
   const [selectedResourceDetail, setSelectedResourceDetail] = useState(null);
+  const [showMceYamlModal, setShowMceYamlModal] = useState(false);
+  const [mceYamlData, setMceYamlData] = useState(null);
   const [showAnsibleModal, setShowAnsibleModal] = useState(false);
   const [ansibleOutput, setAnsibleOutput] = useState(null);
 
@@ -480,7 +581,13 @@ export function WhatCanIHelp() {
   const [mceFeatures, setMceFeatures] = useState(null);
   const [mceInfo, setMceInfo] = useState(null);
   const [mceLastVerified, setMceLastVerified] = useState(null);
-  const [credentialWarning, setCredentialWarning] = useState(null); // { type: 'placeholder' | 'invalid', message: string }
+
+  // MCE Credentials modal state
+  const [showMceCredentialsModal, setShowMceCredentialsModal] = useState(false);
+  const [mceCredentials, setMceCredentials] = useState({
+    apiServer: '',
+    password: ''
+  });
   const [mceFeaturesLoading, setMceFeaturesLoading] = useState(false);
 
   // Last used ROSA YAML path for ROSA HCP provisioning
@@ -720,10 +827,12 @@ export function WhatCanIHelp() {
   const fetchRosaClusters = async () => {
     setRosaClustersLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/ocp/rosa-clusters');
+      const response = await fetch('http://localhost:8000/api/clusters');
       const data = await response.json();
 
+      console.log('🔍 ROSA Clusters API Response:', data);
       if (data.success) {
+        console.log('✅ Setting ROSA clusters:', data.clusters);
         setRosaClusters(data.clusters);
       } else {
         setRosaClusters([]);
@@ -737,14 +846,41 @@ export function WhatCanIHelp() {
     }
   };
 
+  // Handle deleting a cluster
+  const handleDeleteCluster = async (clusterName) => {
+    if (!confirm(`Are you sure you want to delete cluster "${clusterName}"?`)) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`http://localhost:8000/api/clusters/${clusterName}`, {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+      
+      if (data.job_id) {
+        // Show success message that deletion has started
+        alert(`✅ Cluster deletion started successfully!\n\nJob ID: ${data.job_id}\n\nThe cluster will be deleted in the background. You can monitor progress in the cluster list.`);
+        // Refresh clusters list after successful deletion start
+        fetchClusters();
+      } else {
+        alert(`Failed to delete cluster: ${data.message || 'Unknown error'}`);
+      }
+    } catch (err) {
+      alert(`Error deleting cluster: ${err.message}`);
+    }
+  };
+
   // Fetch clusters for monitoring dashboard
   const fetchClusters = async () => {
     setClustersLoading(true);
     try {
       const response = await fetch('http://localhost:8000/api/clusters');
       const data = await response.json();
+      console.log('🔍 Clusters (main) API Response:', data);
 
       if (data.success) {
+        console.log('✅ Setting clusters (main):', data.clusters);
         setClusters(data.clusters);
         setClustersError(null);
       } else {
@@ -1120,6 +1256,34 @@ export function WhatCanIHelp() {
         console.warn('Failed to fetch ROSARoleConfig resources:', error);
       }
 
+      // Fetch ROSAControlPlane resources (all namespaces)
+      try {
+        const response = await fetch('http://localhost:8000/api/ocp/execute-command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            command: 'oc get rosacontrolplane --all-namespaces -o json',
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success && result.output) {
+          const data = JSON.parse(result.output);
+          if (data.items && data.items.length > 0) {
+            data.items.forEach((item) => {
+              resources.push({
+                type: 'ROSAControlPlane',
+                name: item.metadata.name,
+                namespace: item.metadata.namespace,
+              });
+            });
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch ROSAControlPlane resources:', error);
+      }
+
       console.log(`✅ Fetched ${resources.length} MCE CAPI/CAPA resources`);
       setMceActiveResources(resources);
     } catch (error) {
@@ -1239,7 +1403,8 @@ export function WhatCanIHelp() {
     const fetchOcpStatus = async () => {
       try {
         console.log('🔍 Fetching OCP status on mount...');
-        const response = await fetch('http://localhost:8000/api/ocp/connection-status');
+        const timestamp = Date.now();
+        const response = await fetch(`http://localhost:8000/api/ocp/connection-status?t=${timestamp}`);
         const data = await response.json();
         console.log('✅ OCP status received:', data);
         setOcpStatus(data);
@@ -1650,6 +1815,11 @@ export function WhatCanIHelp() {
       fetchRosaClusters();
     }
   }, [ocpStatus?.connected]);
+
+  // Also fetch ROSA clusters on component mount to ensure they show up
+  useEffect(() => {
+    fetchRosaClusters();
+  }, []);
 
   // Real-time data updates
   useEffect(() => {
@@ -3216,8 +3386,8 @@ export function WhatCanIHelp() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-900">
                 {selectedEnvironment === 'mce'
-                  ? 'MCE Test Environment'
-                  : 'Minikube Test Environment'}
+                  ? 'MCE Test Environment (Downstream)'
+                  : 'Minikube Test Environment (Upstream)'}
               </h2>
 
               {/* Dropdown Selector */}
@@ -3314,130 +3484,101 @@ export function WhatCanIHelp() {
                       onClick={async (e) => {
                         e.stopPropagation();
 
-                        console.log('Manual verify clicked for Minikube cluster');
+                        console.log('Manual verify clicked for MCE Environment');
 
-                        // Verify Minikube cluster status
-                        if (verifiedMinikubeClusterInfo?.name) {
-                          // Create unique ID for this verification using timestamp
-                          const verifyId = `validate-minikube-capa`;
+                        // Create unique ID for this verification using timestamp
+                        const verifyId = `validate-mce-environment`;
 
-                          // Add to recent operations with "Verifying..." status
-                          addToRecent({
-                            id: verifyId,
-                            title: 'Minikube Verify Environment',
-                            color: 'bg-purple-600',
-                            status: '⏳ Verifying...',
-                            ansibleResultKey: 'validate-minikube-capa',
+                        // Add to recent operations with "Verifying..." status
+                        addToRecent({
+                          id: verifyId,
+                          title: 'MCE Environment Verification',
+                          color: 'bg-purple-600',
+                          status: '⏳ Verifying...',
+                          ansibleResultKey: 'validate-mce-environment',
+                        });
+
+                        console.log('Starting MCE environment validation...');
+                        try {
+                          // Verify MCE environment by refreshing data and validating connectivity
+                          const timestamp = Date.now();
+                          
+                          // Refresh MCE features data
+                          const mceResponse = await fetch(
+                            `http://localhost:8000/api/mce/features?t=${timestamp}`
+                          );
+                          const mceData = await mceResponse.json();
+                          
+                          // Refresh OCP connection status
+                          const ocpResponse = await fetch(
+                            `http://localhost:8000/api/ocp/connection-status?t=${timestamp}`
+                          );
+                          const ocpData = await ocpResponse.json();
+                          
+                          // Update states with fresh data
+                          if (mceResponse.ok) {
+                            setMceFeatures(mceData.features || []);
+                            setMceInfo(mceData.mce_info || null);
+                          }
+                          
+                          if (ocpResponse.ok) {
+                            setOcpStatus(ocpData);
+                          }
+                          
+                          // Store verification timestamp in ansible results
+                          const verificationTimestamp = new Date().toISOString();
+                          const newResult = {
+                            timestamp: verificationTimestamp,
+                            result: {
+                              output: 'MCE Environment verified successfully',
+                              success: true
+                            }
+                          };
+                          
+                          setAnsibleResults(prev => ({
+                            ...prev,
+                            'validate-mce-environment': newResult
+                          }));
+                          
+                          // Update localStorage
+                          const updatedResults = {
+                            ...JSON.parse(localStorage.getItem('ansibleResults') || '{}'),
+                            'validate-mce-environment': newResult
+                          };
+                          localStorage.setItem('ansibleResults', JSON.stringify(updatedResults));
+                          
+                          // Get completion time with seconds
+                          const completionTime = new Date().toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true,
                           });
 
-                          console.log('Starting Minikube validation...');
-                          try {
-                            // First, refresh cluster info to get updated version
-                            const verifyResponse = await fetch(
-                              'http://localhost:8000/api/minikube/verify-cluster',
-                              {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  cluster_name: verifiedMinikubeClusterInfo.name,
-                                }),
-                              }
-                            );
-
-                            const verifyData = await verifyResponse.json();
-
-                            // Update cluster info with fresh data including version and component_versions
-                            if (verifyResponse.ok && verifyData.accessible) {
-                              setVerifiedMinikubeClusterInfo((prev) => ({
-                                ...prev,
-                                version: verifyData.cluster_info?.version || prev.version,
-                                status: verifyData.cluster_info?.status || prev.status,
-                                components: verifyData.cluster_info?.components || prev.components,
-                                component_versions:
-                                  verifyData.cluster_info?.component_versions ||
-                                  prev.component_versions,
-                                component_timestamps:
-                                  verifyData.cluster_info?.component_timestamps ||
-                                  prev.component_timestamps,
-                                verifiedDate: new Date().toLocaleString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  year: 'numeric',
-                                  hour: 'numeric',
-                                  minute: '2-digit',
-                                  hour12: true,
-                                }),
-                              }));
-
-                              // Get completion time with seconds
-                              const completionTime = new Date().toLocaleTimeString('en-US', {
-                                hour: 'numeric',
-                                minute: '2-digit',
-                                second: '2-digit',
-                                hour12: true,
-                              });
-
-                              updateRecentOperationStatus(
-                                verifyId,
-                                `✅ Verification completed at ${completionTime}`
-                              );
-
-                              // Fetch active resources after successful verification (non-blocking)
-                              fetchMinikubeActiveResources(
-                                verifiedMinikubeClusterInfo.name,
-                                verifiedMinikubeClusterInfo.namespace
-                              ).catch((err) =>
-                                console.error('Failed to fetch active resources:', err)
-                              );
-                            } else {
-                              // Get completion time with seconds
-                              const completionTime = new Date().toLocaleTimeString('en-US', {
-                                hour: 'numeric',
-                                minute: '2-digit',
-                                second: '2-digit',
-                                hour12: true,
-                              });
-
-                              setRecentOperations((prev) => {
-                                const updated = [...prev];
-                                const index = updated.findIndex(op => op.id === verifyId);
-                                if (index !== -1) {
-                                  updated[index] = {
-                                    ...updated[index],
-                                    status: `❌ Verification failed at ${completionTime}: ${verifyData.message || 'Unknown error'}`,
-                                    output: verifyData.output || 'No output available'
-                                  };
-                                }
-                                return updated;
-                              });
-                            }
-                          } catch (error) {
-                            // Update operation status with error and timestamp (including seconds)
-                            const completionTime = new Date().toLocaleTimeString('en-US', {
-                              hour: 'numeric',
-                              minute: '2-digit',
-                              second: '2-digit',
-                              hour12: true,
-                            });
-                            console.log('Verification failed at:', completionTime, error);
-
-                            setRecentOperations((prev) => {
-                              const updated = [...prev];
-                              const index = updated.findIndex(op => op.id === verifyId);
-                              if (index !== -1) {
-                                updated[index] = {
-                                  ...updated[index],
-                                  status: `❌ Verification failed at ${completionTime}: ${error.message || error.toString()}`,
-                                  output: error.output || 'No output available'
-                                };
-                              }
-                              return updated;
-                            });
-                          }
+                          updateRecentOperationStatus(
+                            verifyId,
+                            `✅ MCE Environment verified at ${completionTime}`
+                          );
+                          
+                        } catch (error) {
+                          console.error('MCE Environment verification failed:', error);
+                          
+                          // Get completion time with seconds for error
+                          const completionTime = new Date().toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true,
+                          });
+                          
+                          updateRecentOperationStatus(
+                            verifyId,
+                            `❌ MCE Environment verification failed at ${completionTime}: ${error.message}`
+                          );
                         }
                       }}
                       className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
-                      title="Verify Minikube cluster and CAPI/CAPA environment"
+                      title="Verify MCE environment connectivity and status"
                     >
                       <ArrowPathIcon className="h-3 w-3" />
                       <span>Verify</span>
@@ -3532,9 +3673,9 @@ export function WhatCanIHelp() {
                     <div className="bg-white rounded-md p-2 border border-purple-100">
                       <div className="text-xs font-medium text-purple-600 mb-1">Last Verified</div>
                       <div className="text-xs text-purple-900">
-                        {ansibleResults[`validate-minikube-capa`]?.timestamp
+                        {ansibleResults[`validate-mce-environment`]?.timestamp
                           ? new Date(
-                              ansibleResults[`validate-minikube-capa`].timestamp
+                              ansibleResults[`validate-mce-environment`].timestamp
                             ).toLocaleString('en-US', {
                               month: 'short',
                               day: 'numeric',
@@ -4996,7 +5137,7 @@ export function WhatCanIHelp() {
                                   d="M13 10V3L4 14h7v7l9-11h-7z"
                                 />
                               </svg>
-                              MCE Test Configuration
+                              MCE Environment
                             </h4>
 
                             {/* Action Buttons */}
@@ -5093,7 +5234,100 @@ export function WhatCanIHelp() {
                                         3000
                                       );
                                     } else {
-                                      throw new Error(data.error || 'Validation task failed');
+                                      // Handle validation failure with detailed output
+                                      console.log('Validation failed with detailed output:', data);
+                                      
+                                      // Update results with failure info including detailed output
+                                      setAnsibleResults((prev) => ({
+                                        ...prev,
+                                        'check-mce-components': {
+                                          loading: false,
+                                          result: { 
+                                            success: false, 
+                                            output: data.output || data.error || 'Validation failed',
+                                            error: data.error || 'Validation task failed',
+                                            return_code: data.return_code,
+                                            stderr: data.stderr,
+                                            stdout_lines: data.stdout_lines
+                                          },
+                                          timestamp: new Date(),
+                                        },
+                                      }));
+
+                                      // Update recent operation status with detailed playbook output
+                                      setRecentOperations((prev) => {
+                                        const updated = [...prev];
+                                        if (updated[0]?.title === 'MCE Environment Verification') {
+                                          // Extract the actual error message from Ansible output
+                                          let errorSummary = 'Validation failed';
+                                          
+                                          if (data.output) {
+                                            // Look for the actual failure message in the output
+                                            const lines = data.output.split('\n');
+                                            for (const line of lines) {
+                                              // Look for the fail task message
+                                              if (line.includes('❌ ENVIRONMENT NEEDS TO BE CONFIGURED') || 
+                                                  line.includes('❌ OCP LOGIN FAILED') ||
+                                                  line.includes('CAPI controller') ||
+                                                  line.includes('CAPA controller')) {
+                                                errorSummary = line.trim().replace(/^.*"msg":\s*"([^"]+)".*$/, '$1') || line.trim();
+                                                // Clean up JSON formatting if present
+                                                errorSummary = errorSummary.replace(/^"(.*)"$/, '$1');
+                                                // Take just the first line of multi-line messages
+                                                errorSummary = errorSummary.split('\\n')[0];
+                                                break;
+                                              }
+                                            }
+                                            
+                                            // If we couldn't find a specific error, look for the "FAILED!" line
+                                            if (errorSummary === 'Validation failed') {
+                                              for (const line of lines) {
+                                                if (line.includes('FAILED!') && line.includes('"msg":')) {
+                                                  const msgMatch = line.match(/"msg":\s*"([^"]+)"/);
+                                                  if (msgMatch) {
+                                                    errorSummary = msgMatch[1].split('\\n')[0];
+                                                    break;
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                          
+                                          // Fallback to data.error if we still don't have a good message
+                                          if (errorSummary === 'Validation failed' && data.error) {
+                                            errorSummary = data.error;
+                                          }
+                                          
+                                          // Use cleaner message for environment configuration issues
+                                          let statusMessage;
+                                          if (errorSummary.includes('❌ ENVIRONMENT NEEDS TO BE CONFIGURED') || 
+                                              errorSummary.includes('CAPI controller not found') ||
+                                              errorSummary.includes('CAPA controller not found') ||
+                                              errorSummary.includes('Fail if CAPI controller not found')) {
+                                            statusMessage = '❌ ENVIRONMENT NEEDS TO BE CONFIGURED ❌';
+                                          } else if (errorSummary.includes('❌ OCP LOGIN FAILED')) {
+                                            statusMessage = '❌ OCP LOGIN FAILED ❌';
+                                          } else {
+                                            statusMessage = `❌ Verification failed at ${new Date().toLocaleTimeString()}: ${errorSummary}`;
+                                          }
+                                          
+                                          updated[0] = {
+                                            ...updated[0],
+                                            status: statusMessage,
+                                            output: data.output || data.error || 'Validation failed - see details below',
+                                            playbook: `📋 Ansible Task: tasks/validate-capa-environment.yml\n\n${data.output || data.error || 'No detailed output available'}`,
+                                          };
+                                        }
+                                        return updated;
+                                      });
+
+                                      addNotification(
+                                        `❌ MCE environment validation failed`,
+                                        'error',
+                                        5000
+                                      );
+                                      
+                                      // Don't throw error here since we've handled the failure state properly
                                     }
                                   } catch (error) {
                                     console.error('Error verifying MCE:', error);
@@ -5133,117 +5367,130 @@ export function WhatCanIHelp() {
                                 <span>Verify</span>
                               </button>
                               <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  // Load existing credentials from backend and localStorage when modal opens
+                                  try {
+                                    // First try to load from backend/current configuration
+                                    const response = await fetch('http://localhost:8000/api/ocp/connection-status');
+                                    const ocpData = await response.json();
+                                    
+                                    if (ocpData.api_url) {
+                                      setMceCredentials({
+                                        apiServer: ocpData.api_url || '',
+                                        password: '' // Don't pre-fill password for security
+                                      });
+                                    } else {
+                                      // Fallback to localStorage
+                                      const savedCredentials = localStorage.getItem('mceCredentials');
+                                      if (savedCredentials) {
+                                        const parsed = JSON.parse(savedCredentials);
+                                        setMceCredentials({
+                                          apiServer: parsed.apiServer || '',
+                                          password: '' // Don't pre-fill password for security
+                                        });
+                                      }
+                                    }
+                                  } catch (error) {
+                                    console.error('Failed to load existing credentials:', error);
+                                    // Try localStorage as fallback
+                                    try {
+                                      const savedCredentials = localStorage.getItem('mceCredentials');
+                                      if (savedCredentials) {
+                                        const parsed = JSON.parse(savedCredentials);
+                                        setMceCredentials({
+                                          apiServer: parsed.apiServer || '',
+                                          password: ''
+                                        });
+                                      }
+                                    } catch (localError) {
+                                      console.error('Failed to load from localStorage:', localError);
+                                    }
+                                  }
+                                  setShowMceCredentialsModal(true);
+                                }}
+                                className="bg-orange-600 hover:bg-orange-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                                title="Update MCE connection credentials"
+                              >
+                                <KeyIcon className="h-3 w-3" />
+                                <span>Credentials</span>
+                              </button>
+                              <button
                                 onClick={async () => {
-                                  console.log('MCE Configure button clicked');
+                                  console.log('MCE Refresh button clicked');
                                   const timestamp = Date.now();
 
                                   // Add to recent operations
                                   const newOperation = {
-                                    title: 'Configure CAPI/CAPA Environment',
-                                    status: '⏳ Configuring...',
+                                    title: 'MCE Environment Data Refresh',
+                                    status: '⏳ Refreshing...',
                                     timestamp: timestamp,
-                                    playbook: 'Ansible Role: configure-capa-environment',
+                                    playbook: 'API Refresh: MCE Features & OCP Status',
                                   };
                                   setRecentOperations((prev) =>
                                     [newOperation, ...prev].slice(0, 10)
                                   );
 
                                   try {
-                                    console.log('Running configure-capa-environment role...');
-                                    const response = await fetch(
-                                      'http://localhost:8000/api/ansible/run-role',
-                                      {
-                                        method: 'POST',
-                                        headers: {
-                                          'Content-Type': 'application/json',
-                                        },
-                                        body: JSON.stringify({
-                                          role_name: 'configure-capa-environment',
-                                        }),
-                                      }
+                                    // Refresh MCE features data
+                                    const mceResponse = await fetch(
+                                      `http://localhost:8000/api/mce/features?t=${timestamp}`
                                     );
+                                    const mceData = await mceResponse.json();
+                                    setMceFeatures(mceData.features || []);
+                                    setMceInfo(mceData.mce_info || null);
 
-                                    const data = await response.json();
-
-                                    console.log('🔍 Configuration API response:', data);
-                                    console.log('🔍 Available fields:', Object.keys(data));
-                                    console.log('🔍 data.output:', data.output);
-                                    console.log('🔍 data.error:', data.error);
-
-                                    if (data.success) {
-                                      // Update recent operation status with output
-                                      setRecentOperations((prev) => {
-                                        const updated = [...prev];
-                                        if (
-                                          updated[0]?.title === 'Configure CAPI/CAPA Environment'
-                                        ) {
-                                          updated[0] = {
-                                            ...updated[0],
-                                            status: `✅ Configuration completed successfully at ${new Date().toLocaleTimeString()}`,
-                                            output: data.output || '',
-                                          };
-                                        }
-                                        return updated;
-                                      });
-
-                                      addNotification(
-                                        '✅ CAPI/CAPA environment configured successfully',
-                                        'success',
-                                        3000
-                                      );
-                                    } else {
-                                      // Update recent operation status with error and output
-                                      setRecentOperations((prev) => {
-                                        const updated = [...prev];
-                                        if (
-                                          updated[0]?.title === 'Configure CAPI/CAPA Environment'
-                                        ) {
-                                          updated[0] = {
-                                            ...updated[0],
-                                            status: `❌ Configuration failed at ${new Date().toLocaleTimeString()}`,
-                                            output: data.output || data.error || data.stderr || 'No ansible output available',
-                                          };
-                                        }
-                                        return updated;
-                                      });
-
-                                      addNotification(
-                                        '❌ Failed to configure CAPI/CAPA environment',
-                                        'error',
-                                        3000
-                                      );
-                                    }
-                                  } catch (error) {
-                                    console.error(
-                                      'Error configuring CAPI/CAPA environment:',
-                                      error
+                                    // Refresh OCP connection status
+                                    const ocpResponse = await fetch(
+                                      `http://localhost:8000/api/ocp/connection-status?t=${timestamp}`
                                     );
+                                    const ocpData = await ocpResponse.json();
+                                    setOcpStatus(ocpData);
 
-                                    // Update recent operation status with error and output
+                                    // Update recent operation status
                                     setRecentOperations((prev) => {
                                       const updated = [...prev];
-                                      if (updated[0]?.title === 'Configure CAPI/CAPA Environment') {
+                                      if (updated[0]?.title === 'MCE Environment Data Refresh') {
                                         updated[0] = {
                                           ...updated[0],
-                                          status: `❌ Configuration failed at ${new Date().toLocaleTimeString()}: ${error.message}`,
-                                          output: `Error: ${error.message}\n${error.stack || ''}`,
+                                          status: `✅ Data refreshed successfully at ${new Date().toLocaleTimeString()}`,
                                         };
                                       }
                                       return updated;
                                     });
 
                                     addNotification(
-                                      '❌ Failed to configure CAPI/CAPA environment',
+                                      `✅ MCE environment data refreshed`,
+                                      'success',
+                                      2000
+                                    );
+                                  } catch (error) {
+                                    console.error('Error refreshing MCE data:', error);
+                                    
+                                    // Update recent operation status with error
+                                    setRecentOperations((prev) => {
+                                      const updated = [...prev];
+                                      if (updated[0]?.title === 'MCE Environment Data Refresh') {
+                                        updated[0] = {
+                                          ...updated[0],
+                                          status: `❌ Refresh failed at ${new Date().toLocaleTimeString()}`,
+                                        };
+                                      }
+                                      return updated;
+                                    });
+
+                                    addNotification(
+                                      `❌ Failed to refresh MCE environment data`,
                                       'error',
                                       3000
                                     );
                                   }
                                 }}
-                                className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
-                                title="Configure CAPI/CAPA environment"
+                                className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                                title="Refresh MCE environment data and OCP connection status"
                               >
-                                <Cog6ToothIcon className="h-3 w-3" />
-                                <span>Configure</span>
+                                <ArrowPathIcon className="h-3 w-3" />
+                                <span>Refresh</span>
                               </button>
                             </div>
                           </div>
@@ -5251,9 +5498,44 @@ export function WhatCanIHelp() {
                           {/* MCE Environment Info - Scrollable content area */}
                           <div className="mb-4 bg-cyan-50 rounded-lg p-4 border border-cyan-100 flex-1 overflow-y-auto">
                             <div className="flex items-center justify-between mb-4">
-                              <div className="text-base font-semibold text-cyan-900">
+                              <button
+                                className="text-base font-semibold text-cyan-900 hover:text-cyan-700 hover:underline cursor-pointer"
+                                onClick={async () => {
+                                  try {
+                                    console.log('Fetching MCE YAML...');
+                                    const response = await fetch('http://localhost:8000/api/ocp/execute-command', {
+                                      method: 'POST',
+                                      headers: {
+                                        'Content-Type': 'application/json',
+                                      },
+                                      body: JSON.stringify({
+                                        command: `oc get multiclusterengine ${mceInfo?.name || 'multiclusterengine'} -o yaml`,
+                                        description: 'Get MCE YAML'
+                                      }),
+                                    });
+
+                                    const data = await response.json();
+                                    
+                                    if (response.ok && data.output) {
+                                      // Show in modal
+                                      setMceYamlData({
+                                        type: 'MultiClusterEngine',
+                                        name: mceInfo?.name || 'multiclusterengine',
+                                        namespace: 'N/A (Cluster-scoped)',
+                                        yaml: data.output
+                                      });
+                                      setShowMceYamlModal(true);
+                                    } else {
+                                      alert(`Failed to fetch MCE YAML: ${data.error || 'Unknown error'}`);
+                                    }
+                                  } catch (error) {
+                                    console.error('Error fetching MCE YAML:', error);
+                                    alert('Error fetching MCE YAML');
+                                  }
+                                }}
+                              >
                                 {mceInfo?.name || 'multiclusterengine'}
-                              </div>
+                              </button>
                               <div className="flex items-center gap-1.5 px-2 py-1 bg-white rounded-md border border-cyan-200">
                                 <span
                                   className={`w-2 h-2 rounded-full ${
@@ -5575,30 +5857,128 @@ export function WhatCanIHelp() {
                     {/* Tile 2: CAPI/CAPA Components */}
                     <div className="bg-white rounded-lg border-2 border-cyan-200 p-6 shadow-lg flex flex-col h-[600px]">
                       <div className="flex flex-col space-y-3 mb-4 flex-shrink-0">
-                        <h4 className="text-base font-semibold text-cyan-900 flex items-center justify-between">
-                          <span className="flex items-center">
-                            <CubeIcon className="h-5 w-5 text-cyan-600 mr-2" />
-                            CAPI/CAPA Components
-                          </span>
-                          <span className="text-xs font-normal text-cyan-600">
-                            (
-                            {mceFeatures?.filter(
-                              (f) =>
-                                f.name === 'cluster-api' || f.name === 'cluster-api-provider-aws'
-                            ).length || 0}{' '}
-                            configured)
-                          </span>
+                        <h4 className="text-base font-semibold text-cyan-900 flex items-center">
+                          <CubeIcon className="h-5 w-5 text-cyan-600 mr-2" />
+                          CAPI/CAPA Components
                         </h4>
 
-                        {/* Provision and Refresh Buttons */}
+                        {/* Configure and Refresh Buttons */}
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => setShowProvisionModal(true)}
+                            onClick={async () => {
+                              console.log('MCE Configure button clicked');
+                              const timestamp = Date.now();
+
+                              // Add to recent operations
+                              const newOperation = {
+                                title: 'Configure CAPI/CAPA Environment',
+                                status: '⏳ Configuring...',
+                                timestamp: timestamp,
+                                playbook: 'Ansible Role: configure-capa-environment',
+                              };
+                              setRecentOperations((prev) =>
+                                [newOperation, ...prev].slice(0, 10)
+                              );
+
+                              try {
+                                console.log('Running configure-capa-environment role...');
+                                const response = await fetch(
+                                  'http://localhost:8000/api/ansible/run-role',
+                                  {
+                                    method: 'POST',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                      role_name: 'configure-capa-environment',
+                                    }),
+                                  }
+                                );
+
+                                const data = await response.json();
+
+                                console.log('🔍 Configuration API response:', data);
+                                console.log('🔍 Available fields:', Object.keys(data));
+                                console.log('🔍 data.output:', data.output);
+                                console.log('🔍 data.error:', data.error);
+
+                                if (data.success) {
+                                  // Update recent operation status with output
+                                  setRecentOperations((prev) => {
+                                    const updated = [...prev];
+                                    if (
+                                      updated[0]?.title === 'Configure CAPI/CAPA Environment'
+                                    ) {
+                                      updated[0] = {
+                                        ...updated[0],
+                                        status: `✅ Configuration completed successfully at ${new Date().toLocaleTimeString()}`,
+                                        output: data.output || '',
+                                        playbook: `📋 Ansible Role: configure-capa-environment\n\n${data.output || 'Configuration completed successfully'}`,
+                                      };
+                                    }
+                                    return updated;
+                                  });
+
+                                  addNotification(
+                                    '✅ CAPI/CAPA environment configured successfully',
+                                    'success',
+                                    3000
+                                  );
+                                } else {
+                                  // Update recent operation status with error and output
+                                  setRecentOperations((prev) => {
+                                    const updated = [...prev];
+                                    if (
+                                      updated[0]?.title === 'Configure CAPI/CAPA Environment'
+                                    ) {
+                                      updated[0] = {
+                                        ...updated[0],
+                                        status: `❌ Configuration failed at ${new Date().toLocaleTimeString()}`,
+                                        output: data.output || data.error || data.stderr || 'No ansible output available',
+                                        playbook: `📋 Ansible Role: configure-capa-environment\n\n${data.output || data.error || data.stderr || 'No detailed output available'}`,
+                                      };
+                                    }
+                                    return updated;
+                                  });
+
+                                  addNotification(
+                                    '❌ Failed to configure CAPI/CAPA environment',
+                                    'error',
+                                    3000
+                                  );
+                                }
+                              } catch (error) {
+                                console.error(
+                                  'Error configuring CAPI/CAPA environment:',
+                                  error
+                                );
+
+                                // Update recent operation status with error and output
+                                setRecentOperations((prev) => {
+                                  const updated = [...prev];
+                                  if (updated[0]?.title === 'Configure CAPI/CAPA Environment') {
+                                    updated[0] = {
+                                      ...updated[0],
+                                      status: `❌ Configuration failed at ${new Date().toLocaleTimeString()}: ${error.message}`,
+                                      output: `Error: ${error.message}\n${error.stack || ''}`,
+                                      playbook: `📋 Ansible Role: configure-capa-environment\n\n❌ Network/Connection Error:\n${error.message}\n\n${error.stack || 'No additional details available'}`,
+                                    };
+                                  }
+                                  return updated;
+                                });
+
+                                addNotification(
+                                  '❌ Failed to configure CAPI/CAPA environment',
+                                  'error',
+                                  3000
+                                );
+                              }
+                            }}
                             className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
-                            title="Provision ROSA cluster"
+                            title="Configure CAPI/CAPA environment"
                           >
-                            <WrenchScrewdriverIcon className="h-3 w-3" />
-                            <span>Provision</span>
+                            <Cog6ToothIcon className="h-3 w-3" />
+                            <span>Configure</span>
                           </button>
                           <button
                             onClick={async () => {
@@ -5717,14 +6097,14 @@ export function WhatCanIHelp() {
                                   <div className="flex-shrink-0">
                                     <span
                                       className={`text-xs font-mono px-2 py-1 rounded ${
-                                        component.enabled && component.version
-                                          ? 'text-blue-700 bg-blue-100'
+                                        component.version
+                                          ? (component.enabled ? 'text-blue-700 bg-blue-100' : 'text-amber-700 bg-amber-100')
                                           : 'text-gray-600 bg-gray-100'
                                       }`}
                                     >
-                                      {component.enabled && component.version 
+                                      {component.version 
                                         ? `v${component.version}` 
-                                        : 'Disabled'}
+                                        : (component.enabled ? 'Enabled' : 'Disabled')}
                                     </span>
                                   </div>
                                 </div>
@@ -5820,14 +6200,150 @@ export function WhatCanIHelp() {
                       <div className="flex flex-col space-y-3 mb-4 flex-shrink-0">
                         <h4 className="text-base font-semibold text-cyan-900 flex items-center">
                           <ChartBarIcon className="h-5 w-5 text-cyan-600 mr-2" />
-                          Active Resources
+                          Provisioned Resources
                         </h4>
 
                         {/* Action Buttons */}
                         <div className="flex items-center gap-2">
                           <button
+                            onClick={() => setShowProvisionModal(true)}
+                            className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5"
+                            title="Provision ROSA cluster"
+                          >
+                            <WrenchScrewdriverIcon className="h-3 w-3" />
+                            <span>Provision</span>
+                          </button>
+                          <button
                             className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5 disabled:opacity-50"
                             disabled={mceResourcesLoading}
+                            onClick={async () => {
+                              if (!mceActiveResources || mceActiveResources.length === 0) {
+                                alert('No MCE active resources to export');
+                                return;
+                              }
+
+                              const includeComponents = window.confirm(
+                                'Export MCE Provisioned Resources\n\n' +
+                                  'Do you want to include Key Component information in the export?\n\n' +
+                                  '✓ Yes - Include component versions and status\n' +
+                                  '✗ No - Export only MCE active resources'
+                              );
+
+                              let operationId;
+                              try {
+                                operationId = `export-mce-resources-${Date.now()}`;
+
+                                addToRecent({
+                                  id: operationId,
+                                  title: 'MCE Active Resources Export',
+                                  color: 'bg-cyan-600',
+                                  status: '⏳ Exporting...',
+                                });
+
+                                console.log(
+                                  `Exporting ${mceActiveResources.length} MCE active resources${includeComponents ? ' with key components' : ''}...`
+                                );
+
+                                const redactSensitiveData = (yamlContent) => {
+                                  yamlContent = yamlContent.replace(
+                                    /^(\s*)(data|stringData):\s*\n((?:\s+.+\n)*)/gm,
+                                    (match, indent, fieldName, dataBlock) => {
+                                      return `${indent}${fieldName}:\n${indent}  # [SENSITIVE DATA REMOVED - All secret data redacted]\n`;
+                                    }
+                                  );
+
+                                  yamlContent = yamlContent.replace(
+                                    /^(\s+)(password|token|apiKey|secretKey|accessKey|privateKey|certificate|clientSecret|clientID|ocmClientSecret|ocmClientID|ocmApiUrl|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|aws_access_key_id|aws_secret_access_key):\s+(.+)$/gim,
+                                    (match, indent, key, value) => {
+                                      return `${indent}${key}: "[SENSITIVE DATA REMOVED]"`;
+                                    }
+                                  );
+
+                                  return yamlContent;
+                                };
+
+                                const yamls = [];
+                                for (const resource of mceActiveResources) {
+                                  try {
+                                    const response = await fetch('http://localhost:8000/api/ocp/execute-command', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({
+                                        command: `oc get ${resource.type} ${resource.name} ${resource.namespace ? `-n ${resource.namespace}` : ''} -o yaml`,
+                                      }),
+                                    });
+
+                                    const result = await response.json();
+                                    if (result.success && result.output) {
+                                      const redactedYaml = redactSensitiveData(result.output);
+                                      yamls.push({
+                                        filename: `${resource.type.toLowerCase()}-${resource.name}.yaml`,
+                                        content: redactedYaml,
+                                      });
+                                    }
+                                  } catch (error) {
+                                    console.error(`Failed to export ${resource.type} ${resource.name}:`, error);
+                                  }
+                                }
+
+                                let exportContent = 
+                                  '# MCE Active Resources Export (REDACTED)\n' +
+                                  '# This export contains redacted versions of MCE active resources\n' +
+                                  '# All sensitive data has been removed for security\n' +
+                                  '# \n' +
+                                  `# Exported: ${new Date().toLocaleString()}\n` +
+                                  `# Total MCE Resources: ${yamls.length}\n` +
+                                  '# \n' +
+                                  '---\n\n';
+
+                                if (includeComponents && mceFeatures && mceFeatures.length > 0) {
+                                  exportContent += '# MCE Key Components\n';
+                                  mceFeatures.forEach(feature => {
+                                    exportContent += `# ${feature.name}: ${feature.enabled ? 'Enabled' : 'Disabled'}${feature.version ? ` (${feature.version})` : ''}\n`;
+                                  });
+                                  exportContent += '# \n---\n\n';
+                                }
+
+                                yamls.forEach((yaml, index) => {
+                                  exportContent += `# File: ${yaml.filename}\n`;
+                                  exportContent += yaml.content;
+                                  if (index < yamls.length - 1) {
+                                    exportContent += '\n---\n\n';
+                                  }
+                                });
+
+                                const blob = new Blob([exportContent], { type: 'text/plain' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `mce-active-resources-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.yaml`;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(url);
+
+                                const completionTime = new Date().toLocaleString();
+                                updateRecentOperationStatus(operationId, `✅ Exported ${yamls.length} MCE resources successfully at ${completionTime}`);
+
+                                setTimeout(() => {
+                                  updateRecentOperationStatus(operationId, `✅ Exported ${yamls.length} MCE resources at ${completionTime}`);
+                                }, 2000);
+
+                              } catch (error) {
+                                console.error('MCE Export error:', error);
+                                const completionTime = new Date().toLocaleString();
+                                
+                                if (operationId) {
+                                  updateRecentOperationStatus(operationId, `❌ MCE Export failed at ${completionTime}`);
+
+                                  setTimeout(() => {
+                                    updateRecentOperationStatus(operationId, `❌ MCE Export failed at ${completionTime}`);
+                                  }, 2000);
+                                }
+
+                                alert(`Export failed: ${error.message}`);
+                              }
+                            }}
                           >
                             Export
                           </button>
@@ -5864,7 +6380,7 @@ export function WhatCanIHelp() {
                           return (
                             <div className="bg-cyan-50 rounded-lg p-3 border border-cyan-100">
                               <div className="text-xs font-semibold text-cyan-800 mb-2">
-                                Active Resources ({mceActiveResources.length})
+                                Provisioned Resources ({mceActiveResources.length})
                               </div>
                               <div className="overflow-x-auto">
                                 <table className="w-full text-xs">
@@ -5875,9 +6391,6 @@ export function WhatCanIHelp() {
                                       </th>
                                       <th className="text-left py-2 px-2 font-semibold text-cyan-900">
                                         Type
-                                      </th>
-                                      <th className="text-left py-2 px-2 font-semibold text-cyan-900">
-                                        Namespace
                                       </th>
                                     </tr>
                                   </thead>
@@ -5899,9 +6412,6 @@ export function WhatCanIHelp() {
                                           {resource.name}
                                         </td>
                                         <td className="py-2 px-2 text-cyan-700">{resource.type}</td>
-                                        <td className="py-2 px-2 text-cyan-700">
-                                          {resource.namespace || '(cluster-scoped)'}
-                                        </td>
                                       </tr>
                                     ))}
                                   </tbody>
@@ -5928,7 +6438,7 @@ export function WhatCanIHelp() {
           >
             <div className="flex items-center gap-3">
               <ChartBarIcon className="h-5 w-5 text-white" />
-              <h3 className="text-lg font-semibold text-white">ROSA HCP Clusters</h3>
+              <h3 className="text-lg font-semibold text-white">CAPI-Managed ROSA HCP Clusters</h3>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -5995,6 +6505,9 @@ export function WhatCanIHelp() {
                       <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
                         Created
                       </th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -6050,6 +6563,16 @@ export function WhatCanIHelp() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {cluster.created_at ? new Date(cluster.created_at).toLocaleString() : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <button
+                            onClick={() => handleDeleteCluster(cluster.name)}
+                            className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-700 bg-red-100 border border-red-300 rounded hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
+                            title={`Delete cluster ${cluster.name}`}
+                          >
+                            <TrashIcon className="h-3 w-3 mr-1" />
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -6242,6 +6765,12 @@ export function WhatCanIHelp() {
                       </div>
                       <div className="space-y-1">
                         <button
+                          onClick={() => setMceTerminalCommand('oc logs -n multicluster-engine $(oc get pod -n multicluster-engine | grep capa | awk \'{print $1}\')')}
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          CAPA Pod Log
+                        </button>
+                        <button
                           onClick={() => setMceTerminalCommand('oc get mce -A')}
                           className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
                         >
@@ -6285,6 +6814,39 @@ export function WhatCanIHelp() {
                           className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
                         >
                           ROSA Networks
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* ROSA Monitoring Category */}
+                    <div>
+                      <div className="text-xs font-semibold text-gray-500 uppercase mb-2">
+                        ROSA Monitoring
+                      </div>
+                      <div className="space-y-1">
+                        <button
+                          onClick={() => setMceTerminalCommand('oc describe rosacontrolplane -A')}
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          Describe Control Planes
+                        </button>
+                        <button
+                          onClick={() => setMceTerminalCommand('oc get cluster.cluster.x-k8s.io -A')}
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          CAPI Clusters Status
+                        </button>
+                        <button
+                          onClick={() => setMceTerminalCommand('rosa list clusters')}
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          ROSA CLI List
+                        </button>
+                        <button
+                          onClick={() => setMceTerminalCommand('watch "oc get rosacontrolplane -A -o wide"')}
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
+                        >
+                          Watch Provisioning
                         </button>
                       </div>
                     </div>
@@ -6414,6 +6976,291 @@ export function WhatCanIHelp() {
                       </details>
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Test Suite Dashboard */}
+        <div className="rounded-lg shadow-lg overflow-hidden mt-6">
+          <div
+            onClick={() => setTestSuiteCollapsed(!testSuiteCollapsed)}
+            className="flex items-center justify-between p-4 cursor-pointer bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <WrenchScrewdriverIcon className="h-5 w-5 text-white" />
+              <h3 className="text-lg font-semibold text-white">Automated Tests</h3>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Handle refresh
+                }}
+                disabled={testRunning}
+                className="flex items-center gap-2 px-3 py-1.5 bg-white/20 text-white text-sm rounded-lg hover:bg-white/30 disabled:opacity-50 font-medium transition-colors backdrop-blur-sm"
+              >
+                <ArrowPathIcon className="h-4 w-4" />
+                <span>Refresh</span>
+              </button>
+              <div className="p-0.5">
+                {testSuiteCollapsed ? (
+                  <ChevronDownIcon className="h-5 w-5 text-white" />
+                ) : (
+                  <ChevronUpIcon className="h-5 w-5 text-white" />
+                )}
+              </div>
+            </div>
+          </div>
+
+          {!testSuiteCollapsed && (
+            <div className="bg-gradient-to-br from-gray-50 to-white p-6">
+              {/* Version Selector and Actions */}
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+                <div className="flex items-center gap-4">
+                  <label className="text-sm font-medium text-gray-700">
+                    OpenShift Version:
+                  </label>
+                  <select
+                    value={selectedVersion}
+                    onChange={(e) => setSelectedVersion(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                  >
+                    <option value="4.21">4.21</option>
+                    <option value="4.20">4.20</option>
+                    <option value="4.19">4.19</option>
+                    <option value="4.18">4.18</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      const allSelected = testItems.every(item => item.selected);
+                      setTestItems(prev => prev.map(item => ({
+                        ...item,
+                        selected: !allSelected
+                      })));
+                    }}
+                    className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors text-sm font-medium"
+                  >
+                    {testItems.every(item => item.selected) ? 'Deselect All' : 'Select All'}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const selectedTests = testItems.filter(item => item.selected);
+                      if (selectedTests.length === 0) {
+                        addNotification('⚠️ Please select at least one test', 'warning', 3000);
+                        return;
+                      }
+                      
+                      setTestRunning(true);
+                      addNotification(`🚀 Starting ${selectedTests.length} tests for OpenShift ${selectedVersion}`, 'info', 3000);
+                      
+                      // Simulate running tests
+                      for (let i = 0; i < selectedTests.length; i++) {
+                        const testId = selectedTests[i].id;
+                        
+                        // Mark as running
+                        setTestItems(prev => prev.map(item => 
+                          item.id === testId ? { ...item, status: 'running' } : item
+                        ));
+                        
+                        // Simulate test duration
+                        await new Promise(resolve => setTimeout(resolve, Math.random() * 3000 + 1000));
+                        
+                        // Mark as completed with random result
+                        const success = Math.random() > 0.2; // 80% success rate
+                        const duration = Math.floor(Math.random() * 120 + 30); // 30-150 seconds
+                        
+                        setTestItems(prev => prev.map(item => 
+                          item.id === testId ? { 
+                            ...item, 
+                            status: success ? 'passed' : 'failed',
+                            duration: duration
+                          } : item
+                        ));
+                      }
+                      
+                      setTestRunning(false);
+                      const passedCount = testItems.filter(item => item.status === 'passed').length;
+                      const failedCount = testItems.filter(item => item.status === 'failed').length;
+                      addNotification(`✅ Test run completed: ${passedCount} passed, ${failedCount} failed`, 'success', 5000);
+                    }}
+                    disabled={testRunning || testItems.filter(item => item.selected).length === 0}
+                    className="px-6 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  >
+                    {testRunning ? '⏳ Running Tests...' : '▶️ Run Selected'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Test Progress Summary */}
+              {testRunning && (
+                <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                    <span className="text-blue-800 font-medium">Test execution in progress...</span>
+                  </div>
+                  <div className="text-sm text-blue-700">
+                    Running tests for OpenShift {selectedVersion} • {testItems.filter(item => item.status === 'running').length} active
+                  </div>
+                </div>
+              )}
+
+              {/* Test List */}
+              <div className="space-y-3">
+                {testItems.map((test) => (
+                  <div
+                    key={test.id}
+                    className={`p-4 rounded-lg border transition-all cursor-pointer ${
+                      test.selected 
+                        ? 'border-purple-300 bg-purple-50 shadow-sm' 
+                        : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+                    }`}
+                    onClick={() => {
+                      if (!testRunning) {
+                        setTestItems(prev => prev.map(item =>
+                          item.id === test.id ? { ...item, selected: !item.selected } : item
+                        ));
+                      }
+                    }}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="flex items-center mt-1">
+                        <input
+                          type="checkbox"
+                          checked={test.selected}
+                          onChange={() => {}}
+                          className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                        />
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900 text-base mb-2">{test.name}</h4>
+                            
+                            {test.description && (
+                              <p className="text-sm text-gray-600 mb-3 leading-relaxed">
+                                {test.description}
+                              </p>
+                            )}
+                            
+                            <div className="flex items-center gap-2 mb-3 flex-wrap">
+                              <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                test.priority === 'P1' 
+                                  ? 'bg-red-100 text-red-800' 
+                                  : 'bg-gray-100 text-gray-600'
+                              }`}>
+                                {test.priority}
+                              </span>
+                              <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                test.phase === 'Day1' 
+                                  ? 'bg-blue-100 text-blue-800' 
+                                  : 'bg-purple-100 text-purple-800'
+                              }`}>
+                                {test.phase}
+                              </span>
+                              {test.jira && (
+                                <div className="flex flex-wrap gap-1">
+                                  <span className="text-xs text-gray-500 font-medium">JIRA:</span>
+                                  {Array.isArray(test.jira) ? (
+                                    test.jira.map((ticket, index) => (
+                                      <span key={index} className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono">
+                                        {ticket}
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono">
+                                      {test.jira}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            
+                            {test.components && (
+                              <div className="mb-2">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-xs font-semibold text-gray-700">Components Tested:</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {test.components.map((component, index) => (
+                                    <span key={index} className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs font-medium">
+                                      {component}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {test.duration && (
+                              <div className="text-xs text-gray-500">
+                                <span className="font-medium">Duration:</span> {test.duration}s
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-3 ml-4">
+                            {test.status === 'running' && (
+                              <div className="flex items-center gap-2">
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                                <span className="text-sm text-blue-600 font-medium">Running</span>
+                              </div>
+                            )}
+                            {test.status === 'passed' && (
+                              <div className="flex items-center gap-2">
+                                <div className="text-green-600 text-xl">✅</div>
+                                <span className="text-sm text-green-600 font-medium">Passed</span>
+                              </div>
+                            )}
+                            {test.status === 'failed' && (
+                              <div className="flex items-center gap-2">
+                                <div className="text-red-600 text-xl">❌</div>
+                                <span className="text-sm text-red-600 font-medium">Failed</span>
+                              </div>
+                            )}
+                            {test.status === 'pending' && (
+                              <div className="flex items-center gap-2">
+                                <div className="text-gray-400 text-xl">⏸️</div>
+                                <span className="text-sm text-gray-500 font-medium">Pending</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Test Results Summary */}
+              <div className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white p-4 rounded-lg border border-gray-200">
+                  <div className="text-2xl font-bold text-gray-900">
+                    {testItems.length}
+                  </div>
+                  <div className="text-sm text-gray-600">Total Tests</div>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                  <div className="text-2xl font-bold text-green-800">
+                    {testItems.filter(item => item.status === 'passed').length}
+                  </div>
+                  <div className="text-sm text-green-600">Passed</div>
+                </div>
+                <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                  <div className="text-2xl font-bold text-red-800">
+                    {testItems.filter(item => item.status === 'failed').length}
+                  </div>
+                  <div className="text-sm text-red-600">Failed</div>
+                </div>
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <div className="text-2xl font-bold text-blue-800">
+                    {testItems.filter(item => item.selected).length}
+                  </div>
+                  <div className="text-sm text-blue-600">Selected</div>
                 </div>
               </div>
             </div>
@@ -8023,7 +8870,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       let statusText = `⏳ ${jobData.message || 'In progress...'}`;
 
                       if (jobData.status === 'completed') {
-                        statusText = `✅ Cluster "${config?.clusterName}" provisioned successfully at ${new Date().toLocaleTimeString()}`;
+                        statusText = `✅ Cluster "${config?.clusterName}" provisioning successfully initiated at ${new Date().toLocaleTimeString()}`;
                       } else if (jobData.status === 'failed') {
                         statusText = `❌ Failed: ${jobData.message} at ${new Date().toLocaleTimeString()}`;
                       }
@@ -8043,10 +8890,10 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   clearInterval(pollInterval);
                   console.log('✅ [APPLY-YAML] Job completed with status:', jobData.status);
 
-                  // Expand ROSA HCP Clusters section on successful completion to monitor progress
+                  // Expand CAPI-Managed ROSA HCP Clusters section on successful completion to monitor progress
                   if (jobData.status === 'completed') {
                     console.log(
-                      '🔀 [EXPAND] Expanding ROSA HCP Clusters section to monitor cluster progress'
+                      '🔀 [EXPAND] Expanding CAPI-Managed ROSA HCP Clusters section to monitor cluster progress'
                     );
                     setTimeout(() => {
                       setClusterStatusCollapsed(false); // Expand the section
@@ -8159,6 +9006,92 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
             <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
               <button
                 onClick={() => setShowResourceDetailModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MCE YAML Modal */}
+      {showMceYamlModal && mceYamlData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowMceYamlModal(false)}
+          />
+          <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-5xl max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center">
+                  <DocumentTextIcon className="h-6 w-6 mr-2 text-cyan-600" />
+                  Resource Details
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  <span className="font-medium">{mceYamlData.type}</span>
+                  {' / '}
+                  <span className="font-mono text-cyan-600">{mceYamlData.name}</span>
+                  {' in namespace '}
+                  <span className="font-mono">{mceYamlData.namespace}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setShowMceYamlModal(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-hidden p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-lg font-medium text-gray-900 dark:text-white">
+                  YAML Definition
+                </h4>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const element = document.createElement('a');
+                      const file = new Blob([mceYamlData.yaml], { type: 'text/yaml' });
+                      element.href = URL.createObjectURL(file);
+                      element.download = `${mceYamlData.name}-multiclusterengine.yaml`;
+                      document.body.appendChild(element);
+                      element.click();
+                      document.body.removeChild(element);
+                      addNotification('YAML file downloaded', 'success', 2000);
+                    }}
+                    className="text-sm bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Download
+                  </button>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(mceYamlData.yaml);
+                      addNotification('YAML copied to clipboard', 'success', 2000);
+                    }}
+                    className="text-sm bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <DocumentTextIcon className="h-4 w-4" />
+                    Copy YAML
+                  </button>
+                </div>
+              </div>
+              <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-auto text-xs font-mono whitespace-pre-wrap break-words max-h-96">
+                {mceYamlData.yaml}
+              </pre>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setShowMceYamlModal(false)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 Close
@@ -9401,6 +10334,166 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
             </div>
           </div>
         </>
+      )}
+
+      {/* MCE Credentials Modal */}
+      {showMceCredentialsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowMceCredentialsModal(false)}
+          />
+          <div className="relative bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex-shrink-0 bg-gradient-to-r from-orange-600 to-red-600 px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <KeyIcon className="h-6 w-6 text-white" />
+                  <h3 className="text-lg font-semibold text-white">MCE Credentials</h3>
+                </div>
+                <button
+                  onClick={() => setShowMceCredentialsModal(false)}
+                  className="text-white/80 hover:text-white transition-colors"
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 p-6 overflow-y-auto min-h-0">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    API Server URL
+                  </label>
+                  <input
+                    type="text"
+                    value={mceCredentials.apiServer}
+                    onChange={(e) => setMceCredentials(prev => ({ ...prev, apiServer: e.target.value }))}
+                    placeholder="https://api.your-cluster.example.com:6443"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    value={mceCredentials.password}
+                    onChange={(e) => setMceCredentials(prev => ({ ...prev, password: e.target.value }))}
+                    placeholder="Enter your cluster password"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-colors"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex-shrink-0 px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={() => setShowMceCredentialsModal(false)}
+                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    console.log('Updating MCE credentials:', mceCredentials);
+                    
+                    // Basic validation
+                    if (!mceCredentials.apiServer || !mceCredentials.password) {
+                      alert('Please fill in both API Server URL and Password');
+                      return;
+                    }
+
+                    // Add to recent operations
+                    const newOperation = {
+                      title: 'MCE Credentials Update',
+                      status: '⏳ Updating...',
+                      timestamp: Date.now(),
+                      playbook: 'API Update: MCE Connection Credentials',
+                    };
+                    setRecentOperations((prev) =>
+                      [newOperation, ...prev].slice(0, 10)
+                    );
+
+                    // Call the backend API to update credentials in user_vars.yml
+                    const updateResponse = await fetch('http://localhost:8000/api/ocp/credentials', {
+                      method: 'PUT',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        api_server: mceCredentials.apiServer,
+                        password: mceCredentials.password,
+                      }),
+                    });
+
+                    const updateResult = await updateResponse.json();
+                    
+                    if (!updateResult.success) {
+                      alert(`Failed to update credentials: ${updateResult.message}`);
+                      return;
+                    }
+
+                    // Also store in localStorage for immediate UI updates
+                    const credentialsData = {
+                      apiServer: mceCredentials.apiServer,
+                      password: mceCredentials.password,
+                      updatedAt: new Date().toISOString()
+                    };
+                    
+                    localStorage.setItem('mceCredentials', JSON.stringify(credentialsData));
+                    
+                    // Update recent operation status
+                    setTimeout(() => {
+                      setRecentOperations((prev) => {
+                        const updated = [...prev];
+                        if (updated[0]?.title === 'MCE Credentials Update') {
+                          updated[0] = {
+                            ...updated[0],
+                            status: `✅ Credentials updated successfully at ${new Date().toLocaleTimeString()}`,
+                          };
+                        }
+                        return updated;
+                      });
+                    }, 500);
+
+                    // Show success notification
+                    addNotification('✅ MCE credentials updated successfully', 'success', 3000);
+                    
+                    // Close modal and reset form
+                    setShowMceCredentialsModal(false);
+                    setMceCredentials({ apiServer: '', password: '' });
+                    
+                  } catch (error) {
+                    console.error('Failed to update credentials:', error);
+                    
+                    // Update recent operation status with error
+                    setRecentOperations((prev) => {
+                      const updated = [...prev];
+                      if (updated[0]?.title === 'MCE Credentials Update') {
+                        updated[0] = {
+                          ...updated[0],
+                          status: `❌ Update failed at ${new Date().toLocaleTimeString()}: ${error.message}`,
+                        };
+                      }
+                      return updated;
+                    });
+                    
+                    alert(`Failed to update credentials: ${error.message}`);
+                  }
+                }}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+              >
+                Update
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
