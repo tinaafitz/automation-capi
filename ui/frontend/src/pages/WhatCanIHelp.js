@@ -7128,14 +7128,14 @@ export function WhatCanIHelp() {
                 </div>
               )}
 
-              {/* Test List */}
-              <div className="space-y-3">
+              {/* Test List - Grid Layout */}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {testItems.map((test) => (
                   <div
                     key={test.id}
                     className={`p-4 rounded-lg border transition-all cursor-pointer ${
                       test.selected 
-                        ? 'border-purple-300 bg-purple-50 shadow-sm' 
+                        ? 'border-purple-300 bg-purple-50 shadow-md' 
                         : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
                     }`}
                     onClick={() => {
@@ -7146,118 +7146,110 @@ export function WhatCanIHelp() {
                       }
                     }}
                   >
-                    <div className="flex items-start gap-4">
-                      <div className="flex items-center mt-1">
-                        <input
-                          type="checkbox"
-                          checked={test.selected}
-                          onChange={() => {}}
-                          className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                        />
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-gray-900 text-base mb-2">{test.name}</h4>
-                            
-                            {test.description && (
-                              <p className="text-sm text-gray-600 mb-3 leading-relaxed">
-                                {test.description}
-                              </p>
-                            )}
-                            
-                            <div className="flex items-center gap-2 mb-3 flex-wrap">
-                              <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                                test.priority === 'P1' 
-                                  ? 'bg-red-100 text-red-800' 
-                                  : 'bg-gray-100 text-gray-600'
-                              }`}>
-                                {test.priority}
-                              </span>
-                              <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                                test.phase === 'Day1' 
-                                  ? 'bg-blue-100 text-blue-800' 
-                                  : 'bg-purple-100 text-purple-800'
-                              }`}>
-                                {test.phase}
-                              </span>
-                              {test.jira && (
-                                <div className="flex flex-wrap gap-1">
-                                  <span className="text-xs text-gray-500 font-medium">JIRA:</span>
-                                  {Array.isArray(test.jira) ? (
-                                    test.jira.map((ticket, index) => (
-                                      <span key={index} className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono">
-                                        {ticket}
-                                      </span>
-                                    ))
-                                  ) : (
-                                    <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono">
-                                      {test.jira}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                            
-                            {test.components && (
-                              <div className="mb-2">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <span className="text-xs font-semibold text-gray-700">Components Tested:</span>
-                                </div>
-                                <div className="flex flex-wrap gap-1">
+                    {/* Card Header with Checkbox */}
+                    <div className="flex items-center gap-3 mb-3">
+                      <input
+                        type="checkbox"
+                        checked={test.selected}
+                        onChange={() => {}}
+                        className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                      />
+                      <h4 className="font-semibold text-gray-900 text-sm leading-tight flex-1">{test.name}</h4>
+                    </div>
+                    
+                    {/* Description */}
+                    {test.description && (
+                      <p className="text-xs text-gray-600 mb-3 line-clamp-2">
+                        {test.description}
+                      </p>
+                    )}
+                    
+                    {/* Card Content */}
+                    <div className="space-y-3">
+                        {/* Priority and Phase Badges */}
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                            test.priority === 'P1' 
+                              ? 'bg-red-100 text-red-800' 
+                              : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            {test.priority}
+                          </span>
+                          <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                            test.phase === 'Day1' 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : 'bg-purple-100 text-purple-800'
+                          }`}>
+                            {test.phase}
+                          </span>
+                        </div>
+
+                        {/* JIRA Tickets (Compact) */}
+                        {test.jira && test.jira.length > 0 && (
+                          <div className="mb-2">
+                            <span className="text-xs text-gray-500 font-medium">JIRA: </span>
+                            <span className="text-xs text-gray-700">
+                              {Array.isArray(test.jira) ? `${test.jira.length} tickets` : test.jira}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* Components */}
+                        {test.components && (
+                          <div className="mb-2">
+                            <div className="text-xs text-gray-500 font-medium mb-1">Components:</div>
+                            <div className="flex flex-wrap gap-1">
                                   {test.components.map((component, index) => (
                                     <span key={index} className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs font-medium">
                                       {component}
                                     </span>
                                   ))}
                                 </div>
-                              </div>
-                            )}
-                            
-                            <div className="flex items-center gap-4 text-xs text-gray-500">
-                              {test.duration && (
-                                <div>
-                                  <span className="font-medium">Duration:</span> {Math.floor(test.duration / 60000)}m {Math.floor((test.duration % 60000) / 1000)}s
+                            </div>
+                        )}
+                        
+                        {/* Status and Run Info */}
+                        <div className="mt-auto pt-2 border-t border-gray-100">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              {test.status === 'running' && (
+                                <div className="flex items-center gap-1">
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                                  <span className="text-xs text-blue-600 font-medium">Running</span>
                                 </div>
                               )}
-                              <div>
-                                <span className="font-medium">Last Run:</span> {test.lastRun 
-                                  ? new Date(test.lastRun).toLocaleString('en-US', {
-                                      month: 'short',
-                                      day: 'numeric',
-                                      hour: 'numeric',
-                                      minute: '2-digit',
-                                      hour12: true
-                                    })
-                                  : 'Never'
-                                }
-                              </div>
+                              {test.status === 'passed' && (
+                                <div className="flex items-center gap-1">
+                                  <div className="text-green-600 text-sm">✅</div>
+                                  <span className="text-xs text-green-600 font-medium">Passed</span>
+                                </div>
+                              )}
+                              {test.status === 'failed' && (
+                                <div className="flex items-center gap-1">
+                                  <div className="text-red-600 text-sm">❌</div>
+                                  <span className="text-xs text-red-600 font-medium">Failed</span>
+                                </div>
+                              )}
+                              {test.status === 'completed' && (
+                                <div className="flex items-center gap-1">
+                                  <div className="text-green-600 text-sm">✅</div>
+                                  <span className="text-xs text-green-600 font-medium">Complete</span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="text-xs text-gray-500">
+                              {test.lastRun ? (
+                                <div className="text-right">
+                                  <div>{test.duration ? `${Math.floor(test.duration / 60000)}m ${Math.floor((test.duration % 60000) / 1000)}s` : ''}</div>
+                                  <div>{new Date(test.lastRun).toLocaleString('en-US', { month: 'short', day: 'numeric' })}</div>
+                                </div>
+                              ) : (
+                                <span>Never run</span>
+                              )}
                             </div>
                           </div>
-                          
-                          <div className="flex items-center gap-3 ml-4">
-                            {test.status === 'running' && (
-                              <div className="flex items-center gap-2">
-                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-                                <span className="text-sm text-blue-600 font-medium">Running</span>
-                              </div>
-                            )}
-                            {test.status === 'passed' && (
-                              <div className="flex items-center gap-2">
-                                <div className="text-green-600 text-xl">✅</div>
-                                <span className="text-sm text-green-600 font-medium">Passed</span>
-                              </div>
-                            )}
-                            {test.status === 'failed' && (
-                              <div className="flex items-center gap-2">
-                                <div className="text-red-600 text-xl">❌</div>
-                                <span className="text-sm text-red-600 font-medium">Failed</span>
-                              </div>
-                            )}
-                          </div>
                         </div>
-                      </div>
                     </div>
                   </div>
                 ))}
