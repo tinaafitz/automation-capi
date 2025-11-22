@@ -348,6 +348,7 @@ export function WhatCanIHelp() {
       selected: false, 
       status: 'pending', 
       duration: null, 
+      lastRun: null,
       jira: ['ACM-20464', 'ACM-20465', 'ACM-20467', 'ACM-20473', 'ACM-20480', 'ACM-20475'],
       description: 'Private + BYON + STS + Long Name + Availability Zones + Additional Tags',
       components: ['Private Network', 'BYON', 'STS', 'Long Cluster Name', 'Availability Zones', 'Additional Tags']
@@ -361,6 +362,7 @@ export function WhatCanIHelp() {
       selected: false, 
       status: 'pending', 
       duration: null, 
+      lastRun: null,
       jira: ['ACM-20481', 'ACM-20707'],
       description: 'Identity Provider + External OIDC + Security Groups + KMS',
       components: ['Identity Provider', 'External OIDC', 'Additional Security Groups', 'ETCD KMS Key']
@@ -374,6 +376,7 @@ export function WhatCanIHelp() {
       selected: false, 
       status: 'pending', 
       duration: null, 
+      lastRun: null,
       jira: ['ACM-20468', 'ACM-21076', 'ACM-21203'],
       description: 'All auto-scaling features + parallel upgrades',
       components: ['Default Machinepool Auto Scaling', 'Machine Pool Auto Scaling', 'Parallel Node Upgrade', 'Cluster Autoscaler Expanders']
@@ -387,6 +390,7 @@ export function WhatCanIHelp() {
       selected: false, 
       status: 'pending', 
       duration: null, 
+      lastRun: null,
       jira: ['ACM-20474'],
       description: 'CNI + Proxy + Audit logging configuration',
       components: ['No CNI Plugin', 'Proxy Enabled', 'Audit Log Forwarding']
@@ -400,6 +404,7 @@ export function WhatCanIHelp() {
       selected: false, 
       status: 'pending', 
       duration: null, 
+      lastRun: null,
       jira: ['ACM-21204', 'ACM-21207'],
       description: 'Image registry + disk volume configuration',
       components: ['Image Registry Config', 'Machinepool Disk Volume Size']
@@ -413,6 +418,7 @@ export function WhatCanIHelp() {
       selected: false, 
       status: 'pending', 
       duration: null, 
+      lastRun: null,
       jira: ['ACM-21075', 'ACM-21202'],
       description: 'Domain prefix + ROSA CAPA user agent',
       components: ['Domain Prefix', 'User Agent for ROSA CAPA']
@@ -426,6 +432,7 @@ export function WhatCanIHelp() {
       selected: false, 
       status: 'pending', 
       duration: null, 
+      lastRun: null,
       jira: [],
       description: 'Comprehensive Day2 operations testing',
       components: ['Cluster Management', 'Node Operations', 'Application Deployment', 'Monitoring']
@@ -433,6 +440,7 @@ export function WhatCanIHelp() {
   ]);
   const [testRunning, setTestRunning] = useState(false);
   const [testResults, setTestResults] = useState([]);
+  const [selectedTestSuite, setSelectedTestSuite] = useState(null);
 
   // State for provisioned ROSA clusters
   const [rosaClusters, setRosaClusters] = useState([]);
@@ -6986,7 +6994,7 @@ export function WhatCanIHelp() {
         <div className="rounded-lg shadow-lg overflow-hidden mt-6">
           <div
             onClick={() => setTestSuiteCollapsed(!testSuiteCollapsed)}
-            className="flex items-center justify-between p-4 cursor-pointer bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 transition-colors"
+            className="flex items-center justify-between p-4 cursor-pointer bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 transition-colors"
           >
             <div className="flex items-center gap-3">
               <WrenchScrewdriverIcon className="h-5 w-5 text-white" />
@@ -7048,50 +7056,26 @@ export function WhatCanIHelp() {
                     {testItems.every(item => item.selected) ? 'Deselect All' : 'Select All'}
                   </button>
                   <button
-                    onClick={async () => {
+                    onClick={() => {
                       const selectedTests = testItems.filter(item => item.selected);
                       if (selectedTests.length === 0) {
-                        addNotification('⚠️ Please select at least one test', 'warning', 3000);
+                        addNotification('⚠️ Please select at least one test suite', 'warning', 3000);
                         return;
                       }
                       
-                      setTestRunning(true);
-                      addNotification(`🚀 Starting ${selectedTests.length} tests for OpenShift ${selectedVersion}`, 'info', 3000);
-                      
-                      // Simulate running tests
-                      for (let i = 0; i < selectedTests.length; i++) {
-                        const testId = selectedTests[i].id;
-                        
-                        // Mark as running
-                        setTestItems(prev => prev.map(item => 
-                          item.id === testId ? { ...item, status: 'running' } : item
-                        ));
-                        
-                        // Simulate test duration
-                        await new Promise(resolve => setTimeout(resolve, Math.random() * 3000 + 1000));
-                        
-                        // Mark as completed with random result
-                        const success = Math.random() > 0.2; // 80% success rate
-                        const duration = Math.floor(Math.random() * 120 + 30); // 30-150 seconds
-                        
-                        setTestItems(prev => prev.map(item => 
-                          item.id === testId ? { 
-                            ...item, 
-                            status: success ? 'passed' : 'failed',
-                            duration: duration
-                          } : item
-                        ));
+                      if (selectedTests.length === 1) {
+                        // Single test suite selected - store it and open existing provisioning modal
+                        setSelectedTestSuite(selectedTests[0]);
+                        setShowProvisionModal(true);
+                      } else if (selectedTests.length > 1) {
+                        // Multiple test suites - show warning
+                        addNotification('⚠️ Please provision one test suite at a time for proper configuration', 'warning', 5000);
                       }
-                      
-                      setTestRunning(false);
-                      const passedCount = testItems.filter(item => item.status === 'passed').length;
-                      const failedCount = testItems.filter(item => item.status === 'failed').length;
-                      addNotification(`✅ Test run completed: ${passedCount} passed, ${failedCount} failed`, 'success', 5000);
                     }}
                     disabled={testRunning || testItems.filter(item => item.selected).length === 0}
                     className="px-6 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                   >
-                    {testRunning ? '⏳ Running Tests...' : '▶️ Run Selected'}
+                    {testRunning ? '⏳ Provisioning...' : '🚀 Provision & Test Selected'}
                   </button>
                 </div>
               </div>
@@ -7196,11 +7180,25 @@ export function WhatCanIHelp() {
                               </div>
                             )}
                             
-                            {test.duration && (
-                              <div className="text-xs text-gray-500">
-                                <span className="font-medium">Duration:</span> {test.duration}s
+                            <div className="flex items-center gap-4 text-xs text-gray-500">
+                              {test.duration && (
+                                <div>
+                                  <span className="font-medium">Duration:</span> {Math.floor(test.duration / 60000)}m {Math.floor((test.duration % 60000) / 1000)}s
+                                </div>
+                              )}
+                              <div>
+                                <span className="font-medium">Last Run:</span> {test.lastRun 
+                                  ? new Date(test.lastRun).toLocaleString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      hour12: true
+                                    })
+                                  : 'Never'
+                                }
                               </div>
-                            )}
+                            </div>
                           </div>
                           
                           <div className="flex items-center gap-3 ml-4">
@@ -7220,12 +7218,6 @@ export function WhatCanIHelp() {
                               <div className="flex items-center gap-2">
                                 <div className="text-red-600 text-xl">❌</div>
                                 <span className="text-sm text-red-600 font-medium">Failed</span>
-                              </div>
-                            )}
-                            {test.status === 'pending' && (
-                              <div className="flex items-center gap-2">
-                                <div className="text-gray-400 text-xl">⏸️</div>
-                                <span className="text-sm text-gray-500 font-medium">Pending</span>
                               </div>
                             )}
                           </div>
@@ -7263,6 +7255,7 @@ export function WhatCanIHelp() {
                   <div className="text-sm text-blue-600">Selected</div>
                 </div>
               </div>
+
             </div>
           )}
         </div>
@@ -7272,7 +7265,7 @@ export function WhatCanIHelp() {
           {/* Recent Operations */}
           <div className="bg-white rounded-xl shadow-lg border-2 border-cyan-200 overflow-hidden">
             <div
-              className="bg-gradient-to-r from-cyan-600 to-teal-600 px-6 py-4 cursor-pointer hover:from-cyan-700 hover:to-teal-700 transition-all"
+              className="bg-gradient-to-r from-cyan-600 to-blue-600 px-6 py-4 cursor-pointer hover:from-cyan-700 hover:to-blue-700 transition-all"
               onClick={() => setMceRecentOpsCollapsed(!mceRecentOpsCollapsed)}
             >
               <div className="flex items-center justify-between">
@@ -7360,7 +7353,7 @@ export function WhatCanIHelp() {
           {/* Recent Operations Output */}
           <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-xl shadow-2xl border-2 border-cyan-300 overflow-hidden">
             <div
-              className="bg-gradient-to-r from-cyan-600 to-teal-600 px-6 py-4 flex items-center justify-between cursor-pointer hover:from-cyan-700 hover:to-teal-700 transition-all"
+              className="bg-gradient-to-r from-cyan-600 to-blue-600 px-6 py-4 flex items-center justify-between cursor-pointer hover:from-cyan-700 hover:to-blue-700 transition-all"
               onClick={() => setRecentOperationsOutputCollapsed(!recentOperationsOutputCollapsed)}
             >
               <div className="flex items-center space-x-3">
@@ -8758,9 +8751,23 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
       {/* ROSA Provision Modal */}
       <RosaProvisionModal
         isOpen={showProvisionModal}
-        onClose={() => setShowProvisionModal(false)}
+        onClose={() => {
+          setShowProvisionModal(false);
+          setSelectedTestSuite(null);
+        }}
+        testSuite={selectedTestSuite}
         onSubmit={async (config) => {
           console.log('🚀 [PROVISION] onSubmit handler called with config:', config);
+          
+          // Update test suite status to running
+          if (selectedTestSuite) {
+            setTestItems(prev => prev.map(item => 
+              item.id === selectedTestSuite.id 
+                ? { ...item, status: 'running', selected: false, duration: Date.now() }
+                : item
+            ));
+          }
+          
           try {
             // Call generate-yaml API to get YAML preview
             console.log('📤 [GENERATE-YAML] Calling API to generate YAML preview');
@@ -8797,6 +8804,25 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
             console.log('✅ [GENERATE-YAML] Opening YAML editor modal');
           } catch (error) {
             console.error('❌ [PROVISION] Error generating YAML:', error);
+            
+            // Update test suite status to failed on YAML generation error
+            if (selectedTestSuite) {
+              const startTime = testItems.find(item => item.id === selectedTestSuite.id)?.duration;
+              const duration = startTime ? Date.now() - startTime : null;
+              
+              setTestItems(prev => prev.map(item => 
+                item.id === selectedTestSuite.id 
+                  ? { 
+                      ...item, 
+                      status: 'failed', 
+                      duration: duration,
+                      lastRun: Date.now(),
+                      selected: false
+                    }
+                  : item
+              ));
+            }
+            
             alert(`Error generating YAML: ${error.message}`);
             // Re-open the modal if there was an error
             setShowProvisionModal(true);
@@ -8890,6 +8916,24 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   clearInterval(pollInterval);
                   console.log('✅ [APPLY-YAML] Job completed with status:', jobData.status);
 
+                  // Update test suite status based on job result
+                  if (yamlEditorData?.config && selectedTestSuite) {
+                    const startTime = testItems.find(item => item.id === selectedTestSuite.id)?.duration;
+                    const duration = startTime ? Date.now() - startTime : null;
+                    
+                    setTestItems(prev => prev.map(item => 
+                      item.id === selectedTestSuite.id 
+                        ? { 
+                            ...item, 
+                            status: jobData.status === 'completed' ? 'completed' : 'failed', 
+                            duration: duration,
+                            lastRun: Date.now(),
+                            selected: false
+                          }
+                        : item
+                    ));
+                  }
+
                   // Expand CAPI-Managed ROSA HCP Clusters section on successful completion to monitor progress
                   if (jobData.status === 'completed') {
                     console.log(
@@ -8926,6 +8970,25 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
             }, 1800000);
           } catch (error) {
             console.error('❌ [APPLY-YAML] Error applying YAML:', error);
+            
+            // Update test suite status to failed on error
+            if (selectedTestSuite) {
+              const startTime = testItems.find(item => item.id === selectedTestSuite.id)?.duration;
+              const duration = startTime ? Date.now() - startTime : null;
+              
+              setTestItems(prev => prev.map(item => 
+                item.id === selectedTestSuite.id 
+                  ? { 
+                      ...item, 
+                      status: 'failed', 
+                      duration: duration,
+                      lastRun: Date.now(),
+                      selected: false
+                    }
+                  : item
+              ));
+            }
+            
             setRecentOperations((prev) => {
               return prev.map((op) => {
                 if (op.id === operationId) {
