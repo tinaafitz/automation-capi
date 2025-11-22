@@ -7024,6 +7024,27 @@ export function WhatCanIHelp() {
 
           {!testSuiteCollapsed && (
             <div className="bg-gradient-to-br from-gray-50 to-white p-6">
+              {/* Prerequisites Status Banner */}
+              {isAutomationDisabled() && (
+                <div className="mb-6 bg-gradient-to-r from-blue-50 to-cyan-50 border-l-4 border-blue-400 p-4 rounded-lg">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-blue-700">
+                        <strong>Environment Setup Required</strong>
+                      </p>
+                      <p className="text-xs text-blue-600 mt-1">
+                        The environment must be configured to run tests.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Version Selector and Actions */}
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
                 <div className="flex items-center gap-4">
@@ -7057,6 +7078,19 @@ export function WhatCanIHelp() {
                   </button>
                   <button
                     onClick={() => {
+                      // Check prerequisites first
+                      if (isAutomationDisabled()) {
+                        const friendlyMessage = !rosaStatus?.authenticated 
+                          ? "🔐 Please sign in to ROSA first before running tests"
+                          : "⚙️ Please complete your configuration setup before running tests";
+                        addNotification(
+                          friendlyMessage,
+                          'warning',
+                          6000
+                        );
+                        return;
+                      }
+                      
                       const selectedTests = testItems.filter(item => item.selected);
                       if (selectedTests.length === 0) {
                         addNotification('⚠️ Please select at least one test suite', 'warning', 3000);
@@ -7072,8 +7106,9 @@ export function WhatCanIHelp() {
                         addNotification('⚠️ Please provision one test suite at a time for proper configuration', 'warning', 5000);
                       }
                     }}
-                    disabled={testRunning || testItems.filter(item => item.selected).length === 0}
+                    disabled={testRunning || testItems.filter(item => item.selected).length === 0 || isAutomationDisabled()}
                     className="px-6 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                    title={isAutomationDisabled() ? `Prerequisites required: ${getDisabledReason()}` : ''}
                   >
                     {testRunning ? '⏳ Provisioning...' : '🚀 Provision & Test Selected'}
                   </button>
