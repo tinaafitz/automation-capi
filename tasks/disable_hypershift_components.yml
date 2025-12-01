@@ -1,0 +1,19 @@
+- name: Get MCE name
+  shell: oc get mce -n multicluster-engine -ojson | jq -r '.items[].metadata.name'
+  register: mce_name
+
+- name: Disable hypershift component
+  shell: |
+    oc patch mce {{ mce_name.stdout }} -p '[{"op": "add", "path": "/spec/overrides/components/-","value":{"name":"hypershift","enabled":false}}]' --type=json
+  register: hypershift_disable_result
+  ignore_errors: true
+
+- name: Disable hypershift-local-hosting component  
+  shell: |
+    oc patch mce {{ mce_name.stdout }} -p '[{"op": "add", "path": "/spec/overrides/components/-","value":{"name":"hypershift-local-hosting","enabled":false}}]' --type=json
+  register: hypershift_local_hosting_disable_result
+  ignore_errors: true
+
+- name: Wait for HyperShift components to be disabled
+  pause:
+    seconds: 10
