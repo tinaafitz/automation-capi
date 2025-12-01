@@ -29,6 +29,9 @@
       oc get hostedclusters -A -o name
     register: hosted_clusters
 
+  - name: Disable HyperShift components before enabling CAPI/CAPA
+    include_tasks: tasks/disable_hypershift_components.yml
+
 - name: 'RHACM4K-56157: Validate CAPI enabled'
   vars:
     capi_enabled: true
