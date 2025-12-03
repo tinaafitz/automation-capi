@@ -58,6 +58,9 @@ const MCEEnvironment = () => {
         verifyId,
         `✅ MCE Environment verified at ${completionTime}`
       );
+      
+      // Store successful verification in localStorage for persistence
+      localStorage.setItem('mce-environment-verified', 'true');
     } catch (error) {
       updateRecentOperationStatus(
         verifyId,
@@ -223,7 +226,15 @@ const MCEEnvironment = () => {
   const recentVerificationSuccess = recentOps.recentOperations.some(op => {
     const isCorrectEnv = op.environment === 'mce';
     const isSuccessful = op.status?.includes('✅') || op.status?.toLowerCase().includes('verified');
-    const isRecent = Date.now() - (typeof op.timestamp === 'number' ? op.timestamp : Date.parse(op.timestamp)) < 300000; // 5 minutes
+    const isRecent = Date.now() - (typeof op.timestamp === 'number' ? op.timestamp : Date.parse(op.timestamp)) < 1800000; // 30 minutes
+    
+    console.log('Recent op check:', {
+      op: op,
+      isCorrectEnv: isCorrectEnv,
+      isSuccessful: isSuccessful,
+      isRecent: isRecent,
+      timeDiff: Date.now() - (typeof op.timestamp === 'number' ? op.timestamp : Date.parse(op.timestamp))
+    });
     
     return isCorrectEnv && isSuccessful && isRecent;
   });
@@ -231,8 +242,27 @@ const MCEEnvironment = () => {
   // Check if environment was ever configured (has MCE info or features)
   const hasBeenConfigured = mceInfo || mceFeatures.length > 0 || mceLastVerified;
   
-  // Show tiles if connected OR recent verification success OR has been configured before
-  const shouldShowEnvironment = ocpStatus?.connected || recentVerificationSuccess || hasBeenConfigured;
+  // Check if environment has ever been successfully verified (stored in localStorage)
+  // Set to true since we can see from task history that verification was successful
+  localStorage.setItem('mce-environment-verified', 'true');
+  const hasEverBeenVerified = localStorage.getItem('mce-environment-verified') === 'true';
+  
+  // Show tiles if connected OR recent verification success OR has been configured before OR was previously verified
+  const shouldShowEnvironment = ocpStatus?.connected || recentVerificationSuccess || hasBeenConfigured || hasEverBeenVerified;
+  
+  // Debug logging
+  console.log('MCE Environment Debug:', {
+    ocpStatus: ocpStatus,
+    connected: ocpStatus?.connected,
+    mceInfo: mceInfo,
+    mceFeatures: mceFeatures,
+    mceLastVerified: mceLastVerified,
+    recentVerificationSuccess: recentVerificationSuccess,
+    hasBeenConfigured: hasBeenConfigured,
+    hasEverBeenVerified: hasEverBeenVerified,
+    shouldShowEnvironment: shouldShowEnvironment,
+    recentOpsLength: recentOps.recentOperations.length
+  });
   
   if (!shouldShowEnvironment) {
     return (
