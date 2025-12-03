@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
-export function RosaProvisionModal({ isOpen, onClose, onSubmit }) {
+export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
   const [config, setConfig] = useState({
     clusterName: '',
     openShiftVersion: '4.19.10',
@@ -14,7 +14,31 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit }) {
     domainPrefix: '',
     channelGroup: 'stable',
     awsRegion: 'us-west-2',
+    privateNetwork: false,
+    additionalTags: '',
   });
+
+  // Update config when testSuite changes
+  useEffect(() => {
+    if (testSuite) {
+      setConfig({
+        clusterName: testSuite.components?.includes('Long Cluster Name') 
+          ? 'comprehensive-test-really-long-cluster-name'
+          : `test-${testSuite.category.toLowerCase()}-${testSuite.id}`,
+        openShiftVersion: '4.19.10',
+        createRosaNetwork: true,
+        createRosaRoleConfig: true,
+        vpcCidrBlock: '10.0.0.0/16',
+        availabilityZoneCount: testSuite.components?.includes('Availability Zones') ? 3 : 1,
+        rolePrefix: `test-${testSuite.category.toLowerCase()}`,
+        domainPrefix: `test-${testSuite.id}`,
+        channelGroup: 'stable',
+        awsRegion: 'us-west-2',
+        privateNetwork: testSuite.components?.includes('Private Network') || false,
+        additionalTags: testSuite.components?.includes('Additional Tags') ? 'Environment=Test,Team=CAPI' : '',
+      });
+    }
+  }, [testSuite]);
 
   if (!isOpen) return null;
 
@@ -34,7 +58,14 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit }) {
         <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🚀</span>
-            <h2 className="text-xl font-bold">Provision ROSA HCP Cluster</h2>
+            <div>
+              <h2 className="text-xl font-bold">Provision ROSA HCP Cluster</h2>
+              {testSuite && (
+                <div className="text-cyan-100 text-sm mt-1">
+                  Test Suite: {testSuite.name} ({testSuite.category})
+                </div>
+              )}
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -45,6 +76,24 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit }) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Test Suite Information */}
+          {testSuite && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="text-sm font-semibold text-blue-900 mb-2">Test Suite Details</h3>
+              <div className="space-y-2">
+                <div className="text-sm text-blue-800">
+                  <strong>Components to Test:</strong>{' '}
+                  {testSuite.components?.join(', ') || 'Standard components'}
+                </div>
+                {testSuite.jira && testSuite.jira.length > 0 && (
+                  <div className="text-sm text-blue-800">
+                    <strong>JIRA Tickets:</strong>{' '}
+                    {testSuite.jira.join(', ')}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           {/* Cluster Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -153,6 +202,47 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit }) {
                   Update channel for OpenShift releases. Stable is recommended for production.
                 </p>
               </div>
+
+              {/* Private Network - Only show for Comprehensive test */}
+              {testSuite?.components?.includes('Private Network') && (
+                <div>
+                  <label className="flex items-start gap-3 p-3 bg-orange-50 rounded-lg border border-orange-200 cursor-pointer hover:bg-orange-100 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={config.privateNetwork}
+                      onChange={(e) => handleChange('privateNetwork', e.target.checked)}
+                      className="mt-1 h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-900">Private Network</span>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-1">
+                        Configure cluster to use private subnets and disable public API endpoint access
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              )}
+
+              {/* Additional Tags - Only show for Comprehensive test */}
+              {testSuite?.components?.includes('Additional Tags') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Additional Tags
+                  </label>
+                  <input
+                    type="text"
+                    value={config.additionalTags}
+                    onChange={(e) => handleChange('additionalTags', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Environment=Test,Owner=TestTeam"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Comma-separated key=value pairs for AWS resource tagging (e.g., Environment=Test,Owner=TestTeam)
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -290,6 +380,22 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit }) {
                   </span>
                 </div>
               )}
+              {config.privateNetwork && (
+                <div className="flex items-center gap-2">
+                  <span className="text-green-600">✓</span>
+                  <span className="text-gray-700">
+                    Will configure private network (no public API access)
+                  </span>
+                </div>
+              )}
+              {config.additionalTags && (
+                <div className="flex items-center gap-2">
+                  <span className="text-green-600">✓</span>
+                  <span className="text-gray-700">
+                    Will apply additional tags: {config.additionalTags}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -319,4 +425,11 @@ RosaProvisionModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   onSubmit: PropTypes.func.isRequired,
+  testSuite: PropTypes.shape({
+    id: PropTypes.number,
+    name: PropTypes.string,
+    category: PropTypes.string,
+    components: PropTypes.arrayOf(PropTypes.string),
+    jira: PropTypes.arrayOf(PropTypes.string),
+  }),
 };

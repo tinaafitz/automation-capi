@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
-import { WhatCanIHelp } from './pages/WhatCanIHelp';
+import WhatCanIHelpRefactored from './pages/WhatCanIHelpRefactored';
 import { Dashboard } from './pages/Dashboard';
 import { CreateCluster } from './pages/CreateCluster';
 import { ClusterList } from './pages/ClusterList';
@@ -14,7 +14,7 @@ function App() {
     <Router>
       <div className="min-h-screen bg-gray-50">
         <Routes>
-          <Route path="/" element={<WhatCanIHelp />} />
+          <Route path="/" element={<WhatCanIHelpRefactored />} />
           <Route path="/setup" element={<GuidedSetup />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/diagnostics" element={<Diagnostics />} />
