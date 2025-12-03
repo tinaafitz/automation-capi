@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { ChevronDownIcon } from '@heroicons/react/20/solid';
 import MinikubeEnvironment from '../components/environments/MinikubeEnvironment';
 import MCEEnvironment from '../components/environments/MCEEnvironment';
 import MinikubeSetupSection from '../components/sections/MinikubeSetupSection';
-import RecentOperationsSection from '../components/sections/RecentOperationsSection';
 import TaskSummarySection from '../components/sections/TaskSummarySection';
 import TaskDetailSection from '../components/sections/TaskDetailSection';
+import { RosaProvisionModal } from '../components/RosaProvisionModal';
+import { YamlEditorModal } from '../components/YamlEditorModal';
 import { AppProvider, useApp, useAppDispatch, useMinikubeContext } from '../store/AppContext';
 import { AppActionTypes } from '../store/AppContext';
 
@@ -99,10 +100,11 @@ const EnvironmentSelector = () => {
 // Main environment content
 const EnvironmentContent = () => {
   const app = useApp();
+  const dispatch = useAppDispatch();
   const minikube = useMinikubeContext();
-
-  // For Minikube, check if we have verified cluster info
-  const shouldShowMinikube = app.selectedEnvironment === 'minikube' && minikube.verifiedMinikubeClusterInfo;
+  
+  // For Minikube, show if environment is selected (MinikubeEnvironment handles its own display logic)
+  const shouldShowMinikube = app.selectedEnvironment === 'minikube';
   const shouldShowMCE = app.selectedEnvironment === 'mce';
 
   return (
@@ -151,7 +153,6 @@ const EnvironmentContent = () => {
   );
 };
 
-// Main component
 const WhatCanIHelpRefactored = () => {
   return (
     <AppProvider>
@@ -160,8 +161,134 @@ const WhatCanIHelpRefactored = () => {
           <EnvironmentSelector />
           <EnvironmentContent />
         </div>
+        <ModalProvider />
       </div>
     </AppProvider>
+  );
+};
+
+// Modal provider component to handle global modals
+const ModalProvider = () => {
+  const app = useApp();
+  const dispatch = useAppDispatch();
+
+  return (
+    <>
+      {/* ROSA Provision Modal */}
+      <RosaProvisionModal
+        isOpen={app.showProvisionModal}
+        onClose={() => dispatch({ type: AppActionTypes.SHOW_PROVISION_MODAL, payload: false })}
+        onSubmit={async (config) => {
+          console.log('🚀 [PROVISION] onSubmit handler called with config:', config);
+          
+          try {
+            // Call generate-yaml API to get YAML preview
+            console.log('📤 [GENERATE-YAML] Calling API to generate YAML preview');
+            const generateResponse = await fetch(
+              'http://localhost:8000/api/provisioning/generate-yaml',
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ config }),
+              }
+            );
+
+            const generateData = await generateResponse.json();
+            console.log('📦 [GENERATE-YAML] Response:', generateData);
+
+            if (!generateData.success) {
+              throw new Error(generateData.message || 'Failed to generate YAML');
+            }
+
+            // Close the provision modal AFTER we get the YAML
+            dispatch({ type: AppActionTypes.SHOW_PROVISION_MODAL, payload: false });
+
+            // Open YAML editor modal with generated YAML
+            dispatch({ 
+              type: AppActionTypes.SET_YAML_EDITOR_DATA, 
+              payload: {
+                yaml_content: generateData.yaml_content,
+                cluster_name: generateData.cluster_name,
+                feature_type: generateData.feature_type,
+                file_paths: generateData.file_paths,
+                config: config, // Store original config for later use
+              }
+            });
+            dispatch({ type: AppActionTypes.SHOW_YAML_EDITOR_MODAL, payload: true });
+            console.log('✅ [GENERATE-YAML] Opening YAML editor modal');
+          } catch (error) {
+            console.error('❌ [GENERATE-YAML] Error generating YAML preview:', error);
+            // Keep the provision modal open on error
+            alert(`Failed to generate YAML preview: ${error.message}`);
+          }
+        }}
+        testSuite={null}
+      />
+
+      {/* YAML Editor Modal */}
+      <YamlEditorModal
+        isOpen={app.showYamlEditorModal}
+        onClose={() => dispatch({ type: AppActionTypes.SHOW_YAML_EDITOR_MODAL, payload: false })}
+        yamlData={app.yamlEditorData}
+        readOnly={false}
+        onProvision={async (editedYaml) => {
+          console.log('🚀 [APPLY-YAML] Provisioning with edited YAML');
+          
+          try {
+            // Close YAML editor modal first
+            dispatch({ type: AppActionTypes.SHOW_YAML_EDITOR_MODAL, payload: false });
+
+            // Call apply-yaml API to start the provisioning job
+            console.log('📤 [APPLY-YAML] Calling API to apply YAML');
+            const applyResponse = await fetch('http://localhost:8000/api/provisioning/apply-yaml', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                yaml_content: editedYaml,
+                cluster_name: app.yamlEditorData?.cluster_name,
+                feature_type: app.yamlEditorData?.feature_type,
+              }),
+            });
+
+            const applyData = await applyResponse.json();
+            console.log('📦 [APPLY-YAML] Response:', applyData);
+
+            if (!applyData.job_id) {
+              throw new Error(applyData.message || 'No job_id returned from server');
+            }
+
+            console.log('✅ [APPLY-YAML] Provisioning job started. Job ID:', applyData.job_id);
+            
+            // Expand CAPI-Managed ROSA HCP Clusters section on successful completion to monitor progress
+            console.log('🔀 [EXPAND] Expanding CAPI-Managed ROSA HCP Clusters section to monitor cluster progress');
+            setTimeout(() => {
+              // Expand the cluster section
+              const sectionId = 'capi-rosa-hcp-clusters';
+              dispatch({ type: AppActionTypes.EXPAND_SECTION, payload: sectionId });
+              
+              // Scroll to the cluster section after a small delay to allow for expansion
+              setTimeout(() => {
+                const element = document.querySelector('[data-section-id="capi-rosa-hcp-clusters"]');
+                if (element) {
+                  element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }, 500);
+            }, 1500); // Small delay to show success message first
+            
+            // The job will now be tracked by the job history system and will show up 
+            // in the Task Summary and Task Detail sections automatically
+            
+          } catch (error) {
+            console.error('❌ [APPLY-YAML] Error applying YAML:', error);
+            alert(`Failed to start provisioning: ${error.message}`);
+          }
+        }}
+      />
+    </>
   );
 };
 
