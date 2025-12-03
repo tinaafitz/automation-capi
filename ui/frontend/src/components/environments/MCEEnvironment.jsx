@@ -163,15 +163,15 @@ const MCEEnvironment = () => {
 
   const componentActions = [
     {
-      label: 'Terminal',
-      icon: '💻',
-      onClick: handleTerminal,
-      variant: 'secondary'
-    },
-    {
       label: 'Configure',
       icon: '⚙️',
       onClick: handleConfigure,
+      variant: 'secondary'
+    },
+    {
+      label: 'Terminal',
+      icon: '💻',
+      onClick: handleTerminal,
       variant: 'secondary'
     },
     {
@@ -344,10 +344,10 @@ const MCEEnvironment = () => {
             </div>
           </StatusCard>
 
-          {/* CAPI/CAPA Components Card */}
+          {/* Components Card */}
           <StatusCard
             theme="mce"
-            title="CAPI/CAPA Components"
+            title="Components"
             icon="🔧"
             status={`${allCAPIComponents.filter(c => c.enabled).length} configured`}
             actions={componentActions}
@@ -385,85 +385,79 @@ const MCEEnvironment = () => {
             </div>
           </StatusCard>
 
-          {/* Provisioned Resources Card */}
+          {/* Resources Card */}
           <StatusCard
             theme="mce"
-            title="Provisioned Resources"
+            title="Resources"
             icon="📦"
             status="0 total"
             actions={resourceActions}
           >
-            <div className="space-y-2">
-              {/* Sample resources */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+            {/* Scrollable Resources Container */}
+            <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+              <div className="space-y-2 pr-2">
+                <div className="py-2 border-b border-gray-100">
                   <div>
                     <span className="font-medium">capi-controller-manager</span>
-                    <div className="text-sm text-gray-600">Deployment</div>
-                  </div>
-                  <div className="text-right text-sm">
-                    <div className="inline-block px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
-                      Deployment
+                    <div className="mt-1">
+                      <div className="inline-block px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                        Deployment
+                      </div>
                     </div>
                   </div>
                 </div>
                 
-                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <div className="py-2 border-b border-gray-100">
                   <div>
                     <span className="font-medium">capa-controller-manager</span>
-                    <div className="text-sm text-gray-600">Deployment</div>
-                  </div>
-                  <div className="text-right text-sm">
-                    <div className="inline-block px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
-                      Deployment
+                    <div className="mt-1">
+                      <div className="inline-block px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                        Deployment
+                      </div>
                     </div>
                   </div>
                 </div>
                 
-                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <div className="py-2 border-b border-gray-100">
                   <div>
                     <span className="font-medium">mce-capi-webhook-config</span>
-                    <div className="text-sm text-gray-600">Deployment</div>
-                  </div>
-                  <div className="text-right text-sm">
-                    <div className="inline-block px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
-                      Deployment
+                    <div className="mt-1">
+                      <div className="inline-block px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                        Deployment
+                      </div>
                     </div>
                   </div>
                 </div>
                 
-                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <div className="py-2 border-b border-gray-100">
                   <div>
                     <span className="font-medium">default</span>
-                    <div className="text-sm text-gray-600">AWSClusterControllerIdentity</div>
-                  </div>
-                  <div className="text-right text-sm">
-                    <div className="inline-block px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
-                      AWSClusterControllerIdentity
+                    <div className="mt-1">
+                      <div className="inline-block px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+                        AWSClusterControllerIdentity
+                      </div>
                     </div>
                   </div>
                 </div>
                 
-                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <div className="py-2 border-b border-gray-100">
                   <div>
                     <span className="font-medium">rc1-rosa-hcp-test-network</span>
-                    <div className="text-sm text-gray-600">ROSANetwork</div>
-                  </div>
-                  <div className="text-right text-sm">
-                    <div className="inline-block px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">
-                      ROSANetwork
+                    <div className="mt-1">
+                      <div className="inline-block px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">
+                        ROSANetwork
+                      </div>
                     </div>
                   </div>
                 </div>
                 
-                <div className="flex justify-between items-center py-2">
+                <div className="py-2">
                   <div>
                     <span className="font-medium">rc1-rosa-hcp-test</span>
-                    <div className="text-sm text-gray-600">ROSAControlPlane</div>
-                  </div>
-                  <div className="text-right text-sm">
-                    <div className="inline-block px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800">
-                      ROSAControlPlane
+                    <div className="mt-1">
+                      <div className="inline-block px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800">
+                        ROSAControlPlane
+                      </div>
                     </div>
                   </div>
                 </div>
