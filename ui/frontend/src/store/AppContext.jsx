@@ -137,7 +137,7 @@ const appReducer = (state, action) => {
         notifications: state.notifications.filter(n => n.id !== action.payload)
       };
     
-    case AppActionTypes.TOGGLE_FAVORITE:
+    case AppActionTypes.TOGGLE_FAVORITE: {
       const newFavorites = new Set(state.favorites);
       if (newFavorites.has(action.payload)) {
         newFavorites.delete(action.payload);
@@ -145,6 +145,7 @@ const appReducer = (state, action) => {
         newFavorites.add(action.payload);
       }
       return { ...state, favorites: newFavorites };
+    }
 
     // Environment Actions
     case AppActionTypes.SET_SELECTED_ENVIRONMENT:
@@ -153,7 +154,7 @@ const appReducer = (state, action) => {
     case AppActionTypes.TOGGLE_ENVIRONMENT_DROPDOWN:
       return { ...state, showEnvironmentDropdown: !state.showEnvironmentDropdown };
     
-    case AppActionTypes.TOGGLE_SECTION:
+    case AppActionTypes.TOGGLE_SECTION: {
       const newSections = new Set(state.collapsedSections);
       if (newSections.has(action.payload)) {
         newSections.delete(action.payload);
@@ -161,6 +162,7 @@ const appReducer = (state, action) => {
         newSections.add(action.payload);
       }
       return { ...state, collapsedSections: newSections };
+    }
     
     case AppActionTypes.SET_SETUP_PROMPT:
       return { ...state, showSetupPrompt: action.payload };

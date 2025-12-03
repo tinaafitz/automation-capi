@@ -2869,6 +2869,109 @@ async def get_mce_features():
         raise HTTPException(status_code=500, detail=f"Error fetching MCE features: {str(e)}")
 
 
+@app.get("/api/mce/resources")
+async def get_mce_resources():
+    """Get CAPI/CAPA resources from the MCE environment"""
+    try:
+        resources = []
+
+        # Define resource types to fetch
+        resource_types = [
+            {"type": "Deployment", "namespaces": ["capi-system", "capa-system", "multicluster-engine"]},
+            {"type": "AWSClusterControllerIdentity", "namespaces": ["capa-system"]},
+            {"type": "ROSACluster", "namespaces": None},  # All namespaces
+            {"type": "ROSANetwork", "namespaces": None},  # All namespaces
+            {"type": "ROSAControlPlane", "namespaces": None},  # All namespaces
+            {"type": "ROSARoleConfig", "namespaces": None},  # All namespaces
+        ]
+
+        for resource_config in resource_types:
+            resource_type = resource_config["type"]
+            namespaces = resource_config["namespaces"]
+
+            try:
+                if namespaces:
+                    # Fetch from specific namespaces
+                    for namespace in namespaces:
+                        result = subprocess.run(
+                            ["oc", "get", resource_type.lower(), "-n", namespace, "-o", "json"],
+                            capture_output=True,
+                            text=True,
+                            timeout=10,
+                        )
+
+                        if result.returncode == 0:
+                            import json
+
+                            data = json.loads(result.stdout)
+                            for item in data.get("items", []):
+                                metadata = item.get("metadata", {})
+                                resource_name = metadata.get("name", "unknown")
+
+                                # Get YAML for this resource
+                                yaml_result = subprocess.run(
+                                    ["oc", "get", resource_type.lower(), resource_name, "-n", namespace, "-o", "yaml"],
+                                    capture_output=True,
+                                    text=True,
+                                    timeout=10,
+                                )
+
+                                yaml_content = yaml_result.stdout if yaml_result.returncode == 0 else None
+
+                                resources.append({
+                                    "name": resource_name,
+                                    "type": resource_type,
+                                    "namespace": metadata.get("namespace", namespace),
+                                    "status": "Active",
+                                    "yaml": yaml_content,
+                                })
+                else:
+                    # Fetch from all namespaces
+                    result = subprocess.run(
+                        ["oc", "get", resource_type.lower(), "--all-namespaces", "-o", "json"],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+
+                    if result.returncode == 0:
+                        import json
+
+                        data = json.loads(result.stdout)
+                        for item in data.get("items", []):
+                            metadata = item.get("metadata", {})
+                            resource_name = metadata.get("name", "unknown")
+                            resource_namespace = metadata.get("namespace", "default")
+
+                            # Get YAML for this resource
+                            yaml_result = subprocess.run(
+                                ["oc", "get", resource_type.lower(), resource_name, "-n", resource_namespace, "-o", "yaml"],
+                                capture_output=True,
+                                text=True,
+                                timeout=10,
+                            )
+
+                            yaml_content = yaml_result.stdout if yaml_result.returncode == 0 else None
+
+                            resources.append({
+                                "name": resource_name,
+                                "type": resource_type,
+                                "namespace": resource_namespace,
+                                "status": "Active",
+                                "yaml": yaml_content,
+                            })
+
+            except Exception as e:
+                # Log but don't fail if one resource type fails
+                print(f"Failed to fetch {resource_type}: {str(e)}")
+                continue
+
+        return {"success": True, "resources": resources, "count": len(resources)}
+
+    except Exception as e:
+        return {"success": False, "message": f"Error fetching MCE resources: {str(e)}", "resources": []}
+
+
 @app.post("/api/ansible/run-role")
 async def run_ansible_role(request: dict):
     """Run a specific ansible role"""
