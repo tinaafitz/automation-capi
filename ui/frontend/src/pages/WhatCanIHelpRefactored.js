@@ -9,6 +9,7 @@ import { RosaProvisionModal } from '../components/RosaProvisionModal';
 import { YamlEditorModal } from '../components/YamlEditorModal';
 import { AppProvider, useApp, useAppDispatch, useMinikubeContext } from '../store/AppContext';
 import { AppActionTypes } from '../store/AppContext';
+import { buildApiUrl, API_ENDPOINTS, validateApiResponse, extractSafeErrorMessage } from '../config/api';
 
 // Environment selector dropdown component
 const EnvironmentSelector = () => {
@@ -179,13 +180,11 @@ const ModalProvider = () => {
         isOpen={app.showProvisionModal}
         onClose={() => dispatch({ type: AppActionTypes.SHOW_PROVISION_MODAL, payload: false })}
         onSubmit={async (config) => {
-          console.log('🚀 [PROVISION] onSubmit handler called with config:', config);
           
           try {
             // Call generate-yaml API to get YAML preview
-            console.log('📤 [GENERATE-YAML] Calling API to generate YAML preview');
             const generateResponse = await fetch(
-              'http://localhost:8000/api/provisioning/generate-yaml',
+              buildApiUrl(API_ENDPOINTS.PROVISIONING_GENERATE_YAML),
               {
                 method: 'POST',
                 headers: {
@@ -196,10 +195,10 @@ const ModalProvider = () => {
             );
 
             const generateData = await generateResponse.json();
-            console.log('📦 [GENERATE-YAML] Response:', generateData);
+            const validatedData = validateApiResponse(generateData, ['success']);
 
-            if (!generateData.success) {
-              throw new Error(generateData.message || 'Failed to generate YAML');
+            if (!validatedData.success) {
+              throw new Error(validatedData.message || 'Failed to generate YAML');
             }
 
             // Close the provision modal AFTER we get the YAML
@@ -209,19 +208,18 @@ const ModalProvider = () => {
             dispatch({ 
               type: AppActionTypes.SET_YAML_EDITOR_DATA, 
               payload: {
-                yaml_content: generateData.yaml_content,
-                cluster_name: generateData.cluster_name,
-                feature_type: generateData.feature_type,
-                file_paths: generateData.file_paths,
+                yaml_content: validatedData.yaml_content,
+                cluster_name: validatedData.cluster_name,
+                feature_type: validatedData.feature_type,
+                file_paths: validatedData.file_paths,
                 config: config, // Store original config for later use
               }
             });
             dispatch({ type: AppActionTypes.SHOW_YAML_EDITOR_MODAL, payload: true });
-            console.log('✅ [GENERATE-YAML] Opening YAML editor modal');
           } catch (error) {
-            console.error('❌ [GENERATE-YAML] Error generating YAML preview:', error);
+            const safeErrorMessage = extractSafeErrorMessage(error);
             // Keep the provision modal open on error
-            alert(`Failed to generate YAML preview: ${error.message}`);
+            alert(`Failed to generate YAML preview: ${safeErrorMessage}`);
           }
         }}
         testSuite={null}
@@ -234,15 +232,13 @@ const ModalProvider = () => {
         yamlData={app.yamlEditorData}
         readOnly={false}
         onProvision={async (editedYaml) => {
-          console.log('🚀 [APPLY-YAML] Provisioning with edited YAML');
           
           try {
             // Close YAML editor modal first
             dispatch({ type: AppActionTypes.SHOW_YAML_EDITOR_MODAL, payload: false });
 
             // Call apply-yaml API to start the provisioning job
-            console.log('📤 [APPLY-YAML] Calling API to apply YAML');
-            const applyResponse = await fetch('http://localhost:8000/api/provisioning/apply-yaml', {
+            const applyResponse = await fetch(buildApiUrl(API_ENDPOINTS.PROVISIONING_APPLY_YAML), {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -255,16 +251,13 @@ const ModalProvider = () => {
             });
 
             const applyData = await applyResponse.json();
-            console.log('📦 [APPLY-YAML] Response:', applyData);
+            const validatedData = validateApiResponse(applyData, ['job_id']);
 
-            if (!applyData.job_id) {
-              throw new Error(applyData.message || 'No job_id returned from server');
+            if (!validatedData.job_id) {
+              throw new Error(validatedData.message || 'No job_id returned from server');
             }
-
-            console.log('✅ [APPLY-YAML] Provisioning job started. Job ID:', applyData.job_id);
             
             // Expand CAPI-Managed ROSA HCP Clusters section on successful completion to monitor progress
-            console.log('🔀 [EXPAND] Expanding CAPI-Managed ROSA HCP Clusters section to monitor cluster progress');
             setTimeout(() => {
               // Expand the cluster section
               const sectionId = 'capi-rosa-hcp-clusters';
@@ -283,8 +276,8 @@ const ModalProvider = () => {
             // in the Task Summary and Task Detail sections automatically
             
           } catch (error) {
-            console.error('❌ [APPLY-YAML] Error applying YAML:', error);
-            alert(`Failed to start provisioning: ${error.message}`);
+            const safeErrorMessage = extractSafeErrorMessage(error);
+            alert(`Failed to start provisioning: ${safeErrorMessage}`);
           }
         }}
       />

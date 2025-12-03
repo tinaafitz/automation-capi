@@ -10,10 +10,10 @@ import { AppActionTypes } from '../../store/AppContext';
 import { cardStyles } from '../../styles/themes';
 import { Cog6ToothIcon, ChevronDownIcon, ChevronUpIcon, ChartBarIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { useJobHistory } from '../../hooks/useJobHistory';
+import { buildApiUrl, API_ENDPOINTS, validateApiResponse, extractSafeErrorMessage } from '../../config/api';
 
 // ROSA HCP Clusters component (positioned after Configuration, before Terminal)
 const RosaHcpClustersSection = () => {
-  console.log('🔥 RosaHcpClustersSection component is rendering');
   const app = useApp();
   const dispatch = useAppDispatch();
   
@@ -38,16 +38,25 @@ const RosaHcpClustersSection = () => {
     setClustersLoading(true);
     setClustersError(null);
     try {
-      const response = await fetch('http://localhost:8000/api/rosa/clusters');
+      const response = await fetch(buildApiUrl(API_ENDPOINTS.ROSA_CLUSTERS));
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const data = await response.json();
-      if (data.success) {
-        setClusters(data.clusters || []);
+      const validatedData = validateApiResponse(data, ['success']);
+      
+      if (validatedData.success) {
+        // Validate cluster data structure
+        const clusterList = Array.isArray(validatedData.clusters) ? validatedData.clusters : [];
+        setClusters(clusterList);
       } else {
-        setClustersError(data.message || 'Failed to fetch clusters');
+        throw new Error(validatedData.message || 'API returned failure status');
       }
     } catch (error) {
-      console.error('Failed to fetch clusters:', error);
-      setClustersError('Failed to connect to backend');
+      const safeErrorMessage = extractSafeErrorMessage(error);
+      setClustersError(safeErrorMessage);
     } finally {
       setClustersLoading(false);
     }
@@ -311,7 +320,7 @@ Next steps:
         output: 'Starting MCE CAPI/CAPA environment configuration...\nPreparing OpenShift login...\nConfiguring Cluster API components...\nSetting up AWS provider...'
       });
 
-      const response = await fetch('http://localhost:8000/api/ansible/run-task', {
+      const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_TASK), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -363,17 +372,16 @@ Next steps:
 
   // Handle export action
   const handleExport = () => {
-    console.log('Export MCE resources');
+    // TODO: Implement MCE resource export functionality
   };
 
   // Handle resource click to show YAML
   const handleResourceClick = async (resource) => {
     try {
-      console.log('🔍 [YAML] Fetching YAML for resource:', resource.name, 'type:', resource.type, 'namespace:', resource.namespace);
       
       // For MultiClusterEngine, use the dedicated API endpoint
       if (resource.type === 'MultiClusterEngine') {
-        const response = await fetch('http://localhost:8000/api/mce/yaml', {
+        const response = await fetch(buildApiUrl(API_ENDPOINTS.MCE_YAML), {
           method: 'GET',
         });
 
@@ -442,11 +450,8 @@ Next steps:
       
       setShowYamlEditorModal(true);
     } catch (error) {
-      console.error('Error fetching resource YAML:', error);
-      
       // Try alternative command format
       try {
-        console.log('🔄 [YAML] Trying alternative fetch method...');
         
         const altResponse = await fetch('/api/ansible/run-task', {
           method: 'POST',
@@ -474,7 +479,7 @@ Next steps:
           }
         }
       } catch (altError) {
-        console.log('Alternative method also failed:', altError);
+        // Alternative method failed, continue to fallback
       }
       
       // Final fallback: show informative message
@@ -735,19 +740,7 @@ Next steps:
   // Show tiles if connected OR recent verification success OR has been configured before OR was previously verified
   const shouldShowEnvironment = ocpStatus?.connected || recentVerificationSuccess || hasBeenConfigured || hasEverBeenVerified;
   
-  // Debug logging
-  console.log('MCE Environment Debug:', {
-    ocpStatus: ocpStatus,
-    connected: ocpStatus?.connected,
-    mceInfo: mceInfo,
-    mceFeatures: mceFeatures,
-    mceLastVerified: mceLastVerified,
-    recentVerificationSuccess: recentVerificationSuccess,
-    hasBeenConfigured: hasBeenConfigured,
-    hasEverBeenVerified: hasEverBeenVerified,
-    shouldShowEnvironment: shouldShowEnvironment,
-    recentOpsLength: recentOps.recentOperations.length
-  });
+  // Environment state validation complete
   
   if (!shouldShowEnvironment) {
     return (
@@ -983,7 +976,6 @@ Next steps:
         yamlData={yamlEditorData}
         readOnly={true}
         onProvision={async (editedYaml) => {
-          console.log('🚀 [APPLY-YAML] Provisioning with edited YAML');
           // Handle YAML provisioning here if needed
           setShowYamlEditorModal(false);
         }}
