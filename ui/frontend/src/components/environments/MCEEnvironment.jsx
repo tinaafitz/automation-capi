@@ -228,8 +228,11 @@ const MCEEnvironment = () => {
     return isCorrectEnv && isSuccessful && isRecent;
   });
   
-  // Show tiles if connected OR recent verification success
-  const shouldShowEnvironment = ocpStatus?.connected || recentVerificationSuccess;
+  // Check if environment was ever configured (has MCE info or features)
+  const hasBeenConfigured = mceInfo || mceFeatures.length > 0 || mceLastVerified;
+  
+  // Show tiles if connected OR recent verification success OR has been configured before
+  const shouldShowEnvironment = ocpStatus?.connected || recentVerificationSuccess || hasBeenConfigured;
   
   if (!shouldShowEnvironment) {
     return (

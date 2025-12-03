@@ -124,16 +124,25 @@ const MinikubeEnvironment = () => {
 
   const componentActions = [
     {
+      label: 'Configure',
+      icon: '⚙️',
+      onClick: () => console.log('Configure clicked'),
+      variant: 'secondary'
+    },
+    {
       label: 'Terminal',
       icon: '💻',
       onClick: handleTerminal,
       variant: 'secondary'
     },
     {
-      label: 'Provision',
-      icon: '+',
-      onClick: handleProvision,
-      variant: 'primary'
+      label: 'Refresh',
+      icon: '🔄',
+      onClick: () => fetchMinikubeActiveResources(
+        verifiedMinikubeClusterInfo?.name,
+        verifiedMinikubeClusterInfo?.namespace
+      ),
+      variant: 'secondary'
     }
   ];
 
@@ -204,27 +213,11 @@ const MinikubeEnvironment = () => {
                     </div>
                     
                     <div>
-                      <span className="font-medium text-gray-600">CAPI/CAPA:</span>
-                      <div className="flex items-center mt-1">
-                        <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                        <span className="text-green-600">Enabled</span>
-                      </div>
-                    </div>
-                    
-                    <div className="col-span-2">
                       <span className="font-medium text-gray-600">Clusters:</span>
                       <div className="mt-1 text-purple-600">0</div>
                     </div>
                   </div>
                   
-                  <div className="mt-4 text-xs text-gray-500">
-                    <span className="font-medium">Last Verified:</span>
-                    <br />
-                    {minikubeVerificationResult?.verified_at ? 
-                      new Date(minikubeVerificationResult.verified_at).toLocaleString() : 
-                      'Not verified yet'
-                    }
-                  </div>
                 </div>
 
                 {/* No ROSA clusters message */}
@@ -234,18 +227,19 @@ const MinikubeEnvironment = () => {
               </div>
             </StatusCard>
 
-            {/* CAPI/CAPA Components Card */}
+            {/* Components Card */}
             <ComponentStatusCard
               theme="minikube"
-              title={`CAPI/CAPA Components (${capiComponents.filter(c => c.enabled).length} configured)`}
+              title="Components"
+              status={`${capiComponents.filter(c => c.enabled).length} configured`}
               components={capiComponents}
               actions={componentActions}
             />
 
-            {/* Active Resources Card */}
+            {/* Resources Card */}
             <StatusCard
               theme="minikube"
-              title="Provisioned Resources"
+              title="Resources"
               icon="📦"
               status={`${minikubeActiveResources.length} total`}
               actions={[
