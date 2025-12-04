@@ -16,37 +16,39 @@ import { buildApiUrl, API_ENDPOINTS, validateApiResponse, extractSafeErrorMessag
 const RosaHcpClustersSection = () => {
   const app = useApp();
   const dispatch = useAppDispatch();
-  
+  const apiStatus = useApiStatusContext();
+  const { ocpStatus } = apiStatus;
+
   // Cluster monitoring state
   const [clusters, setClusters] = useState([]);
   const [clustersLoading, setClustersLoading] = useState(false);
   const [clustersError, setClustersError] = useState(null);
-  
+
   // Cluster section state
   const getClusterSectionCollapsedState = () => {
     const sectionId = 'capi-rosa-hcp-clusters';
     return app.collapsedSections?.has(sectionId) || false;
   };
-  
+
   const toggleClusterSection = () => {
     const sectionId = 'capi-rosa-hcp-clusters';
     dispatch({ type: AppActionTypes.TOGGLE_SECTION, payload: sectionId });
   };
-  
+
   // Fetch clusters function
   const fetchClusters = useCallback(async () => {
     setClustersLoading(true);
     setClustersError(null);
     try {
       const response = await fetch(buildApiUrl(API_ENDPOINTS.ROSA_CLUSTERS));
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       const data = await response.json();
       const validatedData = validateApiResponse(data, ['success']);
-      
+
       if (validatedData.success) {
         // Validate cluster data structure
         const clusterList = Array.isArray(validatedData.clusters) ? validatedData.clusters : [];
@@ -61,11 +63,19 @@ const RosaHcpClustersSection = () => {
       setClustersLoading(false);
     }
   }, []);
-  
+
   // Load clusters on component mount
   useEffect(() => {
     fetchClusters();
   }, [fetchClusters]);
+
+  // Clear clusters when connection is lost
+  useEffect(() => {
+    if (ocpStatus && !ocpStatus.connected) {
+      setClusters([]);
+      setClustersError(null);
+    }
+  }, [ocpStatus?.connected]);
 
   return (
     <div className="mb-6">
@@ -225,7 +235,9 @@ const MCEEnvironment = () => {
     mceInfo,
     mceLastVerified,
     loading: apiLoading,
-    refreshAllStatus
+    refreshAllStatus,
+    setOcpStatus,
+    setMceLastVerified
   } = apiStatus;
 
   const { addToRecent, updateRecentOperationStatus } = recentOps;
@@ -251,7 +263,7 @@ const MCEEnvironment = () => {
   // Handle MCE verification
   const handleMceVerification = async () => {
     const verifyId = `verify-mce-${Date.now()}`;
-    
+
     try {
       addToRecent({
         id: verifyId,
@@ -263,43 +275,107 @@ const MCEEnvironment = () => {
         output: 'Initializing MCE environment verification...\nConnecting to OpenShift cluster...\nValidating MCE components...'
       });
 
-      await refreshAllStatus();
-      
-      // Wait a moment and refresh again to ensure status is updated
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      await refreshAllStatus();
-      
-      // Only mark as complete after all verification steps are done
-      const completionTime = new Date().toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true,
+      const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_TASK), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          task_file: 'tasks/validate-capa-environment.yml',
+          description: 'Verify MCE Environment',
+          cluster_type: 'mce'
+        })
       });
-      
-      updateRecentOperationStatus(
-        verifyId,
-        `✅ MCE Environment verified at ${completionTime}`,
-        `MCE Environment Verification Complete
-        
-✅ OpenShift connection established
-✅ MCE components validated
-✅ CAPI/CAPA providers verified
-✅ Cluster API endpoints accessible
-✅ Resource permissions confirmed
 
-Verification completed successfully at ${completionTime}
-Environment is ready for cluster provisioning operations.
+      if (!response.ok) {
+        throw new Error(`Failed to start verification: ${response.statusText}`);
+      }
 
-Next steps:
-- Configure cluster templates
-- Provision ROSA HCP clusters  
-- Monitor cluster operations`
-      );
-      
-      // Store successful verification in localStorage for persistence
-      localStorage.setItem('mce-environment-verified', 'true');
+      const result = await response.json();
+
+      if (result.success) {
+        const completionTime = new Date().toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+        });
+
+        updateRecentOperationStatus(
+          verifyId,
+          `✅ MCE Environment verified at ${completionTime}`,
+          result.output
+        );
+
+        // Store successful verification in localStorage for persistence
+        localStorage.setItem('mce-environment-verified', 'true');
+
+        // Refresh status after successful verification
+        await refreshAllStatus();
+      } else {
+        // Update status to reflect failure
+        setOcpStatus({
+          connected: false,
+          status: 'error',
+          message: result.error || 'Verification failed',
+          api_url: ocpStatus?.api_url
+        });
+        setMceLastVerified(null);
+
+        // Check if this is an OpenShift login failure
+        const isLoginFailure = result.error?.includes('OPENSHIFT LOGIN FAILED') ||
+                               result.error?.includes('Unauthorized') ||
+                               result.error?.includes('You must be logged in') ||
+                               result.output?.includes('OPENSHIFT LOGIN FAILED') ||
+                               result.output?.includes('Unauthorized');
+
+        if (isLoginFailure) {
+          updateRecentOperationStatus(
+            verifyId,
+            `❌ OpenShift Login Failed`,
+            `Verification Failed: OpenShift Authentication Required
+
+❌ Your OpenShift login session has expired or credentials are invalid.
+
+📋 To fix this issue:
+
+1. Get a new login token:
+   • Go to OpenShift Console: ${ocpStatus?.api_url?.replace('api.', 'console-openshift-console.apps.') || 'https://console-openshift-console.apps...'}/
+   • Click your username (top right) → "Copy login command"
+   • Run the login command in your terminal
+
+2. Or update credentials:
+   • Click the "Credentials" button in the MCE Environment tile
+   • Ensure your OpenShift Hub credentials are correct
+   • Save and try again
+
+3. Or manually login via terminal:
+   • Run: oc login ${ocpStatus?.api_url || '<your-cluster-url>'} -u <username> -p <password>
+
+📝 Error details:
+${result.error || 'Authentication failed'}
+
+Once logged in, click "Verify" again to retry.`
+          );
+        } else {
+          updateRecentOperationStatus(
+            verifyId,
+            `❌ Verification failed: ${result.error}`,
+            result.output
+          );
+        }
+      }
+
     } catch (error) {
+      // Update status to reflect failure
+      setOcpStatus({
+        connected: false,
+        status: 'error',
+        message: error.message || 'Verification failed',
+        api_url: ocpStatus?.api_url
+      });
+      setMceLastVerified(null);
+
       updateRecentOperationStatus(
         verifyId,
         `❌ Verification failed: ${error.message}`
@@ -359,7 +435,7 @@ Next steps:
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         updateRecentOperationStatus(
           configureId,
@@ -367,13 +443,50 @@ Next steps:
           result.output
         );
       } else {
-        updateRecentOperationStatus(
-          configureId,
-          `❌ Configuration failed: ${result.error}`,
-          result.output
-        );
+        // Check if this is an OpenShift login failure
+        const isLoginFailure = result.error?.includes('OPENSHIFT LOGIN FAILED') ||
+                               result.error?.includes('Unauthorized') ||
+                               result.error?.includes('You must be logged in') ||
+                               result.output?.includes('OPENSHIFT LOGIN FAILED') ||
+                               result.output?.includes('Unauthorized');
+
+        if (isLoginFailure) {
+          updateRecentOperationStatus(
+            configureId,
+            `❌ OpenShift Login Failed`,
+            `Configuration Failed: OpenShift Authentication Required
+
+❌ Your OpenShift login session has expired or credentials are invalid.
+
+📋 To fix this issue:
+
+1. Get a new login token:
+   • Go to OpenShift Console: ${ocpStatus?.api_url?.replace('api.', 'console-openshift-console.apps.') || 'https://console-openshift-console.apps...'}/
+   • Click your username (top right) → "Copy login command"
+   • Run the login command in your terminal
+
+2. Or update credentials:
+   • Click the "Credentials" button in the MCE Environment tile
+   • Ensure your OpenShift Hub credentials are correct
+   • Save and try again
+
+3. Or manually login via terminal:
+   • Run: oc login ${ocpStatus?.api_url || '<your-cluster-url>'} -u <username> -p <password>
+
+📝 Error details:
+${result.error || 'Authentication failed'}
+
+Once logged in, click "Configure" again to retry.`
+          );
+        } else {
+          updateRecentOperationStatus(
+            configureId,
+            `❌ Configuration failed: ${result.error}`,
+            result.output
+          );
+        }
       }
-      
+
     } catch (error) {
       updateRecentOperationStatus(
         configureId,
@@ -392,9 +505,176 @@ Next steps:
     dispatch({ type: AppActionTypes.SHOW_PROVISION_MODAL, payload: true });
   };
 
+  // Handle disable CAPI action
+  const handleDisableCapi = async () => {
+    const disableId = `disable-capi-${Date.now()}`;
+
+    try {
+      addToRecent({
+        id: disableId,
+        title: 'Disable CAPI Components',
+        color: 'bg-red-600',
+        status: '⏳ Disabling...',
+        environment: 'mce',
+        playbook: 'tasks/update_enabled_flag.yml',
+        output: 'Starting CAPI component disable operation...\nUpdating MultiClusterEngine configuration...\nDisabling cluster-api component...'
+      });
+
+      const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_TASK), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          task_file: 'tasks/update_enabled_flag.yml',
+          description: 'Disable CAPI Components',
+          cluster_type: 'mce',
+          extra_vars: {
+            component: 'cluster-api',
+            enable: 'false'
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to disable CAPI: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        const completionTime = new Date().toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+        });
+
+        updateRecentOperationStatus(
+          disableId,
+          `✅ CAPI components disabled at ${completionTime}`,
+          result.output
+        );
+
+        // Refresh status after successful disable
+        await refreshAllStatus();
+      } else {
+        // Check if this is an OpenShift login failure
+        const isLoginFailure = result.error?.includes('OPENSHIFT LOGIN FAILED') ||
+                               result.error?.includes('Unauthorized') ||
+                               result.error?.includes('You must be logged in') ||
+                               result.output?.includes('OPENSHIFT LOGIN FAILED') ||
+                               result.output?.includes('Unauthorized');
+
+        if (isLoginFailure) {
+          updateRecentOperationStatus(
+            disableId,
+            `❌ OpenShift Login Failed`,
+            `Disable CAPI Failed: OpenShift Authentication Required
+
+❌ Your OpenShift login session has expired or credentials are invalid.
+
+📋 To fix this issue:
+
+1. Get a new login token:
+   • Go to OpenShift Console: ${ocpStatus?.api_url?.replace('api.', 'console-openshift-console.apps.') || 'https://console-openshift-console.apps...'}/
+   • Click your username (top right) → "Copy login command"
+   • Run the login command in your terminal
+
+2. Or update credentials:
+   • Click the "Credentials" button in the MCE Environment tile
+   • Ensure your OpenShift Hub credentials are correct
+   • Save and try again
+
+3. Or manually login via terminal:
+   • Run: oc login ${ocpStatus?.api_url || '<your-cluster-url>'} -u <username> -p <password>
+
+📝 Error details:
+${result.error || 'Authentication failed'}
+
+Once logged in, click "Disable CAPI" again to retry.`
+          );
+        } else {
+          updateRecentOperationStatus(
+            disableId,
+            `❌ Failed to disable CAPI: ${result.error}`,
+            result.output
+          );
+        }
+      }
+    } catch (error) {
+      updateRecentOperationStatus(
+        disableId,
+        `❌ Failed to disable CAPI: ${error.message}`
+      );
+    }
+  };
+
   // Handle export action
   const handleExport = () => {
-    // TODO: Implement MCE resource export functionality
+    if (mceResources.length === 0) {
+      alert('No resources to export');
+      return;
+    }
+
+    const exportId = `export-resources-${Date.now()}`;
+    const fileName = `mce-resources-${new Date().toISOString().split('T')[0]}.json`;
+
+    // Add to recent operations
+    addToRecent({
+      id: exportId,
+      title: 'Export MCE Resources',
+      color: 'bg-cyan-600',
+      status: '⏳ Exporting...',
+      environment: 'mce',
+      output: `Exporting ${mceResources.length} resources to ${fileName}...`
+    });
+
+    // Create export data
+    const exportData = {
+      exported_at: new Date().toISOString(),
+      total_resources: mceResources.length,
+      resources: mceResources.map(resource => ({
+        name: resource.name,
+        type: resource.type,
+        namespace: resource.namespace,
+        status: resource.status
+      }))
+    };
+
+    // Convert to JSON
+    const jsonString = JSON.stringify(exportData, null, 2);
+
+    // Create blob and download
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    // Update operation as complete
+    const completionTime = new Date().toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
+
+    updateRecentOperationStatus(
+      exportId,
+      `✅ Export completed at ${completionTime}`,
+      `MCE Resources Export Complete
+
+✅ Exported ${mceResources.length} resources
+✅ File: ${fileName}
+✅ Downloaded successfully
+
+Export completed at ${completionTime}`
+    );
   };
 
   // Handle resource click to show YAML
@@ -654,12 +934,6 @@ Next steps:
       variant: 'secondary'
     },
     {
-      label: 'Terminal',
-      icon: '💻',
-      onClick: handleTerminal,
-      variant: 'secondary'
-    },
-    {
       label: 'Refresh',
       icon: '🔄',
       onClick: handleRefresh,
@@ -721,9 +995,20 @@ Next steps:
   // Get connection status
   const getConnectionStatus = () => {
     if (apiLoading) return 'Checking...';
+
+    // If we have explicit connection status from API, use it
+    if (ocpStatus) {
+      if (ocpStatus.connected === false) return 'Disconnected';
+      if (ocpStatus.connected === true) return 'Connected';
+    }
+
+    // Otherwise check recent verification status
     if (recentVerificationStatus === 'needs_configuration') return 'Configuration Required';
-    if (recentVerificationStatus === 'verified' || ocpStatus?.connected || recentVerificationSuccess || hasEverBeenVerified) return 'Connected';
+    if (recentVerificationStatus === 'verified' || recentVerificationSuccess) return 'Connected';
     if (recentVerificationStatus === 'failed') return 'Verification Failed';
+
+    // Fallback to previous state
+    if (hasEverBeenVerified) return 'Connected';
     return 'Disconnected';
   };
 
@@ -902,14 +1187,21 @@ Next steps:
               </svg>
             }
             status={getConnectionStatus()}
+            verificationStatus={
+              recentVerificationStatus === 'needs_configuration'
+                ? 'Configuration Required'
+                : recentVerificationStatus === 'verified' || (ocpStatus?.connected && recentVerificationSuccess)
+                ? 'Verified'
+                : 'Not Verified'
+            }
             lastVerified={getLastVerifiedText()}
             actions={mceActions}
           >
             {/* MCE Information */}
             <div className="space-y-4">
               <div className="bg-white p-4 rounded-lg border border-cyan-100">
-                <h5 
-                  className="font-semibold text-cyan-900 mb-2 cursor-pointer hover:text-cyan-700 transition-colors"
+                <h5
+                  className="font-semibold text-cyan-900 mb-2 cursor-pointer hover:text-cyan-700 transition-colors flex items-center gap-2"
                   onClick={() => handleResourceClick({
                     name: mceInfo?.name || 'multiclusterengine',
                     type: 'MultiClusterEngine',
@@ -917,7 +1209,8 @@ Next steps:
                   })}
                   title="Click to view YAML"
                 >
-                  {mceInfo?.name || 'multiclusterengine'}
+                  <span>{mceInfo?.name || 'multiclusterengine'}</span>
+                  <span className="text-sm font-normal text-cyan-600">{mceInfo?.version || '2.10.0'}</span>
                 </h5>
                 
                 <div className="space-y-2 text-sm">
@@ -925,40 +1218,6 @@ Next steps:
                     <span className="font-medium text-gray-600">API Server:</span>
                     <div className="mt-1 text-cyan-600 font-mono text-xs break-all">
                       {ocpStatus?.api_url || 'Not configured'}
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <span className="font-medium text-gray-600">Status:</span>
-                      <div className="flex items-center mt-1">
-                        <span className={`inline-block w-2 h-2 rounded-full mr-2 ${
-                          recentVerificationStatus === 'verified' || ocpStatus?.connected || recentVerificationSuccess || hasEverBeenVerified
-                            ? 'bg-green-500'
-                            : recentVerificationStatus === 'needs_configuration'
-                            ? 'bg-yellow-500'
-                            : 'bg-red-500'
-                        }`}></span>
-                        <span className={
-                          recentVerificationStatus === 'verified' || ocpStatus?.connected || recentVerificationSuccess || hasEverBeenVerified
-                            ? 'text-green-600'
-                            : recentVerificationStatus === 'needs_configuration'
-                            ? 'text-yellow-600'
-                            : 'text-red-600'
-                        }>
-                          {recentVerificationStatus === 'needs_configuration'
-                            ? 'Configuration Required'
-                            : recentVerificationStatus === 'verified' || ocpStatus?.connected || recentVerificationSuccess || hasEverBeenVerified
-                            ? 'Verified'
-                            : 'Not Verified'
-                          }
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <span className="font-medium text-gray-600">Version:</span>
-                      <div className="mt-1 text-cyan-600">{mceInfo?.version || '2.10.0'}</div>
                     </div>
                   </div>
                 </div>
@@ -974,10 +1233,13 @@ Next steps:
             status={`${allCAPIComponents.filter(c => c.enabled).length} configured`}
             actions={componentActions}
           >
-            <div className="space-y-4">
-              {/* All CAPI Components Status */}
-              <div>
-                <h6 className="font-medium text-cyan-900 mb-2">All CAPI Components Status</h6>
+            <div className="space-y-3">
+              {/* Single Component Status heading */}
+              <h6 className="font-medium text-cyan-900 mb-3">Component Status</h6>
+
+              {/* CAPI Components */}
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">CAPI Providers</div>
                 <div className="space-y-1">
                   {allCAPIComponents.map((component, index) => (
                     <div key={index} className="flex items-center justify-between text-sm">
@@ -990,9 +1252,9 @@ Next steps:
                 </div>
               </div>
 
-              {/* Hypershift Components Status */}
-              <div>
-                <h6 className="font-medium text-cyan-900 mb-2">Hypershift Components Status</h6>
+              {/* Hypershift Components */}
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Hypershift</div>
                 <div className="space-y-1">
                   {hypershiftComponents.map((component, index) => (
                     <div key={index} className="flex items-center justify-between text-sm">
@@ -1004,6 +1266,19 @@ Next steps:
                   ))}
                 </div>
               </div>
+
+              {/* Disable CAPI Button - Only show when CAPI is enabled */}
+              {capiComponents.some(c => c.name === 'cluster-api' && c.enabled) && (
+                <div className="pt-4 border-t border-gray-200">
+                  <button
+                    onClick={handleDisableCapi}
+                    className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                  >
+                    <span>⛔</span>
+                    Disable CAPI
+                  </button>
+                </div>
+              )}
             </div>
           </StatusCard>
 

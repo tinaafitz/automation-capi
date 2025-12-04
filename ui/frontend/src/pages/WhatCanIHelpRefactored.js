@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React from 'react';
 import { ChevronDownIcon } from '@heroicons/react/20/solid';
 import MinikubeEnvironment from '../components/environments/MinikubeEnvironment';
 import MCEEnvironment from '../components/environments/MCEEnvironment';
@@ -7,7 +7,8 @@ import TaskSummarySection from '../components/sections/TaskSummarySection';
 import TaskDetailSection from '../components/sections/TaskDetailSection';
 import { RosaProvisionModal } from '../components/RosaProvisionModal';
 import { YamlEditorModal } from '../components/YamlEditorModal';
-import { AppProvider, useApp, useAppDispatch, useMinikubeContext } from '../store/AppContext';
+import CredentialsModal from '../components/modals/CredentialsModal';
+import { AppProvider, useApp, useAppDispatch, useMinikubeContext, useRecentOperationsContext } from '../store/AppContext';
 import { AppActionTypes } from '../store/AppContext';
 import { buildApiUrl, API_ENDPOINTS, validateApiResponse, extractSafeErrorMessage } from '../config/api';
 
@@ -101,7 +102,6 @@ const EnvironmentSelector = () => {
 // Main environment content
 const EnvironmentContent = () => {
   const app = useApp();
-  const dispatch = useAppDispatch();
   const minikube = useMinikubeContext();
   
   // For Minikube, show if environment is selected (MinikubeEnvironment handles its own display logic)
@@ -172,6 +172,42 @@ const WhatCanIHelpRefactored = () => {
 const ModalProvider = () => {
   const app = useApp();
   const dispatch = useAppDispatch();
+  const recentOps = useRecentOperationsContext();
+  const { addToRecent, updateRecentOperationStatus } = recentOps;
+
+  // Handle credentials save tracking
+  const handleCredentialsSave = () => {
+    const credId = `credentials-update-${Date.now()}`;
+
+    addToRecent({
+      id: credId,
+      title: 'Update Credentials',
+      color: 'bg-cyan-600',
+      status: '⏳ Saving...',
+      environment: app.selectedEnvironment,
+      output: 'Saving credentials to vars/user_vars.yml...'
+    });
+
+    // Update as complete
+    const completionTime = new Date().toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
+
+    updateRecentOperationStatus(
+      credId,
+      `✅ Credentials saved at ${completionTime}`,
+      `Credentials Update Complete
+
+✅ Credentials saved successfully
+✅ File: vars/user_vars.yml
+✅ Changes applied
+
+Update completed at ${completionTime}`
+    );
+  };
 
   return (
     <>
@@ -232,7 +268,7 @@ const ModalProvider = () => {
         yamlData={app.yamlEditorData}
         readOnly={false}
         onProvision={async (editedYaml) => {
-          
+
           try {
             // Close YAML editor modal first
             dispatch({ type: AppActionTypes.SHOW_YAML_EDITOR_MODAL, payload: false });
@@ -256,13 +292,13 @@ const ModalProvider = () => {
             if (!validatedData.job_id) {
               throw new Error(validatedData.message || 'No job_id returned from server');
             }
-            
+
             // Expand CAPI-Managed ROSA HCP Clusters section on successful completion to monitor progress
             setTimeout(() => {
               // Expand the cluster section
               const sectionId = 'capi-rosa-hcp-clusters';
               dispatch({ type: AppActionTypes.EXPAND_SECTION, payload: sectionId });
-              
+
               // Scroll to the cluster section after a small delay to allow for expansion
               setTimeout(() => {
                 const element = document.querySelector('[data-section-id="capi-rosa-hcp-clusters"]');
@@ -271,15 +307,23 @@ const ModalProvider = () => {
                 }
               }, 500);
             }, 1500); // Small delay to show success message first
-            
-            // The job will now be tracked by the job history system and will show up 
+
+            // The job will now be tracked by the job history system and will show up
             // in the Task Summary and Task Detail sections automatically
-            
+
           } catch (error) {
             const safeErrorMessage = extractSafeErrorMessage(error);
             alert(`Failed to start provisioning: ${safeErrorMessage}`);
           }
         }}
+      />
+
+      {/* Credentials Modal */}
+      <CredentialsModal
+        isOpen={app.showCredentialsModal}
+        onClose={() => dispatch({ type: AppActionTypes.SHOW_CREDENTIALS_MODAL, payload: false })}
+        theme={app.selectedEnvironment}
+        onSave={handleCredentialsSave}
       />
     </>
   );

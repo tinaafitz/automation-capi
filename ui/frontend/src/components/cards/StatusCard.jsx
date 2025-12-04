@@ -1,11 +1,12 @@
 import React from 'react';
 import { themes, cardStyles, buttonStyles, statusIndicators } from '../../styles/themes';
 
-const StatusCard = ({ 
+const StatusCard = ({
   theme = 'mce',
   title,
   icon,
   status,
+  verificationStatus,
   lastVerified,
   actions = [],
   children,
@@ -40,20 +41,26 @@ const StatusCard = ({
             {title}
           </h4>
           
-          {/* Last Verified under title */}
-          {lastVerified && (
-            <div className="text-sm text-gray-500">
-              <span className="font-medium">Last Verified:</span> {lastVerified}
-            </div>
-          )}
-          
-          {/* Status Badge under last verified */}
-          {status && (
-            <div className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${getStatusStyle(status)} border`}>
-              <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
-              {status}
-            </div>
-          )}
+          {/* Status Badges */}
+          <div className="flex flex-col gap-1.5">
+            {status && (
+              <div className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${getStatusStyle(status)} border w-fit`}>
+                <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
+                {status}
+              </div>
+            )}
+            {verificationStatus && (
+              <div className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${getStatusStyle(verificationStatus)} border w-fit gap-2`}>
+                <div className="flex items-center">
+                  <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
+                  {verificationStatus}
+                </div>
+                {lastVerified && (
+                  <span className="text-gray-500">{lastVerified}</span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
         
         {/* Action Buttons */}
