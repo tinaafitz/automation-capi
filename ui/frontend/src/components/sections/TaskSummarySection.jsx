@@ -1,17 +1,63 @@
 import React from 'react';
 import { ClockIcon, ChevronDownIcon, ChevronUpIcon, TrashIcon } from '@heroicons/react/24/outline';
-import { useRecentOperationsContext, useApp, useAppDispatch } from '../../store/AppContext';
+import { useApp, useAppDispatch, useRecentOperationsContext } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
+import { useJobHistory } from '../../hooks/useJobHistory';
 
 const TaskSummarySection = ({ theme = 'mce', environment }) => {
   const app = useApp();
   const dispatch = useAppDispatch();
+  const { jobHistory, loading, error, fetchJobHistory } = useJobHistory();
   const recentOps = useRecentOperationsContext();
 
-  const {
-    recentOperations,
-    clearRecentOperations
-  } = recentOps;
+  console.log('🔍 [TaskSummarySection] jobHistory:', jobHistory.length, 'jobs, recentOps:', recentOps.recentOperations.length, 'environment:', environment);
+
+  // Map jobs to look like recent operations for display
+  const jobOperations = jobHistory.map(job => ({
+    id: job.id,
+    title: job.description || 'Job',
+    status: job.status === 'completed' ? `✅ ${job.message}` :
+            job.status === 'running' ? `⏳ ${job.message}` :
+            job.status === 'failed' ? `❌ ${job.message}` : job.message,
+    timestamp: new Date(job.created_at).getTime(),
+    environment: job.description?.toLowerCase().includes('rosa') ||
+                 job.description?.toLowerCase().includes('mce') ||
+                 job.description?.toLowerCase().includes('capi') ? 'mce' : 'minikube',
+    playbook: job.yaml_file,
+    output: job.logs?.join('\n') || ''
+  }));
+
+  // Convert recent operations to have consistent timestamp format
+  const frontendOperations = recentOps.recentOperations.map(op => ({
+    ...op,
+    timestamp: typeof op.timestamp === 'string' ? new Date(op.timestamp).getTime() : op.timestamp
+  }));
+
+  // Combine both sources and sort by timestamp
+  const recentOperations = [...jobOperations, ...frontendOperations]
+    .sort((a, b) => b.timestamp - a.timestamp);
+
+  const clearRecentOperations = async () => {
+    try {
+      // Clear backend job history
+      const response = await fetch('http://localhost:8000/api/jobs', {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        console.log('✅ [TaskSummarySection] Jobs cleared successfully');
+        // Refresh to show empty list
+        fetchJobHistory();
+      } else {
+        console.error('❌ [TaskSummarySection] Failed to clear jobs');
+      }
+
+      // Also clear frontend recent operations
+      recentOps.clearRecentOperations();
+    } catch (error) {
+      console.error('❌ [TaskSummarySection] Error clearing jobs:', error);
+    }
+  };
 
   // Get theme colors
   const getThemeColors = () => {
@@ -39,9 +85,11 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
   const colors = getThemeColors();
 
   // Filter operations by environment if specified
-  const filteredOperations = environment 
+  const filteredOperations = environment
     ? recentOperations.filter(op => op.environment === environment)
     : recentOperations;
+
+  console.log('📊 [TaskSummarySection] Total operations:', recentOperations.length, 'Filtered:', filteredOperations.length);
 
   const toggleSection = () => {
     const sectionId = environment ? `${environment}-task-summary` : 'task-summary';
@@ -107,8 +155,14 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
         </div>
       </div>
 
-      {!getSectionCollapsedState() && filteredOperations.length > 0 && (
+      {!getSectionCollapsedState() && (
         <div className="p-6">
+          {filteredOperations.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <p className="text-sm">No recent tasks</p>
+              <p className="text-xs mt-2">Tasks will appear here when you submit provisioning jobs</p>
+            </div>
+          ) : (
           <div className="space-y-3">
               {filteredOperations.map((operation, idx) => (
                 <div
@@ -147,6 +201,7 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
                 </div>
               ))}
           </div>
+          )}
         </div>
       )}
     </div>

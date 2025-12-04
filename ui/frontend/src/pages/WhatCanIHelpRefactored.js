@@ -1,19 +1,26 @@
 import React from 'react';
 import { ChevronDownIcon } from '@heroicons/react/20/solid';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import MinikubeEnvironment from '../components/environments/MinikubeEnvironment';
-import MCEEnvironment from '../components/environments/MCEEnvironment';
 import MinikubeSetupSection from '../components/sections/MinikubeSetupSection';
+import ConfigurationSection from '../components/sections/ConfigurationSection';
+import RosaHcpClustersSection from '../components/sections/RosaHcpClustersSection';
+import MCETerminalSection from '../components/sections/MCETerminalSection';
 import TaskSummarySection from '../components/sections/TaskSummarySection';
 import TaskDetailSection from '../components/sections/TaskDetailSection';
 import TestSuiteDashboard from '../components/sections/TestSuiteDashboard';
+import DraggableSection from '../components/sections/DraggableSection';
+import NotificationSettingsModal from '../components/modals/NotificationSettingsModal';
 import { RosaProvisionModal } from '../components/RosaProvisionModal';
 import { YamlEditorModal } from '../components/YamlEditorModal';
 import { AIAssistantChat } from '../components/chat/AIAssistantChat';
-// TEMPORARILY COMMENTED OUT - CredentialsModal has syntax errors
-// import CredentialsModal from '../components/modals/CredentialsModal';
-import { AppProvider, useApp, useAppDispatch, useMinikubeContext, useRecentOperationsContext } from '../store/AppContext';
+import CredentialsModal from '../components/modals/CredentialsModal';
+import { AppProvider, useApp, useAppDispatch, useMinikubeContext, useMCEContext, useRecentOperationsContext, useApiStatusContext } from '../store/AppContext';
 import { AppActionTypes } from '../store/AppContext';
 import { buildApiUrl, API_ENDPOINTS, validateApiResponse, extractSafeErrorMessage } from '../config/api';
+import { useJobHistory } from '../hooks/useJobHistory';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 
 // Environment selector dropdown component
 const EnvironmentSelector = () => {
@@ -107,45 +114,537 @@ const EnvironmentContent = () => {
   const app = useApp();
   const dispatch = useAppDispatch();
   const minikube = useMinikubeContext();
+  const recentOps = useRecentOperationsContext();
+  const mce = useMCEContext();
+  const apiStatus = useApiStatusContext();
 
   // For Minikube, show if environment is selected (MinikubeEnvironment handles its own display logic)
   const shouldShowMinikube = app.selectedEnvironment === 'minikube';
   const shouldShowMCE = app.selectedEnvironment === 'mce';
+  const shouldShowSections = shouldShowMCE || shouldShowMinikube;
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Handle drag end event
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+
+    if (active.id !== over.id) {
+      const oldIndex = app.sectionOrder.indexOf(active.id);
+      const newIndex = app.sectionOrder.indexOf(over.id);
+
+      const newOrder = [...app.sectionOrder];
+      newOrder.splice(oldIndex, 1);
+      newOrder.splice(newIndex, 0, active.id);
+
+      dispatch({ type: AppActionTypes.SET_SECTION_ORDER, payload: newOrder });
+    }
+  };
+
+  // Reset section order to default
+  const resetSectionOrder = () => {
+    const defaultOrder = ['mce-configuration', 'rosa-hcp-clusters', 'mce-terminal', 'task-summary', 'test-suite', 'task-detail'];
+    dispatch({ type: AppActionTypes.SET_SECTION_ORDER, payload: defaultOrder });
+  };
+
+  // State for modals
+  const [showNotificationSettings, setShowNotificationSettings] = React.useState(false);
+
+  // Handlers for MCE sections
+  const handleVerifyEnvironment = async () => {
+    const { addToRecent, updateRecentOperationStatus } = recentOps;
+    const verifyId = `verify-mce-${Date.now()}`;
+
+    try {
+      addToRecent({
+        id: verifyId,
+        title: 'MCE Environment Verification',
+        color: 'bg-cyan-600',
+        status: '⏳ Verifying...',
+        environment: 'mce',
+        playbook: 'tasks/validate-capa-environment.yml',
+        output: 'Initializing MCE environment verification...\nConnecting to OpenShift cluster...\nValidating MCE components...'
+      });
+
+      const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_TASK), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          task_file: 'tasks/validate-capa-environment.yml',
+          description: 'Verify MCE Environment',
+          cluster_type: 'mce'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to start verification: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        const completionTime = new Date().toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+        });
+
+        updateRecentOperationStatus(
+          verifyId,
+          `✅ MCE Environment verified at ${completionTime}`,
+          result.output
+        );
+
+        // Store successful verification in localStorage for persistence
+        localStorage.setItem('mce-environment-verified', 'true');
+
+        // Refresh status after successful verification
+        await apiStatus.refreshAllStatus();
+      } else {
+        // Check if OpenShift login was successful (even if verification failed)
+        const loginSuccessful = result.output?.includes('Login successful') ||
+                               result.output?.includes('Successfully logged in');
+
+        // Check if environment needs configuration
+        const needsConfiguration = result.error?.includes('ENVIRONMENT NEEDS TO BE CONFIGURED') ||
+                                   result.output?.includes('ENVIRONMENT NEEDS TO BE CONFIGURED');
+
+        // Check if this is an OpenShift login failure
+        const isLoginFailure = result.error?.includes('OPENSHIFT LOGIN FAILED') ||
+                               result.error?.includes('Unauthorized') ||
+                               result.error?.includes('You must be logged in') ||
+                               result.output?.includes('OPENSHIFT LOGIN FAILED') ||
+                               result.output?.includes('Unauthorized');
+
+        if (loginSuccessful && needsConfiguration) {
+          updateRecentOperationStatus(
+            verifyId,
+            `⚙️ Configuration Required`,
+            `MCE CAPI/CAPA Environment Setup Needed
+
+✅ OpenShift connection successful
+❌ CAPI controller is not deployed
+
+The Cluster API (CAPI) and AWS provider (CAPA) components need to be configured before you can provision ROSA HCP clusters.
+
+📋 Next Steps:
+
+1. Click the "Configure" button in the Components card
+   • This will enable the cluster-api component in MCE
+   • Deploy CAPI and CAPA controllers
+   • Set up AWS provider integration
+
+2. Wait for configuration to complete (~2-3 minutes)
+
+3. Click "Verify" again to confirm the environment is ready
+
+4. Start provisioning ROSA HCP clusters!
+
+📝 Note: This is a one-time setup required for managing ROSA clusters via CAPI.`
+          );
+
+          // Refresh status to update the UI
+          await apiStatus.refreshAllStatus();
+        } else if (isLoginFailure) {
+          updateRecentOperationStatus(
+            verifyId,
+            `❌ OpenShift Login Failed`,
+            `Verification Failed: OpenShift Authentication Required
+
+❌ Your OpenShift login session has expired or credentials are invalid.
+
+📋 To fix this issue:
+
+1. Get a new login token:
+   • Go to OpenShift Console
+   • Click your username (top right) → "Copy login command"
+   • Run the login command in your terminal
+
+2. Or update credentials:
+   • Click the "Credentials" button in the MCE Environment tile
+   • Ensure your OpenShift Hub credentials are correct
+   • Save and try again
+
+3. Or manually login via terminal:
+   • Run: oc login <cluster-url> -u <username> -p <password>
+
+📝 Error details:
+${result.error || 'Authentication failed'}
+
+Once logged in, click "Verify" again to retry.`
+          );
+        } else {
+          updateRecentOperationStatus(
+            verifyId,
+            `❌ Verification failed`,
+            result.output || result.error || 'Unknown error occurred during verification'
+          );
+        }
+      }
+    } catch (error) {
+      updateRecentOperationStatus(
+        verifyId,
+        `❌ Verification failed`,
+        `Failed to start verification: ${error.message}`
+      );
+    }
+  };
+
+  const handleOpenNotifications = () => {
+    setShowNotificationSettings(true);
+  };
+
+  const handleConfigure = async () => {
+    const { addToRecent, updateRecentOperationStatus } = recentOps;
+    const configureId = `configure-capi-capa-${Date.now()}`;
+
+    try {
+      addToRecent({
+        id: configureId,
+        title: 'Configure MCE CAPI/CAPA Environment',
+        color: 'bg-cyan-600',
+        status: '⏳ Configuring...',
+        environment: 'mce',
+        playbook: 'configure_capi_environment.yaml',
+        output: 'Starting MCE CAPI/CAPA environment configuration...\nPreparing OpenShift login...\nConfiguring Cluster API components...\nSetting up AWS provider...'
+      });
+
+      const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_TASK), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          playbook_file: 'configure_capi_environment.yaml',
+          description: 'Configure MCE CAPI/CAPA Environment',
+          cluster_type: 'mce'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to start configuration: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        updateRecentOperationStatus(
+          configureId,
+          `✅ MCE CAPI/CAPA environment configured successfully`,
+          result.output
+        );
+
+        // Refresh status after successful configuration to update component statuses
+        await mce.verifyMceEnvironment();
+      } else {
+        // Check if this is an OpenShift login failure
+        const isLoginFailure = result.error?.includes('OPENSHIFT LOGIN FAILED') ||
+                               result.error?.includes('Unauthorized') ||
+                               result.error?.includes('You must be logged in') ||
+                               result.output?.includes('OPENSHIFT LOGIN FAILED') ||
+                               result.output?.includes('Unauthorized');
+
+        if (isLoginFailure) {
+          updateRecentOperationStatus(
+            configureId,
+            `❌ OpenShift Login Failed`,
+            `Configuration Failed: OpenShift Authentication Required
+
+❌ Your OpenShift login session has expired or credentials are invalid.
+
+📋 To fix this issue:
+
+1. Get a new login token:
+   • Go to OpenShift Console
+   • Click your username (top right) → "Copy login command"
+   • Run the login command in your terminal
+
+2. Or update credentials:
+   • Click the "Credentials" button in the MCE Environment tile
+   • Ensure your OpenShift Hub credentials are correct
+   • Save and try again
+
+3. Or manually login via terminal:
+   • Run: oc login <cluster-url> -u <username> -p <password>
+
+📝 Error details:
+${result.error || 'Authentication failed'}
+
+Once logged in, click "Configure" again to retry.`
+          );
+        } else {
+          updateRecentOperationStatus(
+            configureId,
+            `❌ Configuration failed: ${result.error}`,
+            result.output
+          );
+        }
+      }
+
+    } catch (error) {
+      updateRecentOperationStatus(
+        configureId,
+        `❌ Configuration failed: ${error.message}`
+      );
+    }
+  };
+
+  const handleRefresh = async () => {
+    await apiStatus.refreshAllStatus();
+  };
+
+  const handleProvision = () => {
+    dispatch({ type: AppActionTypes.SHOW_PROVISION_MODAL, payload: true });
+  };
+
+  const handleDisableCapi = async () => {
+    const { addToRecent, updateRecentOperationStatus } = recentOps;
+    const disableId = `disable-capi-${Date.now()}`;
+
+    try {
+      addToRecent({
+        id: disableId,
+        title: 'Disable CAPI Components',
+        color: 'bg-red-600',
+        status: '⏳ Disabling...',
+        environment: 'mce',
+        playbook: 'tasks/update_enabled_flag.yml',
+        output: 'Starting CAPI component disable operation...\nUpdating MultiClusterEngine configuration...\nDisabling cluster-api component...'
+      });
+
+      const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_TASK), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          task_file: 'tasks/update_enabled_flag.yml',
+          description: 'Disable CAPI Components',
+          cluster_type: 'mce',
+          extra_vars: {
+            component: 'cluster-api',
+            enable: 'false'
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to disable CAPI: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        const completionTime = new Date().toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+        });
+
+        updateRecentOperationStatus(
+          disableId,
+          `✅ CAPI components disabled at ${completionTime}`,
+          result.output
+        );
+
+        // Refresh status after successful disable
+        await mce.verifyMceEnvironment();
+      } else {
+        // Check if this is an OpenShift login failure
+        const isLoginFailure = result.error?.includes('OPENSHIFT LOGIN FAILED') ||
+                               result.error?.includes('Unauthorized') ||
+                               result.error?.includes('You must be logged in') ||
+                               result.output?.includes('OPENSHIFT LOGIN FAILED') ||
+                               result.output?.includes('Unauthorized');
+
+        if (isLoginFailure) {
+          updateRecentOperationStatus(
+            disableId,
+            `❌ OpenShift Login Failed`,
+            `Disable CAPI Failed: OpenShift Authentication Required
+
+❌ Your OpenShift login session has expired or credentials are invalid.
+
+📋 To fix this issue:
+
+1. Get a new login token:
+   • Go to OpenShift Console
+   • Click your username (top right) → "Copy login command"
+   • Run the login command in your terminal
+
+2. Or update credentials:
+   • Click the "Credentials" button in the MCE Environment tile
+   • Ensure your OpenShift Hub credentials are correct
+   • Save and try again
+
+3. Or manually login via terminal:
+   • Run: oc login <cluster-url> -u <username> -p <password>
+
+📝 Error details:
+${result.error || 'Authentication failed'}
+
+Once logged in, click "Disable CAPI" again to retry.`
+          );
+        } else {
+          updateRecentOperationStatus(
+            disableId,
+            `❌ Failed to disable CAPI: ${result.error}`,
+            result.output
+          );
+        }
+      }
+    } catch (error) {
+      updateRecentOperationStatus(
+        disableId,
+        `❌ Failed to disable CAPI: ${error.message}`
+      );
+    }
+  };
+
+  const handleExport = () => {
+    const { addToRecent, updateRecentOperationStatus } = recentOps;
+    const mceResources = mce.mceActiveResources || [];
+
+    if (mceResources.length === 0) {
+      alert('No resources to export');
+      return;
+    }
+
+    const exportId = `export-resources-${Date.now()}`;
+    const fileName = `mce-resources-${new Date().toISOString().split('T')[0]}.json`;
+
+    // Add to recent operations
+    addToRecent({
+      id: exportId,
+      title: 'Export MCE Resources',
+      color: 'bg-cyan-600',
+      status: '⏳ Exporting...',
+      environment: 'mce',
+      output: `Exporting ${mceResources.length} resources to ${fileName}...`
+    });
+
+    // Create export data
+    const exportData = {
+      exported_at: new Date().toISOString(),
+      total_resources: mceResources.length,
+      resources: mceResources.map(resource => ({
+        name: resource.name,
+        type: resource.type,
+        namespace: resource.namespace,
+        status: resource.status
+      }))
+    };
+
+    // Convert to JSON
+    const jsonString = JSON.stringify(exportData, null, 2);
+
+    // Create blob and download
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    // Update operation as complete
+    const completionTime = new Date().toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
+
+    updateRecentOperationStatus(
+      exportId,
+      `✅ Export completed at ${completionTime}`,
+      `MCE Resources Export Complete\n\n✅ Exported ${mceResources.length} resources\n✅ File: ${fileName}\n✅ Downloaded successfully\n\nExport completed at ${completionTime}`
+    );
+  };
+
+  // Map section IDs to their components
+  const getSectionComponent = (sectionId) => {
+    switch (sectionId) {
+      case 'mce-configuration':
+        return shouldShowMCE ? (
+          <ConfigurationSection
+            key="mce-configuration"
+            onVerifyEnvironment={handleVerifyEnvironment}
+            onOpenNotifications={handleOpenNotifications}
+            onConfigure={handleConfigure}
+            onRefresh={handleRefresh}
+            onProvision={handleProvision}
+            onExport={handleExport}
+            onDisableCapi={handleDisableCapi}
+          />
+        ) : null;
+
+      case 'rosa-hcp-clusters':
+        return shouldShowMCE ? (
+          <RosaHcpClustersSection key="rosa-hcp-clusters" />
+        ) : null;
+
+      case 'mce-terminal':
+        return shouldShowMCE ? (
+          <MCETerminalSection key="mce-terminal" />
+        ) : null;
+
+      case 'test-suite':
+        return shouldShowSections ? (
+          <TestSuiteDashboard
+            key="test-suite"
+            theme={app.selectedEnvironment}
+            onSelectTestSuite={(testSuite) => {
+              console.log('Selected test suite:', testSuite);
+              dispatch({ type: AppActionTypes.SHOW_PROVISION_MODAL, payload: true });
+            }}
+          />
+        ) : null;
+
+      case 'minikube-environment':
+        return shouldShowMinikube ? (
+          <MinikubeEnvironment key="minikube-environment" />
+        ) : null;
+
+      case 'task-summary':
+        return shouldShowSections ? (
+          <TaskSummarySection
+            key="task-summary"
+            theme={app.selectedEnvironment}
+            environment={app.selectedEnvironment}
+          />
+        ) : null;
+
+      case 'task-detail':
+        return shouldShowSections ? (
+          <TaskDetailSection
+            key="task-detail"
+            theme={app.selectedEnvironment}
+            environment={app.selectedEnvironment}
+          />
+        ) : null;
+
+      default:
+        return null;
+    }
+  };
 
   return (
     <div>
       {/* Show Minikube setup section when Minikube is selected BUT not yet verified */}
       {app.selectedEnvironment === 'minikube' && !minikube.verifiedMinikubeClusterInfo && <MinikubeSetupSection />}
-
-      {/* Show environment content when properly configured */}
-      {shouldShowMCE && <MCEEnvironment />}
-      {shouldShowMinikube && <MinikubeEnvironment />}
-
-      {/* Show Test Suite Dashboard when environment is properly configured */}
-      {(shouldShowMCE || shouldShowMinikube) && (
-        <TestSuiteDashboard
-          theme={app.selectedEnvironment}
-          onSelectTestSuite={(testSuite) => {
-            console.log('Selected test suite:', testSuite);
-            // Open provision modal with test suite data
-            dispatch({ type: AppActionTypes.SHOW_PROVISION_MODAL, payload: true });
-          }}
-        />
-      )}
-
-      {/* Show Task Summary and Task Detail only when environment is properly configured */}
-      {(shouldShowMCE || shouldShowMinikube) && (
-        <div className="grid grid-cols-1 gap-6 mt-6">
-          <TaskSummarySection
-            theme={app.selectedEnvironment}
-            environment={app.selectedEnvironment}
-          />
-          <TaskDetailSection
-            theme={app.selectedEnvironment}
-            environment={app.selectedEnvironment}
-          />
-        </div>
-      )}
 
       {/* Show connection message for MCE if not connected */}
       {app.selectedEnvironment === 'mce' && !shouldShowMCE && (
@@ -166,6 +665,51 @@ const EnvironmentContent = () => {
           </div>
         </div>
       )}
+
+      {/* Draggable sections when environment is properly configured */}
+      {shouldShowSections && (
+        <div className="relative">
+          {/* Reset Layout Button */}
+          <div className="flex justify-end mb-4">
+            <button
+              onClick={resetSectionOrder}
+              className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-gray-300 rounded-lg hover:border-gray-500 transition-all duration-200 shadow-sm hover:shadow-md text-sm font-medium text-gray-700"
+              title="Reset section order to default"
+            >
+              <ArrowPathIcon className="h-4 w-4" />
+              <span>Reset Layout</span>
+            </button>
+          </div>
+
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={app.sectionOrder}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-6 pl-8">
+                {app.sectionOrder.map((sectionId) => {
+                  const component = getSectionComponent(sectionId);
+                  return component ? (
+                    <DraggableSection key={sectionId} id={sectionId}>
+                      {component}
+                    </DraggableSection>
+                  ) : null;
+                })}
+              </div>
+            </SortableContext>
+          </DndContext>
+        </div>
+      )}
+
+      {/* Notification Settings Modal */}
+      <NotificationSettingsModal
+        isOpen={showNotificationSettings}
+        onClose={() => setShowNotificationSettings(false)}
+      />
     </div>
   );
 };
@@ -189,6 +733,7 @@ const WhatCanIHelpRefactored = () => {
 const ModalProvider = () => {
   const app = useApp();
   const dispatch = useAppDispatch();
+  const { fetchJobHistory } = useJobHistory();
   const recentOps = useRecentOperationsContext();
   const { addToRecent, updateRecentOperationStatus } = recentOps;
 
@@ -310,6 +855,10 @@ Update completed at ${completionTime}`
               throw new Error(validatedData.message || 'No job_id returned from server');
             }
 
+            // Immediately refresh job history to show the new job
+            console.log('🚀 [Provision] Job submitted, refreshing job history immediately');
+            fetchJobHistory();
+
             // Expand CAPI-Managed ROSA HCP Clusters section on successful completion to monitor progress
             setTimeout(() => {
               // Expand the cluster section
@@ -335,13 +884,13 @@ Update completed at ${completionTime}`
         }}
       />
 
-      {/* TEMPORARILY COMMENTED OUT - CredentialsModal has syntax errors */}
-      {/* <CredentialsModal
+      {/* Credentials Modal */}
+      <CredentialsModal
         isOpen={app.showCredentialsModal}
         onClose={() => dispatch({ type: AppActionTypes.SHOW_CREDENTIALS_MODAL, payload: false })}
         theme={app.selectedEnvironment}
         onSave={handleCredentialsSave}
-      /> */}
+      />
     </>
   );
 };

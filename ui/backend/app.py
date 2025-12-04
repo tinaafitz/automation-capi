@@ -15,6 +15,8 @@ import uuid
 from datetime import datetime
 import os
 import yaml
+from slack_notification_service import SlackNotificationService
+from email_notification_service import EmailNotificationService
 
 app = FastAPI(title="ROSA Automation API", version="1.0.0")
 
@@ -25,6 +27,10 @@ try:
     add_production_endpoints(app)
 except ImportError:
     print("⚠️  app_extensions not available - production endpoints not loaded")
+
+# Initialize notification services
+slack_service = SlackNotificationService()
+email_service = EmailNotificationService()
 
 # CORS middleware for frontend development
 app.add_middleware(
@@ -96,6 +102,26 @@ class JobStatus(BaseModel):
     started_at: datetime
     completed_at: Optional[datetime] = None
     logs: List[str] = []
+
+
+class NotificationSettings(BaseModel):
+    # Slack settings
+    slack_enabled: bool = False
+    slack_webhook_url: Optional[str] = ""
+    # Email settings
+    email_enabled: bool = False
+    smtp_server: Optional[str] = ""
+    smtp_port: int = 587
+    smtp_username: Optional[str] = ""
+    smtp_password: Optional[str] = ""
+    from_email: Optional[str] = ""
+    to_emails: List[str] = []
+    use_tls: bool = True
+    # Common settings
+    app_url: str = "http://localhost:3000"
+    notify_on_start: bool = False
+    notify_on_complete: bool = True
+    notify_on_failure: bool = True
 
 
 # Helper functions
@@ -473,6 +499,35 @@ async def delete_cluster(cluster_id: str, background_tasks: BackgroundTasks):
     return {"job_id": job_id, "message": "Cluster deletion started"}
 
 
+@app.get("/api/jobs")
+async def list_jobs():
+    """List all jobs"""
+    # Return all jobs sorted by creation time (newest first)
+    job_list = []
+    for job_id, job in jobs.items():
+        job_data = {**job, "id": job_id}
+        job_list.append(job_data)
+
+    # Sort by created_at timestamp (newest first)
+    job_list.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+    return {
+        "success": True,
+        "jobs": job_list,
+        "count": len(job_list)
+    }
+
+@app.delete("/api/jobs")
+async def clear_all_jobs():
+    """Clear all jobs from history"""
+    global jobs
+    jobs.clear()
+    return {
+        "success": True,
+        "message": "All jobs cleared",
+        "count": 0
+    }
+
 @app.get("/api/jobs/{job_id}")
 async def get_job_status(job_id: str):
     """Get job status"""
@@ -529,6 +584,191 @@ async def websocket_job_updates(websocket: WebSocket, job_id: str):
         print(f"WebSocket error: {e}")
     finally:
         await websocket.close()
+
+
+# Notification Settings APIs
+@app.get("/api/notification-settings")
+async def get_notification_settings():
+    """
+    Get current notification settings
+    """
+    try:
+        # Reload config to get latest settings
+        slack_service.reload_config()
+        email_service.reload_config()
+        config = slack_service.config  # Both services read from same file
+
+        return {
+            "success": True,
+            "settings": {
+                # Slack settings
+                "slack_enabled": config.get("slack_enabled", False),
+                "slack_webhook_url": config.get("slack_webhook_url", ""),
+                # Email settings
+                "email_enabled": config.get("email_enabled", False),
+                "smtp_server": config.get("smtp_server", ""),
+                "smtp_port": config.get("smtp_port", 587),
+                "smtp_username": config.get("smtp_username", ""),
+                "smtp_password": config.get("smtp_password", ""),
+                "from_email": config.get("from_email", ""),
+                "to_emails": config.get("to_emails", []),
+                "use_tls": config.get("use_tls", True),
+                # Common settings
+                "app_url": config.get("app_url", "http://localhost:3000"),
+                "notify_on_start": config.get("notify_on_start", False),
+                "notify_on_complete": config.get("notify_on_complete", True),
+                "notify_on_failure": config.get("notify_on_failure", True),
+            }
+        }
+    except Exception as e:
+        import traceback
+
+        print(f"❌ [GET-NOTIFICATION-SETTINGS] Error: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Error getting notification settings: {str(e)}")
+
+
+@app.post("/api/notification-settings")
+async def update_notification_settings(settings: NotificationSettings):
+    """
+    Update notification settings
+    """
+    try:
+        # Get path to notification config file (go up to automation-capi root)
+        config_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+            'vars',
+            'notification_config.yml'
+        )
+
+        # Update configuration file
+        config_data = {
+            # Slack settings
+            "slack_enabled": settings.slack_enabled,
+            "slack_webhook_url": settings.slack_webhook_url or "",
+            # Email settings
+            "email_enabled": settings.email_enabled,
+            "smtp_server": settings.smtp_server or "",
+            "smtp_port": settings.smtp_port,
+            "smtp_username": settings.smtp_username or "",
+            "smtp_password": settings.smtp_password or "",
+            "from_email": settings.from_email or "",
+            "to_emails": settings.to_emails or [],
+            "use_tls": settings.use_tls,
+            # Common settings
+            "app_url": settings.app_url,
+            "notify_on_start": settings.notify_on_start,
+            "notify_on_complete": settings.notify_on_complete,
+            "notify_on_failure": settings.notify_on_failure,
+        }
+
+        with open(config_path, 'w') as f:
+            yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
+
+        # Reload service configurations
+        slack_service.reload_config()
+        email_service.reload_config()
+
+        return {
+            "success": True,
+            "message": "Notification settings updated successfully",
+            "settings": config_data
+        }
+    except Exception as e:
+        import traceback
+
+        print(f"❌ [UPDATE-NOTIFICATION-SETTINGS] Error: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Error updating notification settings: {str(e)}")
+
+
+@app.post("/api/notification-settings/test")
+async def test_notification_settings(request: Request):
+    """
+    Test Slack and/or Email notification connections with current form settings
+    """
+    try:
+        # Get test settings from request body (if provided)
+        try:
+            test_settings = await request.json()
+        except:
+            test_settings = {}
+
+        # If settings provided in request, use those; otherwise reload from file
+        if test_settings:
+            # Test with provided settings (from form)
+            results = []
+            overall_success = True
+
+            # Test Slack if enabled in form
+            if test_settings.get('slack_enabled', False):
+                # Temporarily create slack service with test settings
+                from slack_notification_service import SlackNotificationService
+                test_slack = SlackNotificationService()
+                test_slack.webhook_url = test_settings.get('slack_webhook_url', '')
+                test_slack.config = test_settings
+                slack_result = test_slack.test_connection()
+                results.append(f"Slack: {slack_result['message']}")
+                if not slack_result['success']:
+                    overall_success = False
+
+            # Test Email if enabled in form
+            if test_settings.get('email_enabled', False):
+                # Temporarily create email service with test settings
+                from email_notification_service import EmailNotificationService
+                test_email = EmailNotificationService()
+                test_email.smtp_server = test_settings.get('smtp_server', '')
+                test_email.smtp_port = test_settings.get('smtp_port', 587)
+                test_email.smtp_username = test_settings.get('smtp_username', '')
+                test_email.smtp_password = test_settings.get('smtp_password', '')
+                test_email.from_email = test_settings.get('from_email', '')
+                test_email.to_emails = test_settings.get('to_emails', [])
+                test_email.use_tls = test_settings.get('use_tls', True)
+                test_email.config = test_settings
+                email_result = test_email.test_connection()
+                results.append(f"Email: {email_result['message']}")
+                if not email_result['success']:
+                    overall_success = False
+        else:
+            # Test with saved configuration
+            slack_service.reload_config()
+            email_service.reload_config()
+
+            results = []
+            overall_success = True
+
+            # Test Slack if enabled
+            if slack_service.config.get('slack_enabled', False):
+                slack_result = slack_service.test_connection()
+                results.append(f"Slack: {slack_result['message']}")
+                if not slack_result['success']:
+                    overall_success = False
+
+            # Test Email if enabled
+            if email_service.config.get('email_enabled', False):
+                email_result = email_service.test_connection()
+                results.append(f"Email: {email_result['message']}")
+                if not email_result['success']:
+                    overall_success = False
+
+        # If neither is enabled
+        if not results:
+            return {
+                "success": False,
+                "message": "No notification services are enabled"
+            }
+
+        # Return combined results
+        return {
+            "success": overall_success,
+            "message": " | ".join(results)
+        }
+    except Exception as e:
+        import traceback
+
+        print(f"❌ [TEST-NOTIFICATION-SETTINGS] Error: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Error testing notification settings: {str(e)}")
 
 
 # User Journey APIs

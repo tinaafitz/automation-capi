@@ -25,6 +25,7 @@ const initialAppState = {
   showEnvironmentDropdown: false,
   collapsedSections: new Set(),
   showSetupPrompt: false,
+  sectionOrder: ['mce-configuration', 'rosa-hcp-clusters', 'mce-terminal', 'task-summary', 'test-suite', 'task-detail'],
 
   // Modal State
   showKindClusterModal: false,
@@ -69,6 +70,7 @@ export const AppActionTypes = {
   TOGGLE_ENVIRONMENT_DROPDOWN: 'TOGGLE_ENVIRONMENT_DROPDOWN',
   TOGGLE_SECTION: 'TOGGLE_SECTION',
   SET_SETUP_PROMPT: 'SET_SETUP_PROMPT',
+  SET_SECTION_ORDER: 'SET_SECTION_ORDER',
 
   // Modal Actions
   SHOW_KIND_CLUSTER_MODAL: 'SHOW_KIND_CLUSTER_MODAL',
@@ -167,6 +169,11 @@ const appReducer = (state, action) => {
     case AppActionTypes.SET_SETUP_PROMPT:
       return { ...state, showSetupPrompt: action.payload };
 
+    case AppActionTypes.SET_SECTION_ORDER:
+      // Persist to localStorage
+      localStorage.setItem('mce-section-order', JSON.stringify(action.payload));
+      return { ...state, sectionOrder: action.payload };
+
     // Modal Actions
     case AppActionTypes.SHOW_KIND_CLUSTER_MODAL:
       return { ...state, showKindClusterModal: action.payload };
@@ -253,6 +260,18 @@ export const AppProvider = ({ children }) => {
         dispatch({
           type: AppActionTypes.TOGGLE_FAVORITE,
           payload: new Set(parsed)
+        });
+      }
+
+      const savedSectionOrder = localStorage.getItem('mce-section-order');
+      if (savedSectionOrder) {
+        const parsed = JSON.parse(savedSectionOrder);
+        // Ensure all new sections are included (merge with default)
+        const defaultOrder = ['mce-configuration', 'rosa-hcp-clusters', 'mce-terminal', 'task-summary', 'test-suite', 'task-detail'];
+        const mergedOrder = [...new Set([...parsed, ...defaultOrder])];
+        dispatch({
+          type: AppActionTypes.SET_SECTION_ORDER,
+          payload: mergedOrder
         });
       }
     } catch (error) {
