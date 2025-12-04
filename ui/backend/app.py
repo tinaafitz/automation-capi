@@ -931,6 +931,87 @@ async def get_config_status():
         }
 
 
+# Credentials management endpoints
+@app.get("/api/credentials")
+async def get_credentials():
+    """Get current credentials from vars/user_vars.yml"""
+    try:
+        # Path to user_vars.yml
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        config_path = os.path.join(project_root, "vars", "user_vars.yml")
+
+        if not os.path.exists(config_path):
+            return {
+                "success": False,
+                "message": "vars/user_vars.yml file not found",
+                "credentials": {}
+            }
+
+        # Read and parse the YAML file
+        with open(config_path, "r") as file:
+            config = yaml.safe_load(file) or {}
+
+        # Return only the credential fields we care about
+        credentials = {
+            "OCP_HUB_API_URL": config.get("OCP_HUB_API_URL", ""),
+            "OCP_HUB_CLUSTER_USER": config.get("OCP_HUB_CLUSTER_USER", ""),
+            "OCP_HUB_CLUSTER_PASSWORD": config.get("OCP_HUB_CLUSTER_PASSWORD", ""),
+            "AWS_REGION": config.get("AWS_REGION", ""),
+            "AWS_ACCESS_KEY_ID": config.get("AWS_ACCESS_KEY_ID", ""),
+            "AWS_SECRET_ACCESS_KEY": config.get("AWS_SECRET_ACCESS_KEY", ""),
+            "OCM_CLIENT_ID": config.get("OCM_CLIENT_ID", ""),
+            "OCM_CLIENT_SECRET": config.get("OCM_CLIENT_SECRET", "")
+        }
+
+        return {
+            "success": True,
+            "credentials": credentials
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error reading credentials: {str(e)}",
+            "credentials": {}
+        }
+
+
+class CredentialsUpdate(BaseModel):
+    credentials: Dict[str, str]
+
+
+@app.post("/api/credentials")
+async def save_credentials(update: CredentialsUpdate):
+    """Save credentials to vars/user_vars.yml"""
+    try:
+        # Path to user_vars.yml
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        config_path = os.path.join(project_root, "vars", "user_vars.yml")
+
+        # Read existing config or create new one
+        if os.path.exists(config_path):
+            with open(config_path, "r") as file:
+                config = yaml.safe_load(file) or {}
+        else:
+            config = {}
+
+        # Update with new credentials
+        for key, value in update.credentials.items():
+            config[key] = value
+
+        # Write back to file with proper formatting
+        with open(config_path, "w") as file:
+            yaml.dump(config, file, default_flow_style=False, sort_keys=False)
+
+        return {
+            "success": True,
+            "message": "Credentials saved successfully"
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving credentials: {str(e)}")
+
+
 @app.post("/api/kind/verify-cluster")
 async def verify_kind_cluster(request: dict):
     """Verify if a Kind cluster exists and is accessible"""

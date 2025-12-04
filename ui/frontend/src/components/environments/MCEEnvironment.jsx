@@ -300,10 +300,46 @@ Next steps:
       // Store successful verification in localStorage for persistence
       localStorage.setItem('mce-environment-verified', 'true');
     } catch (error) {
-      updateRecentOperationStatus(
-        verifyId,
-        `❌ Verification failed: ${error.message}`
-      );
+      // Check if this is an authentication/login error
+      const isLoginError = error.message?.includes('Unauthorized') ||
+                          error.message?.includes('You must be logged in') ||
+                          error.message?.includes('authentication') ||
+                          error.message?.includes('login');
+
+      if (isLoginError) {
+        updateRecentOperationStatus(
+          verifyId,
+          `❌ OpenShift Login Failed`,
+          `Verification Failed: OpenShift Authentication Required
+
+❌ Your OpenShift login session has expired or credentials are invalid.
+
+📋 To fix this issue:
+
+1. Get a new login token:
+   • Go to OpenShift Console: ${ocpStatus?.api_url?.replace('api.', 'console-openshift-console.apps.') || 'https://console-openshift-console.apps...'}/
+   • Click your username (top right) → "Copy login command"
+   • Run the login command in your terminal
+
+2. Or update credentials:
+   • Click the "Credentials" button in the MCE Environment tile
+   • Ensure your OpenShift Hub credentials are correct
+   • Save and try again
+
+3. Or manually login via terminal:
+   • Run: oc login ${ocpStatus?.api_url || '<your-cluster-url>'} -u <username> -p <password>
+
+📝 Error details:
+${error.message}
+
+Once logged in, click "Verify" again to retry.`
+        );
+      } else {
+        updateRecentOperationStatus(
+          verifyId,
+          `❌ Verification failed: ${error.message}`
+        );
+      }
     }
   };
 
@@ -359,7 +395,7 @@ Next steps:
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         updateRecentOperationStatus(
           configureId,
@@ -367,13 +403,50 @@ Next steps:
           result.output
         );
       } else {
-        updateRecentOperationStatus(
-          configureId,
-          `❌ Configuration failed: ${result.error}`,
-          result.output
-        );
+        // Check if this is an OpenShift login failure
+        const isLoginFailure = result.error?.includes('OPENSHIFT LOGIN FAILED') ||
+                               result.error?.includes('Unauthorized') ||
+                               result.error?.includes('You must be logged in') ||
+                               result.output?.includes('OPENSHIFT LOGIN FAILED') ||
+                               result.output?.includes('Unauthorized');
+
+        if (isLoginFailure) {
+          updateRecentOperationStatus(
+            configureId,
+            `❌ OpenShift Login Failed`,
+            `Configuration Failed: OpenShift Authentication Required
+
+❌ Your OpenShift login session has expired or credentials are invalid.
+
+📋 To fix this issue:
+
+1. Get a new login token:
+   • Go to OpenShift Console: ${ocpStatus?.api_url?.replace('api.', 'console-openshift-console.apps.') || 'https://console-openshift-console.apps...'}/
+   • Click your username (top right) → "Copy login command"
+   • Run the login command in your terminal
+
+2. Or update credentials:
+   • Click the "Credentials" button in the MCE Environment tile
+   • Ensure your OpenShift Hub credentials are correct
+   • Save and try again
+
+3. Or manually login via terminal:
+   • Run: oc login ${ocpStatus?.api_url || '<your-cluster-url>'} -u <username> -p <password>
+
+📝 Error details:
+${result.error || 'Authentication failed'}
+
+Once logged in, click "Configure" again to retry.`
+          );
+        } else {
+          updateRecentOperationStatus(
+            configureId,
+            `❌ Configuration failed: ${result.error}`,
+            result.output
+          );
+        }
       }
-      
+
     } catch (error) {
       updateRecentOperationStatus(
         configureId,
@@ -394,7 +467,69 @@ Next steps:
 
   // Handle export action
   const handleExport = () => {
-    // TODO: Implement MCE resource export functionality
+    if (mceResources.length === 0) {
+      alert('No resources to export');
+      return;
+    }
+
+    const exportId = `export-resources-${Date.now()}`;
+    const fileName = `mce-resources-${new Date().toISOString().split('T')[0]}.json`;
+
+    // Add to recent operations
+    addToRecent({
+      id: exportId,
+      title: 'Export MCE Resources',
+      color: 'bg-cyan-600',
+      status: '⏳ Exporting...',
+      environment: 'mce',
+      output: `Exporting ${mceResources.length} resources to ${fileName}...`
+    });
+
+    // Create export data
+    const exportData = {
+      exported_at: new Date().toISOString(),
+      total_resources: mceResources.length,
+      resources: mceResources.map(resource => ({
+        name: resource.name,
+        type: resource.type,
+        namespace: resource.namespace,
+        status: resource.status
+      }))
+    };
+
+    // Convert to JSON
+    const jsonString = JSON.stringify(exportData, null, 2);
+
+    // Create blob and download
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    // Update operation as complete
+    const completionTime = new Date().toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
+
+    updateRecentOperationStatus(
+      exportId,
+      `✅ Export completed at ${completionTime}`,
+      `MCE Resources Export Complete
+
+✅ Exported ${mceResources.length} resources
+✅ File: ${fileName}
+✅ Downloaded successfully
+
+Export completed at ${completionTime}`
+    );
   };
 
   // Handle resource click to show YAML
@@ -654,12 +789,6 @@ Next steps:
       variant: 'secondary'
     },
     {
-      label: 'Terminal',
-      icon: '💻',
-      onClick: handleTerminal,
-      variant: 'secondary'
-    },
-    {
       label: 'Refresh',
       icon: '🔄',
       onClick: handleRefresh,
@@ -902,14 +1031,21 @@ Next steps:
               </svg>
             }
             status={getConnectionStatus()}
+            verificationStatus={
+              recentVerificationStatus === 'needs_configuration'
+                ? 'Configuration Required'
+                : recentVerificationStatus === 'verified' || ocpStatus?.connected || recentVerificationSuccess || hasEverBeenVerified
+                ? 'Verified'
+                : 'Not Verified'
+            }
             lastVerified={getLastVerifiedText()}
             actions={mceActions}
           >
             {/* MCE Information */}
             <div className="space-y-4">
               <div className="bg-white p-4 rounded-lg border border-cyan-100">
-                <h5 
-                  className="font-semibold text-cyan-900 mb-2 cursor-pointer hover:text-cyan-700 transition-colors"
+                <h5
+                  className="font-semibold text-cyan-900 mb-2 cursor-pointer hover:text-cyan-700 transition-colors flex items-center gap-2"
                   onClick={() => handleResourceClick({
                     name: mceInfo?.name || 'multiclusterengine',
                     type: 'MultiClusterEngine',
@@ -917,7 +1053,8 @@ Next steps:
                   })}
                   title="Click to view YAML"
                 >
-                  {mceInfo?.name || 'multiclusterengine'}
+                  <span>{mceInfo?.name || 'multiclusterengine'}</span>
+                  <span className="text-sm font-normal text-cyan-600">{mceInfo?.version || '2.10.0'}</span>
                 </h5>
                 
                 <div className="space-y-2 text-sm">
@@ -925,40 +1062,6 @@ Next steps:
                     <span className="font-medium text-gray-600">API Server:</span>
                     <div className="mt-1 text-cyan-600 font-mono text-xs break-all">
                       {ocpStatus?.api_url || 'Not configured'}
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <span className="font-medium text-gray-600">Status:</span>
-                      <div className="flex items-center mt-1">
-                        <span className={`inline-block w-2 h-2 rounded-full mr-2 ${
-                          recentVerificationStatus === 'verified' || ocpStatus?.connected || recentVerificationSuccess || hasEverBeenVerified
-                            ? 'bg-green-500'
-                            : recentVerificationStatus === 'needs_configuration'
-                            ? 'bg-yellow-500'
-                            : 'bg-red-500'
-                        }`}></span>
-                        <span className={
-                          recentVerificationStatus === 'verified' || ocpStatus?.connected || recentVerificationSuccess || hasEverBeenVerified
-                            ? 'text-green-600'
-                            : recentVerificationStatus === 'needs_configuration'
-                            ? 'text-yellow-600'
-                            : 'text-red-600'
-                        }>
-                          {recentVerificationStatus === 'needs_configuration'
-                            ? 'Configuration Required'
-                            : recentVerificationStatus === 'verified' || ocpStatus?.connected || recentVerificationSuccess || hasEverBeenVerified
-                            ? 'Verified'
-                            : 'Not Verified'
-                          }
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <span className="font-medium text-gray-600">Version:</span>
-                      <div className="mt-1 text-cyan-600">{mceInfo?.version || '2.10.0'}</div>
                     </div>
                   </div>
                 </div>
