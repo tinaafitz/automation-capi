@@ -84,9 +84,6 @@ const RosaHcpClustersSection = () => {
             </div>
             <div>
               <h3 className="text-lg font-bold text-white">CAPI-Managed ROSA HCP Clusters</h3>
-              <p className="text-white/80 text-sm">
-                Monitor your provisioned clusters
-              </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -159,20 +156,39 @@ const RosaHcpClustersSection = () => {
                           <div className="text-xs text-gray-500 font-mono">{cluster.domain_prefix}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              cluster.status === 'ready'
-                                ? 'bg-green-100 text-green-800'
-                                : cluster.status === 'provisioning'
-                                  ? 'bg-yellow-100 text-yellow-800'
-                                  : cluster.status === 'failed'
-                                    ? 'bg-red-100 text-red-800'
-                                    : 'bg-gray-100 text-gray-800'
-                            }`}
-                          >
-                            {cluster.status === 'ready' ? '✅' : cluster.status === 'provisioning' ? '⏳' : cluster.status === 'failed' ? '❌' : '⬜'}{' '}
-                            {cluster.status}
-                          </span>
+                          <div className="space-y-2">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                cluster.status === 'ready'
+                                  ? 'bg-green-100 text-green-800'
+                                  : cluster.status === 'provisioning'
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : cluster.status === 'failed'
+                                      ? 'bg-red-100 text-red-800'
+                                      : 'bg-gray-100 text-gray-800'
+                              }`}
+                            >
+                              {cluster.status === 'ready' ? '✅' : cluster.status === 'provisioning' ? '⏳' : cluster.status === 'failed' ? '❌' : '⬜'}{' '}
+                              {cluster.status}
+                            </span>
+                            {/* Progress bar for provisioning clusters */}
+                            {cluster.status === 'provisioning' && (
+                              <div className="w-full space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <div className="text-xs text-gray-600">Provisioning...</div>
+                                  <div className="text-xs font-semibold text-yellow-600">
+                                    {cluster.progress || '45'}%
+                                  </div>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                  <div
+                                    className="h-full bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 rounded-full transition-all duration-500"
+                                    style={{ width: `${cluster.progress || 45}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {cluster.region}
@@ -201,6 +217,7 @@ const MCEEnvironment = () => {
   const [showTerminalModal, setShowTerminalModal] = useState(false);
   const [showYamlEditorModal, setShowYamlEditorModal] = useState(false);
   const [yamlEditorData, setYamlEditorData] = useState(null);
+  const [expandedNamespaces, setExpandedNamespaces] = useState(new Set());
 
   const {
     ocpStatus,
@@ -298,6 +315,11 @@ Next steps:
   // Handle refresh action
   const handleRefresh = async () => {
     await refreshAllStatus();
+    // Also refresh the resources
+    setMceResourcesLoading(true);
+    const resources = await fetchMCEResources();
+    setMceResources(resources);
+    setMceResourcesLoading(false);
   };
 
   // Handle settings
@@ -326,7 +348,7 @@ Next steps:
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          task_file: 'configure_capi_environment.yaml',
+          playbook_file: 'configure_capi_environment.yaml',
           description: 'Configure MCE CAPI/CAPA Environment',
           cluster_type: 'mce'
         })
@@ -378,7 +400,17 @@ Next steps:
   // Handle resource click to show YAML
   const handleResourceClick = async (resource) => {
     try {
-      
+      // If YAML is already fetched, use it
+      if (resource.yaml) {
+        setYamlEditorData({
+          yaml_content: resource.yaml,
+          resource_name: resource.name,
+          resource_type: resource.type
+        });
+        setShowYamlEditorModal(true);
+        return;
+      }
+
       // For MultiClusterEngine, use the dedicated API endpoint
       if (resource.type === 'MultiClusterEngine') {
         const response = await fetch(buildApiUrl(API_ENDPOINTS.MCE_YAML), {
@@ -390,14 +422,14 @@ Next steps:
         }
 
         const result = await response.json();
-        
+
         if (result.success && result.yaml) {
           setYamlEditorData({
             yaml_content: result.yaml,
             resource_name: resource.name,
             resource_type: resource.type
           });
-          
+
           setShowYamlEditorModal(true);
           return;
         } else {
@@ -551,15 +583,45 @@ Next steps:
     }
   ];
 
-  // MCE Resources data
-  const mceResources = [
-    { name: 'capi-controller-manager', type: 'Deployment', namespace: 'capi-system' },
-    { name: 'capa-controller-manager', type: 'Deployment', namespace: 'capa-system' }, 
-    { name: 'mce-capi-webhook-config', type: 'Deployment', namespace: 'multicluster-engine' },
-    { name: 'default', type: 'AWSClusterControllerIdentity', namespace: 'capa-system' },
-    { name: 'rc1-rosa-hcp-test-network', type: 'ROSANetwork', namespace: 'ns-rosa-hcp' },
-    { name: 'rc1-rosa-hcp-test', type: 'ROSAControlPlane', namespace: 'ns-rosa-hcp' }
-  ];
+  // Fetch MCE resources from the cluster dynamically
+  const fetchMCEResources = useCallback(async () => {
+    try {
+      const timestamp = Date.now();
+      const response = await fetch(buildApiUrl(`/api/mce/resources?t=${timestamp}`));
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (data.resources && Array.isArray(data.resources)) {
+        return data.resources;
+      }
+      return [];
+    } catch (error) {
+      console.error('Failed to fetch MCE resources:', error);
+      return [];
+    }
+  }, []);
+
+  // State for dynamically fetched resources
+  const [mceResources, setMceResources] = useState([]);
+  const [mceResourcesLoading, setMceResourcesLoading] = useState(false);
+
+  // Fetch resources on mount and when MCE info changes
+  useEffect(() => {
+    const loadResources = async () => {
+      setMceResourcesLoading(true);
+      const resources = await fetchMCEResources();
+      setMceResources(resources);
+      setMceResourcesLoading(false);
+    };
+
+    if (mceInfo?.name) {
+      loadResources();
+    }
+  }, [mceInfo?.name, fetchMCEResources]);
 
   const mceActions = [
     {
@@ -627,6 +689,34 @@ Next steps:
       variant: 'secondary'
     }
   ];
+
+  // Group resources by namespace
+  const groupResourcesByNamespace = (resources) => {
+    const grouped = {};
+    resources.forEach(resource => {
+      const ns = resource.namespace || 'default';
+      if (!grouped[ns]) {
+        grouped[ns] = [];
+      }
+      grouped[ns].push(resource);
+    });
+    return grouped;
+  };
+
+  const groupedResources = groupResourcesByNamespace(mceResources);
+
+  // Toggle namespace expansion
+  const toggleNamespace = (namespace) => {
+    setExpandedNamespaces(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(namespace)) {
+        newSet.delete(namespace);
+      } else {
+        newSet.add(namespace);
+      }
+      return newSet;
+    });
+  };
 
   // Get connection status
   const getConnectionStatus = () => {
@@ -834,7 +924,7 @@ Next steps:
                   <div>
                     <span className="font-medium text-gray-600">API Server:</span>
                     <div className="mt-1 text-cyan-600 font-mono text-xs break-all">
-                      {ocpStatus?.api_url || 'https://api.ci-vb-rosat34.1ip2.p1.openshiftapps.com:6443'}
+                      {ocpStatus?.api_url || 'Not configured'}
                     </div>
                   </div>
                   
@@ -927,31 +1017,68 @@ Next steps:
           >
             {/* Scrollable Resources Container */}
             <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-              <div className="space-y-2 pr-2">
-                {mceResources.map((resource, index) => (
-                  <div 
-                    key={index} 
-                    className="py-2 border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-cyan-50 rounded-lg px-2 transition-colors"
-                    onClick={() => handleResourceClick(resource)}
-                  >
-                    <div>
-                      <span className="font-medium text-cyan-900 hover:text-cyan-700">
-                        {resource.name}
-                      </span>
-                      <div className="mt-1">
-                        <div className={`inline-block px-2 py-1 rounded-full text-xs ${getResourceTypeColor(resource.type)}`}>
-                          {resource.type}
-                        </div>
-                        {resource.namespace && (
-                          <span className="ml-2 text-xs text-gray-500">
-                            ns: {resource.namespace}
+              {mceResourcesLoading ? (
+                <div className="text-center py-4">
+                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-600"></div>
+                  <p className="mt-2 text-sm text-gray-600">Loading resources...</p>
+                </div>
+              ) : mceResources.length === 0 ? (
+                <div className="text-center py-4 text-gray-500">
+                  <p>No resources found.</p>
+                  <p className="text-sm mt-1">Click "Refresh" to load resources.</p>
+                </div>
+              ) : (
+                <div className="space-y-2 pr-2">
+                  {Object.entries(groupedResources).map(([namespace, resources]) => {
+                    const isExpanded = expandedNamespaces.has(namespace);
+                    return (
+                      <div key={namespace} className="border-b border-gray-200 pb-2 last:border-b-0">
+                        {/* Clickable namespace header */}
+                        <div
+                          className="flex items-center justify-between cursor-pointer py-2 px-2 hover:bg-cyan-50 rounded transition-colors"
+                          onClick={() => toggleNamespace(namespace)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-400">
+                              {isExpanded ? '▼' : '▶'}
+                            </span>
+                            <h4 className="font-semibold text-gray-800 text-base">
+                              {namespace}
+                            </h4>
+                          </div>
+                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                            {resources.length}
                           </span>
+                        </div>
+
+                        {/* Resources list - only show when expanded */}
+                        {isExpanded && (
+                          <div className="ml-6 mt-2 space-y-2">
+                            {resources.map((resource, index) => (
+                              <div
+                                key={index}
+                                className="cursor-pointer hover:bg-cyan-50 rounded p-2 transition-colors"
+                                onClick={() => handleResourceClick(resource)}
+                              >
+                                {/* Resource name */}
+                                <h5 className="font-medium text-gray-800 text-sm hover:text-cyan-700">
+                                  {resource.name}
+                                </h5>
+                                {/* Resource type */}
+                                <div className="mt-1">
+                                  <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${getResourceTypeColor(resource.type)}`}>
+                                    {resource.type}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </StatusCard>
         </div>

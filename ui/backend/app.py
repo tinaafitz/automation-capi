@@ -2573,23 +2573,69 @@ async def validate_config(config: ClusterConfig):
 
 @app.post("/api/ansible/run-task")
 async def run_ansible_task(request: dict):
-    """Run a specific ansible task"""
+    """Run a specific ansible task or playbook"""
     import tempfile
 
     try:
         task_file = request.get("task_file")
+        playbook_file = request.get("playbook_file")
         description = request.get("description", "Running ansible task")
         kube_context = request.get("kube_context")  # Optional cluster context
         extra_vars = request.get("extra_vars", {})  # Optional extra variables
 
-        if not task_file:
-            raise HTTPException(status_code=400, detail="task_file is required")
+        if not task_file and not playbook_file:
+            raise HTTPException(status_code=400, detail="Either task_file or playbook_file is required")
 
-        # Ensure the task file exists
         # Use AUTOMATION_PATH environment variable if set, otherwise calculate from file path
         project_root = os.environ.get("AUTOMATION_PATH") or os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         )
+
+        # If playbook_file is provided, run it directly
+        if playbook_file:
+            playbook_path = os.path.join(project_root, playbook_file)
+            if not os.path.exists(playbook_path):
+                raise HTTPException(status_code=404, detail=f"Playbook file not found: {playbook_file}")
+
+            # Run the playbook directly
+            cmd = [
+                "ansible-playbook",
+                playbook_path,
+                "-i",
+                "localhost,",  # Inline inventory with localhost
+                "-e",
+                "skip_ansible_runner=true",
+                "-e",
+                f"AUTOMATION_PATH={project_root}",
+                "-vv",  # Very verbose output (shows task results)
+            ]
+
+            # Add cluster context if provided
+            if kube_context:
+                cmd.extend(["-e", f"KUBE_CONTEXT={kube_context}"])
+
+            # Add extra vars if provided
+            for key, value in extra_vars.items():
+                cmd.extend(["-e", f"{key}={value}"])
+
+            print(f"Running ansible playbook: {' '.join(cmd)}")
+
+            # Run the command
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                cwd=project_root,
+            )
+
+            return {
+                "success": result.returncode == 0,
+                "output": result.stdout,
+                "error": result.stderr if result.returncode != 0 else None,
+                "return_code": result.returncode,
+            }
+
+        # Otherwise handle as task_file (existing logic)
         task_path = os.path.join(project_root, task_file)
         if not os.path.exists(task_path):
             raise HTTPException(status_code=404, detail=f"Task file not found: {task_file}")
@@ -2867,6 +2913,278 @@ async def get_mce_features():
         raise HTTPException(status_code=504, detail="Request to OpenShift timed out")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching MCE features: {str(e)}")
+
+
+@app.get("/api/mce/yaml")
+async def get_mce_yaml():
+    """Get the YAML for the MultiClusterEngine resource"""
+    try:
+        # Fetch the MultiClusterEngine resource YAML
+        result = subprocess.run(
+            ["oc", "get", "multiclusterengine", "-o", "yaml"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        if result.returncode != 0:
+            return {
+                "success": False,
+                "yaml": None,
+                "message": f"Error fetching MCE YAML: {result.stderr}",
+            }
+
+        return {
+            "success": True,
+            "yaml": result.stdout,
+        }
+
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "yaml": None,
+            "message": "Request to OpenShift timed out",
+        }
+    except Exception as e:
+        import traceback
+        print(f"❌ [MCE-YAML] Error: {str(e)}")
+        print(traceback.format_exc())
+        return {
+            "success": False,
+            "yaml": None,
+            "message": f"Error fetching MCE YAML: {str(e)}",
+        }
+
+
+@app.get("/api/rosa/clusters")
+async def get_rosa_clusters():
+    """Get ROSA HCP clusters from the MCE environment"""
+    try:
+        # Fetch ROSAControlPlane resources from all namespaces (contains detailed cluster info)
+        result = subprocess.run(
+            ["oc", "get", "rosacontrolplane", "--all-namespaces", "-o", "json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        if result.returncode != 0:
+            return {
+                "success": False,
+                "clusters": [],
+                "message": f"Error fetching ROSA clusters: {result.stderr}",
+            }
+
+        import json
+
+        data = json.loads(result.stdout)
+        clusters = []
+
+        for item in data.get("items", []):
+            metadata = item.get("metadata", {})
+            spec = item.get("spec", {})
+            status = item.get("status", {})
+
+            # Determine cluster status
+            ready = status.get("ready", False)
+            conditions = status.get("conditions", [])
+
+            # Check for errors in conditions
+            has_error = False
+            for condition in conditions:
+                if condition.get("status") == "False" and condition.get("type") in ["Ready", "ROSAControlPlaneReady", "RosaControlPlaneReady"]:
+                    has_error = True
+                    break
+
+            # Determine status string
+            if ready:
+                cluster_status = "ready"
+            elif has_error:
+                cluster_status = "failed"
+            else:
+                cluster_status = "provisioning"
+
+            # Calculate progress for provisioning clusters
+            progress = 0
+            if cluster_status == "provisioning":
+                # Base progress on conditions that are ready
+                progress_stages = {
+                    "InfrastructureReady": 20,
+                    "NetworkReady": 40,
+                    "ControlPlaneReady": 60,
+                    "ROSAControlPlaneReady": 60,
+                    "RosaControlPlaneReady": 60,
+                    "Ready": 100,
+                }
+
+                # Check which conditions are true
+                for condition in conditions:
+                    condition_type = condition.get("type", "")
+                    condition_status = condition.get("status", "")
+
+                    if condition_status == "True" and condition_type in progress_stages:
+                        stage_progress = progress_stages[condition_type]
+                        if stage_progress > progress:
+                            progress = stage_progress
+
+                # If no conditions are set yet, estimate based on creation time
+                if progress == 0:
+                    from datetime import datetime, timezone
+                    try:
+                        created_str = metadata.get("creationTimestamp", "")
+                        if created_str:
+                            created_time = datetime.fromisoformat(created_str.replace('Z', '+00:00'))
+                            elapsed = (datetime.now(timezone.utc) - created_time).total_seconds()
+                            # Estimate 5-10 minutes for initial provisioning, cap at 15%
+                            progress = min(15, int((elapsed / 60) * 2.5))
+                    except:
+                        progress = 10  # Default starting progress
+            elif cluster_status == "ready":
+                progress = 100
+            elif cluster_status == "failed":
+                progress = 0
+
+            # Extract cluster information
+            cluster_info = {
+                "name": metadata.get("name", "unknown"),
+                "status": cluster_status,
+                "region": spec.get("region", "N/A"),
+                "created": metadata.get("creationTimestamp"),
+                "domain_prefix": spec.get("domainPrefix", "N/A"),
+                "version": spec.get("version", "N/A"),
+                "namespace": metadata.get("namespace", "default"),
+                "progress": progress,
+            }
+
+            clusters.append(cluster_info)
+
+        # Sort by creation time (newest first)
+        clusters.sort(key=lambda x: x.get("created", ""), reverse=True)
+
+        return {
+            "success": True,
+            "clusters": clusters,
+            "count": len(clusters),
+        }
+
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "clusters": [],
+            "message": "Request to OpenShift timed out",
+        }
+    except Exception as e:
+        import traceback
+        print(f"❌ [ROSA-CLUSTERS] Error: {str(e)}")
+        print(traceback.format_exc())
+        return {
+            "success": False,
+            "clusters": [],
+            "message": f"Error fetching ROSA clusters: {str(e)}",
+        }
+
+
+@app.get("/api/mce/resources")
+async def get_mce_resources():
+    """Get CAPI/CAPA resources from the MCE environment"""
+    try:
+        resources = []
+
+        # Define resource types to fetch
+        resource_types = [
+            {"type": "Deployment", "namespaces": ["capi-system", "capa-system", "multicluster-engine"]},
+            {"type": "AWSClusterControllerIdentity", "namespaces": ["capa-system"]},
+            {"type": "ROSACluster", "namespaces": None},  # All namespaces
+            {"type": "ROSANetwork", "namespaces": None},  # All namespaces
+            {"type": "ROSAControlPlane", "namespaces": None},  # All namespaces
+            {"type": "ROSARoleConfig", "namespaces": None},  # All namespaces
+        ]
+
+        for resource_config in resource_types:
+            resource_type = resource_config["type"]
+            namespaces = resource_config["namespaces"]
+
+            try:
+                if namespaces:
+                    # Fetch from specific namespaces
+                    for namespace in namespaces:
+                        result = subprocess.run(
+                            ["oc", "get", resource_type.lower(), "-n", namespace, "-o", "json"],
+                            capture_output=True,
+                            text=True,
+                            timeout=10,
+                        )
+
+                        if result.returncode == 0:
+                            import json
+
+                            data = json.loads(result.stdout)
+                            for item in data.get("items", []):
+                                metadata = item.get("metadata", {})
+                                resource_name = metadata.get("name", "unknown")
+
+                                # Get YAML for this resource
+                                yaml_result = subprocess.run(
+                                    ["oc", "get", resource_type.lower(), resource_name, "-n", namespace, "-o", "yaml"],
+                                    capture_output=True,
+                                    text=True,
+                                    timeout=10,
+                                )
+
+                                yaml_content = yaml_result.stdout if yaml_result.returncode == 0 else None
+
+                                resources.append({
+                                    "name": resource_name,
+                                    "type": resource_type,
+                                    "namespace": metadata.get("namespace", namespace),
+                                    "status": "Active",
+                                    "yaml": yaml_content,
+                                })
+                else:
+                    # Fetch from all namespaces
+                    result = subprocess.run(
+                        ["oc", "get", resource_type.lower(), "--all-namespaces", "-o", "json"],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+
+                    if result.returncode == 0:
+                        import json
+
+                        data = json.loads(result.stdout)
+                        for item in data.get("items", []):
+                            metadata = item.get("metadata", {})
+                            resource_name = metadata.get("name", "unknown")
+                            resource_namespace = metadata.get("namespace", "default")
+
+                            # Get YAML for this resource
+                            yaml_result = subprocess.run(
+                                ["oc", "get", resource_type.lower(), resource_name, "-n", resource_namespace, "-o", "yaml"],
+                                capture_output=True,
+                                text=True,
+                                timeout=10,
+                            )
+
+                            yaml_content = yaml_result.stdout if yaml_result.returncode == 0 else None
+
+                            resources.append({
+                                "name": resource_name,
+                                "type": resource_type,
+                                "namespace": resource_namespace,
+                                "status": "Active",
+                                "yaml": yaml_content,
+                            })
+
+            except Exception as e:
+                # Log but don't fail if one resource type fails
+                print(f"Failed to fetch {resource_type}: {str(e)}")
+                continue
+
+        return {"success": True, "resources": resources, "count": len(resources)}
+
+    except Exception as e:
+        return {"success": False, "message": f"Error fetching MCE resources: {str(e)}", "resources": []}
 
 
 @app.post("/api/ansible/run-role")

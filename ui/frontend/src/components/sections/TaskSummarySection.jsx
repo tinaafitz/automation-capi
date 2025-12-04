@@ -81,11 +81,6 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
             </div>
             <div>
               <h3 className="text-lg font-bold text-white">Task Summary</h3>
-              <p className="text-white/80 text-sm">
-                {filteredOperations.length > 0
-                  ? `Latest ${filteredOperations.length} operation${filteredOperations.length !== 1 ? 's' : ''}`
-                  : 'No operations yet'}
-              </p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
@@ -112,16 +107,9 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
         </div>
       </div>
 
-      {!getSectionCollapsedState() && (
+      {!getSectionCollapsedState() && filteredOperations.length > 0 && (
         <div className="p-6">
-          {filteredOperations.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <ClockIcon className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p className="text-lg font-medium mb-2">No Recent Operations</p>
-              <p className="text-sm">Operations will appear here as you use the system.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
+          <div className="space-y-3">
               {filteredOperations.map((operation, idx) => (
                 <div
                   key={operation.id || idx}
@@ -158,8 +146,7 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
                   </div>
                 </div>
               ))}
-            </div>
-          )}
+          </div>
         </div>
       )}
     </div>

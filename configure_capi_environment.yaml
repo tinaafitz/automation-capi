@@ -1,11 +1,13 @@
 - name: Configure the MCE CAPI/CAPA environment
   hosts: localhost
+  connection: local
   any_errors_fatal: true
   vars_files:
     - vars/vars.yml
     - vars/user_vars.yml
   tasks:
-    - set_fact:
+    - name: Set facts for OCP and MCE
+      set_fact:
         ocp_user:  "{{ OCP_HUB_CLUSTER_USER }}"
         ocp_password:  "{{ OCP_HUB_CLUSTER_PASSWORD }}"
         api_url:  "{{ OCP_HUB_API_URL }}"

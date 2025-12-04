@@ -9,7 +9,7 @@ import {
   DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 
-export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData }) {
+export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOnly = false }) {
   const [editedYaml, setEditedYaml] = useState('');
   const [originalYaml, setOriginalYaml] = useState('');
   const [validationError, setValidationError] = useState(null);
@@ -147,10 +147,16 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData }) {
           <div className="flex items-center gap-3">
             <DocumentTextIcon className="h-7 w-7" />
             <div>
-              <h2 className="text-xl font-bold">Review & Edit Provisioning YAML</h2>
-              <p className="text-sm text-purple-100 mt-0.5">
-                {yamlData?.cluster_name} • {yamlData?.feature_type}
-              </p>
+              <h2 className="text-xl font-bold">
+                {readOnly ? 'Resource YAML' : 'Review & Edit Provisioning YAML'}
+              </h2>
+              {(yamlData?.resource_name || yamlData?.cluster_name) && (
+                <p className="text-sm text-purple-100 mt-0.5">
+                  {yamlData?.resource_name || yamlData?.cluster_name}
+                  {yamlData?.resource_type && ` • ${yamlData.resource_type}`}
+                  {yamlData?.feature_type && ` • ${yamlData.feature_type}`}
+                </p>
+              )}
             </div>
           </div>
           <button
@@ -285,7 +291,10 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData }) {
                 ref={textareaRef}
                 value={editedYaml}
                 onChange={handleYamlChange}
-                className="w-full h-[500px] p-4 font-mono text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none"
+                readOnly={readOnly}
+                className={`w-full h-[500px] p-4 font-mono text-sm bg-white border border-gray-300 rounded-lg resize-none ${
+                  readOnly ? 'cursor-default' : 'focus:ring-2 focus:ring-purple-500 focus:border-purple-500'
+                }`}
                 spellCheck="false"
                 style={{
                   tabSize: 2,
@@ -319,15 +328,17 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData }) {
                 onClick={onClose}
                 className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-medium transition-colors"
               >
-                Cancel
+                {readOnly ? 'Close' : 'Cancel'}
               </button>
-              <button
-                onClick={handleProvision}
-                disabled={!!validationError}
-                className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-md hover:from-purple-700 hover:to-indigo-700 font-medium transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Provision Now
-              </button>
+              {!readOnly && (
+                <button
+                  onClick={handleProvision}
+                  disabled={!!validationError}
+                  className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-md hover:from-purple-700 hover:to-indigo-700 font-medium transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Provision Now
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -339,11 +350,14 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData }) {
 YamlEditorModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
-  onProvision: PropTypes.func.isRequired,
+  onProvision: PropTypes.func,
   yamlData: PropTypes.shape({
     yaml_content: PropTypes.string,
     cluster_name: PropTypes.string,
     feature_type: PropTypes.string,
+    resource_name: PropTypes.string,
+    resource_type: PropTypes.string,
     file_paths: PropTypes.arrayOf(PropTypes.string),
   }),
+  readOnly: PropTypes.bool,
 };
