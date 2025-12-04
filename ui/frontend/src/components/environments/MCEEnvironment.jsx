@@ -3,9 +3,11 @@ import EnvironmentCard from '../cards/EnvironmentCard';
 import StatusCard from '../cards/StatusCard';
 import ComponentStatusCard from '../cards/ComponentStatusCard';
 import MCETerminalModal from '../modals/MCETerminalModal';
-import MCETerminalSection from '../sections/MCETerminalSection';
 import NotificationSettingsModal from '../modals/NotificationSettingsModal';
 import { YamlEditorModal } from '../YamlEditorModal';
+import { AIAssistantChat } from '../chat/AIAssistantChat';
+import { CommandChat } from '../chat/CommandChat';
+import MCETerminalSection from '../sections/MCETerminalSection';
 import { useApiStatusContext, useRecentOperationsContext, useApp, useAppDispatch } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
 import { cardStyles } from '../../styles/themes';
@@ -1431,6 +1433,9 @@ Export completed at ${completionTime}`
 
       {/* ROSA HCP Clusters section - positioned after Configuration section, before Terminal */}
       <RosaHcpClustersSection />
+
+      {/* Command Chat - Natural Language Automation */}
+      <CommandChat />
 
       {/* MCE Terminal Section */}
       <MCETerminalSection />
