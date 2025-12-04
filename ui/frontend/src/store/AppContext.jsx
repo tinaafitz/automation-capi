@@ -25,7 +25,7 @@ const initialAppState = {
   showEnvironmentDropdown: false,
   collapsedSections: new Set(),
   showSetupPrompt: false,
-  sectionOrder: ['test-suite', 'mce-environment', 'task-summary', 'task-detail'],
+  sectionOrder: ['mce-configuration', 'rosa-hcp-clusters', 'mce-terminal', 'task-summary', 'test-suite', 'task-detail'],
 
   // Modal State
   showKindClusterModal: false,
@@ -266,9 +266,12 @@ export const AppProvider = ({ children }) => {
       const savedSectionOrder = localStorage.getItem('mce-section-order');
       if (savedSectionOrder) {
         const parsed = JSON.parse(savedSectionOrder);
+        // Ensure all new sections are included (merge with default)
+        const defaultOrder = ['mce-configuration', 'rosa-hcp-clusters', 'mce-terminal', 'task-summary', 'test-suite', 'task-detail'];
+        const mergedOrder = [...new Set([...parsed, ...defaultOrder])];
         dispatch({
           type: AppActionTypes.SET_SECTION_ORDER,
-          payload: parsed
+          payload: mergedOrder
         });
       }
     } catch (error) {

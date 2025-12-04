@@ -1,6 +1,6 @@
 import React from 'react';
 import { ClockIcon, ChevronDownIcon, ChevronUpIcon, TrashIcon } from '@heroicons/react/24/outline';
-import { useApp, useAppDispatch } from '../../store/AppContext';
+import { useApp, useAppDispatch, useRecentOperationsContext } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
 import { useJobHistory } from '../../hooks/useJobHistory';
 
@@ -8,11 +8,12 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
   const app = useApp();
   const dispatch = useAppDispatch();
   const { jobHistory, loading, error, fetchJobHistory } = useJobHistory();
+  const recentOps = useRecentOperationsContext();
 
-  console.log('🔍 [TaskSummarySection] jobHistory:', jobHistory.length, 'jobs, environment:', environment);
+  console.log('🔍 [TaskSummarySection] jobHistory:', jobHistory.length, 'jobs, recentOps:', recentOps.recentOperations.length, 'environment:', environment);
 
   // Map jobs to look like recent operations for display
-  const recentOperations = jobHistory.map(job => ({
+  const jobOperations = jobHistory.map(job => ({
     id: job.id,
     title: job.description || 'Job',
     status: job.status === 'completed' ? `✅ ${job.message}` :
@@ -26,8 +27,19 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
     output: job.logs?.join('\n') || ''
   }));
 
+  // Convert recent operations to have consistent timestamp format
+  const frontendOperations = recentOps.recentOperations.map(op => ({
+    ...op,
+    timestamp: typeof op.timestamp === 'string' ? new Date(op.timestamp).getTime() : op.timestamp
+  }));
+
+  // Combine both sources and sort by timestamp
+  const recentOperations = [...jobOperations, ...frontendOperations]
+    .sort((a, b) => b.timestamp - a.timestamp);
+
   const clearRecentOperations = async () => {
     try {
+      // Clear backend job history
       const response = await fetch('http://localhost:8000/api/jobs', {
         method: 'DELETE',
       });
@@ -39,6 +51,9 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
       } else {
         console.error('❌ [TaskSummarySection] Failed to clear jobs');
       }
+
+      // Also clear frontend recent operations
+      recentOps.clearRecentOperations();
     } catch (error) {
       console.error('❌ [TaskSummarySection] Error clearing jobs:', error);
     }

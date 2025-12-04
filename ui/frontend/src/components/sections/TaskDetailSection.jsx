@@ -1,6 +1,6 @@
 import React from 'react';
 import { DocumentTextIcon, ChevronDownIcon, ChevronUpIcon, DocumentDuplicateIcon } from '@heroicons/react/24/outline';
-import { useApp, useAppDispatch } from '../../store/AppContext';
+import { useApp, useAppDispatch, useRecentOperationsContext } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
 import { useJobHistory } from '../../hooks/useJobHistory';
 
@@ -8,9 +8,10 @@ const TaskDetailSection = ({ theme = 'mce', environment }) => {
   const app = useApp();
   const dispatch = useAppDispatch();
   const { jobHistory, loading, error } = useJobHistory();
+  const recentOps = useRecentOperationsContext();
 
   // Map jobs to look like recent operations for display
-  const recentOperations = jobHistory.map(job => ({
+  const jobOperations = jobHistory.map(job => ({
     id: job.id,
     title: job.description || 'Job',
     status: job.status === 'completed' ? `✅ ${job.message}` :
@@ -23,6 +24,16 @@ const TaskDetailSection = ({ theme = 'mce', environment }) => {
     playbook: job.yaml_file,
     output: job.logs?.join('\n') || ''
   }));
+
+  // Convert recent operations to have consistent timestamp format
+  const frontendOperations = recentOps.recentOperations.map(op => ({
+    ...op,
+    timestamp: typeof op.timestamp === 'string' ? new Date(op.timestamp).getTime() : op.timestamp
+  }));
+
+  // Combine both sources and sort by timestamp
+  const recentOperations = [...jobOperations, ...frontendOperations]
+    .sort((a, b) => b.timestamp - a.timestamp);
 
   // Get theme colors
   const getThemeColors = () => {
