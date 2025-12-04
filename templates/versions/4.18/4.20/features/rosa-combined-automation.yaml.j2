@@ -22,7 +22,7 @@ metadata:
 spec:
   clusterNetwork:
     pods:
-      cidrBlocks: ["{{ cluster_network.pod_cidr | default('192.168.0.0/16') }}"]
+      cidrBlocks: ["{{ cluster_network.pod_cidr | default('192.168.0.0/16') }}""]
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
     kind: ROSACluster
@@ -58,14 +58,19 @@ metadata:
 spec:
   identityRef:
     kind: AWSClusterControllerIdentity
-    name: {{ rosa_network_config.identity_name | default('default') }}
-  region: {{ aws_region }}
-  stackName: {{ cluster_name }}-rosa-network-stack
+    name: {{ rosa_network_config.identity_name | default('default') }}"
+  credentialsSecretRef:
+    name: {{ rosa_creds_secret }}
   availabilityZones:
     {% for az in rosa_network_config.availability_zones %}
     - {{ az }}
     {% endfor %}
-  cidrBlock: {{ rosa_network_config.cidr_block | default('10.0.0.0/16') }}
+  cidrBlock: {{ rosa_network_config.cidr_block | default('10.0.0.0/16') }}"
+  tags:
+    Environment: {{ environment_tag | default('test') }}"
+    TestCase: "ACM-21174-Combined"
+    CreatedBy: "ansible-automation"
+    Purpose: "combined-automation-testing"
 ---
 # ROSARoleConfig for automated AWS IAM role creation (if 4.20 templates available)
 {% if rosa_role_config is defined and rosa_role_config.enabled | default(false) %}
@@ -81,12 +86,12 @@ metadata:
 spec:
   identityRef:
     kind: AWSClusterControllerIdentity
-    name: {{ rosa_role_config.identity_name | default('default') }}
+    name: {{ rosa_role_config.identity_name | default('default') }}"
   credentialsSecretRef:
     name: {{ rosa_creds_secret }}
   accountRoleConfig:
     prefix: "{{ rosa_role_config.prefix | default(cluster_name_prefix) }}"
-    version: {{ rosa_role_config.version | default(openshift_version) }}
+    version: "{{ rosa_role_config.version | default(openshift_version) }}"
   operatorRoleConfig:
     prefix: "{{ rosa_role_config.prefix | default(cluster_name_prefix) }}"
 {% endif %}
@@ -119,28 +124,28 @@ spec:
   {% endif %}
 
   rosaClusterName: {{ cluster_name }}
-  domainPrefix: {{ domain_prefix | default('rosa-' + cluster_name_prefix) }}
+  domainPrefix: {{ domain_prefix | default('rosa-' + cluster_name_prefix) }}"
   version: {{ openshift_version }}
   region: {{ aws_region }}
-  channelGroup: {{ channel_group | default('stable') }}
+  channelGroup: {{ channel_group | default('stable') }}"
 
   defaultMachinePoolSpec:
-    instanceType: {{ machine_pool.instance_type | default('m5.xlarge') }}
+    instanceType: {{ machine_pool.instance_type | default('m5.xlarge') }}"
     autoscaling:
-      maxReplicas: {{ machine_pool.max_replicas | default(3) }}
-      minReplicas: {{ machine_pool.min_replicas | default(2) }}
+      maxReplicas: {{ machine_pool.max_replicas | default(3) }}"
+      minReplicas: {{ machine_pool.min_replicas | default(2) }}"
 
   additionalTags:
-    env: {{ environment_tag | default('test') }}
-    purpose: {{ purpose_tag | default('acm21174-combined-testing') }}
+    env: {{ environment_tag | default('test') }}"
+    purpose: {{ purpose_tag | default('acm21174-combined-testing') }}"
     automated: "true"
     network-automation: "true"
     role-automation: "{{ 'true' if rosa_role_config is defined and rosa_role_config.enabled | default(false) else 'false' }}"
 
   network:
-    machineCIDR: {{ cluster_network.machine_cidr | default('10.0.0.0/16') }}
-    podCIDR: {{ cluster_network.pod_cidr | default('10.128.0.0/14') }}
-    serviceCIDR: {{ cluster_network.service_cidr | default('172.30.0.0/16') }}
+    machineCIDR: {{ cluster_network.machine_cidr | default('10.0.0.0/16') }}"
+    podCIDR: {{ cluster_network.pod_cidr | default('10.128.0.0/14') }}"
+    serviceCIDR: {{ cluster_network.service_cidr | default('172.30.0.0/16') }}"
 
   # Complete automation: No manual subnets, availability zones, or role ARNs required
   # All infrastructure will be created automatically by ROSANetwork and ROSARoleConfig
@@ -156,7 +161,7 @@ metadata:
     automation.acm.redhat.com/role-automation: "true"
 spec:
   clusterName: {{ cluster_name }}
-  replicas: {{ machine_pool.replicas | default(2) }}
+  replicas: {{ machine_pool.replicas | default(2) }}"
   template:
     spec:
       clusterName: {{ cluster_name }}
@@ -177,8 +182,7 @@ metadata:
     automation.acm.redhat.com/network-automation: "true"
     automation.acm.redhat.com/role-automation: "true"
 spec:
-  nodePoolName: {{ machine_pool.node_pool_name | default(cluster_name[:12] + '-np') }}
-  instanceType: {{ machine_pool.instance_type | default('m5.xlarge') }}
+  nodePoolName: {{ machine_pool.node_pool_name | default(cluster_name + '-nodepool') }}"
+  instanceType: {{ machine_pool.instance_type | default('m5.xlarge') }}"
   version: {{ openshift_version }}
   # Note: subnet assignment will be automatic via ROSANetwork
-  # nodePoolName is truncated to max 15 chars (12 from cluster name + 3 for '-np')
