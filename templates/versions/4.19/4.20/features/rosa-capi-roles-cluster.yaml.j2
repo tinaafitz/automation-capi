@@ -71,6 +71,11 @@ kind: ROSAControlPlane
 metadata:
   name: {{ cluster_name }}-control-plane
   namespace: {{ capi_namespace | default("ns-rosa-hcp") }}
+  annotations:
+    {% if cluster_description is defined and cluster_description %}
+    cluster.x-k8s.io/description: |
+{{ cluster_description | indent(6, first=True) }}
+    {% endif %}
   labels:
     cluster.x-k8s.io/cluster-name: {{ cluster_name }}
     automation.acm.redhat.com/test-case: "ACM-21162"

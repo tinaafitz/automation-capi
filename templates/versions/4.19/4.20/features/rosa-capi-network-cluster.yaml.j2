@@ -20,7 +20,7 @@ metadata:
 spec:
   clusterNetwork:
     pods:
-      cidrBlocks: ["{{ cluster_network.pod_cidr | default('192.168.0.0/16') }}"]
+      cidrBlocks: ["{{ cluster_network.pod_cidr | default('192.168.0.0/16') }}""]
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
     kind: ROSACluster
@@ -58,39 +58,39 @@ metadata:
 spec:
   # Network reference (automatic VPC and subnet creation)
   rosaNetworkRef:
-    name: {{ rosa_network_config.name | default(cluster_name + '-network') }}
+    name: {{ rosa_network_config.name | default(cluster_name + '-network') }}"
     namespace: {{ capi_namespace }}
 
   {% if use_role_config | default(false) %}
   # Optional: ROSARoleConfig reference for combined automation
   rosaRoleConfigRef:
-    name: {{ rosa_role_config.name | default(cluster_name + '-roles') }}
+    name: {{ rosa_role_config.name | default(cluster_name + '-roles') }}"
     namespace: {{ capi_namespace }}
   {% endif %}
 
   rosaClusterName: {{ cluster_name }}
-  domainPrefix: {{ domain_prefix | default('rosa-' + cluster_name_prefix) }}
+  domainPrefix: {{ domain_prefix | default('rosa-' + cluster_name_prefix) }}"
   version: {{ openshift_version }}
   region: {{ aws_region }}
-  channelGroup: {{ channel_group | default('stable') }}
+  channelGroup: {{ channel_group | default('stable') }}"
 
   defaultMachinePoolSpec:
-    instanceType: {{ machine_pool.instance_type | default('m5.xlarge') }}
+    instanceType: {{ machine_pool.instance_type | default('m5.xlarge') }}"
     autoscaling:
-      maxReplicas: {{ machine_pool.max_replicas | default(3) }}
-      minReplicas: {{ machine_pool.min_replicas | default(2) }}
+      maxReplicas: {{ machine_pool.max_replicas | default(3) }}"
+      minReplicas: {{ machine_pool.min_replicas | default(2) }}"
 
   additionalTags:
-    env: {{ environment_tag | default('test') }}
-    purpose: {{ purpose_tag | default('acm21174-testing') }}
+    env: {{ environment_tag | default('test') }}"
+    purpose: {{ purpose_tag | default('acm21174-testing') }}"
     automated: "true"
     network-automation: "true"
 
   # Network configuration (will be populated by ROSANetwork)
   network:
-    machineCIDR: {{ cluster_network.machine_cidr | default('10.0.0.0/16') }}
-    podCIDR: {{ cluster_network.pod_cidr | default('10.128.0.0/14') }}
-    serviceCIDR: {{ cluster_network.service_cidr | default('172.30.0.0/16') }}
+    machineCIDR: {{ cluster_network.machine_cidr | default('10.0.0.0/16') }}"
+    podCIDR: {{ cluster_network.pod_cidr | default('10.128.0.0/14') }}"
+    serviceCIDR: {{ cluster_network.service_cidr | default('172.30.0.0/16') }}"
 
   # Note: subnets and availabilityZones will be automatically populated by ROSANetwork
   # No manual subnet specification required when using rosaNetworkRef
@@ -105,7 +105,7 @@ metadata:
     automation.acm.redhat.com/network-automation: "true"
 spec:
   clusterName: {{ cluster_name }}
-  replicas: {{ machine_pool.replicas | default(2) }}
+  replicas: {{ machine_pool.replicas | default(2) }}"
   template:
     spec:
       clusterName: {{ cluster_name }}
@@ -125,8 +125,8 @@ metadata:
     automation.acm.redhat.com/test-case: "ACM-21174"
     automation.acm.redhat.com/network-automation: "true"
 spec:
-  nodePoolName: {{ machine_pool.node_pool_name | default(cluster_name + '-nodepool') }}
-  instanceType: {{ machine_pool.instance_type | default('m5.xlarge') }}
+  nodePoolName: {{ machine_pool.node_pool_name | default(cluster_name + '-nodepool') }}"
+  instanceType: {{ machine_pool.instance_type | default('m5.xlarge') }}"
   # Note: subnet will be automatically populated by ROSANetwork
   # No manual subnet specification required
   version: {{ openshift_version }}

@@ -5,6 +5,7 @@ import { XMarkIcon } from '@heroicons/react/24/outline';
 export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
   const [config, setConfig] = useState({
     clusterName: '',
+    clusterDescription: '',
     openShiftVersion: '4.19.10',
     createRosaNetwork: true,
     createRosaRoleConfig: true,
@@ -22,9 +23,10 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
   useEffect(() => {
     if (testSuite) {
       setConfig({
-        clusterName: testSuite.components?.includes('Long Cluster Name') 
+        clusterName: testSuite.components?.includes('Long Cluster Name')
           ? 'comprehensive-test-really-long-cluster-name'
           : `test-${testSuite.category.toLowerCase()}-${testSuite.id}`,
+        clusterDescription: testSuite.name || '',
         openShiftVersion: '4.19.10',
         createRosaNetwork: true,
         createRosaRoleConfig: true,
@@ -108,6 +110,24 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
               placeholder="test-420-network-roles-test"
             />
             <p className="mt-1 text-xs text-gray-500">Name for your ROSA HCP cluster</p>
+          </div>
+
+          {/* Cluster Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Description
+            </label>
+            <textarea
+              value={config.clusterDescription}
+              onChange={(e) => handleChange('clusterDescription', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+              placeholder="Description of this cluster (optional)&#10;Example:&#10;------- ACM 2.11.9 Fresh Install -------&#10;ACM: 2.11.9-DOWNSTREAM-2025-12-01&#10;MCE: 2.6.9-DOWNSTREAM-2025-11-30"
+              rows="4"
+              maxLength="500"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Optional description for the cluster. Supports multi-line text (max 500 characters)
+            </p>
           </div>
 
           {/* OpenShift Version */}
