@@ -84,9 +84,6 @@ const RosaHcpClustersSection = () => {
             </div>
             <div>
               <h3 className="text-lg font-bold text-white">CAPI-Managed ROSA HCP Clusters</h3>
-              <p className="text-white/80 text-sm">
-                Monitor your provisioned clusters
-              </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -159,20 +156,39 @@ const RosaHcpClustersSection = () => {
                           <div className="text-xs text-gray-500 font-mono">{cluster.domain_prefix}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              cluster.status === 'ready'
-                                ? 'bg-green-100 text-green-800'
-                                : cluster.status === 'provisioning'
-                                  ? 'bg-yellow-100 text-yellow-800'
-                                  : cluster.status === 'failed'
-                                    ? 'bg-red-100 text-red-800'
-                                    : 'bg-gray-100 text-gray-800'
-                            }`}
-                          >
-                            {cluster.status === 'ready' ? '✅' : cluster.status === 'provisioning' ? '⏳' : cluster.status === 'failed' ? '❌' : '⬜'}{' '}
-                            {cluster.status}
-                          </span>
+                          <div className="space-y-2">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                cluster.status === 'ready'
+                                  ? 'bg-green-100 text-green-800'
+                                  : cluster.status === 'provisioning'
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : cluster.status === 'failed'
+                                      ? 'bg-red-100 text-red-800'
+                                      : 'bg-gray-100 text-gray-800'
+                              }`}
+                            >
+                              {cluster.status === 'ready' ? '✅' : cluster.status === 'provisioning' ? '⏳' : cluster.status === 'failed' ? '❌' : '⬜'}{' '}
+                              {cluster.status}
+                            </span>
+                            {/* Progress bar for provisioning clusters */}
+                            {cluster.status === 'provisioning' && (
+                              <div className="w-full space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <div className="text-xs text-gray-600">Provisioning...</div>
+                                  <div className="text-xs font-semibold text-yellow-600">
+                                    {cluster.progress || '45'}%
+                                  </div>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                  <div
+                                    className="h-full bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 rounded-full transition-all duration-500"
+                                    style={{ width: `${cluster.progress || 45}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {cluster.region}
@@ -332,7 +348,7 @@ Next steps:
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          task_file: 'configure_capi_environment.yaml',
+          playbook_file: 'configure_capi_environment.yaml',
           description: 'Configure MCE CAPI/CAPA Environment',
           cluster_type: 'mce'
         })
