@@ -505,6 +505,111 @@ Once logged in, click "Configure" again to retry.`
     dispatch({ type: AppActionTypes.SHOW_PROVISION_MODAL, payload: true });
   };
 
+  // Handle disable CAPI action
+  const handleDisableCapi = async () => {
+    const disableId = `disable-capi-${Date.now()}`;
+
+    try {
+      addToRecent({
+        id: disableId,
+        title: 'Disable CAPI Components',
+        color: 'bg-red-600',
+        status: '⏳ Disabling...',
+        environment: 'mce',
+        playbook: 'tasks/update_enabled_flag.yml',
+        output: 'Starting CAPI component disable operation...\nUpdating MultiClusterEngine configuration...\nDisabling cluster-api component...'
+      });
+
+      const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_TASK), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          task_file: 'tasks/update_enabled_flag.yml',
+          description: 'Disable CAPI Components',
+          cluster_type: 'mce',
+          extra_vars: {
+            component: 'cluster-api',
+            enable: 'false'
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to disable CAPI: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        const completionTime = new Date().toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+        });
+
+        updateRecentOperationStatus(
+          disableId,
+          `✅ CAPI components disabled at ${completionTime}`,
+          result.output
+        );
+
+        // Refresh status after successful disable
+        await refreshAllStatus();
+      } else {
+        // Check if this is an OpenShift login failure
+        const isLoginFailure = result.error?.includes('OPENSHIFT LOGIN FAILED') ||
+                               result.error?.includes('Unauthorized') ||
+                               result.error?.includes('You must be logged in') ||
+                               result.output?.includes('OPENSHIFT LOGIN FAILED') ||
+                               result.output?.includes('Unauthorized');
+
+        if (isLoginFailure) {
+          updateRecentOperationStatus(
+            disableId,
+            `❌ OpenShift Login Failed`,
+            `Disable CAPI Failed: OpenShift Authentication Required
+
+❌ Your OpenShift login session has expired or credentials are invalid.
+
+📋 To fix this issue:
+
+1. Get a new login token:
+   • Go to OpenShift Console: ${ocpStatus?.api_url?.replace('api.', 'console-openshift-console.apps.') || 'https://console-openshift-console.apps...'}/
+   • Click your username (top right) → "Copy login command"
+   • Run the login command in your terminal
+
+2. Or update credentials:
+   • Click the "Credentials" button in the MCE Environment tile
+   • Ensure your OpenShift Hub credentials are correct
+   • Save and try again
+
+3. Or manually login via terminal:
+   • Run: oc login ${ocpStatus?.api_url || '<your-cluster-url>'} -u <username> -p <password>
+
+📝 Error details:
+${result.error || 'Authentication failed'}
+
+Once logged in, click "Disable CAPI" again to retry.`
+          );
+        } else {
+          updateRecentOperationStatus(
+            disableId,
+            `❌ Failed to disable CAPI: ${result.error}`,
+            result.output
+          );
+        }
+      }
+    } catch (error) {
+      updateRecentOperationStatus(
+        disableId,
+        `❌ Failed to disable CAPI: ${error.message}`
+      );
+    }
+  };
+
   // Handle export action
   const handleExport = () => {
     if (mceResources.length === 0) {
@@ -1161,6 +1266,19 @@ Export completed at ${completionTime}`
                   ))}
                 </div>
               </div>
+
+              {/* Disable CAPI Button - Only show when CAPI is enabled */}
+              {capiComponents.some(c => c.name === 'cluster-api' && c.enabled) && (
+                <div className="pt-4 border-t border-gray-200">
+                  <button
+                    onClick={handleDisableCapi}
+                    className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                  >
+                    <span>⛔</span>
+                    Disable CAPI
+                  </button>
+                </div>
+              )}
             </div>
           </StatusCard>
 
