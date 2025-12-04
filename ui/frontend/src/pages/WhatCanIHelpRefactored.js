@@ -1,11 +1,13 @@
 import React from 'react';
 import { ChevronDownIcon } from '@heroicons/react/20/solid';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import MinikubeEnvironment from '../components/environments/MinikubeEnvironment';
 import MCEEnvironment from '../components/environments/MCEEnvironment';
 import MinikubeSetupSection from '../components/sections/MinikubeSetupSection';
 import TaskSummarySection from '../components/sections/TaskSummarySection';
 import TaskDetailSection from '../components/sections/TaskDetailSection';
 import TestSuiteDashboard from '../components/sections/TestSuiteDashboard';
+import DraggableSection from '../components/sections/DraggableSection';
 import { RosaProvisionModal } from '../components/RosaProvisionModal';
 import { YamlEditorModal } from '../components/YamlEditorModal';
 import { AIAssistantChat } from '../components/chat/AIAssistantChat';
@@ -14,6 +16,9 @@ import { AIAssistantChat } from '../components/chat/AIAssistantChat';
 import { AppProvider, useApp, useAppDispatch, useMinikubeContext, useRecentOperationsContext } from '../store/AppContext';
 import { AppActionTypes } from '../store/AppContext';
 import { buildApiUrl, API_ENDPOINTS, validateApiResponse, extractSafeErrorMessage } from '../config/api';
+import { useJobHistory } from '../hooks/useJobHistory';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 
 // Environment selector dropdown component
 const EnvironmentSelector = () => {
@@ -111,41 +116,87 @@ const EnvironmentContent = () => {
   // For Minikube, show if environment is selected (MinikubeEnvironment handles its own display logic)
   const shouldShowMinikube = app.selectedEnvironment === 'minikube';
   const shouldShowMCE = app.selectedEnvironment === 'mce';
+  const shouldShowSections = shouldShowMCE || shouldShowMinikube;
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Handle drag end event
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+
+    if (active.id !== over.id) {
+      const oldIndex = app.sectionOrder.indexOf(active.id);
+      const newIndex = app.sectionOrder.indexOf(over.id);
+
+      const newOrder = [...app.sectionOrder];
+      newOrder.splice(oldIndex, 1);
+      newOrder.splice(newIndex, 0, active.id);
+
+      dispatch({ type: AppActionTypes.SET_SECTION_ORDER, payload: newOrder });
+    }
+  };
+
+  // Reset section order to default
+  const resetSectionOrder = () => {
+    const defaultOrder = ['test-suite', 'mce-environment', 'task-summary', 'task-detail'];
+    dispatch({ type: AppActionTypes.SET_SECTION_ORDER, payload: defaultOrder });
+  };
+
+  // Map section IDs to their components
+  const getSectionComponent = (sectionId) => {
+    switch (sectionId) {
+      case 'test-suite':
+        return shouldShowSections ? (
+          <TestSuiteDashboard
+            key="test-suite"
+            theme={app.selectedEnvironment}
+            onSelectTestSuite={(testSuite) => {
+              console.log('Selected test suite:', testSuite);
+              dispatch({ type: AppActionTypes.SHOW_PROVISION_MODAL, payload: true });
+            }}
+          />
+        ) : null;
+
+      case 'mce-environment':
+        return shouldShowMCE ? (
+          <MCEEnvironment key="mce-environment" />
+        ) : shouldShowMinikube ? (
+          <MinikubeEnvironment key="mce-environment" />
+        ) : null;
+
+      case 'task-summary':
+        return shouldShowSections ? (
+          <TaskSummarySection
+            key="task-summary"
+            theme={app.selectedEnvironment}
+            environment={app.selectedEnvironment}
+          />
+        ) : null;
+
+      case 'task-detail':
+        return shouldShowSections ? (
+          <TaskDetailSection
+            key="task-detail"
+            theme={app.selectedEnvironment}
+            environment={app.selectedEnvironment}
+          />
+        ) : null;
+
+      default:
+        return null;
+    }
+  };
 
   return (
     <div>
       {/* Show Minikube setup section when Minikube is selected BUT not yet verified */}
       {app.selectedEnvironment === 'minikube' && !minikube.verifiedMinikubeClusterInfo && <MinikubeSetupSection />}
-
-      {/* Show environment content when properly configured */}
-      {shouldShowMCE && <MCEEnvironment />}
-      {shouldShowMinikube && <MinikubeEnvironment />}
-
-      {/* Show Test Suite Dashboard when environment is properly configured */}
-      {(shouldShowMCE || shouldShowMinikube) && (
-        <TestSuiteDashboard
-          theme={app.selectedEnvironment}
-          onSelectTestSuite={(testSuite) => {
-            console.log('Selected test suite:', testSuite);
-            // Open provision modal with test suite data
-            dispatch({ type: AppActionTypes.SHOW_PROVISION_MODAL, payload: true });
-          }}
-        />
-      )}
-
-      {/* Show Task Summary and Task Detail only when environment is properly configured */}
-      {(shouldShowMCE || shouldShowMinikube) && (
-        <div className="grid grid-cols-1 gap-6 mt-6">
-          <TaskSummarySection
-            theme={app.selectedEnvironment}
-            environment={app.selectedEnvironment}
-          />
-          <TaskDetailSection
-            theme={app.selectedEnvironment}
-            environment={app.selectedEnvironment}
-          />
-        </div>
-      )}
 
       {/* Show connection message for MCE if not connected */}
       {app.selectedEnvironment === 'mce' && !shouldShowMCE && (
@@ -164,6 +215,45 @@ const EnvironmentContent = () => {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Draggable sections when environment is properly configured */}
+      {shouldShowSections && (
+        <div className="relative">
+          {/* Reset Layout Button */}
+          <div className="flex justify-end mb-4">
+            <button
+              onClick={resetSectionOrder}
+              className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-gray-300 rounded-lg hover:border-gray-500 transition-all duration-200 shadow-sm hover:shadow-md text-sm font-medium text-gray-700"
+              title="Reset section order to default"
+            >
+              <ArrowPathIcon className="h-4 w-4" />
+              <span>Reset Layout</span>
+            </button>
+          </div>
+
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={app.sectionOrder}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-6 pl-8">
+                {app.sectionOrder.map((sectionId) => {
+                  const component = getSectionComponent(sectionId);
+                  return component ? (
+                    <DraggableSection key={sectionId} id={sectionId}>
+                      {component}
+                    </DraggableSection>
+                  ) : null;
+                })}
+              </div>
+            </SortableContext>
+          </DndContext>
         </div>
       )}
     </div>
@@ -189,6 +279,7 @@ const WhatCanIHelpRefactored = () => {
 const ModalProvider = () => {
   const app = useApp();
   const dispatch = useAppDispatch();
+  const { fetchJobHistory } = useJobHistory();
   const recentOps = useRecentOperationsContext();
   const { addToRecent, updateRecentOperationStatus } = recentOps;
 
@@ -309,6 +400,10 @@ Update completed at ${completionTime}`
             if (!validatedData.job_id) {
               throw new Error(validatedData.message || 'No job_id returned from server');
             }
+
+            // Immediately refresh job history to show the new job
+            console.log('🚀 [Provision] Job submitted, refreshing job history immediately');
+            fetchJobHistory();
 
             // Expand CAPI-Managed ROSA HCP Clusters section on successful completion to monitor progress
             setTimeout(() => {

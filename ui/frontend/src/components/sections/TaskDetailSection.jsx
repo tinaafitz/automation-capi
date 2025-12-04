@@ -1,16 +1,28 @@
 import React from 'react';
 import { DocumentTextIcon, ChevronDownIcon, ChevronUpIcon, DocumentDuplicateIcon } from '@heroicons/react/24/outline';
-import { useRecentOperationsContext, useApp, useAppDispatch } from '../../store/AppContext';
+import { useApp, useAppDispatch } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
+import { useJobHistory } from '../../hooks/useJobHistory';
 
 const TaskDetailSection = ({ theme = 'mce', environment }) => {
   const app = useApp();
   const dispatch = useAppDispatch();
-  const recentOps = useRecentOperationsContext();
+  const { jobHistory, loading, error } = useJobHistory();
 
-  const {
-    recentOperations
-  } = recentOps;
+  // Map jobs to look like recent operations for display
+  const recentOperations = jobHistory.map(job => ({
+    id: job.id,
+    title: job.description || 'Job',
+    status: job.status === 'completed' ? `✅ ${job.message}` :
+            job.status === 'running' ? `⏳ ${job.message}` :
+            job.status === 'failed' ? `❌ ${job.message}` : job.message,
+    timestamp: new Date(job.created_at).getTime(),
+    environment: job.description?.toLowerCase().includes('rosa') ||
+                 job.description?.toLowerCase().includes('mce') ||
+                 job.description?.toLowerCase().includes('capi') ? 'mce' : 'minikube',
+    playbook: job.yaml_file,
+    output: job.logs?.join('\n') || ''
+  }));
 
   // Get theme colors
   const getThemeColors = () => {
@@ -135,9 +147,15 @@ const TaskDetailSection = ({ theme = 'mce', environment }) => {
       </div>
 
       {/* Collapsible Content - Show operation details */}
-      {!getSectionCollapsedState() && filteredOperations.length > 0 && (
+      {!getSectionCollapsedState() && (
         <div className="p-6 space-y-4">
-          {filteredOperations.map((operation, idx) => (
+          {filteredOperations.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <p className="text-sm">No task details available</p>
+              <p className="text-xs mt-2">Detailed logs will appear here when tasks are running</p>
+            </div>
+          ) : (
+            filteredOperations.map((operation, idx) => (
             <div
               key={operation.id || idx}
               className="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-3"
@@ -186,7 +204,8 @@ const TaskDetailSection = ({ theme = 'mce', environment }) => {
                 </div>
               )}
             </div>
-          ))}
+          ))
+          )}
         </div>
       )}
 
