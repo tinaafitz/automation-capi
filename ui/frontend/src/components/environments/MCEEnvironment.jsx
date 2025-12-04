@@ -4,11 +4,12 @@ import StatusCard from '../cards/StatusCard';
 import ComponentStatusCard from '../cards/ComponentStatusCard';
 import MCETerminalModal from '../modals/MCETerminalModal';
 import MCETerminalSection from '../sections/MCETerminalSection';
+import NotificationSettingsModal from '../modals/NotificationSettingsModal';
 import { YamlEditorModal } from '../YamlEditorModal';
 import { useApiStatusContext, useRecentOperationsContext, useApp, useAppDispatch } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
 import { cardStyles } from '../../styles/themes';
-import { Cog6ToothIcon, ChevronDownIcon, ChevronUpIcon, ChartBarIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { Cog6ToothIcon, ChevronDownIcon, ChevronUpIcon, ChartBarIcon, ArrowPathIcon, BellIcon } from '@heroicons/react/24/outline';
 import { useJobHistory } from '../../hooks/useJobHistory';
 import { buildApiUrl, API_ENDPOINTS, validateApiResponse, extractSafeErrorMessage } from '../../config/api';
 
@@ -228,6 +229,7 @@ const MCEEnvironment = () => {
   const [showYamlEditorModal, setShowYamlEditorModal] = useState(false);
   const [yamlEditorData, setYamlEditorData] = useState(null);
   const [expandedNamespaces, setExpandedNamespaces] = useState(new Set());
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
 
   const {
     ocpStatus,
@@ -313,14 +315,13 @@ const MCEEnvironment = () => {
         // Refresh status after successful verification
         await refreshAllStatus();
       } else {
-        // Update status to reflect failure
-        setOcpStatus({
-          connected: false,
-          status: 'error',
-          message: result.error || 'Verification failed',
-          api_url: ocpStatus?.api_url
-        });
-        setMceLastVerified(null);
+        // Check if OpenShift login was successful (even if verification failed)
+        const loginSuccessful = result.output?.includes('Login successful') ||
+                               result.output?.includes('Successfully logged in');
+
+        // Check if environment needs configuration
+        const needsConfiguration = result.error?.includes('ENVIRONMENT NEEDS TO BE CONFIGURED') ||
+                                   result.output?.includes('ENVIRONMENT NEEDS TO BE CONFIGURED');
 
         // Check if this is an OpenShift login failure
         const isLoginFailure = result.error?.includes('OPENSHIFT LOGIN FAILED') ||
@@ -329,7 +330,54 @@ const MCEEnvironment = () => {
                                result.output?.includes('OPENSHIFT LOGIN FAILED') ||
                                result.output?.includes('Unauthorized');
 
-        if (isLoginFailure) {
+        if (loginSuccessful && needsConfiguration) {
+          // Login succeeded but CAPI not configured - update status to show connection works
+          setOcpStatus({
+            connected: true,
+            status: 'connected',
+            message: 'Connected - Configuration required',
+            api_url: ocpStatus?.api_url
+          });
+          setMceLastVerified(new Date().toISOString());
+
+          updateRecentOperationStatus(
+            verifyId,
+            `⚙️ Configuration Required`,
+            `MCE CAPI/CAPA Environment Setup Needed
+
+✅ OpenShift connection successful
+❌ CAPI controller is not deployed
+
+The Cluster API (CAPI) and AWS provider (CAPA) components need to be configured before you can provision ROSA HCP clusters.
+
+📋 Next Steps:
+
+1. Click the "Configure" button in the Components card
+   • This will enable the cluster-api component in MCE
+   • Deploy CAPI and CAPA controllers
+   • Set up AWS provider integration
+
+2. Wait for configuration to complete (~2-3 minutes)
+
+3. Click "Verify" again to confirm the environment is ready
+
+4. Start provisioning ROSA HCP clusters!
+
+📝 Note: This is a one-time setup required for managing ROSA clusters via CAPI.`
+          );
+
+          // Refresh status to update the UI
+          await refreshAllStatus();
+        } else if (isLoginFailure) {
+          // Update status to reflect failure
+          setOcpStatus({
+            connected: false,
+            status: 'error',
+            message: result.error || 'Verification failed',
+            api_url: ocpStatus?.api_url
+          });
+          setMceLastVerified(null);
+
           updateRecentOperationStatus(
             verifyId,
             `❌ OpenShift Login Failed`,
@@ -358,6 +406,15 @@ ${result.error || 'Authentication failed'}
 Once logged in, click "Verify" again to retry.`
           );
         } else {
+          // Update status to reflect failure
+          setOcpStatus({
+            connected: false,
+            status: 'error',
+            message: result.error || 'Verification failed',
+            api_url: ocpStatus?.api_url
+          });
+          setMceLastVerified(null);
+
           updateRecentOperationStatus(
             verifyId,
             `❌ Verification failed: ${result.error}`,
@@ -442,6 +499,9 @@ Once logged in, click "Verify" again to retry.`
           `✅ MCE CAPI/CAPA environment configured successfully`,
           result.output
         );
+
+        // Refresh status after successful configuration to update component statuses
+        await refreshAllStatus();
       } else {
         // Check if this is an OpenShift login failure
         const isLoginFailure = result.error?.includes('OPENSHIFT LOGIN FAILED') ||
@@ -1170,10 +1230,20 @@ Export completed at ${completionTime}`
         title="Configuration"
         icon="⚙️"
         isCollapsed={app.collapsedSections?.has('mce-configuration')}
-        onToggle={() => dispatch({ 
-          type: AppActionTypes.TOGGLE_SECTION, 
-          payload: 'mce-configuration' 
+        onToggle={() => dispatch({
+          type: AppActionTypes.TOGGLE_SECTION,
+          payload: 'mce-configuration'
         })}
+        titleActions={
+          <button
+            onClick={() => setShowNotificationSettings(true)}
+            className="flex items-center gap-2 px-3 py-1.5 bg-white/20 text-white text-sm rounded-lg hover:bg-white/30 font-medium transition-colors"
+            title="Configure email and Slack notifications for provisioning jobs"
+          >
+            <BellIcon className="h-4 w-4" />
+            Notifications
+          </button>
+        }
       >
         {/* Three Column Layout */}
         <div className={cardStyles.grid}>
@@ -1381,6 +1451,12 @@ Export completed at ${completionTime}`
           // Handle YAML provisioning here if needed
           setShowYamlEditorModal(false);
         }}
+      />
+
+      {/* Notification Settings Modal */}
+      <NotificationSettingsModal
+        isOpen={showNotificationSettings}
+        onClose={() => setShowNotificationSettings(false)}
       />
     </div>
   );

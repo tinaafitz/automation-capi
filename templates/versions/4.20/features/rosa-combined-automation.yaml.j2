@@ -90,10 +90,10 @@ spec:
   credentialsSecretRef:
     name: {{ rosa_creds_secret }}
   accountRoleConfig:
-    prefix: {{ rosa_role_config.prefix | default(cluster_name_prefix) }}
+    prefix: "{{ rosa_role_config.prefix | default(cluster_name_prefix) }}"
     version: {{ rosa_role_config.version | default(openshift_version) }}
   operatorRoleConfig:
-    prefix: {{ rosa_role_config.prefix | default(cluster_name_prefix) }}
+    prefix: "{{ rosa_role_config.prefix | default(cluster_name_prefix) }}"
 {% endif %}
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1beta2
