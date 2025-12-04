@@ -5,9 +5,12 @@ import MCEEnvironment from '../components/environments/MCEEnvironment';
 import MinikubeSetupSection from '../components/sections/MinikubeSetupSection';
 import TaskSummarySection from '../components/sections/TaskSummarySection';
 import TaskDetailSection from '../components/sections/TaskDetailSection';
+import TestSuiteDashboard from '../components/sections/TestSuiteDashboard';
 import { RosaProvisionModal } from '../components/RosaProvisionModal';
 import { YamlEditorModal } from '../components/YamlEditorModal';
-import CredentialsModal from '../components/modals/CredentialsModal';
+import { AIAssistantChat } from '../components/chat/AIAssistantChat';
+// TEMPORARILY COMMENTED OUT - CredentialsModal has syntax errors
+// import CredentialsModal from '../components/modals/CredentialsModal';
 import { AppProvider, useApp, useAppDispatch, useMinikubeContext, useRecentOperationsContext } from '../store/AppContext';
 import { AppActionTypes } from '../store/AppContext';
 import { buildApiUrl, API_ENDPOINTS, validateApiResponse, extractSafeErrorMessage } from '../config/api';
@@ -102,8 +105,9 @@ const EnvironmentSelector = () => {
 // Main environment content
 const EnvironmentContent = () => {
   const app = useApp();
+  const dispatch = useAppDispatch();
   const minikube = useMinikubeContext();
-  
+
   // For Minikube, show if environment is selected (MinikubeEnvironment handles its own display logic)
   const shouldShowMinikube = app.selectedEnvironment === 'minikube';
   const shouldShowMCE = app.selectedEnvironment === 'mce';
@@ -112,20 +116,32 @@ const EnvironmentContent = () => {
     <div>
       {/* Show Minikube setup section when Minikube is selected BUT not yet verified */}
       {app.selectedEnvironment === 'minikube' && !minikube.verifiedMinikubeClusterInfo && <MinikubeSetupSection />}
-      
+
       {/* Show environment content when properly configured */}
       {shouldShowMCE && <MCEEnvironment />}
       {shouldShowMinikube && <MinikubeEnvironment />}
 
+      {/* Show Test Suite Dashboard when environment is properly configured */}
+      {(shouldShowMCE || shouldShowMinikube) && (
+        <TestSuiteDashboard
+          theme={app.selectedEnvironment}
+          onSelectTestSuite={(testSuite) => {
+            console.log('Selected test suite:', testSuite);
+            // Open provision modal with test suite data
+            dispatch({ type: AppActionTypes.SHOW_PROVISION_MODAL, payload: true });
+          }}
+        />
+      )}
+
       {/* Show Task Summary and Task Detail only when environment is properly configured */}
       {(shouldShowMCE || shouldShowMinikube) && (
         <div className="grid grid-cols-1 gap-6 mt-6">
-          <TaskSummarySection 
-            theme={app.selectedEnvironment} 
+          <TaskSummarySection
+            theme={app.selectedEnvironment}
             environment={app.selectedEnvironment}
           />
-          <TaskDetailSection 
-            theme={app.selectedEnvironment} 
+          <TaskDetailSection
+            theme={app.selectedEnvironment}
             environment={app.selectedEnvironment}
           />
         </div>
@@ -163,6 +179,7 @@ const WhatCanIHelpRefactored = () => {
           <EnvironmentContent />
         </div>
         <ModalProvider />
+        <AIAssistantChat />
       </div>
     </AppProvider>
   );
@@ -318,13 +335,13 @@ Update completed at ${completionTime}`
         }}
       />
 
-      {/* Credentials Modal */}
-      <CredentialsModal
+      {/* TEMPORARILY COMMENTED OUT - CredentialsModal has syntax errors */}
+      {/* <CredentialsModal
         isOpen={app.showCredentialsModal}
         onClose={() => dispatch({ type: AppActionTypes.SHOW_CREDENTIALS_MODAL, payload: false })}
         theme={app.selectedEnvironment}
         onSave={handleCredentialsSave}
-      />
+      /> */}
     </>
   );
 };
