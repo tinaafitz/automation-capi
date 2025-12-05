@@ -3405,6 +3405,80 @@ async def get_rosa_clusters():
         }
 
 
+@app.delete("/api/rosa/clusters/{cluster_name}")
+async def delete_rosa_cluster(cluster_name: str, request: Request):
+    """Delete a ROSA HCP cluster and all its resources"""
+    try:
+        body = await request.json()
+        namespace = body.get("namespace")
+
+        if not namespace:
+            return {"success": False, "message": "Namespace is required"}
+
+        print(f"🗑️ [DELETE-CLUSTER] Deleting cluster: {cluster_name} in namespace: {namespace}")
+
+        # Resources to delete in order
+        resources_to_delete = [
+            ("rosacontrolplane", cluster_name),
+            ("rosanetwork", f"{cluster_name}-network"),
+            ("rosaroleconfig", f"{cluster_name}-roles"),
+        ]
+
+        deleted_resources = []
+        errors = []
+
+        # Delete each resource type
+        for resource_type, resource_name in resources_to_delete:
+            try:
+                result = subprocess.run(
+                    ["oc", "delete", resource_type, resource_name, "-n", namespace, "--ignore-not-found=true"],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+
+                if result.returncode == 0:
+                    deleted_resources.append(f"{resource_type}/{resource_name}")
+                    print(f"✅ [DELETE-CLUSTER] Deleted {resource_type}/{resource_name}")
+                else:
+                    if "not found" not in result.stderr.lower():
+                        errors.append(f"Failed to delete {resource_type}/{resource_name}: {result.stderr}")
+                        print(f"❌ [DELETE-CLUSTER] Error deleting {resource_type}/{resource_name}: {result.stderr}")
+
+            except subprocess.TimeoutExpired:
+                errors.append(f"Timeout deleting {resource_type}/{resource_name}")
+            except Exception as e:
+                errors.append(f"Error deleting {resource_type}/{resource_name}: {str(e)}")
+
+        # Return success if at least the main resource was deleted
+        if deleted_resources:
+            message = f"Successfully deleted cluster {cluster_name}"
+            if errors:
+                message += f" (with some warnings: {'; '.join(errors)})"
+
+            return {
+                "success": True,
+                "message": message,
+                "deleted_resources": deleted_resources,
+                "warnings": errors if errors else None,
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"Failed to delete cluster {cluster_name}",
+                "errors": errors,
+            }
+
+    except Exception as e:
+        import traceback
+        print(f"❌ [DELETE-CLUSTER] Error: {str(e)}")
+        print(traceback.format_exc())
+        return {
+            "success": False,
+            "message": f"Error deleting cluster: {str(e)}",
+        }
+
+
 @app.get("/api/mce/resources")
 async def get_mce_resources():
     """Get CAPI/CAPA resources from the MCE environment"""
