@@ -3431,10 +3431,10 @@ async def delete_rosa_cluster(cluster_name: str, request: Request):
         for resource_type, resource_name in resources_to_delete:
             try:
                 result = subprocess.run(
-                    ["oc", "delete", resource_type, resource_name, "-n", namespace, "--ignore-not-found=true"],
+                    ["oc", "delete", resource_type, resource_name, "-n", namespace, "--ignore-not-found=true", "--wait=false"],
                     capture_output=True,
                     text=True,
-                    timeout=30,
+                    timeout=60,
                 )
 
                 if result.returncode == 0:
