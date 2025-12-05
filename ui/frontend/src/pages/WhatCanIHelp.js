@@ -1424,6 +1424,14 @@ export function WhatCanIHelp() {
     fetchOcpStatus();
   }, []);
 
+  // Auto-fetch MCE resources when OCP connection is established
+  useEffect(() => {
+    if (ocpStatus?.connected && !mceResourcesLoading && mceActiveResources.length === 0) {
+      console.log('🔄 Auto-fetching MCE resources (OCP connected)...');
+      fetchMceActiveResources();
+    }
+  }, [ocpStatus?.connected]);
+
   // Save preferences to localStorage
   useEffect(() => {
     localStorage.setItem('darkMode', darkMode.toString());
@@ -6408,6 +6416,7 @@ export function WhatCanIHelp() {
                                         key={idx}
                                         className="border-b border-cyan-100 last:border-0 hover:bg-cyan-100 transition-colors cursor-pointer"
                                         onClick={() => {
+                                          console.log('🖱️ [RESOURCE-CLICK] Clicked on resource:', resource);
                                           fetchOcpResourceDetail(
                                             resource.type,
                                             resource.name,
@@ -8909,8 +8918,11 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
             const jobId = applyData.job_id;
             console.log('🔄 [APPLY-YAML] Job created, polling for status. Job ID:', jobId);
 
-            // Poll for job status
-            const pollInterval = setInterval(async () => {
+            // Declare pollInterval variable for access in checkJobStatus
+            let pollInterval;
+
+            // Poll for job status - function to check job status
+            const checkJobStatus = async () => {
               try {
                 const jobResponse = await fetch(`http://localhost:8000/api/jobs/${jobId}`);
                 const jobData = await jobResponse.json();
@@ -8988,7 +9000,13 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   });
                 });
               }
-            }, 3000); // Poll every 3 seconds
+            };
+
+            // Call immediately for the first check
+            checkJobStatus();
+
+            // Then poll every 3 seconds
+            pollInterval = setInterval(checkJobStatus, 3000);
 
             // Set timeout to stop polling after 30 minutes
             setTimeout(() => {
