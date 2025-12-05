@@ -6010,6 +6010,185 @@ async def get_cluster_status(cluster_name: str):
         raise HTTPException(status_code=500, detail=f"Error getting cluster status: {str(e)}")
 
 
+@app.post("/api/ai-assistant/chat")
+async def ai_assistant_chat(request: Request):
+    """AI Assistant chat endpoint - provides helpful responses about clusters and ROSA"""
+    try:
+        body = await request.json()
+        message = body.get("message", "").lower()
+        context = body.get("context", {})
+        clusters_data = context.get("clusters", [])
+
+        # Simple rule-based responses
+        response = ""
+        suggestions = []
+
+        # Handle cluster-related questions
+        if "what clusters" in message or "list clusters" in message or "show clusters" in message:
+            if clusters_data:
+                cluster_names = [c.get("name", "unknown") for c in clusters_data]
+                response = f"Currently, you have {len(clusters_data)} cluster(s) running:\n\n"
+                for cluster in clusters_data:
+                    name = cluster.get("name", "unknown")
+                    status = cluster.get("status", "unknown")
+                    region = cluster.get("region", "unknown")
+                    response += f"• {name} - Status: {status}, Region: {region}\n"
+                suggestions = ["Provision new cluster", "Troubleshoot failed cluster"]
+            else:
+                response = "You don't have any clusters running at the moment. Would you like to provision one?"
+                suggestions = ["How to provision cluster?", "What is ROSA HCP?"]
+
+        # Handle provisioning questions
+        elif "provision" in message or "create cluster" in message or "how to" in message:
+            response = """To provision a ROSA HCP cluster:
+
+1. Click the "Provision" button in the Configuration section
+2. Fill in the cluster details:
+   - Cluster name
+   - OpenShift version
+   - Region
+   - Instance type and replicas
+
+3. Choose automation features:
+   - Network automation (automatic VPC/subnet creation)
+   - Role automation (automatic IAM role creation)
+
+4. Review the generated YAML and click "Apply"
+
+The cluster will be provisioned automatically!"""
+            suggestions = ["What is network automation?", "What clusters are running?"]
+
+        # Handle troubleshooting
+        elif "troubleshoot" in message or "failed" in message or "error" in message or "problem" in message:
+            response = """Common troubleshooting steps:
+
+1. **Check cluster status**: View the CAPI-Managed ROSA HCP Clusters table for current status
+
+2. **Check credentials**: Ensure rosa-creds-secret exists in both multicluster-engine and the cluster namespace
+
+3. **View logs**: Click on the cluster in Recent Operations to see detailed logs
+
+4. **Common issues**:
+   - Missing rosa-creds-secret → Auto-copied now, but verify it exists
+   - Network not ready → Wait for ROSANetwork to be Ready
+   - Role creation failed → Check AWS credentials and permissions
+
+5. **Refresh status**: Click the Refresh button to update cluster information"""
+            suggestions = ["What clusters are running?", "How to provision cluster?"]
+
+        # Handle ROSA/CAPI concept questions
+        elif "what is rosa" in message or "explain rosa" in message:
+            response = """ROSA (Red Hat OpenShift Service on AWS) is a fully-managed OpenShift service on AWS.
+
+**ROSA HCP (Hosted Control Planes):**
+- Control plane runs in Red Hat's AWS account
+- You only pay for worker nodes
+- Faster provisioning and scaling
+- Lower cost than classic ROSA
+
+**CAPI Integration:**
+- This UI uses Cluster API (CAPI) to manage ROSA clusters
+- Provides declarative cluster management via Kubernetes CRDs
+- Enables GitOps-style cluster lifecycle management"""
+            suggestions = ["How to provision cluster?", "What is network automation?"]
+
+        elif "what is capi" in message or "cluster api" in message:
+            response = """CAPI (Cluster API) is a Kubernetes project to bring declarative, Kubernetes-style APIs to cluster creation, configuration, and management.
+
+**In this UI:**
+- Manage ROSA HCP clusters using Kubernetes Custom Resources
+- Automate networking (VPC, subnets) with ROSANetwork
+- Automate IAM roles with ROSARoleConfig
+- Full cluster lifecycle management
+
+**Benefits:**
+- GitOps-friendly workflow
+- Declarative configuration
+- Automated infrastructure provisioning"""
+            suggestions = ["How to provision cluster?", "What clusters are running?"]
+
+        elif "network automation" in message or "rosanetwork" in message:
+            response = """Network Automation automatically creates AWS VPC and subnets for your ROSA cluster.
+
+**What it does:**
+- Creates VPC with specified CIDR block
+- Creates public and private subnets across multiple AZs
+- Sets up Internet Gateway and NAT Gateways
+- Configures route tables
+
+**Benefits:**
+- No manual AWS console work
+- Consistent network configuration
+- Proper multi-AZ setup automatically
+
+Enable it during provisioning by checking "Network Automation (ROSANetwork)"."""
+            suggestions = ["What is role automation?", "How to provision cluster?"]
+
+        elif "role automation" in message or "rosaroleconfig" in message:
+            response = """Role Automation automatically creates required AWS IAM roles for your ROSA cluster.
+
+**What it creates:**
+- Account roles (installer, support, worker, control-plane)
+- Operator roles (for AWS service integration)
+- OIDC provider configuration
+
+**Benefits:**
+- No manual AWS IAM console work
+- Correct permissions automatically
+- Proper trust policies configured
+
+Enable it during provisioning by checking "Role Automation (ROSARoleConfig)"."""
+            suggestions = ["What is network automation?", "How to provision cluster?"]
+
+        # Handle status/monitoring questions
+        elif "status" in message or "monitoring" in message or "how is" in message:
+            if clusters_data:
+                response = "Here's the current status of your clusters:\n\n"
+                for cluster in clusters_data:
+                    name = cluster.get("name", "unknown")
+                    status = cluster.get("status", "unknown")
+                    progress = cluster.get("progress")
+                    response += f"• **{name}**: {status}"
+                    if progress:
+                        response += f" ({progress}% complete)"
+                    response += "\n"
+                response += "\nYou can see detailed status in the CAPI-Managed ROSA HCP Clusters table."
+                suggestions = ["Troubleshoot failed cluster", "Provision new cluster"]
+            else:
+                response = "You don't have any clusters to monitor yet. Provision a cluster to get started!"
+                suggestions = ["How to provision cluster?"]
+
+        # Default fallback
+        else:
+            response = """I can help you with:
+
+• **Cluster Management**: Provision, list, monitor, and troubleshoot clusters
+• **ROSA/CAPI Concepts**: Explain ROSA HCP, CAPI, network automation, role automation
+• **Troubleshooting**: Help diagnose and fix cluster issues
+
+What would you like to know?"""
+            suggestions = [
+                "What clusters are running?",
+                "How to provision cluster?",
+                "What is ROSA HCP?",
+                "Troubleshoot failed cluster"
+            ]
+
+        return {
+            "response": response,
+            "suggestions": suggestions
+        }
+
+    except Exception as e:
+        import traceback
+        print(f"❌ [AI-ASSISTANT] Error: {str(e)}")
+        print(traceback.format_exc())
+        return {
+            "response": "Sorry, I encountered an error processing your request. Please try again.",
+            "suggestions": []
+        }
+
+
 if __name__ == "__main__":
     import uvicorn
 
