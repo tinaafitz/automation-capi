@@ -1,21 +1,26 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import StatusCard from '../cards/StatusCard';
-import { useApiStatusContext, useApp, useAppDispatch, useMCEContext } from '../../store/AppContext';
+import { YamlEditorModal } from '../YamlEditorModal';
+import { useApiStatusContext, useApp, useAppDispatch, useMCEContext, useRecentOperationsContext } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
 import { Cog6ToothIcon, BellIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 import { cardStyles } from '../../styles/themes';
-import { buildApiUrl } from '../../config/api';
+import { buildApiUrl, API_ENDPOINTS } from '../../config/api';
 
 const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConfigure, onRefresh, onProvision, onExport, onDisableCapi }) => {
   const app = useApp();
   const dispatch = useAppDispatch();
   const apiStatus = useApiStatusContext();
+  const recentOps = useRecentOperationsContext();
   const { ocpStatus, mceFeatures, mceInfo } = apiStatus;
+  const { addToRecent, updateRecentOperationStatus } = recentOps;
 
   const [expandedNamespaces, setExpandedNamespaces] = useState(new Set());
   const [mceResources, setMceResources] = useState([]);
   const [mceResourcesLoading, setMceResourcesLoading] = useState(false);
+  const [showYamlEditorModal, setShowYamlEditorModal] = useState(false);
+  const [yamlEditorData, setYamlEditorData] = useState(null);
 
   // Filter mceFeatures to get CAPI and Hypershift components (using 'name' field not 'component')
   const capiComponentsArray = (mceFeatures?.filter((f) => f.name?.startsWith('cluster-api')) || [])
@@ -81,15 +86,61 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
   };
 
   const handleRefresh = async () => {
-    console.log('🔄 ConfigurationSection: Refresh clicked');
-    // Refresh all status
-    await onRefresh();
-    // Also refresh the resources
-    setMceResourcesLoading(true);
-    const resources = await fetchMCEResources();
-    console.log('📦 ConfigurationSection: Fetched resources:', resources);
-    setMceResources(resources);
-    setMceResourcesLoading(false);
+    const refreshId = `refresh-resources-${Date.now()}`;
+
+    try {
+      console.log('🔄 ConfigurationSection: Refresh clicked');
+
+      // Add to recent operations
+      addToRecent({
+        id: refreshId,
+        title: 'Refresh MCE Resources',
+        color: 'bg-cyan-600',
+        status: '⏳ Refreshing...',
+        environment: 'mce',
+        output: 'Refreshing MCE environment status and resources...'
+      });
+
+      // Set loading state immediately for visual feedback
+      setMceResourcesLoading(true);
+
+      // Refresh all status (parent component's refresh function)
+      if (onRefresh) {
+        await onRefresh();
+      }
+
+      // Refresh the resources
+      const resources = await fetchMCEResources();
+      console.log('📦 ConfigurationSection: Fetched resources:', resources.length, 'resources');
+      setMceResources(resources);
+
+      // Update operation as complete
+      const completionTime = new Date().toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      });
+
+      updateRecentOperationStatus(
+        refreshId,
+        `✅ Refresh completed at ${completionTime}`,
+        `MCE Resources Refresh Complete\n\n✅ Refreshed ${resources.length} resources\n✅ Updated component status\n\nRefresh completed at ${completionTime}`
+      );
+
+    } catch (error) {
+      console.error('❌ ConfigurationSection: Refresh failed:', error);
+
+      // Update operation as failed
+      updateRecentOperationStatus(
+        refreshId,
+        `❌ Refresh failed: ${error.message}`,
+        `Failed to refresh MCE resources\n\nError: ${error.message}`
+      );
+    } finally {
+      // Always clear loading state
+      setMceResourcesLoading(false);
+    }
   };
 
   const toggleNamespace = (namespace) => {
@@ -127,6 +178,126 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
         return 'bg-cyan-100 text-cyan-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // Handle resource click to show YAML
+  const handleResourceClick = async (resource) => {
+    try {
+      console.log('🖱️ [RESOURCE-CLICK] Clicked on resource:', resource);
+
+      // For MultiClusterEngine, use the dedicated API endpoint
+      if (resource.type === 'MultiClusterEngine') {
+        const response = await fetch(buildApiUrl(API_ENDPOINTS.MCE_YAML), {
+          method: 'GET',
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch MCE YAML: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+
+        if (result.success && result.yaml) {
+          setYamlEditorData({
+            yaml_content: result.yaml,
+            resource_name: resource.name,
+            resource_type: resource.type
+          });
+
+          setShowYamlEditorModal(true);
+          return;
+        } else {
+          throw new Error('Failed to get MCE YAML from API');
+        }
+      }
+
+      // For other resources, use kubectl/oc command via the OCP execute command endpoint
+      // Build oc command - handle cluster-scoped resources (no namespace)
+      const namespaceFlag = resource.namespace ? `-n ${resource.namespace}` : '';
+      const ocCommand = `oc get ${resource.type.toLowerCase()} ${resource.name} ${namespaceFlag} -o yaml`.trim();
+      console.log('🔧 [OC-COMMAND]', ocCommand);
+
+      const response = await fetch(buildApiUrl('/api/ocp/execute-command'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          command: ocCommand
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch YAML: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      // The OCP execute command endpoint returns the output directly
+      let yamlContent = result.output || '';
+
+      if (!yamlContent || yamlContent.includes('error') || yamlContent.includes('not found')) {
+        throw new Error('Resource not found or error in response');
+      }
+
+      setYamlEditorData({
+        yaml_content: yamlContent,
+        resource_name: resource.name,
+        resource_type: resource.type
+      });
+
+      setShowYamlEditorModal(true);
+    } catch (error) {
+      console.error('❌ [RESOURCE-CLICK] Error fetching YAML:', error);
+
+      // Try alternative command format (without namespace)
+      try {
+        const altResponse = await fetch(buildApiUrl('/api/ocp/execute-command'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            command: `oc get ${resource.name} -o yaml`
+          })
+        });
+
+        if (altResponse.ok) {
+          const altResult = await altResponse.json();
+          if (altResult.success && altResult.output && !altResult.output.includes('error')) {
+            setYamlEditorData({
+              yaml_content: altResult.output,
+              resource_name: resource.name,
+              resource_type: resource.type
+            });
+            setShowYamlEditorModal(true);
+            return;
+          }
+        }
+      } catch (altError) {
+        // Alternative method failed, continue to fallback
+      }
+
+      // Final fallback: show informative message
+      setYamlEditorData({
+        yaml_content: `# Unable to fetch YAML for ${resource.name}
+# Error: ${error.message}
+#
+# This could be because:
+# - The resource doesn't exist in the cluster
+# - Insufficient permissions to access the resource
+# - Connection issue with the cluster
+#
+# Resource details:
+# Name: ${resource.name}
+# Type: ${resource.type}
+# Namespace: ${resource.namespace || 'cluster-scoped'}`,
+        resource_name: resource.name,
+        resource_type: resource.type
+      });
+
+      setShowYamlEditorModal(true);
     }
   };
 
@@ -346,6 +517,7 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
                                 <div
                                   key={index}
                                   className="cursor-pointer hover:bg-cyan-50 rounded p-2 transition-colors"
+                                  onClick={() => handleResourceClick(resource)}
                                 >
                                   <h5 className="font-medium text-gray-800 text-sm hover:text-cyan-700">
                                     {resource.name}
@@ -369,6 +541,18 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
           </div>
         </div>
       )}
+
+      {/* YAML Editor Modal */}
+      <YamlEditorModal
+        isOpen={showYamlEditorModal}
+        onClose={() => setShowYamlEditorModal(false)}
+        yamlData={yamlEditorData}
+        readOnly={true}
+        onProvision={async (editedYaml) => {
+          // Handle YAML provisioning here if needed
+          setShowYamlEditorModal(false);
+        }}
+      />
     </div>
   );
 };

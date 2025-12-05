@@ -1,5 +1,5 @@
 /**
- * Performance monitoring utilities for the ROSA Automation UI.
+ * Performance monitoring utilities for the CAPI Automation UI.
  *
  * Tracks key performance metrics and sends them to analytics.
  */

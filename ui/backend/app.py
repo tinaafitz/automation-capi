@@ -5222,6 +5222,15 @@ async def get_ocp_resource_detail(request: Request):
             "Secret": "secret",
             "AWSClusterControllerIdentity": "awsclustercontrolleridentity",
             "Namespace": "namespace",
+            # CAPI resources
+            "Cluster": "cluster",
+            "ROSACluster": "rosacluster",
+            "ROSAControlPlane": "rosacontrolplane",
+            "ROSANetwork": "rosanetwork",
+            "ROSARoleConfig": "rosaroleconfig",
+            "ManagedCluster": "managedcluster",
+            "MachinePool": "machinepool",
+            "ROSAMachinePool": "rosamachinepool",
         }
 
         oc_resource_type = resource_type_map.get(resource_type, resource_type.lower())
@@ -5234,6 +5243,7 @@ async def get_ocp_resource_detail(request: Request):
                 "awsclustercontrolleridentity",
                 "namespace",
                 "clustermanager",
+                "managedcluster",  # ACM ManagedCluster is cluster-scoped
             ]
 
             if oc_resource_type in cluster_scoped_resources:
@@ -5714,6 +5724,61 @@ async def apply_provisioning_yaml(request: Request, background_tasks: Background
 
                         if result.returncode == 0:
                             jobs[job_id]["logs"].append(f"✅ {result.stdout.strip()}")
+
+                            # If we just created a Namespace or ManagedCluster, copy rosa-creds-secret to it
+                            # ManagedCluster is often the first resource and triggers namespace creation
+                            if kind in ["Namespace", "ManagedCluster"]:
+                                # Get the namespace name from the resource
+                                namespace_name = doc.get("metadata", {}).get("namespace", name if kind == "Namespace" else None)
+
+                                if namespace_name:
+                                    jobs[job_id]["logs"].append(
+                                        f"\n🔐 Checking for rosa-creds-secret to copy to {namespace_name}..."
+                                    )
+
+                                    try:
+                                        # Check if rosa-creds-secret exists in multicluster-engine namespace
+                                        check_secret = subprocess.run(
+                                            ["oc", "get", "secret", "rosa-creds-secret", "-n", "multicluster-engine"],
+                                            capture_output=True,
+                                            text=True,
+                                            timeout=10,
+                                        )
+
+                                        if check_secret.returncode == 0:
+                                            # Secret exists, copy it to the new namespace
+                                            copy_cmd = f"""
+oc get secret rosa-creds-secret -n multicluster-engine -o yaml | \
+sed 's/namespace: multicluster-engine/namespace: {namespace_name}/' | \
+sed '/resourceVersion:/d' | \
+sed '/uid:/d' | \
+sed '/creationTimestamp:/d' | \
+oc apply -f -
+"""
+                                            copy_result = subprocess.run(
+                                                ["bash", "-c", copy_cmd],
+                                                capture_output=True,
+                                                text=True,
+                                                timeout=30,
+                                            )
+
+                                            if copy_result.returncode == 0:
+                                                jobs[job_id]["logs"].append(
+                                                    f"✅ rosa-creds-secret copied to {namespace_name}"
+                                                )
+                                            else:
+                                                jobs[job_id]["logs"].append(
+                                                    f"⚠️  Failed to copy rosa-creds-secret: {copy_result.stderr.strip()}"
+                                                )
+                                        else:
+                                            jobs[job_id]["logs"].append(
+                                                f"⚠️  rosa-creds-secret not found in multicluster-engine namespace - skipping copy"
+                                            )
+
+                                    except Exception as secret_error:
+                                        jobs[job_id]["logs"].append(
+                                            f"⚠️  Error copying secret: {str(secret_error)}"
+                                        )
                         else:
                             jobs[job_id]["logs"].append(f"❌ Failed: {result.stderr.strip()}")
                             raise Exception(f"Failed to apply {kind}/{name}: {result.stderr}")

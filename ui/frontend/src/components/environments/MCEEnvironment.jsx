@@ -780,6 +780,13 @@ Export completed at ${completionTime}`
       }
       
       // For other resources, use kubectl/oc command
+      console.log('🖱️ [RESOURCE-CLICK] Clicked on resource:', resource);
+
+      // Build oc command - handle cluster-scoped resources (no namespace)
+      const namespaceFlag = resource.namespace ? `-n ${resource.namespace}` : '';
+      const ocCommand = `oc get ${resource.type.toLowerCase()} ${resource.name} ${namespaceFlag} -o yaml`.trim();
+      console.log('🔧 [OC-COMMAND]', ocCommand);
+
       const response = await fetch('/api/ansible/run-task', {
         method: 'POST',
         headers: {
@@ -788,7 +795,7 @@ Export completed at ${completionTime}`
         body: JSON.stringify({
           task_file: 'tasks/enter_shell_command.yml',
           description: `Get YAML for ${resource.name}`,
-          shell_command: `oc get ${resource.type.toLowerCase()} ${resource.name} -n ${resource.namespace || 'default'} -o yaml`,
+          shell_command: ocCommand,
           cluster_type: 'mce'
         })
       });
