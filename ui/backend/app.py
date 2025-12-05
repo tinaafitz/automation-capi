@@ -6019,6 +6019,10 @@ async def ai_assistant_chat(request: Request):
         context = body.get("context", {})
         clusters_data = context.get("clusters", [])
 
+        # Ensure clusters_data is a list
+        if not isinstance(clusters_data, list):
+            clusters_data = []
+
         # Simple rule-based responses
         response = ""
         suggestions = []
