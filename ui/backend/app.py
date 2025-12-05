@@ -6030,14 +6030,40 @@ async def ai_assistant_chat(request: Request):
         # Handle cluster-related questions
         if "what clusters" in message or "list clusters" in message or "show clusters" in message:
             if clusters_data:
-                cluster_names = [c.get("name", "unknown") for c in clusters_data]
-                response = f"Currently, you have {len(clusters_data)} cluster(s) running:\n\n"
-                for cluster in clusters_data:
-                    name = cluster.get("name", "unknown")
-                    status = cluster.get("status", "unknown")
-                    region = cluster.get("region", "unknown")
-                    response += f"• {name} - Status: {status}, Region: {region}\n"
-                suggestions = ["Provision new cluster", "Troubleshoot failed cluster"]
+                response = f"Currently, you have {len(clusters_data)} cluster(s):\n\n"
+
+                # Categorize clusters by status
+                ready_clusters = [c for c in clusters_data if c.get("status") == "ready"]
+                provisioning_clusters = [c for c in clusters_data if c.get("status") == "provisioning"]
+                failed_clusters = [c for c in clusters_data if c.get("status") in ["failed", "error", "provisioning-failed"]]
+
+                if ready_clusters:
+                    response += f"**✅ Ready ({len(ready_clusters)}):**\n"
+                    for cluster in ready_clusters:
+                        name = cluster.get("name", "unknown")
+                        region = cluster.get("region", "unknown")
+                        version = cluster.get("version", "N/A")
+                        response += f"• **{name}** - Region: {region}, Version: {version}\n"
+                    response += "\n"
+
+                if provisioning_clusters:
+                    response += f"**⏳ Provisioning ({len(provisioning_clusters)}):**\n"
+                    for cluster in provisioning_clusters:
+                        name = cluster.get("name", "unknown")
+                        progress = cluster.get("progress", 0)
+                        response += f"• **{name}** - {progress}% complete\n"
+                    response += "\n"
+
+                if failed_clusters:
+                    response += f"**❌ Failed ({len(failed_clusters)}):**\n"
+                    for cluster in failed_clusters:
+                        name = cluster.get("name", "unknown")
+                        status = cluster.get("status", "unknown")
+                        response += f"• **{name}** - Status: {status}\n"
+                    response += "\n"
+                    suggestions = ["Troubleshoot failed cluster", "Provision new cluster"]
+                else:
+                    suggestions = ["Provision new cluster", "What is ROSA HCP?"]
             else:
                 response = "You don't have any clusters running at the moment. Would you like to provision one?"
                 suggestions = ["How to provision cluster?", "What is ROSA HCP?"]
@@ -6064,21 +6090,52 @@ The cluster will be provisioned automatically!"""
 
         # Handle troubleshooting
         elif "troubleshoot" in message or "failed" in message or "error" in message or "problem" in message:
-            response = """Common troubleshooting steps:
+            # Check for failed clusters in the context
+            failed_clusters = [c for c in clusters_data if c.get("status") in ["failed", "error", "provisioning-failed"]]
+            provisioning_clusters = [c for c in clusters_data if c.get("status") == "provisioning"]
 
-1. **Check cluster status**: View the CAPI-Managed ROSA HCP Clusters table for current status
+            if failed_clusters:
+                response = f"I found {len(failed_clusters)} failed cluster(s):\n\n"
+                for cluster in failed_clusters:
+                    name = cluster.get("name", "unknown")
+                    status = cluster.get("status", "unknown")
+                    namespace = cluster.get("namespace", "unknown")
+                    response += f"**{name}** (Status: {status})\n"
+                    response += f"Namespace: {namespace}\n\n"
+                    response += "**Troubleshooting steps for this cluster:**\n"
+                    response += f"1. Check rosa-creds-secret in namespace '{namespace}'\n"
+                    response += f"2. View ROSANetwork status: `oc get rosanetwork -n {namespace}`\n"
+                    response += f"3. View ROSARoleConfig status: `oc get rosaroleconfig -n {namespace}`\n"
+                    response += f"4. Check ROSAControlPlane events: `oc describe rosacontrolplane -n {namespace}`\n"
+                    response += f"5. View detailed logs in Recent Operations section\n\n"
 
-2. **Check credentials**: Ensure rosa-creds-secret exists in both multicluster-engine and the cluster namespace
+                suggestions = ["What clusters are running?", "How to provision cluster?"]
+            elif provisioning_clusters:
+                response = f"I see {len(provisioning_clusters)} cluster(s) currently provisioning:\n\n"
+                for cluster in provisioning_clusters:
+                    name = cluster.get("name", "unknown")
+                    progress = cluster.get("progress", 0)
+                    response += f"**{name}** - {progress}% complete\n\n"
+                response += "Provisioning clusters are still in progress. If a cluster has been stuck for a long time:\n\n"
+                response += "1. Check Recent Operations for detailed progress logs\n"
+                response += "2. Verify ROSANetwork is Ready (network creation can take 5-10 minutes)\n"
+                response += "3. Verify ROSARoleConfig is Ready (role creation can take 2-3 minutes)\n"
+                response += "4. Check that rosa-creds-secret exists in the cluster namespace\n"
+                suggestions = ["What clusters are running?", "Provision new cluster"]
+            else:
+                response = """I don't see any failed clusters in your environment.
 
-3. **View logs**: Click on the cluster in Recent Operations to see detailed logs
+If you're experiencing issues:
 
-4. **Common issues**:
-   - Missing rosa-creds-secret → Auto-copied now, but verify it exists
-   - Network not ready → Wait for ROSANetwork to be Ready
-   - Role creation failed → Check AWS credentials and permissions
+1. **Check cluster status**: View the CAPI-Managed ROSA HCP Clusters table
+2. **View Recent Operations**: Check the Recent Operations section for error logs
+3. **Common issues**:
+   - Missing rosa-creds-secret → Verify it exists in both multicluster-engine and cluster namespace
+   - Network not ready → ROSANetwork resource may still be provisioning
+   - Role creation failed → Check AWS credentials and IAM permissions
 
-5. **Refresh status**: Click the Refresh button to update cluster information"""
-            suggestions = ["What clusters are running?", "How to provision cluster?"]
+4. **Refresh status**: Click the Refresh button to update cluster information"""
+                suggestions = ["What clusters are running?", "How to provision cluster?"]
 
         # Handle ROSA/CAPI concept questions
         elif "what is rosa" in message or "explain rosa" in message:
