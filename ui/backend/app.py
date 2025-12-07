@@ -17,6 +17,7 @@ import os
 import yaml
 from slack_notification_service import SlackNotificationService
 from email_notification_service import EmailNotificationService
+from ai_assistant_service import AIAssistantService
 
 app = FastAPI(title="ROSA Automation API", version="1.0.0")
 
@@ -31,6 +32,9 @@ except ImportError:
 # Initialize notification services
 slack_service = SlackNotificationService()
 email_service = EmailNotificationService()
+
+# Initialize AI assistant service
+ai_service = AIAssistantService()
 
 # CORS middleware for frontend development
 app.add_middleware(
@@ -6086,23 +6090,68 @@ async def get_cluster_status(cluster_name: str):
 
 @app.post("/api/ai-assistant/chat")
 async def ai_assistant_chat(request: Request):
-    """AI Assistant chat endpoint - provides helpful responses about clusters and ROSA"""
+    """AI Assistant chat endpoint - provides AI-powered analysis of cluster issues using Claude"""
     try:
         body = await request.json()
-        message = body.get("message", "").lower()
+        message = body.get("message", "")
         context = body.get("context", {})
+        history = body.get("history", [])
         clusters_data = context.get("clusters", [])
 
         # Ensure clusters_data is a list
         if not isinstance(clusters_data, list):
             clusters_data = []
 
-        # Simple rule-based responses
+        # Enrich context with actual job logs for failed/error clusters
+        enriched_context = {
+            "clusters": clusters_data,
+            "job_logs": [],
+            "resource_status": {}
+        }
+
+        # Find failed or error clusters and get their job logs
+        failed_clusters = [c for c in clusters_data if c.get("status") in ["failed", "error", "provisioning-failed"]]
+
+        for cluster in failed_clusters:
+            cluster_name = cluster.get("name", "unknown")
+
+            # Search jobs dictionary for provisioning jobs for this cluster
+            for job_id, job_data in jobs.items():
+                yaml_file = job_data.get("yaml_file", "")
+                description = job_data.get("description", "")
+
+                # Check if this job is for the failed cluster
+                if cluster_name.lower() in yaml_file.lower() or cluster_name.lower() in description.lower():
+                    log_content = "\n".join(job_data.get("logs", []))
+
+                    enriched_context["job_logs"].append({
+                        "job_id": job_id,
+                        "cluster_name": cluster_name,
+                        "status": job_data.get("status", "unknown"),
+                        "logs": log_content,
+                        "yaml_file": yaml_file,
+                        "created_at": job_data.get("created_at", "")
+                    })
+
+        # Use AI service if ANTHROPIC_API_KEY is set
+        if os.environ.get("ANTHROPIC_API_KEY"):
+            try:
+                ai_response = await ai_service.chat(message, enriched_context, history)
+                return {
+                    "response": ai_response.get("response", ""),
+                    "suggestions": ai_response.get("suggestions", [])
+                }
+            except Exception as ai_error:
+                print(f"⚠️ [AI-ASSISTANT] Claude API error: {str(ai_error)}, falling back to simple responses")
+                # Fall through to simple responses below
+
+        # Fallback: Simple rule-based responses if no API key or AI service fails
         response = ""
         suggestions = []
+        message_lower = message.lower()
 
         # Handle cluster-related questions
-        if "what clusters" in message or "list clusters" in message or "show clusters" in message:
+        if "what clusters" in message_lower or "list clusters" in message_lower or "show clusters" in message_lower:
             if clusters_data:
                 response = f"Currently, you have {len(clusters_data)} cluster(s):\n\n"
 
@@ -6143,7 +6192,7 @@ async def ai_assistant_chat(request: Request):
                 suggestions = ["How to provision cluster?", "What is ROSA HCP?"]
 
         # Handle provisioning questions
-        elif "provision" in message or "create cluster" in message or "how to" in message:
+        elif "provision" in message_lower or "create cluster" in message_lower or "how to" in message_lower:
             response = """To provision a ROSA HCP cluster:
 
 1. Click the "Provision" button in the Configuration section
@@ -6163,7 +6212,7 @@ The cluster will be provisioned automatically!"""
             suggestions = ["What is network automation?", "What clusters are running?"]
 
         # Handle troubleshooting
-        elif "troubleshoot" in message or "failed" in message or "error" in message or "problem" in message:
+        elif "troubleshoot" in message_lower or "failed" in message_lower or "error" in message_lower or "problem" in message_lower:
             # Check for failed clusters in the context
             failed_clusters = [c for c in clusters_data if c.get("status") in ["failed", "error", "provisioning-failed"]]
             provisioning_clusters = [c for c in clusters_data if c.get("status") == "provisioning"]
@@ -6212,7 +6261,7 @@ If you're experiencing issues:
                 suggestions = ["What clusters are running?", "How to provision cluster?"]
 
         # Handle ROSA/CAPI concept questions
-        elif "what is rosa" in message or "explain rosa" in message:
+        elif "what is rosa" in message_lower or "explain rosa" in message_lower:
             response = """ROSA (Red Hat OpenShift Service on AWS) is a fully-managed OpenShift service on AWS.
 
 **ROSA HCP (Hosted Control Planes):**
@@ -6227,7 +6276,7 @@ If you're experiencing issues:
 - Enables GitOps-style cluster lifecycle management"""
             suggestions = ["How to provision cluster?", "What is network automation?"]
 
-        elif "what is capi" in message or "cluster api" in message:
+        elif "what is capi" in message_lower or "cluster api" in message_lower:
             response = """CAPI (Cluster API) is a Kubernetes project to bring declarative, Kubernetes-style APIs to cluster creation, configuration, and management.
 
 **In this UI:**
@@ -6242,7 +6291,7 @@ If you're experiencing issues:
 - Automated infrastructure provisioning"""
             suggestions = ["How to provision cluster?", "What clusters are running?"]
 
-        elif "network automation" in message or "rosanetwork" in message:
+        elif "network automation" in message_lower or "rosanetwork" in message_lower:
             response = """Network Automation automatically creates AWS VPC and subnets for your ROSA cluster.
 
 **What it does:**
@@ -6259,7 +6308,7 @@ If you're experiencing issues:
 Enable it during provisioning by checking "Network Automation (ROSANetwork)"."""
             suggestions = ["What is role automation?", "How to provision cluster?"]
 
-        elif "role automation" in message or "rosaroleconfig" in message:
+        elif "role automation" in message_lower or "rosaroleconfig" in message_lower:
             response = """Role Automation automatically creates required AWS IAM roles for your ROSA cluster.
 
 **What it creates:**
@@ -6276,7 +6325,7 @@ Enable it during provisioning by checking "Role Automation (ROSARoleConfig)"."""
             suggestions = ["What is network automation?", "How to provision cluster?"]
 
         # Handle status/monitoring questions
-        elif "status" in message or "monitoring" in message or "how is" in message:
+        elif "status" in message_lower or "monitoring" in message_lower or "how is" in message_lower:
             if clusters_data:
                 response = "Here's the current status of your clusters:\n\n"
                 for cluster in clusters_data:

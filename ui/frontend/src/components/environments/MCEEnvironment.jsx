@@ -8,6 +8,8 @@ import { YamlEditorModal } from '../YamlEditorModal';
 import { AIAssistantChat } from '../chat/AIAssistantChat';
 import { CommandChat } from '../chat/CommandChat';
 import MCETerminalSection from '../sections/MCETerminalSection';
+import TaskSummarySection from '../sections/TaskSummarySection';
+import TaskDetailSection from '../sections/TaskDetailSection';
 import { useApiStatusContext, useRecentOperationsContext, useApp, useAppDispatch } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
 import { cardStyles } from '../../styles/themes';
@@ -1524,6 +1526,12 @@ Export completed at ${completionTime}`
 
       {/* Command Chat - Natural Language Automation */}
       <CommandChat />
+
+      {/* Task Summary Section */}
+      <TaskSummarySection theme="mce" environment="mce" />
+
+      {/* Task Detail Section - Shows playbook logs */}
+      <TaskDetailSection theme="mce" environment="mce" />
 
       {/* MCE Terminal Section */}
       <MCETerminalSection />

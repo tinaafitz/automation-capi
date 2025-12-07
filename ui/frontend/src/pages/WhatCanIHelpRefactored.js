@@ -162,6 +162,20 @@ const EnvironmentContent = () => {
     const verifyId = `verify-mce-${Date.now()}`;
 
     try {
+      // Fetch credentials from backend to get the actual API URL
+      let apiUrl = 'Loading...';
+      try {
+        const credsResponse = await fetch(buildApiUrl(API_ENDPOINTS.CREDENTIALS_GET));
+        if (credsResponse.ok) {
+          const credsData = await credsResponse.json();
+          if (credsData.success && credsData.credentials?.OCP_HUB_API_URL) {
+            apiUrl = credsData.credentials.OCP_HUB_API_URL;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch credentials:', err);
+      }
+
       addToRecent({
         id: verifyId,
         title: 'MCE Environment Verification',
@@ -169,7 +183,7 @@ const EnvironmentContent = () => {
         status: '⏳ Verifying...',
         environment: 'mce',
         playbook: 'tasks/validate-capa-environment.yml',
-        output: 'Initializing MCE environment verification...\nConnecting to OpenShift cluster...\nValidating MCE components...'
+        output: `Initializing MCE environment verification...\n🔗 Cluster: ${apiUrl}\nConnecting to OpenShift cluster...\nValidating MCE components...`
       });
 
       const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_TASK), {
@@ -830,8 +844,23 @@ Update completed at ${completionTime}`
         yamlData={app.yamlEditorData}
         readOnly={false}
         onProvision={async (editedYaml) => {
+          // Define variables outside try block so they're accessible in catch block
+          const provisionId = `provision-rosa-hcp-${Date.now()}`;
+          const clusterName = app.yamlEditorData?.cluster_name || 'cluster';
 
           try {
+            // Add immediate feedback to Recent Operations BEFORE calling API
+
+            addToRecent({
+              id: provisionId,
+              title: `Provision ROSA HCP Cluster: ${clusterName}`,
+              status: '⏳ Starting provisioning...',
+              color: 'bg-cyan-600',
+              environment: 'mce',
+              timestamp: new Date().toISOString(),
+              output: `Starting provisioning for cluster "${clusterName}"...\n\nSubmitting YAML configuration to backend...\n\nThis will appear in the Task Summary and Task Detail sections.`
+            });
+
             // Close YAML editor modal first
             dispatch({ type: AppActionTypes.SHOW_YAML_EDITOR_MODAL, payload: false });
 
@@ -854,6 +883,13 @@ Update completed at ${completionTime}`
             if (!validatedData.job_id) {
               throw new Error(validatedData.message || 'No job_id returned from server');
             }
+
+            // Update the recent operation to show job was submitted successfully
+            updateRecentOperationStatus(
+              provisionId,
+              `✅ Job submitted successfully (ID: ${validatedData.job_id})`,
+              `Provisioning job for cluster "${clusterName}" has been submitted to the backend.\n\nJob ID: ${validatedData.job_id}\n\nThe job is now running and will be tracked in the job history system.\n\nYou can monitor progress in the CAPI-Managed ROSA HCP Clusters section below.`
+            );
 
             // Immediately refresh job history to show the new job
             console.log('🚀 [Provision] Job submitted, refreshing job history immediately');
@@ -879,6 +915,14 @@ Update completed at ${completionTime}`
 
           } catch (error) {
             const safeErrorMessage = extractSafeErrorMessage(error);
+
+            // Update the recent operation to show the error
+            updateRecentOperationStatus(
+              provisionId,
+              `❌ Provisioning failed: ${safeErrorMessage}`,
+              `Failed to submit provisioning job for cluster "${clusterName}".\n\nError: ${safeErrorMessage}\n\nPlease check your cluster configuration and try again.`
+            );
+
             alert(`Failed to start provisioning: ${safeErrorMessage}`);
           }
         }}
