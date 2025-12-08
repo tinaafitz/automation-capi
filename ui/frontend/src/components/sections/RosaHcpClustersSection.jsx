@@ -68,7 +68,23 @@ const RosaHcpClustersSection = () => {
     try {
       console.log(`🗑️ Deleting cluster: ${clusterName} in namespace: ${namespace}`);
 
-      // Add to recent operations
+      const apiUrl = buildApiUrl(`/api/rosa/clusters/${clusterName}`);
+      console.log(`🌐 DELETE URL: ${apiUrl}`);
+      console.log(`📦 Request body:`, { namespace });
+      console.log(`⏳ About to send DELETE request...`);
+
+      // Call DELETE API FIRST to avoid re-render blocking
+      const response = await fetch(apiUrl, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ namespace })
+      });
+
+      console.log(`✅ Fetch completed, status: ${response.status}`);
+
+      // Add to recent operations AFTER the API call succeeds
       addToRecent({
         id: deleteId,
         title: `Delete ROSA HCP Cluster: ${clusterName}`,
@@ -76,14 +92,6 @@ const RosaHcpClustersSection = () => {
         status: '⏳ Deleting...',
         environment: 'mce',
         output: `Deleting ROSA HCP cluster "${clusterName}" from namespace "${namespace}"...\n\nRemoving cluster resources:\n- ROSAControlPlane\n- ROSANetwork\n- ROSARoleConfig\n- AWS resources`
-      });
-
-      const response = await fetch(buildApiUrl(`/api/rosa/clusters/${clusterName}`), {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ namespace })
       });
 
       if (!response.ok) {
@@ -102,8 +110,8 @@ const RosaHcpClustersSection = () => {
 
         updateRecentOperationStatus(
           deleteId,
-          `✅ Cluster deleted at ${completionTime}`,
-          `ROSA HCP Cluster Deletion Complete\n\n✅ Cluster "${clusterName}" has been deleted\n✅ All cluster resources removed\n✅ AWS resources cleaned up\n\nDeletion completed at ${completionTime}`
+          `✅ Cluster Delete Initiated at ${completionTime}`,
+          `ROSA HCP Cluster Deletion Initiated\n\n✅ Delete request submitted for cluster "${clusterName}"\n⏳ Cluster resources are being removed\n⏳ AWS resources cleanup in progress\n\nDeletion initiated at ${completionTime}\n\nNote: The cluster deletion process will continue in the background. Refresh the cluster list to see updated status.`
         );
 
         // Refresh cluster list
@@ -113,6 +121,9 @@ const RosaHcpClustersSection = () => {
       }
     } catch (error) {
       console.error(`❌ Failed to delete cluster ${clusterName}:`, error);
+      console.error(`❌ Error type: ${error.constructor.name}`);
+      console.error(`❌ Error message: ${error.message}`);
+      console.error(`❌ Full error:`, error);
 
       updateRecentOperationStatus(
         deleteId,

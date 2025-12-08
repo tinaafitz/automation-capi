@@ -3414,9 +3414,13 @@ async def get_rosa_clusters():
                         is_uninstalling = True
                         break
 
-                    # Check for actual errors (but not during deletion)
+                    # Check for actual errors (but not during deletion or normal provisioning)
                     if condition.get("status") == "False" and not is_deleting:
-                        has_error = True
+                        # These reasons indicate normal provisioning states, not errors
+                        provisioning_reasons = ["installing", "validating", "provisioning", "waiting", "creating", "notpaused"]
+                        # Only mark as error if reason is NOT a normal provisioning state
+                        if reason not in provisioning_reasons:
+                            has_error = True
 
             # Determine status string
             if is_deleting or is_uninstalling:
@@ -3508,24 +3512,14 @@ async def get_rosa_clusters():
         }
 
 
-@app.delete("/api/rosa/clusters/{cluster_name}")
-async def delete_rosa_cluster(cluster_name: str, request: Request):
-    """Delete a ROSA HCP cluster and all its resources"""
-    import time
+async def perform_cluster_deletion(job_id: str, cluster_name: str, namespace: str):
+    """Background task to perform actual cluster deletion"""
     import asyncio
 
+    deleted_resources = []
+    errors = []
+
     try:
-        body = await request.json()
-        namespace = body.get("namespace")
-
-        if not namespace:
-            return {"success": False, "message": "Namespace is required"}
-
-        print(f"🗑️ [DELETE-CLUSTER] Deleting cluster: {cluster_name} in namespace: {namespace}")
-
-        deleted_resources = []
-        errors = []
-
         # Step 1: Delete the rosacontrolplane (this should trigger cascade deletion)
         try:
             print(f"🗑️ [DELETE-CLUSTER] Initiating deletion of rosacontrolplane/{cluster_name}")
@@ -3539,6 +3533,8 @@ async def delete_rosa_cluster(cluster_name: str, request: Request):
             if result.returncode == 0:
                 deleted_resources.append(f"rosacontrolplane/{cluster_name}")
                 print(f"✅ [DELETE-CLUSTER] Deletion initiated for rosacontrolplane/{cluster_name}")
+
+                jobs[job_id]["stdout"] += f"✅ Deletion initiated for rosacontrolplane/{cluster_name}\n"
 
                 # Step 2: Wait for the rosacontrolplane to be fully deleted (max 5 minutes)
                 print(f"⏳ [DELETE-CLUSTER] Waiting for rosacontrolplane/{cluster_name} to be deleted...")
@@ -3560,22 +3556,29 @@ async def delete_rosa_cluster(cluster_name: str, request: Request):
 
                     if check_result.returncode != 0 and "not found" in check_result.stderr.lower():
                         print(f"✅ [DELETE-CLUSTER] rosacontrolplane/{cluster_name} successfully deleted after {elapsed_time}s")
+                        jobs[job_id]["stdout"] += f"✅ rosacontrolplane/{cluster_name} successfully deleted after {elapsed_time}s\n"
                         break
                     else:
                         print(f"⏳ [DELETE-CLUSTER] Still waiting... ({elapsed_time}s elapsed)")
+                        if elapsed_time % 30 == 0:  # Update job every 30 seconds
+                            jobs[job_id]["stdout"] += f"⏳ Still waiting for deletion... ({elapsed_time}s elapsed)\n"
 
                 if elapsed_time >= max_wait_time:
                     errors.append(f"Timeout waiting for rosacontrolplane/{cluster_name} to delete after {max_wait_time}s")
                     print(f"⚠️ [DELETE-CLUSTER] Timeout waiting for rosacontrolplane deletion, but it may still complete in the background")
+                    jobs[job_id]["stdout"] += f"⚠️ Timeout waiting for deletion after {max_wait_time}s, but it may still complete in the background\n"
             else:
                 if "not found" not in result.stderr.lower():
                     errors.append(f"Failed to delete rosacontrolplane/{cluster_name}: {result.stderr}")
                     print(f"❌ [DELETE-CLUSTER] Error deleting rosacontrolplane/{cluster_name}: {result.stderr}")
+                    jobs[job_id]["stderr"] += f"❌ Error deleting rosacontrolplane/{cluster_name}: {result.stderr}\n"
 
         except subprocess.TimeoutExpired:
             errors.append(f"Timeout deleting rosacontrolplane/{cluster_name}")
+            jobs[job_id]["stderr"] += f"❌ Timeout deleting rosacontrolplane/{cluster_name}\n"
         except Exception as e:
             errors.append(f"Error deleting rosacontrolplane/{cluster_name}: {str(e)}")
+            jobs[job_id]["stderr"] += f"❌ Error deleting rosacontrolplane/{cluster_name}: {str(e)}\n"
 
         # Step 3: Clean up network and roles if they still exist (they should cascade delete, but just in case)
         cleanup_resources = [
@@ -3605,30 +3608,78 @@ async def delete_rosa_cluster(cluster_name: str, request: Request):
                     if result.returncode == 0:
                         deleted_resources.append(f"{resource_type}/{resource_name}")
                         print(f"✅ [DELETE-CLUSTER] Cleaned up {resource_type}/{resource_name}")
+                        jobs[job_id]["stdout"] += f"🧹 Cleaned up {resource_type}/{resource_name}\n"
                 else:
                     print(f"✅ [DELETE-CLUSTER] {resource_type}/{resource_name} already deleted (cascade)")
 
             except Exception as e:
                 print(f"⚠️ [DELETE-CLUSTER] Error checking/cleaning up {resource_type}/{resource_name}: {str(e)}")
 
-        # Return success if at least the main resource was deleted
+        # Update job with final status
         if deleted_resources:
-            message = f"Successfully initiated deletion of cluster {cluster_name}"
+            message = f"✅ Successfully deleted cluster {cluster_name}\n\nDeleted resources:\n" + "\n".join(f"  - {r}" for r in deleted_resources)
             if errors:
-                message += f" (with warnings: {'; '.join(errors)})"
+                message += f"\n\n⚠️ Warnings:\n" + "\n".join(f"  - {e}" for e in errors)
 
-            return {
-                "success": True,
-                "message": message,
-                "deleted_resources": deleted_resources,
-                "warnings": errors if errors else None,
-            }
+            jobs[job_id]["status"] = "completed"
+            jobs[job_id]["return_code"] = 0
+            jobs[job_id]["stdout"] += f"\n{message}"
         else:
-            return {
-                "success": False,
-                "message": f"Failed to delete cluster {cluster_name}",
-                "errors": errors,
-            }
+            message = f"❌ Failed to delete cluster {cluster_name}"
+            if errors:
+                message += f"\n\nErrors:\n" + "\n".join(f"  - {e}" for e in errors)
+
+            jobs[job_id]["status"] = "failed"
+            jobs[job_id]["return_code"] = 1
+            jobs[job_id]["stderr"] += f"\n{message}"
+
+    except Exception as e:
+        import traceback
+        print(f"❌ [DELETE-CLUSTER] Error: {str(e)}")
+        print(traceback.format_exc())
+        jobs[job_id]["status"] = "failed"
+        jobs[job_id]["return_code"] = 1
+        jobs[job_id]["stderr"] += f"❌ Error: {str(e)}\n{traceback.format_exc()}"
+
+
+@app.delete("/api/rosa/clusters/{cluster_name}")
+async def delete_rosa_cluster(cluster_name: str, request: Request, background_tasks: BackgroundTasks):
+    """Delete a ROSA HCP cluster and all its resources"""
+    import time
+    import asyncio
+
+    try:
+        body = await request.json()
+        namespace = body.get("namespace")
+
+        if not namespace:
+            return {"success": False, "message": "Namespace is required"}
+
+        print(f"🗑️ [DELETE-CLUSTER] Deleting cluster: {cluster_name} in namespace: {namespace}")
+
+        # Create job entry immediately
+        job_id = f"delete-cluster-{cluster_name}-{int(time.time())}"
+        jobs[job_id] = {
+            "id": job_id,
+            "description": f"Delete ROSA HCP Cluster: {cluster_name}",
+            "status": "running",
+            "created_at": time.time(),
+            "task_file": None,
+            "playbook_file": None,
+            "stdout": "",
+            "stderr": "",
+            "return_code": None,
+        }
+
+        # Start deletion in background
+        background_tasks.add_task(perform_cluster_deletion, job_id, cluster_name, namespace)
+
+        # Return immediately
+        return {
+            "success": True,
+            "message": f"Cluster deletion started for {cluster_name}",
+            "job_id": job_id,
+        }
 
     except Exception as e:
         import traceback
@@ -6527,6 +6578,347 @@ What would you like to know?"""
         return {
             "response": "Sorry, I encountered an error processing your request. Please try again.",
             "suggestions": []
+        }
+
+
+# Test Suite Management
+test_suite_runs: Dict[str, dict] = {}  # Store test suite execution history
+
+
+class TestSuiteRun(BaseModel):
+    suite_name: str
+    extra_vars: dict = {}
+
+
+@app.get("/api/test-suites/list")
+async def list_test_suites():
+    """List all available test suites"""
+    try:
+        project_root = os.environ.get("AUTOMATION_PATH") or os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+        test_suites_dir = os.path.join(project_root, "test-suites")
+
+        if not os.path.exists(test_suites_dir):
+            return {
+                "success": True,
+                "suites": [],
+                "message": "No test suites directory found"
+            }
+
+        suites = []
+        # Sort filenames to maintain numbered order (01-, 02-, 03-, etc.)
+        for filename in sorted(os.listdir(test_suites_dir)):
+            if filename.endswith('.json'):
+                filepath = os.path.join(test_suites_dir, filename)
+                with open(filepath, 'r') as f:
+                    suite_config = json.load(f)
+                    suites.append({
+                        "id": filename.replace('.json', ''),
+                        "config": suite_config
+                    })
+
+        return {
+            "success": True,
+            "suites": suites,
+            "count": len(suites)
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error listing test suites: {str(e)}",
+            "suites": []
+        }
+
+
+@app.post("/api/test-suites/run")
+async def run_test_suite(run_config: TestSuiteRun, background_tasks: BackgroundTasks):
+    """Run a test suite"""
+    try:
+        project_root = os.environ.get("AUTOMATION_PATH") or os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+
+        # Load suite configuration
+        suite_file = os.path.join(project_root, "test-suites", f"{run_config.suite_name}.json")
+
+        if not os.path.exists(suite_file):
+            raise HTTPException(status_code=404, detail=f"Test suite '{run_config.suite_name}' not found")
+
+        with open(suite_file, 'r') as f:
+            suite_config = json.load(f)
+
+        # Generate job ID (use jobs system for Task Summary integration)
+        job_id = str(uuid.uuid4())
+
+        # Initialize job in jobs system (will appear in Task Summary)
+        jobs[job_id] = {
+            "id": job_id,
+            "type": "test-suite",
+            "suite_name": run_config.suite_name,
+            "suite_title": f"⚡ PLAYBOOK TESTING: {suite_config.get('name', run_config.suite_name)}",
+            "description": suite_config.get("description", "Running automated playbook"),
+            "status": "pending",
+            "progress": 0,
+            "message": f"🧪 Queued for execution",
+            "started_at": datetime.now(),
+            "completed_at": None,
+            "playbook_results": [],
+            "total_playbooks": len(suite_config.get("playbooks", [])),
+            "completed_playbooks": 0,
+            "failed_playbooks": 0,
+            "logs": [],
+            "environment": "mce"
+        }
+
+        # Run test suite in background
+        async def run_test_suite_background():
+            try:
+                job_data = jobs[job_id]
+                job_data["status"] = "running"
+                job_data["message"] = f"⚡ PLAYBOOK TESTING: Running {suite_config['name']}"
+                job_data["logs"].append(f"🚀 ⚡ PLAYBOOK TESTING: {suite_config['name']}")
+                job_data["logs"].append(f"📋 Description: {suite_config.get('description', 'N/A')}")
+                job_data["logs"].append(f"📦 Total playbooks: {job_data['total_playbooks']}")
+                job_data["logs"].append("")
+
+                playbooks = suite_config.get("playbooks", [])
+                stop_on_failure = suite_config.get("stopOnFailure", False)
+
+                for idx, playbook_config in enumerate(playbooks, 1):
+                    playbook_display_name = playbook_config["name"]
+                    playbook_file = playbook_config.get("file", playbook_config["name"])
+                    timeout = playbook_config.get("timeout", 600)
+                    required = playbook_config.get("required", True)
+
+                    job_data["progress"] = int((idx - 1) / len(playbooks) * 100)
+                    job_data["message"] = f"Running playbook {idx}/{len(playbooks)}: {playbook_display_name}"
+                    job_data["logs"].append(f"\n[{idx}/{len(playbooks)}] Running: {playbook_display_name}")
+                    job_data["logs"].append(f"📄 {playbook_config.get('description', '')}")
+                    job_data["logs"].append(f"📁 File: {playbook_file}")
+                    job_data["logs"].append(f"⏱️  Timeout: {timeout}s")
+
+                    playbook_start = datetime.now()
+                    playbook_result = {
+                        "playbook": playbook_display_name,
+                        "description": playbook_config.get("description"),
+                        "status": "running",
+                        "started_at": playbook_start,
+                        "completed_at": None,
+                        "duration": None,
+                        "exit_code": None,
+                        "output": "",
+                        "error": ""
+                    }
+
+                    try:
+                        # Run playbook using ansible-playbook directly to pass extra_vars
+                        playbook_path = os.path.join(project_root, playbook_file)
+
+                        if not os.path.exists(playbook_path):
+                            raise Exception(f"Playbook not found: {playbook_path}")
+
+                        # Execute playbook with environment variables
+                        env = os.environ.copy()
+
+                        # Set AUTOMATION_PATH to project root
+                        env['AUTOMATION_PATH'] = project_root
+
+                        # Try to read credentials from vars/user_vars.yml if not in environment
+                        try:
+                            import yaml
+                            user_vars_path = os.path.join(project_root, 'vars', 'user_vars.yml')
+                            if os.path.exists(user_vars_path):
+                                with open(user_vars_path, 'r') as f:
+                                    user_vars = yaml.safe_load(f) or {}
+                                    if 'OCP_HUB_CLUSTER_USER' not in env or not env.get('OCP_HUB_CLUSTER_USER'):
+                                        env['OCP_HUB_CLUSTER_USER'] = user_vars.get('OCP_HUB_CLUSTER_USER', '')
+                                    if 'OCP_HUB_CLUSTER_PASSWORD' not in env or not env.get('OCP_HUB_CLUSTER_PASSWORD'):
+                                        env['OCP_HUB_CLUSTER_PASSWORD'] = user_vars.get('OCP_HUB_CLUSTER_PASSWORD', '')
+                                    if 'OCP_HUB_API_URL' not in env or not env.get('OCP_HUB_API_URL'):
+                                        env['OCP_HUB_API_URL'] = user_vars.get('OCP_HUB_API_URL', '')
+                        except Exception as e:
+                            print(f"Warning: Could not read user_vars.yml: {e}")
+
+                        # Build ansible-playbook command
+                        cmd = [
+                            "ansible-playbook",
+                            "-i", "localhost,",
+                            "--connection=local",
+                            playbook_file,
+                            "-e", "skip_ansible_runner=true",
+                            "-e", f"ocp_user={env.get('OCP_HUB_CLUSTER_USER', '')}",
+                            "-e", f"ocp_password={env.get('OCP_HUB_CLUSTER_PASSWORD', '')}",
+                            "-e", f"api_url={env.get('OCP_HUB_API_URL', '')}",
+                            "-e", f"mce_namespace=multicluster-engine",
+                            "-e", f"AUTOMATION_PATH={project_root}"
+                        ]
+
+                        # Add extra vars from provisioning modal if provided
+                        if run_config.extra_vars:
+                            for key, value in run_config.extra_vars.items():
+                                # Convert boolean values to lowercase strings for ansible
+                                if isinstance(value, bool):
+                                    value = str(value).lower()
+                                cmd.extend(["-e", f"{key}={value}"])
+
+                        result = subprocess.run(
+                            cmd,
+                            cwd=project_root,
+                            capture_output=True,
+                            text=True,
+                            timeout=timeout,
+                            env=env
+                        )
+
+                        playbook_end = datetime.now()
+                        duration = (playbook_end - playbook_start).total_seconds()
+
+                        playbook_result.update({
+                            "status": "passed" if result.returncode == 0 else "failed",
+                            "completed_at": playbook_end,
+                            "duration": duration,
+                            "exit_code": result.returncode,
+                            "output": result.stdout,
+                            "error": result.stderr
+                        })
+
+                        if result.returncode == 0:
+                            job_data["logs"].append(f"✅ PASSED ({duration:.1f}s)")
+                            job_data["completed_playbooks"] += 1
+                        else:
+                            job_data["logs"].append(f"❌ FAILED ({duration:.1f}s)")
+                            job_data["logs"].append(f"Error: {result.stderr[:200]}")
+                            job_data["failed_playbooks"] += 1
+
+                            if required and stop_on_failure:
+                                job_data["logs"].append(f"\n⚠️  Stopping test suite due to required playbook failure")
+                                job_data["playbook_results"].append(playbook_result)
+                                break
+
+                    except subprocess.TimeoutExpired:
+                        playbook_result.update({
+                            "status": "timeout",
+                            "completed_at": datetime.now(),
+                            "duration": timeout,
+                            "error": f"Playbook timed out after {timeout}s"
+                        })
+                        job_data["logs"].append(f"⏱️  TIMEOUT after {timeout}s")
+                        job_data["failed_playbooks"] += 1
+
+                        if required and stop_on_failure:
+                            job_data["logs"].append(f"\n⚠️  Stopping test suite due to timeout")
+                            job_data["playbook_results"].append(playbook_result)
+                            break
+
+                    except Exception as e:
+                        playbook_result.update({
+                            "status": "error",
+                            "completed_at": datetime.now(),
+                            "error": str(e)
+                        })
+                        job_data["logs"].append(f"💥 ERROR: {str(e)}")
+                        job_data["failed_playbooks"] += 1
+
+                        if required and stop_on_failure:
+                            job_data["logs"].append(f"\n⚠️  Stopping test suite due to error")
+                            job_data["playbook_results"].append(playbook_result)
+                            break
+
+                    job_data["playbook_results"].append(playbook_result)
+
+                # Finalize run
+                job_data["completed_at"] = datetime.now()
+                job_data["progress"] = 100
+
+                total_duration = (job_data["completed_at"] - job_data["started_at"]).total_seconds()
+
+                if job_data["failed_playbooks"] == 0:
+                    job_data["status"] = "completed"
+                    job_data["message"] = f"⚡ PLAYBOOK TESTING: Playbook passed! ({total_duration:.1f}s)"
+                    job_data["logs"].append(f"\n✅ ⚡ PLAYBOOK TESTING COMPLETE: Playbook passed!")
+                else:
+                    job_data["status"] = "failed"
+                    job_data["message"] = f"⚡ PLAYBOOK TESTING: Playbook failed ({total_duration:.1f}s)"
+                    job_data["logs"].append(f"\n❌ ⚡ PLAYBOOK TESTING COMPLETE: Playbook failed")
+
+                job_data["logs"].append(f"\n📊 Summary:")
+                job_data["logs"].append(f"   Total: {job_data['total_playbooks']}")
+                job_data["logs"].append(f"   Passed: {job_data['completed_playbooks']}")
+                job_data["logs"].append(f"   Failed: {job_data['failed_playbooks']}")
+                job_data["logs"].append(f"   Duration: {total_duration:.1f}s")
+
+            except Exception as e:
+                import traceback
+                job_data["status"] = "error"
+                job_data["message"] = f"Test suite error: {str(e)}"
+                job_data["logs"].append(f"\n💥 Fatal error: {str(e)}")
+                job_data["logs"].append(traceback.format_exc())
+                job_data["completed_at"] = datetime.now()
+
+        # Start background task
+        background_tasks.add_task(run_test_suite_background)
+
+        return {
+            "success": True,
+            "job_id": job_id,
+            "run_id": job_id,  # Keep for backwards compatibility
+            "message": f"⚡ PLAYBOOK TESTING: {suite_config['name']} started",
+            "suite_name": suite_config['name']
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"❌ Error starting test suite: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Error starting test suite: {str(e)}")
+
+
+@app.get("/api/test-suites/status/{run_id}")
+async def get_test_suite_status(run_id: str):
+    """Get status of a running or completed test suite"""
+    try:
+        if run_id not in test_suite_runs:
+            raise HTTPException(status_code=404, detail=f"Test suite run '{run_id}' not found")
+
+        run_data = test_suite_runs[run_id]
+
+        return {
+            "success": True,
+            "run": run_data
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting test suite status: {str(e)}")
+
+
+@app.get("/api/test-suites/history")
+async def get_test_suite_history():
+    """Get history of all test suite runs"""
+    try:
+        # Sort by started_at descending (newest first)
+        sorted_runs = sorted(
+            test_suite_runs.values(),
+            key=lambda x: x.get("started_at", datetime.min),
+            reverse=True
+        )
+
+        return {
+            "success": True,
+            "runs": sorted_runs,
+            "count": len(sorted_runs)
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error getting test suite history: {str(e)}",
+            "runs": []
         }
 
 

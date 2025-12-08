@@ -32,6 +32,40 @@
           cidr_block: "{{ vpc_cidr_block | default('10.0.0.0/16') }}"
           tags: "{{ network_tags | default({'Environment': 'test', 'TestCase': 'ACM-21174', 'CreatedBy': 'ansible-automation'}) }}"
 
+    - name: Check if ROSANetwork already exists
+      kubernetes.core.k8s_info:
+        api_version: infrastructure.cluster.x-k8s.io/v1beta2
+        kind: ROSANetwork
+        name: "{{ rosa_network_config_name | default(cluster_name + '-network') }}"
+        namespace: "{{ capi_namespace }}"
+      register: existing_rosa_network
+      failed_when: false
+
+    - name: Check if existing ROSANetwork is ready
+      set_fact:
+        rosa_network_exists: "{{ existing_rosa_network.resources | length > 0 }}"
+        rosa_network_is_ready: false
+      when: existing_rosa_network.resources is defined
+
+    - name: Check existing network ready status
+      set_fact:
+        rosa_network_is_ready: true
+      when:
+        - existing_rosa_network.resources is defined
+        - existing_rosa_network.resources | length > 0
+        - existing_rosa_network.resources[0].status is defined
+        - existing_rosa_network.resources[0].status.conditions is defined
+        - existing_rosa_network.resources[0].status.conditions | selectattr('type', 'equalto', 'ROSANetworkReady') | selectattr('status', 'equalto', 'True') | list | length > 0
+
+    - name: Display existing ROSANetwork status
+      debug:
+        msg: |
+          ✅ ROSANetwork {{ rosa_network_config_name | default(cluster_name + '-network') }} already exists and is Ready
+          Skipping creation and using existing network.
+      when:
+        - rosa_network_exists | default(false) | bool
+        - rosa_network_is_ready | default(false) | bool
+
     - name: Display ROSANetwork configuration
       debug:
         msg:
@@ -39,17 +73,23 @@
           - "Availability Zones: {{ aws_availability_zones | default([aws_region + 'a', aws_region + 'b']) | join(', ') }}"
           - "CIDR Block: {{ vpc_cidr_block | default('10.0.0.0/16') }}"
           - "AWS Region: {{ aws_region }}"
+      when:
+        - not (rosa_network_exists | default(false) | bool and rosa_network_is_ready | default(false) | bool)
 
     - name: Apply ROSANetwork to cluster
       kubernetes.core.k8s:
         state: present
         src: "{{ output_dir }}/{{ cluster_name }}-rosa-network.yaml"
       register: rosa_network_result
+      when:
+        - not (rosa_network_exists | default(false) | bool and rosa_network_is_ready | default(false) | bool)
 
     - name: Display ROSANetwork creation result
       debug:
         msg: "ROSANetwork creation initiated successfully"
-      when: rosa_network_result is succeeded
+      when:
+        - rosa_network_result is defined
+        - rosa_network_result is succeeded
 
     - name: Wait for ROSANetwork to be fully ready
       kubernetes.core.k8s_info:
@@ -63,6 +103,16 @@
           status: "True"
         wait_timeout: "{{ rosa_network_ready_timeout | default(1200) }}"
       register: network_ready_status
+      when:
+        - not (rosa_network_exists | default(false) | bool and rosa_network_is_ready | default(false) | bool)
+
+    - name: Use existing ready ROSANetwork
+      set_fact:
+        network_ready_status:
+          resources: "{{ existing_rosa_network.resources }}"
+      when:
+        - rosa_network_exists | default(false) | bool
+        - rosa_network_is_ready | default(false) | bool
 
     - name: Extract network information from status
       set_fact:
