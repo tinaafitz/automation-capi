@@ -40,8 +40,11 @@ export const API_ENDPOINTS = {
   STATUS_MCE: '/api/status/mce',
   
   // Job endpoints
-  JOBS_HISTORY: '/api/jobs/history',
-  JOBS_STATUS: '/api/jobs/status'
+  JOBS_HISTORY: '/api/jobs',
+  JOBS_STATUS: '/api/jobs/status',
+
+  // Credentials endpoints
+  CREDENTIALS_GET: '/api/credentials'
 };
 
 // Helper function to build full URL
