@@ -15,16 +15,19 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
   // Map jobs to look like recent operations for display
   const jobOperations = jobHistory.map(job => ({
     id: job.id,
-    title: job.description || 'Job',
+    title: job.suite_title || job.description || 'Job',  // Use suite_title for test suites
     status: job.status === 'completed' ? `✅ ${job.message}` :
             job.status === 'running' ? `⏳ ${job.message}` :
             job.status === 'failed' ? `❌ ${job.message}` : job.message,
-    timestamp: new Date(job.created_at).getTime(),
-    environment: job.description?.toLowerCase().includes('rosa') ||
+    timestamp: new Date(job.created_at || job.started_at).getTime(),  // Handle both created_at and started_at
+    environment: job.environment || (  // Use job.environment if set (test suites set this)
+                 job.description?.toLowerCase().includes('rosa') ||
                  job.description?.toLowerCase().includes('mce') ||
-                 job.description?.toLowerCase().includes('capi') ? 'mce' : 'minikube',
+                 job.description?.toLowerCase().includes('capi') ? 'mce' : 'minikube'),
     playbook: job.yaml_file,
-    output: job.logs?.join('\n') || ''
+    output: job.logs?.join('\n') || '',
+    detailedOutput: job.playbook_results?.map(r => r.output).join('\n\n---\n\n') || '',  // Full ansible output
+    type: job.type  // Include type so we can identify test suites
   }));
 
   // Convert recent operations to have consistent timestamp format

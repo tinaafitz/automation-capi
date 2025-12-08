@@ -423,19 +423,33 @@ export function WhatCanIHelp() {
       description: 'Domain prefix + ROSA CAPA user agent',
       components: ['Domain Prefix', 'User Agent for ROSA CAPA']
     },
-    { 
-      id: 7, 
-      name: 'Day2 Operations Suite', 
-      category: 'Operations', 
-      priority: 'P1', 
-      phase: 'Day2', 
-      selected: false, 
-      status: 'pending', 
-      duration: null, 
+    {
+      id: 7,
+      name: 'Day2 Operations Suite',
+      category: 'Operations',
+      priority: 'P1',
+      phase: 'Day2',
+      selected: false,
+      status: 'pending',
+      duration: null,
       lastRun: null,
       jira: [],
       description: 'Comprehensive Day2 operations testing',
       components: ['Cluster Management', 'Node Operations', 'Application Deployment', 'Monitoring']
+    },
+    {
+      id: 8,
+      name: 'Automated ROSA HCP Provisioning',
+      category: 'Provisioning',
+      priority: 'P1',
+      phase: 'Day1',
+      selected: false,
+      status: 'pending',
+      duration: null,
+      lastRun: null,
+      jira: ['ACM-21162', 'ACM-21174'],
+      description: 'ROSA HCP cluster with automated network and role configuration',
+      components: ['ROSANetwork', 'ROSARoleConfig', 'Availability Zones']
     }
   ]);
   const [testRunning, setTestRunning] = useState(false);

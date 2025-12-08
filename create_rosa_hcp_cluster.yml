@@ -1,0 +1,186 @@
+---
+# ================================================================
+# Create ROSA HCP Cluster with Optional Automation
+# ================================================================
+# This playbook provisions a ROSA HCP cluster with optional
+# automated creation of RosaRoleConfig and ROSANetwork resources.
+#
+# Usage Examples:
+#
+# 1. Basic cluster (manual roles and network):
+#    ansible-playbook create_rosa_hcp_cluster.yml \
+#      -e cluster_name=my-cluster \
+#      -e domain_prefix=my-domain
+#
+# 2. With automated roles and network:
+#    ansible-playbook create_rosa_hcp_cluster.yml \
+#      -e cluster_name=my-cluster \
+#      -e domain_prefix=my-domain \
+#      -e create_rosa_role_config=true \
+#      -e create_rosa_network=true
+#
+# 3. Custom configuration:
+#    ansible-playbook create_rosa_hcp_cluster.yml \
+#      -e cluster_name=my-cluster \
+#      -e domain_prefix=my-domain \
+#      -e create_rosa_role_config=true \
+#      -e create_rosa_network=true \
+#      -e role_prefix=myteam \
+#      -e vpc_cidr_block=172.16.0.0/16 \
+#      -e availability_zone_count=3 \
+#      -e aws_region=us-east-1 \
+#      -e openshift_version=4.20.0
+#
+# 4. Via UI Provisioning Modal:
+#    All configuration options from the RosaProvisionModal are
+#    automatically mapped to these variables
+# ================================================================
+
+- name: Create ROSA HCP cluster with optional automation
+  hosts: localhost
+  connection: local
+  any_errors_fatal: true
+  vars_files:
+    - vars/vars.yml
+    - vars/user_vars.yml
+
+  vars:
+    # These will be set by extra_vars from UI or command line, or use these defaults
+
+  tasks:
+    - name: Set cluster credentials
+      set_fact:
+        ocp_user: "{{ OCP_HUB_CLUSTER_USER }}"
+        ocp_password: "{{ OCP_HUB_CLUSTER_PASSWORD }}"
+        api_url: "{{ OCP_HUB_API_URL }}"
+        mce_namespace: "{{ MCE_NAMESPACE }}"
+
+    - name: Set default cluster name
+      set_fact:
+        cluster_name: "test-rosa-hcp-{{ 999999 | random }}"
+      when: cluster_name is not defined
+
+    - name: Set default capi namespace
+      set_fact:
+        capi_namespace: "ns-rosa-hcp"
+      when: capi_namespace is not defined
+
+    - name: Set default openshift version
+      set_fact:
+        openshift_version: "4.19.10"
+      when: openshift_version is not defined
+
+    - name: Set default network settings
+      set_fact:
+        create_rosa_network: true
+        vpc_cidr_block: "10.0.0.0/16"
+        availability_zone_count: 1
+      when: create_rosa_network is not defined
+
+    - name: Set default role config settings
+      set_fact:
+        create_rosa_role_config: true
+        role_prefix: ""
+      when: create_rosa_role_config is not defined
+
+    - name: Set default domain prefix
+      set_fact:
+        domain_prefix: "test-{{ 99999 | random }}"
+      when: domain_prefix is not defined
+
+    - name: Set default region and channel
+      set_fact:
+        aws_region: "{{ AWS_REGION | default('us-west-2') }}"
+        channel_group: "stable"
+        private_network: false
+        additional_tags: ""
+      when: aws_region is not defined
+
+    - name: Set derived values
+      set_fact:
+        network_cidr: "{{ vpc_cidr_block }}"
+        create_rosa_roles: "{{ create_rosa_role_config }}"
+        rosa_role_prefix: "{{ role_prefix if role_prefix else cluster_name }}"
+        rosa_role_config_name: "{{ cluster_name }}-roles"
+        rosa_network_name: "{{ cluster_name }}-network"
+
+    - name: Prepare ansible runner host
+      include_tasks: tasks/prepare_ansible_runner.yml
+      when: not skip_ansible_runner | default(false) | bool
+
+    - name: Login to OCP cluster
+      include_tasks: tasks/login_ocp.yml
+
+    - name: Configure MCE CAPI/CAPA Environment
+      include_tasks: tasks/configure-capa-environment.yml
+
+    - name: Display automation configuration
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                                                               ║
+          ║       🚀 ROSA HCP Cluster Provisioning with Automation        ║
+          ║                                                               ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          Cluster Configuration:
+          • Name: {{ cluster_name }}
+          • Domain Prefix: {{ domain_prefix }}
+          • Version: {{ openshift_version }}
+          • Region: {{ aws_region }}
+          • Namespace: {{ capi_namespace }}
+          • Channel: {{ channel_group }}
+
+          Automation Settings:
+          • Create ROSARoleConfig: {{ '✓ Yes' if (create_rosa_roles | bool) else '✗ No' }}
+          {% if create_rosa_roles | bool %}
+            └─ Role Prefix: {{ rosa_role_prefix }}
+          {% endif %}
+          • Create ROSANetwork: {{ '✓ Yes' if (create_rosa_network | bool) else '✗ No' }}
+          {% if create_rosa_network | bool %}
+            ├─ CIDR: {{ vpc_cidr_block }}
+            └─ AZs: {{ availability_zone_count }}
+          {% endif %}
+
+          {% if not (create_rosa_roles | bool) and not (create_rosa_network | bool) %}
+          ⚠️  Manual Setup Required:
+          You will need to provide existing:
+          • AWS IAM roles or manual role references
+          • VPC ID and subnet IDs
+          {% endif %}
+
+    - name: Provision ROSA HCP cluster with automation
+      include_tasks: tasks/provision_rosa_hcp_with_automation.yml
+
+    - name: Provisioning complete
+      debug:
+        msg: |
+
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                                                               ║
+          ║           ✅  PROVISIONING COMPLETE!                          ║
+          ║                                                               ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          Your ROSA HCP cluster is being created:
+          • Cluster: {{ cluster_name }}
+          • Domain: {{ domain_prefix }}
+          • Namespace: {{ capi_namespace }}
+
+          Monitor Progress:
+          oc get rosacontrolplane {{ cluster_name }} -n {{ capi_namespace }} -w
+
+          View Details:
+          oc describe rosacontrolplane {{ cluster_name }} -n {{ capi_namespace }}
+
+          {% if create_rosa_roles | bool %}
+          View Roles:
+          oc get rosaroleconfig {{ rosa_role_config_name }} -n {{ capi_namespace }}
+          {% endif %}
+
+          {% if create_rosa_network | bool %}
+          View Network:
+          oc get rosanetwork {{ rosa_network_name }} -n {{ capi_namespace }}
+          {% endif %}
+
+          🎉 Happy cluster provisioning!
