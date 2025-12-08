@@ -162,6 +162,20 @@ const EnvironmentContent = () => {
     const verifyId = `verify-mce-${Date.now()}`;
 
     try {
+      // Fetch credentials from backend to get the actual API URL
+      let apiUrl = 'Loading...';
+      try {
+        const credsResponse = await fetch(buildApiUrl(API_ENDPOINTS.CREDENTIALS_GET));
+        if (credsResponse.ok) {
+          const credsData = await credsResponse.json();
+          if (credsData.success && credsData.credentials?.OCP_HUB_API_URL) {
+            apiUrl = credsData.credentials.OCP_HUB_API_URL;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch credentials:', err);
+      }
+
       addToRecent({
         id: verifyId,
         title: 'MCE Environment Verification',
@@ -169,7 +183,7 @@ const EnvironmentContent = () => {
         status: '⏳ Verifying...',
         environment: 'mce',
         playbook: 'tasks/validate-capa-environment.yml',
-        output: 'Initializing MCE environment verification...\nConnecting to OpenShift cluster...\nValidating MCE components...'
+        output: `Initializing MCE environment verification...\n🔗 Cluster: ${apiUrl}\nConnecting to OpenShift cluster...\nValidating MCE components...`
       });
 
       const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_TASK), {
@@ -191,104 +205,23 @@ const EnvironmentContent = () => {
       const result = await response.json();
 
       if (result.success) {
-        const completionTime = new Date().toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true,
-        });
+        // Remove the temporary frontend entry - backend job will show instead
+        recentOps.removeRecentOperation(verifyId);
 
+        // Poll status in background - don't block the UI
+        setTimeout(async () => {
+          await apiStatus.refreshAllStatus();
+          // Check again after another 5 seconds
+          setTimeout(async () => {
+            await apiStatus.refreshAllStatus();
+          }, 5000);
+        }, 3000);
+      } else {
         updateRecentOperationStatus(
           verifyId,
-          `✅ MCE Environment verified at ${completionTime}`,
-          result.output
+          `❌ Verification failed`,
+          result.error || result.message || 'Failed to start verification'
         );
-
-        // Store successful verification in localStorage for persistence
-        localStorage.setItem('mce-environment-verified', 'true');
-
-        // Refresh status after successful verification
-        await apiStatus.refreshAllStatus();
-      } else {
-        // Check if OpenShift login was successful (even if verification failed)
-        const loginSuccessful = result.output?.includes('Login successful') ||
-                               result.output?.includes('Successfully logged in');
-
-        // Check if environment needs configuration
-        const needsConfiguration = result.error?.includes('ENVIRONMENT NEEDS TO BE CONFIGURED') ||
-                                   result.output?.includes('ENVIRONMENT NEEDS TO BE CONFIGURED');
-
-        // Check if this is an OpenShift login failure
-        const isLoginFailure = result.error?.includes('OPENSHIFT LOGIN FAILED') ||
-                               result.error?.includes('Unauthorized') ||
-                               result.error?.includes('You must be logged in') ||
-                               result.output?.includes('OPENSHIFT LOGIN FAILED') ||
-                               result.output?.includes('Unauthorized');
-
-        if (loginSuccessful && needsConfiguration) {
-          updateRecentOperationStatus(
-            verifyId,
-            `⚙️ Configuration Required`,
-            `MCE CAPI/CAPA Environment Setup Needed
-
-✅ OpenShift connection successful
-❌ CAPI controller is not deployed
-
-The Cluster API (CAPI) and AWS provider (CAPA) components need to be configured before you can provision ROSA HCP clusters.
-
-📋 Next Steps:
-
-1. Click the "Configure" button in the Components card
-   • This will enable the cluster-api component in MCE
-   • Deploy CAPI and CAPA controllers
-   • Set up AWS provider integration
-
-2. Wait for configuration to complete (~2-3 minutes)
-
-3. Click "Verify" again to confirm the environment is ready
-
-4. Start provisioning ROSA HCP clusters!
-
-📝 Note: This is a one-time setup required for managing ROSA clusters via CAPI.`
-          );
-
-          // Refresh status to update the UI
-          await apiStatus.refreshAllStatus();
-        } else if (isLoginFailure) {
-          updateRecentOperationStatus(
-            verifyId,
-            `❌ OpenShift Login Failed`,
-            `Verification Failed: OpenShift Authentication Required
-
-❌ Your OpenShift login session has expired or credentials are invalid.
-
-📋 To fix this issue:
-
-1. Get a new login token:
-   • Go to OpenShift Console
-   • Click your username (top right) → "Copy login command"
-   • Run the login command in your terminal
-
-2. Or update credentials:
-   • Click the "Credentials" button in the MCE Environment tile
-   • Ensure your OpenShift Hub credentials are correct
-   • Save and try again
-
-3. Or manually login via terminal:
-   • Run: oc login <cluster-url> -u <username> -p <password>
-
-📝 Error details:
-${result.error || 'Authentication failed'}
-
-Once logged in, click "Verify" again to retry.`
-          );
-        } else {
-          updateRecentOperationStatus(
-            verifyId,
-            `❌ Verification failed`,
-            result.output || result.error || 'Unknown error occurred during verification'
-          );
-        }
       }
     } catch (error) {
       updateRecentOperationStatus(
@@ -305,9 +238,10 @@ Once logged in, click "Verify" again to retry.`
 
   const handleConfigure = async () => {
     const { addToRecent, updateRecentOperationStatus } = recentOps;
-    const configureId = `configure-capi-capa-${Date.now()}`;
+    const configureId = `configure-${Date.now()}`;
 
     try {
+      // Show immediate feedback
       addToRecent({
         id: configureId,
         title: 'Configure MCE CAPI/CAPA Environment',
@@ -315,7 +249,7 @@ Once logged in, click "Verify" again to retry.`
         status: '⏳ Configuring...',
         environment: 'mce',
         playbook: 'configure_capi_environment.yaml',
-        output: 'Starting MCE CAPI/CAPA environment configuration...\nPreparing OpenShift login...\nConfiguring Cluster API components...\nSetting up AWS provider...'
+        output: 'Configuring MCE CAPI/CAPA environment...'
       });
 
       const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_TASK), {
@@ -337,69 +271,37 @@ Once logged in, click "Verify" again to retry.`
       const result = await response.json();
 
       if (result.success) {
+        // Remove the temporary frontend entry - backend job will show instead
+        recentOps.removeRecentOperation(configureId);
+
+        // Poll status in background - don't block the UI
+        // MCE reconciliation can take 10-15 seconds
+        setTimeout(async () => {
+          await apiStatus.refreshAllStatus();
+          // Check again after another 5 seconds
+          setTimeout(async () => {
+            await apiStatus.refreshAllStatus();
+          }, 5000);
+        }, 5000);
+      } else {
         updateRecentOperationStatus(
           configureId,
-          `✅ MCE CAPI/CAPA environment configured successfully`,
-          result.output
+          `❌ Configuration failed`,
+          result.error || 'Unknown error'
         );
-
-        // Refresh status after successful configuration to update component statuses
-        await mce.verifyMceEnvironment();
-      } else {
-        // Check if this is an OpenShift login failure
-        const isLoginFailure = result.error?.includes('OPENSHIFT LOGIN FAILED') ||
-                               result.error?.includes('Unauthorized') ||
-                               result.error?.includes('You must be logged in') ||
-                               result.output?.includes('OPENSHIFT LOGIN FAILED') ||
-                               result.output?.includes('Unauthorized');
-
-        if (isLoginFailure) {
-          updateRecentOperationStatus(
-            configureId,
-            `❌ OpenShift Login Failed`,
-            `Configuration Failed: OpenShift Authentication Required
-
-❌ Your OpenShift login session has expired or credentials are invalid.
-
-📋 To fix this issue:
-
-1. Get a new login token:
-   • Go to OpenShift Console
-   • Click your username (top right) → "Copy login command"
-   • Run the login command in your terminal
-
-2. Or update credentials:
-   • Click the "Credentials" button in the MCE Environment tile
-   • Ensure your OpenShift Hub credentials are correct
-   • Save and try again
-
-3. Or manually login via terminal:
-   • Run: oc login <cluster-url> -u <username> -p <password>
-
-📝 Error details:
-${result.error || 'Authentication failed'}
-
-Once logged in, click "Configure" again to retry.`
-          );
-        } else {
-          updateRecentOperationStatus(
-            configureId,
-            `❌ Configuration failed: ${result.error}`,
-            result.output
-          );
-        }
       }
-
     } catch (error) {
       updateRecentOperationStatus(
         configureId,
-        `❌ Configuration failed: ${error.message}`
+        `❌ Configuration failed`,
+        error.message
       );
     }
   };
 
-  const handleRefresh = async () => {
-    await apiStatus.refreshAllStatus();
+  const handleRefresh = () => {
+    // Refresh in background - don't block UI
+    apiStatus.refreshAllStatus();
   };
 
   const handleProvision = () => {
@@ -411,14 +313,15 @@ Once logged in, click "Configure" again to retry.`
     const disableId = `disable-capi-${Date.now()}`;
 
     try {
+      // Show immediate feedback
       addToRecent({
         id: disableId,
         title: 'Disable CAPI Components',
         color: 'bg-red-600',
-        status: '⏳ Disabling...',
+        status: '⏳ Disabling CAPI...',
         environment: 'mce',
-        playbook: 'tasks/update_enabled_flag.yml',
-        output: 'Starting CAPI component disable operation...\nUpdating MultiClusterEngine configuration...\nDisabling cluster-api component...'
+        playbook: 'tasks/disable_capi.yml',
+        output: 'Disabling CAPI and enabling Hypershift...'
       });
 
       const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_TASK), {
@@ -427,13 +330,9 @@ Once logged in, click "Configure" again to retry.`
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          task_file: 'tasks/update_enabled_flag.yml',
+          task_file: 'tasks/disable_capi.yml',
           description: 'Disable CAPI Components',
-          cluster_type: 'mce',
-          extra_vars: {
-            component: 'cluster-api',
-            enable: 'false'
-          }
+          cluster_type: 'mce'
         })
       });
 
@@ -444,69 +343,30 @@ Once logged in, click "Configure" again to retry.`
       const result = await response.json();
 
       if (result.success) {
-        const completionTime = new Date().toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true,
-        });
+        // Remove the temporary frontend entry - backend job will show instead
+        recentOps.removeRecentOperation(disableId);
 
+        // Poll status in background - don't block the UI
+        // MCE reconciliation can take 10-15 seconds
+        setTimeout(async () => {
+          await apiStatus.refreshAllStatus();
+          // Check again after another 5 seconds
+          setTimeout(async () => {
+            await apiStatus.refreshAllStatus();
+          }, 5000);
+        }, 5000);
+      } else {
         updateRecentOperationStatus(
           disableId,
-          `✅ CAPI components disabled at ${completionTime}`,
-          result.output
+          `❌ Disable CAPI failed`,
+          result.error || 'Unknown error'
         );
-
-        // Refresh status after successful disable
-        await mce.verifyMceEnvironment();
-      } else {
-        // Check if this is an OpenShift login failure
-        const isLoginFailure = result.error?.includes('OPENSHIFT LOGIN FAILED') ||
-                               result.error?.includes('Unauthorized') ||
-                               result.error?.includes('You must be logged in') ||
-                               result.output?.includes('OPENSHIFT LOGIN FAILED') ||
-                               result.output?.includes('Unauthorized');
-
-        if (isLoginFailure) {
-          updateRecentOperationStatus(
-            disableId,
-            `❌ OpenShift Login Failed`,
-            `Disable CAPI Failed: OpenShift Authentication Required
-
-❌ Your OpenShift login session has expired or credentials are invalid.
-
-📋 To fix this issue:
-
-1. Get a new login token:
-   • Go to OpenShift Console
-   • Click your username (top right) → "Copy login command"
-   • Run the login command in your terminal
-
-2. Or update credentials:
-   • Click the "Credentials" button in the MCE Environment tile
-   • Ensure your OpenShift Hub credentials are correct
-   • Save and try again
-
-3. Or manually login via terminal:
-   • Run: oc login <cluster-url> -u <username> -p <password>
-
-📝 Error details:
-${result.error || 'Authentication failed'}
-
-Once logged in, click "Disable CAPI" again to retry.`
-          );
-        } else {
-          updateRecentOperationStatus(
-            disableId,
-            `❌ Failed to disable CAPI: ${result.error}`,
-            result.output
-          );
-        }
       }
     } catch (error) {
       updateRecentOperationStatus(
         disableId,
-        `❌ Failed to disable CAPI: ${error.message}`
+        `❌ Disable CAPI failed`,
+        error.message
       );
     }
   };
@@ -830,8 +690,23 @@ Update completed at ${completionTime}`
         yamlData={app.yamlEditorData}
         readOnly={false}
         onProvision={async (editedYaml) => {
+          // Define variables outside try block so they're accessible in catch block
+          const provisionId = `provision-rosa-hcp-${Date.now()}`;
+          const clusterName = app.yamlEditorData?.cluster_name || 'cluster';
 
           try {
+            // Add immediate feedback to Recent Operations BEFORE calling API
+
+            addToRecent({
+              id: provisionId,
+              title: `Provision ROSA HCP Cluster: ${clusterName}`,
+              status: '⏳ Starting provisioning...',
+              color: 'bg-cyan-600',
+              environment: 'mce',
+              timestamp: new Date().toISOString(),
+              output: `Starting provisioning for cluster "${clusterName}"...\n\nSubmitting YAML configuration to backend...\n\nThis will appear in the Task Summary and Task Detail sections.`
+            });
+
             // Close YAML editor modal first
             dispatch({ type: AppActionTypes.SHOW_YAML_EDITOR_MODAL, payload: false });
 
@@ -854,6 +729,13 @@ Update completed at ${completionTime}`
             if (!validatedData.job_id) {
               throw new Error(validatedData.message || 'No job_id returned from server');
             }
+
+            // Update the recent operation to show job was submitted successfully
+            updateRecentOperationStatus(
+              provisionId,
+              `✅ Job submitted successfully (ID: ${validatedData.job_id})`,
+              `Provisioning job for cluster "${clusterName}" has been submitted to the backend.\n\nJob ID: ${validatedData.job_id}\n\nThe job is now running and will be tracked in the job history system.\n\nYou can monitor progress in the CAPI-Managed ROSA HCP Clusters section below.`
+            );
 
             // Immediately refresh job history to show the new job
             console.log('🚀 [Provision] Job submitted, refreshing job history immediately');
@@ -879,6 +761,14 @@ Update completed at ${completionTime}`
 
           } catch (error) {
             const safeErrorMessage = extractSafeErrorMessage(error);
+
+            // Update the recent operation to show the error
+            updateRecentOperationStatus(
+              provisionId,
+              `❌ Provisioning failed: ${safeErrorMessage}`,
+              `Failed to submit provisioning job for cluster "${clusterName}".\n\nError: ${safeErrorMessage}\n\nPlease check your cluster configuration and try again.`
+            );
+
             alert(`Failed to start provisioning: ${safeErrorMessage}`);
           }
         }}

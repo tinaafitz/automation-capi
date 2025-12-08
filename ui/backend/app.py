@@ -17,6 +17,7 @@ import os
 import yaml
 from slack_notification_service import SlackNotificationService
 from email_notification_service import EmailNotificationService
+from ai_assistant_service import AIAssistantService
 
 app = FastAPI(title="ROSA Automation API", version="1.0.0")
 
@@ -31,6 +32,9 @@ except ImportError:
 # Initialize notification services
 slack_service = SlackNotificationService()
 email_service = EmailNotificationService()
+
+# Initialize AI assistant service
+ai_service = AIAssistantService()
 
 # CORS middleware for frontend development
 app.add_middleware(
@@ -2892,20 +2896,14 @@ async def validate_config(config: ClusterConfig):
     return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings}
 
 
-@app.post("/api/ansible/run-task")
-async def run_ansible_task(request: dict):
-    """Run a specific ansible task or playbook"""
+def run_ansible_task_background(job_id, task_file, playbook_file, description, kube_context, extra_vars, cluster_type):
+    """Background task to run ansible playbook or task"""
     import tempfile
 
     try:
-        task_file = request.get("task_file")
-        playbook_file = request.get("playbook_file")
-        description = request.get("description", "Running ansible task")
-        kube_context = request.get("kube_context")  # Optional cluster context
-        extra_vars = request.get("extra_vars", {})  # Optional extra variables
-
-        if not task_file and not playbook_file:
-            raise HTTPException(status_code=400, detail="Either task_file or playbook_file is required")
+        jobs[job_id]["status"] = "running"
+        jobs[job_id]["progress"] = 10
+        jobs[job_id]["message"] = f"{description} in progress..."
 
         # Use AUTOMATION_PATH environment variable if set, otherwise calculate from file path
         project_root = os.environ.get("AUTOMATION_PATH") or os.path.dirname(
@@ -2916,7 +2914,7 @@ async def run_ansible_task(request: dict):
         if playbook_file:
             playbook_path = os.path.join(project_root, playbook_file)
             if not os.path.exists(playbook_path):
-                raise HTTPException(status_code=404, detail=f"Playbook file not found: {playbook_file}")
+                raise Exception(f"Playbook file not found: {playbook_file}")
 
             # Run the playbook directly
             cmd = [
@@ -2949,20 +2947,50 @@ async def run_ansible_task(request: dict):
                 cwd=project_root,
             )
 
-            return {
-                "success": result.returncode == 0,
-                "output": result.stdout,
-                "error": result.stderr if result.returncode != 0 else None,
-                "return_code": result.returncode,
-            }
+            # Extract detailed error messages
+            detailed_error = ""
+            if result.returncode != 0 and result.stdout:
+                import re
 
-        # Otherwise handle as task_file (existing logic)
+                # First try to find Ansible fail task messages (e.g., "msg": "...")
+                fail_match = re.search(
+                    r'fatal:.*?FAILED!.*?"msg":\s*"(.+?)"', result.stdout, re.DOTALL
+                )
+                if fail_match:
+                    # Extract the message and unescape it
+                    detailed_error = fail_match.group(1).strip()
+                    # Unescape newlines
+                    detailed_error = detailed_error.replace('\\n', '\n')
+
+            error_message = (
+                detailed_error
+                if detailed_error
+                else (result.stderr if result.returncode != 0 else "")
+            )
+
+            # Update job status with timestamp
+            completed_time = datetime.now().strftime("%-I:%M:%S %p")  # e.g., "4:39:21 AM"
+
+            if result.returncode == 0:
+                jobs[job_id]["status"] = "completed"
+                jobs[job_id]["progress"] = 100
+                jobs[job_id]["message"] = f"{description} completed and refreshed at {completed_time}"
+                jobs[job_id]["completed_at"] = datetime.now().isoformat()
+            else:
+                jobs[job_id]["status"] = "failed"
+                jobs[job_id]["message"] = f"{description} failed: {error_message}"
+                jobs[job_id]["error"] = error_message
+                jobs[job_id]["completed_at"] = datetime.now().isoformat()
+
+            jobs[job_id]["logs"] = result.stdout.split("\n") + result.stderr.split("\n")
+            return
+
+        # Handle task_file - create temporary playbook
         task_path = os.path.join(project_root, task_file)
         if not os.path.exists(task_path):
-            raise HTTPException(status_code=404, detail=f"Task file not found: {task_file}")
+            raise Exception(f"Task file not found: {task_file}")
 
-        # Create a temporary playbook that includes the task file
-        # For MCE validation tasks, we need to login to OCP first to set the context
+        # Create temporary playbook (similar to existing code)
         tasks = []
 
         # Check if this is an MCE task that needs OCP login
@@ -2992,7 +3020,7 @@ async def run_ansible_task(request: dict):
                 ]
             )
 
-        # Set AUTOMATION_PATH as a fact to ensure it's available to all included tasks
+        # Set AUTOMATION_PATH as a fact
         tasks.append(
             {
                 "name": "Set AUTOMATION_PATH",
@@ -3000,7 +3028,7 @@ async def run_ansible_task(request: dict):
             }
         )
 
-        # Add the main task (use absolute path)
+        # Add the main task
         tasks.append({"name": "Include task file", "include_tasks": f"{project_root}/{task_file}"})
 
         playbook_content = [
@@ -3022,11 +3050,6 @@ async def run_ansible_task(request: dict):
         ]
 
         # Write temporary playbook
-        # Use AUTOMATION_PATH environment variable if set, otherwise calculate from file path
-        project_root = os.environ.get("AUTOMATION_PATH") or os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        )
-        # Write temp file to /tmp since project_root might be read-only
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False, dir="/tmp") as f:
             yaml.dump(playbook_content, f, default_flow_style=False)
             temp_playbook = f.name
@@ -3037,20 +3060,19 @@ async def run_ansible_task(request: dict):
                 "ansible-playbook",
                 temp_playbook,
                 "-i",
-                "localhost,",  # Inline inventory with localhost
+                "localhost,",
                 "-e",
                 "skip_ansible_runner=true",
                 "-e",
                 f"AUTOMATION_PATH={project_root}",
                 "-e",
-                f"playbook_dir={project_root}",  # Set playbook dir for relative includes
-                "-v",  # Verbose output
+                f"playbook_dir={project_root}",
+                "-v",
             ]
 
             # Add cluster context if provided
             if kube_context:
                 cmd.extend(["-e", f"KUBE_CONTEXT={kube_context}"])
-                print(f"Using cluster context: {kube_context}")
 
             # Add extra vars if provided
             for key, value in extra_vars.items():
@@ -3058,24 +3080,25 @@ async def run_ansible_task(request: dict):
 
             print(f"Running ansible task: {' '.join(cmd)}")
 
-            # Set environment variables for Ansible
+            # Set environment variables
             import os as os_module
-
             env = os_module.environ.copy()
             env["ANSIBLE_PLAYBOOK_DIR"] = project_root
 
-            # Run the command with Popen to avoid pipe buffer issues
+            # Run the command with Popen
             process = subprocess.Popen(
                 cmd,
                 cwd=project_root,
                 env=env,
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
+                bufsize=-1,
             )
 
             try:
-                stdout, stderr = process.communicate(timeout=300)  # 5 minutes timeout
+                stdout, stderr = process.communicate(timeout=300)
                 result = type(
                     "obj",
                     (object,),
@@ -3083,56 +3106,70 @@ async def run_ansible_task(request: dict):
                 )()
             except subprocess.TimeoutExpired:
                 process.kill()
+                stdout, stderr = process.communicate()
                 raise
+            except BrokenPipeError as e:
+                print(f"❌ [ANSIBLE-TASK] Broken pipe error: {str(e)}")
+                try:
+                    stdout, stderr = process.communicate(timeout=5)
+                except:
+                    stdout, stderr = "", str(e)
+                result = type(
+                    "obj",
+                    (object,),
+                    {"returncode": -1, "stdout": stdout, "stderr": f"Broken pipe error: {stderr}"},
+                )()
 
-            # Parse the output
+            # Parse output
             stdout_lines = result.stdout.split("\n") if result.stdout else []
             stderr_lines = result.stderr.split("\n") if result.stderr else []
 
-            print(f"Ansible task completed with return code: {result.returncode}")
-            print(f"STDOUT: {result.stdout}")
-            if result.stderr:
-                print(f"STDERR: {result.stderr}")
-
-            # Extract detailed error messages from Ansible output
+            # Extract detailed error messages
             detailed_error = ""
             if result.returncode != 0 and result.stdout:
-                # Look for [ERROR]: Task failed: messages
                 import re
 
-                error_match = re.search(
-                    r"\[ERROR\]:\s*Task failed:\s*(.+?)(?=\nOrigin:|$)", result.stdout, re.DOTALL
+                # First try to find Ansible fail task messages (e.g., "msg": "...")
+                fail_match = re.search(
+                    r'fatal:.*?FAILED!.*?"msg":\s*"(.+?)"', result.stdout, re.DOTALL
                 )
-                if error_match:
-                    detailed_error = error_match.group(1).strip()
-                    # Clean up the error message - extract the main error content
-                    # Look for the actual error message after "Action failed:"
-                    action_match = re.search(r"Action failed:\s*(.+)", detailed_error, re.DOTALL)
-                    if action_match:
-                        detailed_error = action_match.group(1).strip()
+                if fail_match:
+                    # Extract the message and unescape it
+                    detailed_error = fail_match.group(1).strip()
+                    # Unescape newlines
+                    detailed_error = detailed_error.replace('\\n', '\n')
+                else:
+                    # Fall back to [ERROR] pattern
+                    error_match = re.search(
+                        r"\[ERROR\]:\s*Task failed:\s*(.+?)(?=\nOrigin:|$)", result.stdout, re.DOTALL
+                    )
+                    if error_match:
+                        detailed_error = error_match.group(1).strip()
+                        action_match = re.search(r"Action failed:\s*(.+)", detailed_error, re.DOTALL)
+                        if action_match:
+                            detailed_error = action_match.group(1).strip()
 
-            # Only treat stderr as an error if returncode is non-zero
-            # Ansible warnings go to stderr but don't indicate failure
             error_message = (
                 detailed_error
                 if detailed_error
                 else (result.stderr if result.returncode != 0 else "")
             )
 
-            return {
-                "success": result.returncode == 0,
-                "return_code": result.returncode,
-                "output": result.stdout,
-                "error": error_message,
-                "warning": result.stderr if result.returncode == 0 else "",
-                "message": (
-                    "Task completed successfully" if result.returncode == 0 else "Task failed"
-                ),
-                "task_file": task_file,
-                "description": description,
-                "stdout_lines": stdout_lines,
-                "stderr_lines": stderr_lines,
-            }
+            # Update job status
+            completed_time = datetime.now().strftime("%-I:%M:%S %p")
+
+            if result.returncode == 0:
+                jobs[job_id]["status"] = "completed"
+                jobs[job_id]["progress"] = 100
+                jobs[job_id]["message"] = f"{description} completed and refreshed at {completed_time}"
+                jobs[job_id]["completed_at"] = datetime.now().isoformat()
+            else:
+                jobs[job_id]["status"] = "failed"
+                jobs[job_id]["message"] = f"{description} failed: {error_message}"
+                jobs[job_id]["error"] = error_message
+                jobs[job_id]["completed_at"] = datetime.now().isoformat()
+
+            jobs[job_id]["logs"] = stdout_lines + stderr_lines
 
         finally:
             # Clean up temporary playbook file
@@ -3141,20 +3178,70 @@ async def run_ansible_task(request: dict):
             except OSError:
                 pass
 
-    except subprocess.TimeoutExpired:
-        error_msg = f"Task {task_file} timed out after 5 minutes"
-        print(error_msg)
-        return {
-            "success": False,
-            "error": error_msg,
-            "message": "Task timed out",
-            "task_file": task_file,
+    except Exception as e:
+        import traceback
+        error_msg = str(e)
+        print(f"❌ Error running task: {error_msg}")
+        print(traceback.format_exc())
+        jobs[job_id]["status"] = "failed"
+        jobs[job_id]["message"] = f"{description} failed: {error_msg}"
+        jobs[job_id]["error"] = error_msg
+        jobs[job_id]["completed_at"] = datetime.now().isoformat()
+
+
+@app.post("/api/ansible/run-task")
+async def run_ansible_task(request: dict, background_tasks: BackgroundTasks):
+    """Run a specific ansible task or playbook"""
+    import tempfile
+    import uuid
+
+    try:
+        task_file = request.get("task_file")
+        playbook_file = request.get("playbook_file")
+        description = request.get("description", "Running ansible task")
+        kube_context = request.get("kube_context")  # Optional cluster context
+        extra_vars = request.get("extra_vars", {})  # Optional extra variables
+        cluster_type = request.get("cluster_type", "mce")  # mce or minikube
+
+        if not task_file and not playbook_file:
+            raise HTTPException(status_code=400, detail="Either task_file or playbook_file is required")
+
+        # Create a job entry for tracking
+        job_id = str(uuid.uuid4())
+        jobs[job_id] = {
+            "id": job_id,
+            "status": "running",
+            "progress": 0,
+            "message": f"Starting {description}...",
             "description": description,
+            "task_file": task_file or playbook_file,
+            "yaml_file": task_file or playbook_file,
+            "created_at": datetime.now().isoformat(),
+            "started_at": datetime.now().isoformat(),
+            "logs": [],
+        }
+
+        # Run task in background
+        background_tasks.add_task(
+            run_ansible_task_background,
+            job_id,
+            task_file,
+            playbook_file,
+            description,
+            kube_context,
+            extra_vars,
+            cluster_type
+        )
+
+        return {
+            "success": True,
+            "job_id": job_id,
+            "message": f"{description} started",
+            "status": "running"
         }
     except Exception as e:
         import traceback
-
-        error_msg = f"Error running task {task_file}: {str(e)}"
+        error_msg = f"Error starting task: {str(e)}"
         print(error_msg)
         print(f"Full traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=error_msg)
@@ -3309,16 +3396,32 @@ async def get_rosa_clusters():
             # Determine cluster status
             ready = status.get("ready", False)
             conditions = status.get("conditions", [])
+            deletion_timestamp = metadata.get("deletionTimestamp")
 
-            # Check for errors in conditions
+            # Check if cluster is being deleted
+            is_deleting = deletion_timestamp is not None
+            is_uninstalling = False
             has_error = False
+
+            # Check conditions for uninstalling or error state
             for condition in conditions:
-                if condition.get("status") == "False" and condition.get("type") in ["Ready", "ROSAControlPlaneReady", "RosaControlPlaneReady"]:
-                    has_error = True
-                    break
+                if condition.get("type") in ["Ready", "ROSAControlPlaneReady", "RosaControlPlaneReady"]:
+                    reason = condition.get("reason", "").lower()
+                    message = condition.get("message", "").lower()
+
+                    # Check if uninstalling
+                    if reason == "uninstalling" or "uninstalling" in message or "deleting" in message:
+                        is_uninstalling = True
+                        break
+
+                    # Check for actual errors (but not during deletion)
+                    if condition.get("status") == "False" and not is_deleting:
+                        has_error = True
 
             # Determine status string
-            if ready:
+            if is_deleting or is_uninstalling:
+                cluster_status = "uninstalling"
+            elif ready:
                 cluster_status = "ready"
             elif has_error:
                 cluster_status = "failed"
@@ -3402,6 +3505,138 @@ async def get_rosa_clusters():
             "success": False,
             "clusters": [],
             "message": f"Error fetching ROSA clusters: {str(e)}",
+        }
+
+
+@app.delete("/api/rosa/clusters/{cluster_name}")
+async def delete_rosa_cluster(cluster_name: str, request: Request):
+    """Delete a ROSA HCP cluster and all its resources"""
+    import time
+    import asyncio
+
+    try:
+        body = await request.json()
+        namespace = body.get("namespace")
+
+        if not namespace:
+            return {"success": False, "message": "Namespace is required"}
+
+        print(f"🗑️ [DELETE-CLUSTER] Deleting cluster: {cluster_name} in namespace: {namespace}")
+
+        deleted_resources = []
+        errors = []
+
+        # Step 1: Delete the rosacontrolplane (this should trigger cascade deletion)
+        try:
+            print(f"🗑️ [DELETE-CLUSTER] Initiating deletion of rosacontrolplane/{cluster_name}")
+            result = subprocess.run(
+                ["oc", "delete", "rosacontrolplane", cluster_name, "-n", namespace, "--ignore-not-found=true"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            if result.returncode == 0:
+                deleted_resources.append(f"rosacontrolplane/{cluster_name}")
+                print(f"✅ [DELETE-CLUSTER] Deletion initiated for rosacontrolplane/{cluster_name}")
+
+                # Step 2: Wait for the rosacontrolplane to be fully deleted (max 5 minutes)
+                print(f"⏳ [DELETE-CLUSTER] Waiting for rosacontrolplane/{cluster_name} to be deleted...")
+                max_wait_time = 300  # 5 minutes
+                check_interval = 5   # Check every 5 seconds
+                elapsed_time = 0
+
+                while elapsed_time < max_wait_time:
+                    await asyncio.sleep(check_interval)
+                    elapsed_time += check_interval
+
+                    # Check if resource still exists
+                    check_result = subprocess.run(
+                        ["oc", "get", "rosacontrolplane", cluster_name, "-n", namespace],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+
+                    if check_result.returncode != 0 and "not found" in check_result.stderr.lower():
+                        print(f"✅ [DELETE-CLUSTER] rosacontrolplane/{cluster_name} successfully deleted after {elapsed_time}s")
+                        break
+                    else:
+                        print(f"⏳ [DELETE-CLUSTER] Still waiting... ({elapsed_time}s elapsed)")
+
+                if elapsed_time >= max_wait_time:
+                    errors.append(f"Timeout waiting for rosacontrolplane/{cluster_name} to delete after {max_wait_time}s")
+                    print(f"⚠️ [DELETE-CLUSTER] Timeout waiting for rosacontrolplane deletion, but it may still complete in the background")
+            else:
+                if "not found" not in result.stderr.lower():
+                    errors.append(f"Failed to delete rosacontrolplane/{cluster_name}: {result.stderr}")
+                    print(f"❌ [DELETE-CLUSTER] Error deleting rosacontrolplane/{cluster_name}: {result.stderr}")
+
+        except subprocess.TimeoutExpired:
+            errors.append(f"Timeout deleting rosacontrolplane/{cluster_name}")
+        except Exception as e:
+            errors.append(f"Error deleting rosacontrolplane/{cluster_name}: {str(e)}")
+
+        # Step 3: Clean up network and roles if they still exist (they should cascade delete, but just in case)
+        cleanup_resources = [
+            ("rosanetwork", f"{cluster_name}-network"),
+            ("rosaroleconfig", f"{cluster_name}-roles"),
+        ]
+
+        for resource_type, resource_name in cleanup_resources:
+            try:
+                # Check if resource exists
+                check_result = subprocess.run(
+                    ["oc", "get", resource_type, resource_name, "-n", namespace],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+
+                if check_result.returncode == 0:
+                    print(f"🧹 [DELETE-CLUSTER] Cleaning up remaining {resource_type}/{resource_name}")
+                    result = subprocess.run(
+                        ["oc", "delete", resource_type, resource_name, "-n", namespace, "--ignore-not-found=true", "--wait=false"],
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                    )
+
+                    if result.returncode == 0:
+                        deleted_resources.append(f"{resource_type}/{resource_name}")
+                        print(f"✅ [DELETE-CLUSTER] Cleaned up {resource_type}/{resource_name}")
+                else:
+                    print(f"✅ [DELETE-CLUSTER] {resource_type}/{resource_name} already deleted (cascade)")
+
+            except Exception as e:
+                print(f"⚠️ [DELETE-CLUSTER] Error checking/cleaning up {resource_type}/{resource_name}: {str(e)}")
+
+        # Return success if at least the main resource was deleted
+        if deleted_resources:
+            message = f"Successfully initiated deletion of cluster {cluster_name}"
+            if errors:
+                message += f" (with warnings: {'; '.join(errors)})"
+
+            return {
+                "success": True,
+                "message": message,
+                "deleted_resources": deleted_resources,
+                "warnings": errors if errors else None,
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"Failed to delete cluster {cluster_name}",
+                "errors": errors,
+            }
+
+    except Exception as e:
+        import traceback
+        print(f"❌ [DELETE-CLUSTER] Error: {str(e)}")
+        print(traceback.format_exc())
+        return {
+            "success": False,
+            "message": f"Error deleting cluster: {str(e)}",
         }
 
 
@@ -6008,6 +6243,291 @@ async def get_cluster_status(cluster_name: str):
         print(f"❌ [GET-CLUSTER-STATUS] Error: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Error getting cluster status: {str(e)}")
+
+
+@app.post("/api/ai-assistant/chat")
+async def ai_assistant_chat(request: Request):
+    """AI Assistant chat endpoint - provides AI-powered analysis of cluster issues using Claude"""
+    try:
+        body = await request.json()
+        message = body.get("message", "")
+        context = body.get("context", {})
+        history = body.get("history", [])
+        clusters_data = context.get("clusters", [])
+
+        # Ensure clusters_data is a list
+        if not isinstance(clusters_data, list):
+            clusters_data = []
+
+        # Enrich context with actual job logs for failed/error clusters
+        enriched_context = {
+            "clusters": clusters_data,
+            "job_logs": [],
+            "resource_status": {}
+        }
+
+        # Find failed or error clusters and get their job logs
+        failed_clusters = [c for c in clusters_data if c.get("status") in ["failed", "error", "provisioning-failed"]]
+
+        for cluster in failed_clusters:
+            cluster_name = cluster.get("name", "unknown")
+
+            # Search jobs dictionary for provisioning jobs for this cluster
+            for job_id, job_data in jobs.items():
+                yaml_file = job_data.get("yaml_file", "")
+                description = job_data.get("description", "")
+
+                # Check if this job is for the failed cluster
+                if cluster_name.lower() in yaml_file.lower() or cluster_name.lower() in description.lower():
+                    log_content = "\n".join(job_data.get("logs", []))
+
+                    enriched_context["job_logs"].append({
+                        "job_id": job_id,
+                        "cluster_name": cluster_name,
+                        "status": job_data.get("status", "unknown"),
+                        "logs": log_content,
+                        "yaml_file": yaml_file,
+                        "created_at": job_data.get("created_at", "")
+                    })
+
+        # Use AI service if ANTHROPIC_API_KEY is set
+        if os.environ.get("ANTHROPIC_API_KEY"):
+            try:
+                ai_response = await ai_service.chat(message, enriched_context, history)
+                return {
+                    "response": ai_response.get("response", ""),
+                    "suggestions": ai_response.get("suggestions", [])
+                }
+            except Exception as ai_error:
+                print(f"⚠️ [AI-ASSISTANT] Claude API error: {str(ai_error)}, falling back to simple responses")
+                # Fall through to simple responses below
+
+        # Fallback: Simple rule-based responses if no API key or AI service fails
+        response = ""
+        suggestions = []
+        message_lower = message.lower()
+
+        # Handle cluster-related questions
+        if "what clusters" in message_lower or "list clusters" in message_lower or "show clusters" in message_lower:
+            if clusters_data:
+                response = f"Currently, you have {len(clusters_data)} cluster(s):\n\n"
+
+                # Categorize clusters by status
+                ready_clusters = [c for c in clusters_data if c.get("status") == "ready"]
+                provisioning_clusters = [c for c in clusters_data if c.get("status") == "provisioning"]
+                failed_clusters = [c for c in clusters_data if c.get("status") in ["failed", "error", "provisioning-failed"]]
+
+                if ready_clusters:
+                    response += f"**✅ Ready ({len(ready_clusters)}):**\n"
+                    for cluster in ready_clusters:
+                        name = cluster.get("name", "unknown")
+                        region = cluster.get("region", "unknown")
+                        version = cluster.get("version", "N/A")
+                        response += f"• **{name}** - Region: {region}, Version: {version}\n"
+                    response += "\n"
+
+                if provisioning_clusters:
+                    response += f"**⏳ Provisioning ({len(provisioning_clusters)}):**\n"
+                    for cluster in provisioning_clusters:
+                        name = cluster.get("name", "unknown")
+                        progress = cluster.get("progress", 0)
+                        response += f"• **{name}** - {progress}% complete\n"
+                    response += "\n"
+
+                if failed_clusters:
+                    response += f"**❌ Failed ({len(failed_clusters)}):**\n"
+                    for cluster in failed_clusters:
+                        name = cluster.get("name", "unknown")
+                        status = cluster.get("status", "unknown")
+                        response += f"• **{name}** - Status: {status}\n"
+                    response += "\n"
+                    suggestions = ["Troubleshoot failed cluster", "Provision new cluster"]
+                else:
+                    suggestions = ["Provision new cluster", "What is ROSA HCP?"]
+            else:
+                response = "You don't have any clusters running at the moment. Would you like to provision one?"
+                suggestions = ["How to provision cluster?", "What is ROSA HCP?"]
+
+        # Handle provisioning questions
+        elif "provision" in message_lower or "create cluster" in message_lower or "how to" in message_lower:
+            response = """To provision a ROSA HCP cluster:
+
+1. Click the "Provision" button in the Configuration section
+2. Fill in the cluster details:
+   - Cluster name
+   - OpenShift version
+   - Region
+   - Instance type and replicas
+
+3. Choose automation features:
+   - Network automation (automatic VPC/subnet creation)
+   - Role automation (automatic IAM role creation)
+
+4. Review the generated YAML and click "Apply"
+
+The cluster will be provisioned automatically!"""
+            suggestions = ["What is network automation?", "What clusters are running?"]
+
+        # Handle troubleshooting
+        elif "troubleshoot" in message_lower or "failed" in message_lower or "error" in message_lower or "problem" in message_lower:
+            # Check for failed clusters in the context
+            failed_clusters = [c for c in clusters_data if c.get("status") in ["failed", "error", "provisioning-failed"]]
+            provisioning_clusters = [c for c in clusters_data if c.get("status") == "provisioning"]
+
+            if failed_clusters:
+                response = f"I found {len(failed_clusters)} failed cluster(s):\n\n"
+                for cluster in failed_clusters:
+                    name = cluster.get("name", "unknown")
+                    status = cluster.get("status", "unknown")
+                    namespace = cluster.get("namespace", "unknown")
+                    response += f"**{name}** (Status: {status})\n"
+                    response += f"Namespace: {namespace}\n\n"
+                    response += "**Troubleshooting steps for this cluster:**\n"
+                    response += f"1. Check rosa-creds-secret in namespace '{namespace}'\n"
+                    response += f"2. View ROSANetwork status: `oc get rosanetwork -n {namespace}`\n"
+                    response += f"3. View ROSARoleConfig status: `oc get rosaroleconfig -n {namespace}`\n"
+                    response += f"4. Check ROSAControlPlane events: `oc describe rosacontrolplane -n {namespace}`\n"
+                    response += f"5. View detailed logs in Recent Operations section\n\n"
+
+                suggestions = ["What clusters are running?", "How to provision cluster?"]
+            elif provisioning_clusters:
+                response = f"I see {len(provisioning_clusters)} cluster(s) currently provisioning:\n\n"
+                for cluster in provisioning_clusters:
+                    name = cluster.get("name", "unknown")
+                    progress = cluster.get("progress", 0)
+                    response += f"**{name}** - {progress}% complete\n\n"
+                response += "Provisioning clusters are still in progress. If a cluster has been stuck for a long time:\n\n"
+                response += "1. Check Recent Operations for detailed progress logs\n"
+                response += "2. Verify ROSANetwork is Ready (network creation can take 5-10 minutes)\n"
+                response += "3. Verify ROSARoleConfig is Ready (role creation can take 2-3 minutes)\n"
+                response += "4. Check that rosa-creds-secret exists in the cluster namespace\n"
+                suggestions = ["What clusters are running?", "Provision new cluster"]
+            else:
+                response = """I don't see any failed clusters in your environment.
+
+If you're experiencing issues:
+
+1. **Check cluster status**: View the CAPI-Managed ROSA HCP Clusters table
+2. **View Recent Operations**: Check the Recent Operations section for error logs
+3. **Common issues**:
+   - Missing rosa-creds-secret → Verify it exists in both multicluster-engine and cluster namespace
+   - Network not ready → ROSANetwork resource may still be provisioning
+   - Role creation failed → Check AWS credentials and IAM permissions
+
+4. **Refresh status**: Click the Refresh button to update cluster information"""
+                suggestions = ["What clusters are running?", "How to provision cluster?"]
+
+        # Handle ROSA/CAPI concept questions
+        elif "what is rosa" in message_lower or "explain rosa" in message_lower:
+            response = """ROSA (Red Hat OpenShift Service on AWS) is a fully-managed OpenShift service on AWS.
+
+**ROSA HCP (Hosted Control Planes):**
+- Control plane runs in Red Hat's AWS account
+- You only pay for worker nodes
+- Faster provisioning and scaling
+- Lower cost than classic ROSA
+
+**CAPI Integration:**
+- This UI uses Cluster API (CAPI) to manage ROSA clusters
+- Provides declarative cluster management via Kubernetes CRDs
+- Enables GitOps-style cluster lifecycle management"""
+            suggestions = ["How to provision cluster?", "What is network automation?"]
+
+        elif "what is capi" in message_lower or "cluster api" in message_lower:
+            response = """CAPI (Cluster API) is a Kubernetes project to bring declarative, Kubernetes-style APIs to cluster creation, configuration, and management.
+
+**In this UI:**
+- Manage ROSA HCP clusters using Kubernetes Custom Resources
+- Automate networking (VPC, subnets) with ROSANetwork
+- Automate IAM roles with ROSARoleConfig
+- Full cluster lifecycle management
+
+**Benefits:**
+- GitOps-friendly workflow
+- Declarative configuration
+- Automated infrastructure provisioning"""
+            suggestions = ["How to provision cluster?", "What clusters are running?"]
+
+        elif "network automation" in message_lower or "rosanetwork" in message_lower:
+            response = """Network Automation automatically creates AWS VPC and subnets for your ROSA cluster.
+
+**What it does:**
+- Creates VPC with specified CIDR block
+- Creates public and private subnets across multiple AZs
+- Sets up Internet Gateway and NAT Gateways
+- Configures route tables
+
+**Benefits:**
+- No manual AWS console work
+- Consistent network configuration
+- Proper multi-AZ setup automatically
+
+Enable it during provisioning by checking "Network Automation (ROSANetwork)"."""
+            suggestions = ["What is role automation?", "How to provision cluster?"]
+
+        elif "role automation" in message_lower or "rosaroleconfig" in message_lower:
+            response = """Role Automation automatically creates required AWS IAM roles for your ROSA cluster.
+
+**What it creates:**
+- Account roles (installer, support, worker, control-plane)
+- Operator roles (for AWS service integration)
+- OIDC provider configuration
+
+**Benefits:**
+- No manual AWS IAM console work
+- Correct permissions automatically
+- Proper trust policies configured
+
+Enable it during provisioning by checking "Role Automation (ROSARoleConfig)"."""
+            suggestions = ["What is network automation?", "How to provision cluster?"]
+
+        # Handle status/monitoring questions
+        elif "status" in message_lower or "monitoring" in message_lower or "how is" in message_lower:
+            if clusters_data:
+                response = "Here's the current status of your clusters:\n\n"
+                for cluster in clusters_data:
+                    name = cluster.get("name", "unknown")
+                    status = cluster.get("status", "unknown")
+                    progress = cluster.get("progress")
+                    response += f"• **{name}**: {status}"
+                    if progress:
+                        response += f" ({progress}% complete)"
+                    response += "\n"
+                response += "\nYou can see detailed status in the CAPI-Managed ROSA HCP Clusters table."
+                suggestions = ["Troubleshoot failed cluster", "Provision new cluster"]
+            else:
+                response = "You don't have any clusters to monitor yet. Provision a cluster to get started!"
+                suggestions = ["How to provision cluster?"]
+
+        # Default fallback
+        else:
+            response = """I can help you with:
+
+• **Cluster Management**: Provision, list, monitor, and troubleshoot clusters
+• **ROSA/CAPI Concepts**: Explain ROSA HCP, CAPI, network automation, role automation
+• **Troubleshooting**: Help diagnose and fix cluster issues
+
+What would you like to know?"""
+            suggestions = [
+                "What clusters are running?",
+                "How to provision cluster?",
+                "What is ROSA HCP?",
+                "Troubleshoot failed cluster"
+            ]
+
+        return {
+            "response": response,
+            "suggestions": suggestions
+        }
+
+    except Exception as e:
+        import traceback
+        print(f"❌ [AI-ASSISTANT] Error: {str(e)}")
+        print(traceback.format_exc())
+        return {
+            "response": "Sorry, I encountered an error processing your request. Please try again.",
+            "suggestions": []
+        }
 
 
 if __name__ == "__main__":

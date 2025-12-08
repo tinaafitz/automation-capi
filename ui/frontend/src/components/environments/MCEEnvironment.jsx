@@ -8,10 +8,12 @@ import { YamlEditorModal } from '../YamlEditorModal';
 import { AIAssistantChat } from '../chat/AIAssistantChat';
 import { CommandChat } from '../chat/CommandChat';
 import MCETerminalSection from '../sections/MCETerminalSection';
+import TaskSummarySection from '../sections/TaskSummarySection';
+import TaskDetailSection from '../sections/TaskDetailSection';
 import { useApiStatusContext, useRecentOperationsContext, useApp, useAppDispatch } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
 import { cardStyles } from '../../styles/themes';
-import { Cog6ToothIcon, ChevronDownIcon, ChevronUpIcon, ChartBarIcon, ArrowPathIcon, BellIcon } from '@heroicons/react/24/outline';
+import { Cog6ToothIcon, ChevronDownIcon, ChevronUpIcon, ChartBarIcon, ArrowPathIcon, BellIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { useJobHistory } from '../../hooks/useJobHistory';
 import { buildApiUrl, API_ENDPOINTS, validateApiResponse, extractSafeErrorMessage } from '../../config/api';
 
@@ -20,7 +22,9 @@ const RosaHcpClustersSection = () => {
   const app = useApp();
   const dispatch = useAppDispatch();
   const apiStatus = useApiStatusContext();
+  const recentOps = useRecentOperationsContext();
   const { ocpStatus } = apiStatus;
+  const { addToRecent, updateRecentOperationStatus } = recentOps;
 
   // Cluster monitoring state
   const [clusters, setClusters] = useState([]);
@@ -66,6 +70,72 @@ const RosaHcpClustersSection = () => {
       setClustersLoading(false);
     }
   }, []);
+
+  // Delete cluster function
+  const handleDeleteCluster = async (clusterName, namespace) => {
+    const deleteId = `delete-cluster-${Date.now()}`;
+
+    // Confirm deletion
+    if (!window.confirm(`Are you sure you want to delete cluster "${clusterName}"?\n\nThis will delete:\n- ROSAControlPlane\n- ROSANetwork (if exists)\n- ROSARoleConfig (if exists)\n- Namespace resources\n\nThis action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      console.log(`🗑️ Deleting cluster: ${clusterName} in namespace: ${namespace}`);
+
+      // Add to recent operations
+      addToRecent({
+        id: deleteId,
+        title: `Delete ROSA HCP Cluster: ${clusterName}`,
+        color: 'bg-red-600',
+        status: '⏳ Deleting...',
+        environment: 'mce',
+        output: `Deleting ROSA HCP cluster "${clusterName}" from namespace "${namespace}"...\n\nRemoving cluster resources:\n- ROSAControlPlane\n- ROSANetwork\n- ROSARoleConfig\n- AWS resources`
+      });
+
+      const response = await fetch(buildApiUrl(`/api/rosa/clusters/${clusterName}`), {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ namespace })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        const completionTime = new Date().toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+        });
+
+        updateRecentOperationStatus(
+          deleteId,
+          `✅ Cluster deleted at ${completionTime}`,
+          `ROSA HCP Cluster Deletion Complete\n\n✅ Cluster "${clusterName}" has been deleted\n✅ All cluster resources removed\n✅ AWS resources cleaned up\n\nDeletion completed at ${completionTime}`
+        );
+
+        // Refresh cluster list
+        await fetchClusters();
+      } else {
+        throw new Error(result.message || 'Failed to delete cluster');
+      }
+    } catch (error) {
+      console.error(`❌ Failed to delete cluster ${clusterName}:`, error);
+
+      updateRecentOperationStatus(
+        deleteId,
+        `❌ Cluster deletion failed: ${error.message}`,
+        `Failed to delete ROSA HCP cluster "${clusterName}"\n\nError: ${error.message}\n\nPlease check cluster resources and try again.`
+      );
+    }
+  };
 
   // Load clusters on component mount
   useEffect(() => {
@@ -159,6 +229,9 @@ const RosaHcpClustersSection = () => {
                       <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
                         Created
                       </th>
+                      <th className="px-6 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -208,6 +281,16 @@ const RosaHcpClustersSection = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {cluster.created ? new Date(cluster.created).toLocaleDateString() : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button
+                            onClick={() => handleDeleteCluster(cluster.name, cluster.namespace)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700 transition-colors font-medium"
+                            title={`Delete cluster ${cluster.name}`}
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -1443,6 +1526,12 @@ Export completed at ${completionTime}`
 
       {/* Command Chat - Natural Language Automation */}
       <CommandChat />
+
+      {/* Task Summary Section */}
+      <TaskSummarySection theme="mce" environment="mce" />
+
+      {/* Task Detail Section - Shows playbook logs */}
+      <TaskDetailSection theme="mce" environment="mce" />
 
       {/* MCE Terminal Section */}
       <MCETerminalSection />

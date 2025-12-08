@@ -85,11 +85,58 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
     dispatch({ type: AppActionTypes.SHOW_CREDENTIALS_MODAL, payload: true });
   };
 
-  const handleRefresh = async () => {
+  const handleComponentRefresh = async () => {
+    const refreshId = `refresh-components-${Date.now()}`;
+
+    try {
+      console.log('🔄 ConfigurationSection: Component refresh clicked');
+
+      // Add to recent operations
+      addToRecent({
+        id: refreshId,
+        title: 'Refresh MCE Components',
+        color: 'bg-cyan-600',
+        status: '⏳ Refreshing...',
+        environment: 'mce',
+        output: 'Refreshing MCE component status...'
+      });
+
+      // Refresh all status (parent component's refresh function)
+      if (onRefresh) {
+        await onRefresh();
+      }
+
+      // Update operation as complete
+      const completionTime = new Date().toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      });
+
+      updateRecentOperationStatus(
+        refreshId,
+        `✅ Component refresh completed at ${completionTime}`,
+        `MCE Component Status Refresh Complete\n\n✅ Updated component enabled/disabled status\n\nRefresh completed at ${completionTime}`
+      );
+
+    } catch (error) {
+      console.error('❌ ConfigurationSection: Component refresh failed:', error);
+
+      // Update operation as failed
+      updateRecentOperationStatus(
+        refreshId,
+        `❌ Component refresh failed: ${error.message}`,
+        `Failed to refresh MCE component status\n\nError: ${error.message}`
+      );
+    }
+  };
+
+  const handleResourceRefresh = async () => {
     const refreshId = `refresh-resources-${Date.now()}`;
 
     try {
-      console.log('🔄 ConfigurationSection: Refresh clicked');
+      console.log('🔄 ConfigurationSection: Resource refresh clicked');
 
       // Add to recent operations
       addToRecent({
@@ -98,16 +145,11 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
         color: 'bg-cyan-600',
         status: '⏳ Refreshing...',
         environment: 'mce',
-        output: 'Refreshing MCE environment status and resources...'
+        output: 'Refreshing MCE resources...'
       });
 
       // Set loading state immediately for visual feedback
       setMceResourcesLoading(true);
-
-      // Refresh all status (parent component's refresh function)
-      if (onRefresh) {
-        await onRefresh();
-      }
 
       // Refresh the resources
       const resources = await fetchMCEResources();
@@ -124,17 +166,17 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
 
       updateRecentOperationStatus(
         refreshId,
-        `✅ Refresh completed at ${completionTime}`,
-        `MCE Resources Refresh Complete\n\n✅ Refreshed ${resources.length} resources\n✅ Updated component status\n\nRefresh completed at ${completionTime}`
+        `✅ Resource refresh completed at ${completionTime}`,
+        `MCE Resources Refresh Complete\n\n✅ Refreshed ${resources.length} resources\n\nRefresh completed at ${completionTime}`
       );
 
     } catch (error) {
-      console.error('❌ ConfigurationSection: Refresh failed:', error);
+      console.error('❌ ConfigurationSection: Resource refresh failed:', error);
 
       // Update operation as failed
       updateRecentOperationStatus(
         refreshId,
-        `❌ Refresh failed: ${error.message}`,
+        `❌ Resource refresh failed: ${error.message}`,
         `Failed to refresh MCE resources\n\nError: ${error.message}`
       );
     } finally {
@@ -400,7 +442,7 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
                 },
                 {
                   label: 'Refresh',
-                  onClick: handleRefresh,
+                  onClick: handleComponentRefresh,
                   variant: 'secondary',
                 },
               ]}
@@ -472,7 +514,7 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
                 },
                 {
                   label: 'Refresh',
-                  onClick: handleRefresh,
+                  onClick: handleResourceRefresh,
                   variant: 'secondary',
                 },
               ]}
