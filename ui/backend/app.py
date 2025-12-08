@@ -3414,9 +3414,13 @@ async def get_rosa_clusters():
                         is_uninstalling = True
                         break
 
-                    # Check for actual errors (but not during deletion)
+                    # Check for actual errors (but not during deletion or normal provisioning)
                     if condition.get("status") == "False" and not is_deleting:
-                        has_error = True
+                        # These reasons indicate normal provisioning states, not errors
+                        provisioning_reasons = ["installing", "validating", "provisioning", "waiting", "creating", "notpaused"]
+                        # Only mark as error if reason is NOT a normal provisioning state
+                        if reason not in provisioning_reasons:
+                            has_error = True
 
             # Determine status string
             if is_deleting or is_uninstalling:
