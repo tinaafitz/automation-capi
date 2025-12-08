@@ -3512,24 +3512,14 @@ async def get_rosa_clusters():
         }
 
 
-@app.delete("/api/rosa/clusters/{cluster_name}")
-async def delete_rosa_cluster(cluster_name: str, request: Request):
-    """Delete a ROSA HCP cluster and all its resources"""
-    import time
+async def perform_cluster_deletion(job_id: str, cluster_name: str, namespace: str):
+    """Background task to perform actual cluster deletion"""
     import asyncio
 
+    deleted_resources = []
+    errors = []
+
     try:
-        body = await request.json()
-        namespace = body.get("namespace")
-
-        if not namespace:
-            return {"success": False, "message": "Namespace is required"}
-
-        print(f"🗑️ [DELETE-CLUSTER] Deleting cluster: {cluster_name} in namespace: {namespace}")
-
-        deleted_resources = []
-        errors = []
-
         # Step 1: Delete the rosacontrolplane (this should trigger cascade deletion)
         try:
             print(f"🗑️ [DELETE-CLUSTER] Initiating deletion of rosacontrolplane/{cluster_name}")
@@ -3543,6 +3533,8 @@ async def delete_rosa_cluster(cluster_name: str, request: Request):
             if result.returncode == 0:
                 deleted_resources.append(f"rosacontrolplane/{cluster_name}")
                 print(f"✅ [DELETE-CLUSTER] Deletion initiated for rosacontrolplane/{cluster_name}")
+
+                jobs[job_id]["stdout"] += f"✅ Deletion initiated for rosacontrolplane/{cluster_name}\n"
 
                 # Step 2: Wait for the rosacontrolplane to be fully deleted (max 5 minutes)
                 print(f"⏳ [DELETE-CLUSTER] Waiting for rosacontrolplane/{cluster_name} to be deleted...")
@@ -3564,22 +3556,29 @@ async def delete_rosa_cluster(cluster_name: str, request: Request):
 
                     if check_result.returncode != 0 and "not found" in check_result.stderr.lower():
                         print(f"✅ [DELETE-CLUSTER] rosacontrolplane/{cluster_name} successfully deleted after {elapsed_time}s")
+                        jobs[job_id]["stdout"] += f"✅ rosacontrolplane/{cluster_name} successfully deleted after {elapsed_time}s\n"
                         break
                     else:
                         print(f"⏳ [DELETE-CLUSTER] Still waiting... ({elapsed_time}s elapsed)")
+                        if elapsed_time % 30 == 0:  # Update job every 30 seconds
+                            jobs[job_id]["stdout"] += f"⏳ Still waiting for deletion... ({elapsed_time}s elapsed)\n"
 
                 if elapsed_time >= max_wait_time:
                     errors.append(f"Timeout waiting for rosacontrolplane/{cluster_name} to delete after {max_wait_time}s")
                     print(f"⚠️ [DELETE-CLUSTER] Timeout waiting for rosacontrolplane deletion, but it may still complete in the background")
+                    jobs[job_id]["stdout"] += f"⚠️ Timeout waiting for deletion after {max_wait_time}s, but it may still complete in the background\n"
             else:
                 if "not found" not in result.stderr.lower():
                     errors.append(f"Failed to delete rosacontrolplane/{cluster_name}: {result.stderr}")
                     print(f"❌ [DELETE-CLUSTER] Error deleting rosacontrolplane/{cluster_name}: {result.stderr}")
+                    jobs[job_id]["stderr"] += f"❌ Error deleting rosacontrolplane/{cluster_name}: {result.stderr}\n"
 
         except subprocess.TimeoutExpired:
             errors.append(f"Timeout deleting rosacontrolplane/{cluster_name}")
+            jobs[job_id]["stderr"] += f"❌ Timeout deleting rosacontrolplane/{cluster_name}\n"
         except Exception as e:
             errors.append(f"Error deleting rosacontrolplane/{cluster_name}: {str(e)}")
+            jobs[job_id]["stderr"] += f"❌ Error deleting rosacontrolplane/{cluster_name}: {str(e)}\n"
 
         # Step 3: Clean up network and roles if they still exist (they should cascade delete, but just in case)
         cleanup_resources = [
@@ -3609,30 +3608,78 @@ async def delete_rosa_cluster(cluster_name: str, request: Request):
                     if result.returncode == 0:
                         deleted_resources.append(f"{resource_type}/{resource_name}")
                         print(f"✅ [DELETE-CLUSTER] Cleaned up {resource_type}/{resource_name}")
+                        jobs[job_id]["stdout"] += f"🧹 Cleaned up {resource_type}/{resource_name}\n"
                 else:
                     print(f"✅ [DELETE-CLUSTER] {resource_type}/{resource_name} already deleted (cascade)")
 
             except Exception as e:
                 print(f"⚠️ [DELETE-CLUSTER] Error checking/cleaning up {resource_type}/{resource_name}: {str(e)}")
 
-        # Return success if at least the main resource was deleted
+        # Update job with final status
         if deleted_resources:
-            message = f"Successfully initiated deletion of cluster {cluster_name}"
+            message = f"✅ Successfully deleted cluster {cluster_name}\n\nDeleted resources:\n" + "\n".join(f"  - {r}" for r in deleted_resources)
             if errors:
-                message += f" (with warnings: {'; '.join(errors)})"
+                message += f"\n\n⚠️ Warnings:\n" + "\n".join(f"  - {e}" for e in errors)
 
-            return {
-                "success": True,
-                "message": message,
-                "deleted_resources": deleted_resources,
-                "warnings": errors if errors else None,
-            }
+            jobs[job_id]["status"] = "completed"
+            jobs[job_id]["return_code"] = 0
+            jobs[job_id]["stdout"] += f"\n{message}"
         else:
-            return {
-                "success": False,
-                "message": f"Failed to delete cluster {cluster_name}",
-                "errors": errors,
-            }
+            message = f"❌ Failed to delete cluster {cluster_name}"
+            if errors:
+                message += f"\n\nErrors:\n" + "\n".join(f"  - {e}" for e in errors)
+
+            jobs[job_id]["status"] = "failed"
+            jobs[job_id]["return_code"] = 1
+            jobs[job_id]["stderr"] += f"\n{message}"
+
+    except Exception as e:
+        import traceback
+        print(f"❌ [DELETE-CLUSTER] Error: {str(e)}")
+        print(traceback.format_exc())
+        jobs[job_id]["status"] = "failed"
+        jobs[job_id]["return_code"] = 1
+        jobs[job_id]["stderr"] += f"❌ Error: {str(e)}\n{traceback.format_exc()}"
+
+
+@app.delete("/api/rosa/clusters/{cluster_name}")
+async def delete_rosa_cluster(cluster_name: str, request: Request, background_tasks: BackgroundTasks):
+    """Delete a ROSA HCP cluster and all its resources"""
+    import time
+    import asyncio
+
+    try:
+        body = await request.json()
+        namespace = body.get("namespace")
+
+        if not namespace:
+            return {"success": False, "message": "Namespace is required"}
+
+        print(f"🗑️ [DELETE-CLUSTER] Deleting cluster: {cluster_name} in namespace: {namespace}")
+
+        # Create job entry immediately
+        job_id = f"delete-cluster-{cluster_name}-{int(time.time())}"
+        jobs[job_id] = {
+            "id": job_id,
+            "description": f"Delete ROSA HCP Cluster: {cluster_name}",
+            "status": "running",
+            "created_at": time.time(),
+            "task_file": None,
+            "playbook_file": None,
+            "stdout": "",
+            "stderr": "",
+            "return_code": None,
+        }
+
+        # Start deletion in background
+        background_tasks.add_task(perform_cluster_deletion, job_id, cluster_name, namespace)
+
+        # Return immediately
+        return {
+            "success": True,
+            "message": f"Cluster deletion started for {cluster_name}",
+            "job_id": job_id,
+        }
 
     except Exception as e:
         import traceback
