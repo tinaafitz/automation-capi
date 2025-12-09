@@ -28,6 +28,10 @@ const TestSuiteSection = ({ theme = 'mce' }) => {
           headerGradient: 'from-purple-600 to-violet-600',
           hoverGradient: 'hover:from-purple-700 hover:to-violet-700',
           border: 'border-purple-200',
+          buttonBg: 'bg-purple-600',
+          buttonHover: 'hover:bg-purple-700',
+          buttonGradient: 'from-purple-600 to-violet-600',
+          buttonGradientHover: 'hover:from-purple-700 hover:to-violet-700',
         };
       case 'mce':
       default:
@@ -35,6 +39,10 @@ const TestSuiteSection = ({ theme = 'mce' }) => {
           headerGradient: 'from-cyan-600 to-blue-600',
           hoverGradient: 'hover:from-cyan-700 hover:to-blue-700',
           border: 'border-cyan-200',
+          buttonBg: 'bg-blue-600',
+          buttonHover: 'hover:bg-blue-700',
+          buttonGradient: 'from-purple-600 to-indigo-600',
+          buttonGradientHover: 'hover:from-purple-700 hover:to-indigo-700',
         };
     }
   };
@@ -185,8 +193,8 @@ const TestSuiteSection = ({ theme = 'mce' }) => {
                             running
                               ? 'bg-gray-400 text-white cursor-not-allowed opacity-60'
                               : needsProvisioningOptions(suite)
-                                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700'
-                                : 'bg-blue-600 text-white hover:bg-blue-700'
+                                ? `bg-gradient-to-r ${colors.buttonGradient} text-white ${colors.buttonGradientHover}`
+                                : `${colors.buttonBg} text-white ${colors.buttonHover}`
                           }`}
                         >
                           {running ? (
