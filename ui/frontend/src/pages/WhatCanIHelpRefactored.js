@@ -13,6 +13,7 @@ import TestSuiteDashboard from '../components/sections/TestSuiteDashboard';
 import TestSuiteSection from '../components/sections/TestSuiteSection';
 import HelmChartTestDashboard from '../components/sections/HelmChartTestDashboard';
 import DraggableSection from '../components/sections/DraggableSection';
+import FilingCabinet from '../components/sections/FilingCabinet';
 import NotificationSettingsModal from '../components/modals/NotificationSettingsModal';
 import { RosaProvisionModal } from '../components/RosaProvisionModal';
 import { YamlEditorModal } from '../components/YamlEditorModal';
@@ -138,6 +139,15 @@ const EnvironmentContent = () => {
   const handleDragEnd = (event) => {
     const { active, over } = event;
 
+    if (!over) return;
+
+    // Check if dragged to filing cabinet
+    if (over.id === 'filing-cabinet-dropzone') {
+      dispatch({ type: AppActionTypes.HIDE_SECTION, payload: active.id });
+      return;
+    }
+
+    // Regular reordering
     if (active.id !== over.id) {
       const oldIndex = app.sectionOrder.indexOf(active.id);
       const newIndex = app.sectionOrder.indexOf(over.id);
@@ -575,6 +585,25 @@ const EnvironmentContent = () => {
             collisionDetection={closestCenter}
             onDragEnd={handleDragEnd}
           >
+            {/* Filing Cabinet Widget Storage - Top Section */}
+            <div className="mb-6">
+              <FilingCabinet
+                hiddenSections={app.hiddenSections}
+                onRestoreSection={(sectionId) => {
+                  dispatch({ type: AppActionTypes.RESTORE_SECTION, payload: sectionId });
+                }}
+                onClearAll={() => {
+                  dispatch({ type: AppActionTypes.RESTORE_ALL_SECTIONS });
+                }}
+                theme={app.selectedEnvironment}
+                isExpanded={app.showFilingCabinet}
+                onToggle={() => {
+                  dispatch({ type: AppActionTypes.TOGGLE_FILING_CABINET });
+                }}
+              />
+            </div>
+
+            {/* Main Sections Area */}
             <SortableContext
               items={app.sectionOrder}
               strategy={verticalListSortingStrategy}

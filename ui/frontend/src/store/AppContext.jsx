@@ -26,6 +26,8 @@ const initialAppState = {
   collapsedSections: new Set(),
   showSetupPrompt: false,
   sectionOrder: ['mce-configuration', 'rosa-hcp-clusters', 'mce-terminal', 'task-summary', 'test-suite-dashboard', 'test-suite-runner', 'task-detail'],
+  hiddenSections: [],
+  showFilingCabinet: false,
 
   // Modal State
   showKindClusterModal: false,
@@ -71,6 +73,10 @@ export const AppActionTypes = {
   TOGGLE_SECTION: 'TOGGLE_SECTION',
   SET_SETUP_PROMPT: 'SET_SETUP_PROMPT',
   SET_SECTION_ORDER: 'SET_SECTION_ORDER',
+  HIDE_SECTION: 'HIDE_SECTION',
+  RESTORE_SECTION: 'RESTORE_SECTION',
+  RESTORE_ALL_SECTIONS: 'RESTORE_ALL_SECTIONS',
+  TOGGLE_FILING_CABINET: 'TOGGLE_FILING_CABINET',
 
   // Modal Actions
   SHOW_KIND_CLUSTER_MODAL: 'SHOW_KIND_CLUSTER_MODAL',
@@ -184,6 +190,41 @@ const appReducer = (state, action) => {
       localStorage.setItem('mce-section-order', JSON.stringify(action.payload));
       return { ...state, sectionOrder: action.payload };
 
+    case AppActionTypes.HIDE_SECTION: {
+      const newHiddenSections = [...state.hiddenSections, action.payload];
+      const newSectionOrder = state.sectionOrder.filter(id => id !== action.payload);
+      localStorage.setItem('mce-hidden-sections', JSON.stringify(newHiddenSections));
+      return {
+        ...state,
+        hiddenSections: newHiddenSections,
+        sectionOrder: newSectionOrder,
+      };
+    }
+
+    case AppActionTypes.RESTORE_SECTION: {
+      const newHiddenSections = state.hiddenSections.filter(id => id !== action.payload);
+      const newSectionOrder = [...state.sectionOrder, action.payload];
+      localStorage.setItem('mce-hidden-sections', JSON.stringify(newHiddenSections));
+      return {
+        ...state,
+        hiddenSections: newHiddenSections,
+        sectionOrder: newSectionOrder,
+      };
+    }
+
+    case AppActionTypes.RESTORE_ALL_SECTIONS: {
+      const newSectionOrder = [...state.sectionOrder, ...state.hiddenSections];
+      localStorage.setItem('mce-hidden-sections', JSON.stringify([]));
+      return {
+        ...state,
+        hiddenSections: [],
+        sectionOrder: newSectionOrder,
+      };
+    }
+
+    case AppActionTypes.TOGGLE_FILING_CABINET:
+      return { ...state, showFilingCabinet: !state.showFilingCabinet };
+
     // Modal Actions
     case AppActionTypes.SHOW_KIND_CLUSTER_MODAL:
       return { ...state, showKindClusterModal: action.payload };
@@ -291,6 +332,22 @@ export const AppProvider = ({ children }) => {
         dispatch({
           type: AppActionTypes.SET_SECTION_ORDER,
           payload: mergedOrder
+        });
+      }
+
+      const savedHiddenSections = localStorage.getItem('mce-hidden-sections');
+      if (savedHiddenSections) {
+        const parsed = JSON.parse(savedHiddenSections);
+        // Update hiddenSections state directly since we already have it in initial state
+        dispatch({
+          type: AppActionTypes.RESTORE_ALL_SECTIONS // This will clear, then we'll set properly
+        });
+        // Set the actual hidden sections
+        parsed.forEach(sectionId => {
+          dispatch({
+            type: AppActionTypes.HIDE_SECTION,
+            payload: sectionId
+          });
         });
       }
     } catch (error) {
