@@ -4,13 +4,38 @@ import { AppActionTypes } from '../../store/AppContext';
 import { ChartBarIcon, ChevronDownIcon, ChevronUpIcon, ArrowPathIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { buildApiUrl, API_ENDPOINTS, validateApiResponse, extractSafeErrorMessage } from '../../config/api';
 
-const RosaHcpClustersSection = () => {
+const RosaHcpClustersSection = ({ theme = 'mce' }) => {
   const app = useApp();
   const dispatch = useAppDispatch();
   const apiStatus = useApiStatusContext();
   const recentOps = useRecentOperationsContext();
   const { ocpStatus } = apiStatus;
   const { addToRecent, updateRecentOperationStatus } = recentOps;
+
+  // Get theme colors
+  const getThemeColors = () => {
+    switch (theme) {
+      case 'minikube':
+        return {
+          headerGradient: 'from-purple-600 to-violet-600',
+          hoverGradient: 'hover:from-purple-700 hover:to-violet-700',
+          border: 'border-purple-200',
+          lightBg: 'from-purple-50 to-violet-50',
+          lightBorder: 'border-purple-200',
+        };
+      case 'mce':
+      default:
+        return {
+          headerGradient: 'from-cyan-600 to-blue-600',
+          hoverGradient: 'hover:from-cyan-700 hover:to-blue-700',
+          border: 'border-cyan-200',
+          lightBg: 'from-cyan-50 to-blue-50',
+          lightBorder: 'border-cyan-200',
+        };
+    }
+  };
+
+  const colors = getThemeColors();
 
   // Cluster monitoring state
   const [clusters, setClusters] = useState([]);
@@ -154,7 +179,7 @@ const RosaHcpClustersSection = () => {
       >
         <div
           onClick={toggleClusterSection}
-          className="flex items-center justify-between p-4 cursor-pointer bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 transition-colors"
+          className={`flex items-center justify-between p-4 cursor-pointer bg-gradient-to-r ${colors.headerGradient} ${colors.hoverGradient} transition-colors`}
         >
           <div className="flex items-center gap-3">
             <div className="bg-white/20 rounded-full p-2">
@@ -208,7 +233,7 @@ const RosaHcpClustersSection = () => {
                 {clusters.map((cluster, idx) => (
                   <div
                     key={cluster.name || idx}
-                    className="flex items-center justify-between p-4 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-lg border border-cyan-200 transition-all duration-200 hover:shadow-md"
+                    className={`flex items-center justify-between p-4 bg-gradient-to-r ${colors.lightBg} rounded-lg border ${colors.lightBorder} transition-all duration-200 hover:shadow-md`}
                   >
                     <div className="flex items-center space-x-3 flex-1 min-w-0">
                       <div

@@ -6393,6 +6393,10 @@ async def ai_assistant_chat(request: Request):
                         response += f"• **{name}** - Status: {status}\n"
                     response += "\n"
                     suggestions = ["Troubleshoot failed cluster", "Provision new cluster"]
+                elif provisioning_clusters:
+                    # Add suggestion to check on the provisioning cluster
+                    first_cluster_name = provisioning_clusters[0].get("name", "unknown")
+                    suggestions = [f"Tell me about {first_cluster_name}", "Check environment status", "Provision new cluster"]
                 else:
                     suggestions = ["Provision new cluster", "What is ROSA HCP?"]
             else:
@@ -6532,6 +6536,20 @@ Enable it during provisioning by checking "Network Automation (ROSANetwork)"."""
 Enable it during provisioning by checking "Role Automation (ROSARoleConfig)"."""
             suggestions = ["What is network automation?", "How to provision cluster?"]
 
+        # Handle environment status questions
+        elif "environment status" in message_lower or "check environment" in message_lower or "environment ready" in message_lower:
+            # Check MCE/CAPI status
+            response = "**Environment Status:**\n\n"
+            response += "I can help you check:\n"
+            response += "• **CAPI/CAPA Configuration** - Click 'Verify' in the Configuration section\n"
+            response += "• **Cluster Resources** - View ROSA HCP Clusters table for all cluster statuses\n"
+            response += "• **Recent Operations** - Check Task Summary for recent activity\n\n"
+            response += "**Quick Actions:**\n"
+            response += "• Verify environment is configured\n"
+            response += "• View cluster status details\n"
+            response += "• Check provisioning progress\n"
+            suggestions = ["What clusters are running?", "Verify environment", "Provision new cluster"]
+
         # Handle status/monitoring questions
         elif "status" in message_lower or "monitoring" in message_lower or "how is" in message_lower:
             if clusters_data:
@@ -6550,21 +6568,77 @@ Enable it during provisioning by checking "Role Automation (ROSARoleConfig)"."""
                 response = "You don't have any clusters to monitor yet. Provision a cluster to get started!"
                 suggestions = ["How to provision cluster?"]
 
-        # Default fallback
+        # Handle specific cluster queries
         else:
-            response = """I can help you with:
+            # Check if user is asking about a specific cluster
+            cluster_match = None
+            for cluster in clusters_data:
+                cluster_name = cluster.get("name", "").lower()
+                if cluster_name and cluster_name in message_lower:
+                    cluster_match = cluster
+                    break
+
+            if cluster_match:
+                name = cluster_match.get("name", "unknown")
+                status = cluster_match.get("status", "unknown")
+                namespace = cluster_match.get("namespace", "unknown")
+                progress = cluster_match.get("progress")
+                region = cluster_match.get("region", "N/A")
+                version = cluster_match.get("version", "N/A")
+                created = cluster_match.get("created", "N/A")
+
+                response = f"## Cluster: **{name}**\n\n"
+                response += f"**Status:** {status}"
+                if progress:
+                    response += f" ({progress}% complete)"
+                response += f"\n\n"
+
+                response += f"**Details:**\n"
+                response += f"• **Namespace:** {namespace}\n"
+                response += f"• **Region:** {region}\n"
+                response += f"• **OpenShift Version:** {version}\n"
+                response += f"• **Created:** {created}\n\n"
+
+                if status == "provisioning":
+                    response += "**Provisioning in progress...**\n\n"
+                    response += "The cluster is being created. This typically takes:\n"
+                    response += "• ROSANetwork: 5-10 minutes\n"
+                    response += "• ROSARoleConfig: 2-3 minutes\n"
+                    response += "• Control Plane: 10-15 minutes\n\n"
+                    response += f"Check the Task Detail section for real-time progress logs."
+                    suggestions = ["What clusters are running?", "How to troubleshoot?"]
+
+                elif status in ["failed", "error", "provisioning-failed"]:
+                    response += "**⚠️ This cluster has failed**\n\n"
+                    response += "**Troubleshooting steps:**\n"
+                    response += f"1. View logs in Task Detail section\n"
+                    response += f"2. Check `oc describe rosacontrolplane {name} -n {namespace}`\n"
+                    response += f"3. Verify rosa-creds-secret exists in {namespace}\n"
+                    response += f"4. Check ROSANetwork and ROSARoleConfig status\n"
+                    suggestions = ["Troubleshoot failed cluster", "Provision new cluster"]
+
+                elif status == "ready":
+                    response += "**✅ Cluster is ready to use!**\n\n"
+                    response += f"You can access it via the OpenShift console or CLI."
+                    suggestions = ["Provision new cluster", "What is ROSA HCP?"]
+                else:
+                    suggestions = ["What clusters are running?", "Provision new cluster"]
+
+            # Default fallback
+            else:
+                response = """I can help you with:
 
 • **Cluster Management**: Provision, list, monitor, and troubleshoot clusters
 • **ROSA/CAPI Concepts**: Explain ROSA HCP, CAPI, network automation, role automation
 • **Troubleshooting**: Help diagnose and fix cluster issues
 
 What would you like to know?"""
-            suggestions = [
-                "What clusters are running?",
-                "How to provision cluster?",
-                "What is ROSA HCP?",
-                "Troubleshoot failed cluster"
-            ]
+                suggestions = [
+                    "What clusters are running?",
+                    "How to provision cluster?",
+                    "What is ROSA HCP?",
+                    "Troubleshoot failed cluster"
+                ]
 
         return {
             "response": response,

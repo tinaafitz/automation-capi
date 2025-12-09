@@ -3,12 +3,14 @@ import { ChevronDownIcon } from '@heroicons/react/20/solid';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import MinikubeEnvironment from '../components/environments/MinikubeEnvironment';
 import MinikubeSetupSection from '../components/sections/MinikubeSetupSection';
+import MinikubeTerminalSection from '../components/sections/MinikubeTerminalSection';
 import ConfigurationSection from '../components/sections/ConfigurationSection';
 import RosaHcpClustersSection from '../components/sections/RosaHcpClustersSection';
 import MCETerminalSection from '../components/sections/MCETerminalSection';
 import TaskSummarySection from '../components/sections/TaskSummarySection';
 import TaskDetailSection from '../components/sections/TaskDetailSection';
 import TestSuiteDashboard from '../components/sections/TestSuiteDashboard';
+import TestSuiteSection from '../components/sections/TestSuiteSection';
 import DraggableSection from '../components/sections/DraggableSection';
 import NotificationSettingsModal from '../components/modals/NotificationSettingsModal';
 import { RosaProvisionModal } from '../components/RosaProvisionModal';
@@ -149,7 +151,9 @@ const EnvironmentContent = () => {
 
   // Reset section order to default
   const resetSectionOrder = () => {
-    const defaultOrder = ['mce-configuration', 'rosa-hcp-clusters', 'mce-terminal', 'task-summary', 'test-suite', 'task-detail'];
+    const defaultOrder = app.selectedEnvironment === 'minikube'
+      ? ['minikube-environment', 'rosa-hcp-clusters', 'minikube-terminal', 'task-summary', 'test-suite-dashboard', 'test-suite-runner', 'task-detail']
+      : ['mce-configuration', 'rosa-hcp-clusters', 'mce-terminal', 'task-summary', 'test-suite-dashboard', 'test-suite-runner', 'task-detail'];
     dispatch({ type: AppActionTypes.SET_SECTION_ORDER, payload: defaultOrder });
   };
 
@@ -162,6 +166,17 @@ const EnvironmentContent = () => {
     const verifyId = `verify-mce-${Date.now()}`;
 
     try {
+      // IMMEDIATELY show "Starting..." in Task Summary for instant feedback (before any async calls!)
+      addToRecent({
+        id: verifyId,
+        title: '🔍 MCE ENVIRONMENT VERIFICATION',
+        color: 'bg-cyan-600',
+        status: '🚀 Starting verification...',
+        environment: 'mce',
+        playbook: 'tasks/validate-capa-environment.yml',
+        output: `Initializing MCE environment verification...\nConnecting to OpenShift cluster...\nValidating MCE components...`
+      });
+
       // Fetch credentials from backend to get the actual API URL
       let apiUrl = 'Loading...';
       try {
@@ -175,16 +190,6 @@ const EnvironmentContent = () => {
       } catch (err) {
         console.error('Failed to fetch credentials:', err);
       }
-
-      addToRecent({
-        id: verifyId,
-        title: 'MCE Environment Verification',
-        color: 'bg-cyan-600',
-        status: '⏳ Verifying...',
-        environment: 'mce',
-        playbook: 'tasks/validate-capa-environment.yml',
-        output: `Initializing MCE environment verification...\n🔗 Cluster: ${apiUrl}\nConnecting to OpenShift cluster...\nValidating MCE components...`
-      });
 
       const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_TASK), {
         method: 'POST',
@@ -204,8 +209,16 @@ const EnvironmentContent = () => {
 
       const result = await response.json();
 
-      if (result.success) {
-        // Remove the temporary frontend entry - backend job will show instead
+      // Task started successfully - job runs in background
+      if (result.success && result.job_id) {
+        console.log(`✅ MCE verification started! Job ID: ${result.job_id}`);
+
+        // Remove the frontend entry - backend job will show instead
+        recentOps.removeRecentOperation(verifyId);
+
+        // The job history system will track completion automatically
+      } else if (result.success) {
+        // Old path for backwards compatibility - remove the entry
         recentOps.removeRecentOperation(verifyId);
 
         // Poll status in background - don't block the UI
@@ -452,25 +465,35 @@ const EnvironmentContent = () => {
         ) : null;
 
       case 'rosa-hcp-clusters':
-        return shouldShowMCE ? (
-          <RosaHcpClustersSection key="rosa-hcp-clusters" />
+        return shouldShowSections ? (
+          <RosaHcpClustersSection key="rosa-hcp-clusters" theme={app.selectedEnvironment} />
         ) : null;
 
       case 'mce-terminal':
         return shouldShowMCE ? (
-          <MCETerminalSection key="mce-terminal" />
+          <MCETerminalSection key="mce-terminal" theme={app.selectedEnvironment} />
         ) : null;
 
-      case 'test-suite':
+      case 'minikube-terminal':
+        return shouldShowMinikube ? (
+          <MinikubeTerminalSection key="minikube-terminal" />
+        ) : null;
+
+      case 'test-suite-dashboard':
         return shouldShowSections ? (
           <TestSuiteDashboard
-            key="test-suite"
+            key="test-suite-dashboard"
             theme={app.selectedEnvironment}
             onSelectTestSuite={(testSuite) => {
               console.log('Selected test suite:', testSuite);
               dispatch({ type: AppActionTypes.SHOW_PROVISION_MODAL, payload: true });
             }}
           />
+        ) : null;
+
+      case 'test-suite-runner':
+        return shouldShowSections ? (
+          <TestSuiteSection key="test-suite-runner" theme={app.selectedEnvironment} />
         ) : null;
 
       case 'minikube-environment':
