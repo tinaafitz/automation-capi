@@ -11,7 +11,7 @@ import { useRecentOperationsContext } from '../../store/AppContext';
 import { useJobHistory } from '../../hooks/useJobHistory';
 import { RosaProvisionModal } from '../RosaProvisionModal';
 
-const TestSuiteSection = () => {
+const TestSuiteSection = ({ theme = 'mce' }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [suites, setSuites] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -19,6 +19,27 @@ const TestSuiteSection = () => {
   const [selectedSuite, setSelectedSuite] = useState(null);
   const recentOps = useRecentOperationsContext();
   const { jobHistory } = useJobHistory();
+
+  // Get theme colors
+  const getThemeColors = () => {
+    switch (theme) {
+      case 'minikube':
+        return {
+          headerGradient: 'from-purple-600 to-violet-600',
+          hoverGradient: 'hover:from-purple-700 hover:to-violet-700',
+          border: 'border-purple-200',
+        };
+      case 'mce':
+      default:
+        return {
+          headerGradient: 'from-cyan-600 to-blue-600',
+          hoverGradient: 'hover:from-cyan-700 hover:to-blue-700',
+          border: 'border-cyan-200',
+        };
+    }
+  };
+
+  const colors = getThemeColors();
 
   // Check if a playbook is currently running
   const isPlaybookRunning = (suiteName) => {
@@ -106,10 +127,10 @@ const TestSuiteSection = () => {
 
   return (
     <div className="mb-6">
-      <div className="bg-white rounded-xl shadow-lg border-2 border-cyan-200 overflow-hidden">
+      <div className={`bg-white rounded-xl shadow-lg border-2 ${colors.border} overflow-hidden`}>
         {/* Section Header */}
         <div
-          className="flex items-center justify-between p-4 cursor-pointer bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 transition-colors"
+          className={`flex items-center justify-between p-4 cursor-pointer bg-gradient-to-r ${colors.headerGradient} ${colors.hoverGradient} transition-colors`}
           onClick={() => setIsExpanded(!isExpanded)}
         >
           <div className="flex items-center gap-3">

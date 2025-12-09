@@ -493,7 +493,7 @@ const EnvironmentContent = () => {
 
       case 'test-suite-runner':
         return shouldShowSections ? (
-          <TestSuiteSection key="test-suite-runner" />
+          <TestSuiteSection key="test-suite-runner" theme={app.selectedEnvironment} />
         ) : null;
 
       case 'minikube-environment':
