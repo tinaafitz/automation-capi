@@ -48,3 +48,4 @@ coverage.xml
 ui (original)/
 ui (original 2)/
 vars/notification_config.yml
+*.db
