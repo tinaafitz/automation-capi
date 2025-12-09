@@ -3,7 +3,7 @@ import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 import { useApp, useAppDispatch } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
 
-const MCETerminalSection = () => {
+const MCETerminalSection = ({ theme = 'mce' }) => {
   const app = useApp();
   const dispatch = useAppDispatch();
   const [command, setCommand] = useState('');
@@ -19,6 +19,29 @@ const MCETerminalSection = () => {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [executing, setExecuting] = useState(false);
   const outputRef = useRef(null);
+
+  // Get theme colors
+  const getThemeColors = () => {
+    switch (theme) {
+      case 'minikube':
+        return {
+          headerGradient: 'from-purple-600 to-violet-600',
+          hoverGradient: 'hover:from-purple-700 hover:to-violet-700',
+          border: 'border-purple-200',
+          lightBg: 'from-purple-50 to-violet-50',
+        };
+      case 'mce':
+      default:
+        return {
+          headerGradient: 'from-cyan-600 to-blue-600',
+          hoverGradient: 'hover:from-cyan-700 hover:to-blue-700',
+          border: 'border-cyan-200',
+          lightBg: 'from-cyan-50 to-blue-50',
+        };
+    }
+  };
+
+  const colors = getThemeColors();
 
   // Get collapse state from context
   const isCollapsed = app.collapsedSections?.has('mce-terminal') || false;
@@ -140,10 +163,10 @@ const MCETerminalSection = () => {
   ];
 
   return (
-    <div className="mt-6 bg-gradient-to-br from-cyan-50 to-blue-50 rounded-2xl shadow-md border border-cyan-200 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
+    <div className={`mt-6 bg-gradient-to-br ${colors.lightBg} rounded-2xl shadow-md border ${colors.border} overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300`}>
       {/* Terminal Header - Click anywhere to toggle */}
       <div
-        className="bg-gradient-to-r from-cyan-600 to-blue-600 text-white px-6 py-4 flex items-center justify-between cursor-pointer hover:from-cyan-700 hover:to-blue-700 transition-colors"
+        className={`bg-gradient-to-r ${colors.headerGradient} text-white px-6 py-4 flex items-center justify-between cursor-pointer ${colors.hoverGradient} transition-colors`}
         onClick={toggleSection}
         title={isCollapsed ? 'Click to expand Terminal' : 'Click to collapse Terminal'}
       >
@@ -221,7 +244,7 @@ const MCETerminalSection = () => {
                 <button
                   onClick={executeCommand}
                   disabled={executing || !command.trim()}
-                  className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:from-cyan-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  className={`px-6 py-3 bg-gradient-to-r ${colors.headerGradient} text-white rounded-lg ${colors.hoverGradient} transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium`}
                 >
                   {executing ? 'Running...' : 'Execute'}
                 </button>

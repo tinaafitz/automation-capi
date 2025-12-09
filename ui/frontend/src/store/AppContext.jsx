@@ -25,7 +25,7 @@ const initialAppState = {
   showEnvironmentDropdown: false,
   collapsedSections: new Set(),
   showSetupPrompt: false,
-  sectionOrder: ['mce-configuration', 'rosa-hcp-clusters', 'mce-terminal', 'task-summary', 'test-suite', 'task-detail'],
+  sectionOrder: ['mce-configuration', 'rosa-hcp-clusters', 'mce-terminal', 'task-summary', 'test-suite-dashboard', 'test-suite-runner', 'task-detail'],
 
   // Modal State
   showKindClusterModal: false,
@@ -150,8 +150,18 @@ const appReducer = (state, action) => {
     }
 
     // Environment Actions
-    case AppActionTypes.SET_SELECTED_ENVIRONMENT:
-      return { ...state, selectedEnvironment: action.payload };
+    case AppActionTypes.SET_SELECTED_ENVIRONMENT: {
+      // Update section order based on selected environment
+      const newSectionOrder = action.payload === 'minikube'
+        ? ['minikube-environment', 'rosa-hcp-clusters', 'minikube-terminal', 'task-summary', 'test-suite-dashboard', 'test-suite-runner', 'task-detail']
+        : ['mce-configuration', 'rosa-hcp-clusters', 'mce-terminal', 'task-summary', 'test-suite-dashboard', 'test-suite-runner', 'task-detail'];
+
+      return {
+        ...state,
+        selectedEnvironment: action.payload,
+        sectionOrder: newSectionOrder
+      };
+    }
     
     case AppActionTypes.TOGGLE_ENVIRONMENT_DROPDOWN:
       return { ...state, showEnvironmentDropdown: !state.showEnvironmentDropdown };
@@ -266,9 +276,18 @@ export const AppProvider = ({ children }) => {
       const savedSectionOrder = localStorage.getItem('mce-section-order');
       if (savedSectionOrder) {
         const parsed = JSON.parse(savedSectionOrder);
+
+        // Migrate old 'test-suite' to new 'test-suite-dashboard' and 'test-suite-runner'
+        const migratedOrder = parsed.flatMap(id => {
+          if (id === 'test-suite') {
+            return ['test-suite-dashboard', 'test-suite-runner'];
+          }
+          return id;
+        });
+
         // Ensure all new sections are included (merge with default)
-        const defaultOrder = ['mce-configuration', 'rosa-hcp-clusters', 'mce-terminal', 'task-summary', 'test-suite', 'task-detail'];
-        const mergedOrder = [...new Set([...parsed, ...defaultOrder])];
+        const defaultOrder = ['mce-configuration', 'rosa-hcp-clusters', 'mce-terminal', 'task-summary', 'test-suite-dashboard', 'test-suite-runner', 'task-detail'];
+        const mergedOrder = [...new Set([...migratedOrder, ...defaultOrder])];
         dispatch({
           type: AppActionTypes.SET_SECTION_ORDER,
           payload: mergedOrder

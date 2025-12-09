@@ -3,7 +3,6 @@ import EnvironmentCard from '../cards/EnvironmentCard';
 import StatusCard from '../cards/StatusCard';
 import ComponentStatusCard from '../cards/ComponentStatusCard';
 import MinikubeTerminalModal from '../modals/MinikubeTerminalModal';
-import MinikubeTerminalSection from '../sections/MinikubeTerminalSection';
 import { useMinikubeContext, useRecentOperationsContext, useApp, useAppDispatch } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
 import { cardStyles } from '../../styles/themes';
@@ -305,9 +304,6 @@ const MinikubeEnvironment = () => {
           </div>
         </EnvironmentCard>
       </div>
-
-      {/* Minikube Terminal Section */}
-      <MinikubeTerminalSection clusterName={verifiedMinikubeClusterInfo?.name} />
 
       {/* Terminal Modal */}
       <MinikubeTerminalModal

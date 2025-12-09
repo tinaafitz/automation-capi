@@ -3,12 +3,14 @@ import { ChevronDownIcon } from '@heroicons/react/20/solid';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import MinikubeEnvironment from '../components/environments/MinikubeEnvironment';
 import MinikubeSetupSection from '../components/sections/MinikubeSetupSection';
+import MinikubeTerminalSection from '../components/sections/MinikubeTerminalSection';
 import ConfigurationSection from '../components/sections/ConfigurationSection';
 import RosaHcpClustersSection from '../components/sections/RosaHcpClustersSection';
 import MCETerminalSection from '../components/sections/MCETerminalSection';
 import TaskSummarySection from '../components/sections/TaskSummarySection';
 import TaskDetailSection from '../components/sections/TaskDetailSection';
 import TestSuiteDashboard from '../components/sections/TestSuiteDashboard';
+import TestSuiteSection from '../components/sections/TestSuiteSection';
 import DraggableSection from '../components/sections/DraggableSection';
 import NotificationSettingsModal from '../components/modals/NotificationSettingsModal';
 import { RosaProvisionModal } from '../components/RosaProvisionModal';
@@ -149,7 +151,9 @@ const EnvironmentContent = () => {
 
   // Reset section order to default
   const resetSectionOrder = () => {
-    const defaultOrder = ['mce-configuration', 'rosa-hcp-clusters', 'mce-terminal', 'task-summary', 'test-suite', 'task-detail'];
+    const defaultOrder = app.selectedEnvironment === 'minikube'
+      ? ['minikube-environment', 'rosa-hcp-clusters', 'minikube-terminal', 'task-summary', 'test-suite-dashboard', 'test-suite-runner', 'task-detail']
+      : ['mce-configuration', 'rosa-hcp-clusters', 'mce-terminal', 'task-summary', 'test-suite-dashboard', 'test-suite-runner', 'task-detail'];
     dispatch({ type: AppActionTypes.SET_SECTION_ORDER, payload: defaultOrder });
   };
 
@@ -461,25 +465,35 @@ const EnvironmentContent = () => {
         ) : null;
 
       case 'rosa-hcp-clusters':
-        return shouldShowMCE ? (
-          <RosaHcpClustersSection key="rosa-hcp-clusters" />
+        return shouldShowSections ? (
+          <RosaHcpClustersSection key="rosa-hcp-clusters" theme={app.selectedEnvironment} />
         ) : null;
 
       case 'mce-terminal':
         return shouldShowMCE ? (
-          <MCETerminalSection key="mce-terminal" />
+          <MCETerminalSection key="mce-terminal" theme={app.selectedEnvironment} />
         ) : null;
 
-      case 'test-suite':
+      case 'minikube-terminal':
+        return shouldShowMinikube ? (
+          <MinikubeTerminalSection key="minikube-terminal" />
+        ) : null;
+
+      case 'test-suite-dashboard':
         return shouldShowSections ? (
           <TestSuiteDashboard
-            key="test-suite"
+            key="test-suite-dashboard"
             theme={app.selectedEnvironment}
             onSelectTestSuite={(testSuite) => {
               console.log('Selected test suite:', testSuite);
               dispatch({ type: AppActionTypes.SHOW_PROVISION_MODAL, payload: true });
             }}
           />
+        ) : null;
+
+      case 'test-suite-runner':
+        return shouldShowSections ? (
+          <TestSuiteSection key="test-suite-runner" />
         ) : null;
 
       case 'minikube-environment':
