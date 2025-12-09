@@ -65,11 +65,12 @@ const MCEEnvironment = () => {
     const verifyId = `verify-mce-${Date.now()}`;
 
     try {
+      // Immediately show "Starting..." in Task Summary for instant feedback
       addToRecent({
         id: verifyId,
-        title: 'MCE Environment Verification',
+        title: '🔍 MCE ENVIRONMENT VERIFICATION',
         color: 'bg-cyan-600',
-        status: '⏳ Verifying...',
+        status: '🚀 Starting verification...',
         environment: 'mce',
         playbook: 'tasks/validate-capa-environment.yml',
         output: 'Initializing MCE environment verification...\nConnecting to OpenShift cluster...\nValidating MCE components...'
@@ -93,7 +94,20 @@ const MCEEnvironment = () => {
 
       const result = await response.json();
 
-      if (result.success) {
+      // Task started successfully - job runs in background
+      if (result.success && result.job_id) {
+        console.log(`✅ MCE verification started! Job ID: ${result.job_id}`);
+
+        // Update status to show it's running (not completed)
+        updateRecentOperationStatus(
+          verifyId,
+          `⏳ Verification running...`,
+          'MCE environment verification is running in the background.\nProgress and results will appear below in Task Detail section.'
+        );
+
+        // The job history system will track completion automatically
+        // When job completes, check the result
+      } else if (result.success) {
         const completionTime = new Date().toLocaleTimeString('en-US', {
           hour: 'numeric',
           minute: '2-digit',
@@ -119,7 +133,9 @@ const MCEEnvironment = () => {
 
         // Check if environment needs configuration
         const needsConfiguration = result.error?.includes('ENVIRONMENT NEEDS TO BE CONFIGURED') ||
-                                   result.output?.includes('ENVIRONMENT NEEDS TO BE CONFIGURED');
+                                   result.output?.includes('ENVIRONMENT NEEDS TO BE CONFIGURED') ||
+                                   result.error?.includes('CAPI controller') ||
+                                   result.output?.includes('CAPI controller');
 
         // Check if this is an OpenShift login failure
         const isLoginFailure = result.error?.includes('OPENSHIFT LOGIN FAILED') ||
@@ -128,8 +144,8 @@ const MCEEnvironment = () => {
                                result.output?.includes('OPENSHIFT LOGIN FAILED') ||
                                result.output?.includes('Unauthorized');
 
-        if (loginSuccessful && needsConfiguration) {
-          // Login succeeded but CAPI not configured - update status to show connection works
+        if (needsConfiguration && !isLoginFailure) {
+          // CAPI not configured - show helpful setup instructions (not a failure!)
           setOcpStatus({
             connected: true,
             status: 'connected',
@@ -140,28 +156,29 @@ const MCEEnvironment = () => {
 
           updateRecentOperationStatus(
             verifyId,
-            `⚙️ Configuration Required`,
-            `MCE CAPI/CAPA Environment Setup Needed
+            `⚙️ Configuration Needed - Ready to Set Up`,
+            `✅ Environment Ready for Configuration
 
-✅ OpenShift connection successful
-❌ CAPI controller is not deployed
+Your OpenShift cluster connection is working! The CAPI/CAPA components just need to be configured for ROSA HCP provisioning.
 
-The Cluster API (CAPI) and AWS provider (CAPA) components need to be configured before you can provision ROSA HCP clusters.
+📋 Quick Setup (takes ~2-3 minutes):
 
-📋 Next Steps:
+1. Click the "Configure" button in the Components card above
+   → This enables cluster-api in your MCE instance
+   → Deploys CAPI and AWS provider (CAPA) controllers
+   → Sets up AWS integration for ROSA
 
-1. Click the "Configure" button in the Components card
-   • This will enable the cluster-api component in MCE
-   • Deploy CAPI and CAPA controllers
-   • Set up AWS provider integration
+2. Wait for the configuration to complete
+   → Watch progress in the Task Detail section below
 
-2. Wait for configuration to complete (~2-3 minutes)
+3. Start provisioning ROSA HCP clusters!
 
-3. Click "Verify" again to confirm the environment is ready
+💡 This is a one-time setup. Once configured, you can provision clusters anytime.
 
-4. Start provisioning ROSA HCP clusters!
-
-📝 Note: This is a one-time setup required for managing ROSA clusters via CAPI.`
+🔧 What gets configured:
+   • cluster-api component
+   • cluster-api-provider-aws (CAPA)
+   • AWS credentials integration`
           );
 
           // Refresh status to update the UI
@@ -261,13 +278,14 @@ Once logged in, click "Verify" again to retry.`
   // Handle configure action
   const handleConfigure = async () => {
     const configureId = `configure-capi-capa-${Date.now()}`;
-    
+
     try {
+      // Immediately show "Starting..." in Task Summary for instant feedback
       addToRecent({
         id: configureId,
-        title: 'Configure MCE CAPI/CAPA Environment',
+        title: '⚙️ CONFIGURE MCE CAPI/CAPA',
         color: 'bg-cyan-600',
-        status: '⏳ Configuring...',
+        status: '🚀 Starting configuration...',
         environment: 'mce',
         playbook: 'configure_capi_environment.yaml',
         output: 'Starting MCE CAPI/CAPA environment configuration...\nPreparing OpenShift login...\nConfiguring Cluster API components...\nSetting up AWS provider...'
@@ -291,7 +309,19 @@ Once logged in, click "Verify" again to retry.`
 
       const result = await response.json();
 
-      if (result.success) {
+      // Task started successfully - job runs in background
+      if (result.success && result.job_id) {
+        console.log(`✅ MCE CAPI/CAPA configuration started! Job ID: ${result.job_id}`);
+
+        // Update status to show it's running (not completed)
+        updateRecentOperationStatus(
+          configureId,
+          `⏳ Configuration running...`,
+          'MCE CAPI/CAPA configuration is running in the background.\nProgress and results will appear below in Task Detail section.'
+        );
+
+        // The job history system will track completion automatically
+      } else if (result.success) {
         const initiatedTime = new Date().toLocaleTimeString('en-US', {
           hour: 'numeric',
           minute: '2-digit',
@@ -445,11 +475,12 @@ Once logged in, click "Configure" again to retry.`
     const disableId = `disable-capi-${Date.now()}`;
 
     try {
+      // Immediately show "Starting..." in Task Summary for instant feedback
       addToRecent({
         id: disableId,
-        title: 'Disable CAPI Components',
+        title: '⛔ DISABLE CAPI COMPONENTS',
         color: 'bg-red-600',
-        status: '⏳ Disabling...',
+        status: '🚀 Starting disable operation...',
         environment: 'mce',
         playbook: 'tasks/disable_capi.yml',
         output: 'Starting CAPI component disable operation...\nUpdating MultiClusterEngine configuration...\nDisabling cluster-api and cluster-api-provider-aws...\nEnabling hypershift and hypershift-local-hosting...'
@@ -473,7 +504,19 @@ Once logged in, click "Configure" again to retry.`
 
       const result = await response.json();
 
-      if (result.success) {
+      // Task started successfully - job runs in background
+      if (result.success && result.job_id) {
+        console.log(`✅ Disable CAPI started! Job ID: ${result.job_id}`);
+
+        // Update status to show it's running (not completed)
+        updateRecentOperationStatus(
+          disableId,
+          `⏳ Disable operation running...`,
+          'CAPI disable operation is running in the background.\nProgress and results will appear below in Task Detail section.'
+        );
+
+        // The job history system will track completion automatically
+      } else if (result.success) {
         const initiatedTime = new Date().toLocaleTimeString('en-US', {
           hour: 'numeric',
           minute: '2-digit',

@@ -162,6 +162,17 @@ const EnvironmentContent = () => {
     const verifyId = `verify-mce-${Date.now()}`;
 
     try {
+      // IMMEDIATELY show "Starting..." in Task Summary for instant feedback (before any async calls!)
+      addToRecent({
+        id: verifyId,
+        title: '🔍 MCE ENVIRONMENT VERIFICATION',
+        color: 'bg-cyan-600',
+        status: '🚀 Starting verification...',
+        environment: 'mce',
+        playbook: 'tasks/validate-capa-environment.yml',
+        output: `Initializing MCE environment verification...\nConnecting to OpenShift cluster...\nValidating MCE components...`
+      });
+
       // Fetch credentials from backend to get the actual API URL
       let apiUrl = 'Loading...';
       try {
@@ -175,16 +186,6 @@ const EnvironmentContent = () => {
       } catch (err) {
         console.error('Failed to fetch credentials:', err);
       }
-
-      addToRecent({
-        id: verifyId,
-        title: 'MCE Environment Verification',
-        color: 'bg-cyan-600',
-        status: '⏳ Verifying...',
-        environment: 'mce',
-        playbook: 'tasks/validate-capa-environment.yml',
-        output: `Initializing MCE environment verification...\n🔗 Cluster: ${apiUrl}\nConnecting to OpenShift cluster...\nValidating MCE components...`
-      });
 
       const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_TASK), {
         method: 'POST',
@@ -204,8 +205,16 @@ const EnvironmentContent = () => {
 
       const result = await response.json();
 
-      if (result.success) {
-        // Remove the temporary frontend entry - backend job will show instead
+      // Task started successfully - job runs in background
+      if (result.success && result.job_id) {
+        console.log(`✅ MCE verification started! Job ID: ${result.job_id}`);
+
+        // Remove the frontend entry - backend job will show instead
+        recentOps.removeRecentOperation(verifyId);
+
+        // The job history system will track completion automatically
+      } else if (result.success) {
+        // Old path for backwards compatibility - remove the entry
         recentOps.removeRecentOperation(verifyId);
 
         // Poll status in background - don't block the UI

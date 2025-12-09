@@ -12,26 +12,7 @@
 # ======================================================
 - name: Verify OCP context is set (from login)
   fail:
-    msg: |
-      ❌ OCP LOGIN FAILED ❌
-
-      OpenShift Hub login has not been completed successfully.
-
-      The OCP context is not set, which means login did not succeed.
-
-      ⚠️  REQUIRED ACTION:
-
-      1. Check your credentials in vars/user_vars.yml:
-         - OCP_HUB_API_URL
-         - OCP_HUB_CLUSTER_USER
-         - OCP_HUB_CLUSTER_PASSWORD
-
-      2. Verify the cluster is accessible:
-         oc login {{ api_url | default('your-cluster-api-url') }}
-
-      3. Check network connectivity to the OpenShift Hub cluster
-
-      4. Retry the validation after fixing login issues
+    msg: "🔑 OpenShift login needed - Click 'Credentials' button to update cluster connection details"
   when: ocp_context is not defined or ocp_context == ''
 
 - name: OCP Login Check
@@ -51,26 +32,7 @@
 
 - name: Fail if CAPI controller not found
   fail:
-    msg: |
-      ❌ ENVIRONMENT NEEDS TO BE CONFIGURED ❌
-
-      CAPI controller (capi-controller-manager) is not deployed.
-
-      The Cluster API controller is required for managing ROSA HCP clusters.
-
-      ⚠️  REQUIRED ACTION:
-
-      1. Click the "Configure Environment" button to set up CAPI/CAPA
-
-      2. Or manually run the configuration:
-         - From the UI: Click "Configure Environment"
-         - From CLI: Run the configure-capa-environment role
-
-      3. Wait for the controllers to be deployed
-
-      4. Retry validation after configuration completes
-
-      📝 Note: This is expected if you haven't run the initial setup yet.
+    msg: "⚙️ Configuration needed - Click 'Configure' button in Components card to set up CAPI/CAPA"
   when: capi_controller_manager.stdout | length == 0
 
 - name: CAPI Controller Check
@@ -87,26 +49,7 @@
 
 - name: Fail if CAPA controller not found
   fail:
-    msg: |
-      ❌ ENVIRONMENT NEEDS TO BE CONFIGURED ❌
-
-      CAPA controller (capa-controller-manager) is not deployed.
-
-      The Cluster API Provider AWS controller is required for provisioning on AWS.
-
-      ⚠️  REQUIRED ACTION:
-
-      1. Click the "Configure Environment" button to set up CAPI/CAPA
-
-      2. Or manually run the configuration:
-         - From the UI: Click "Configure Environment"
-         - From CLI: Run the configure-capa-environment role
-
-      3. Wait for the controllers to be deployed
-
-      4. Retry validation after configuration completes
-
-      📝 Note: CAPI controller is present but CAPA (AWS provider) is missing.
+    msg: "⚙️ AWS provider needed - Click 'Configure' button to add cluster-api-provider-aws (CAPA)"
   when: capa_controller_manager.stdout | length == 0
 
 - name: CAPA Controller Check
