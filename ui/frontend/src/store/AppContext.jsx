@@ -153,7 +153,7 @@ const appReducer = (state, action) => {
     case AppActionTypes.SET_SELECTED_ENVIRONMENT: {
       // Update section order based on selected environment
       const newSectionOrder = action.payload === 'minikube'
-        ? ['minikube-environment', 'rosa-hcp-clusters', 'minikube-terminal', 'task-summary', 'test-suite-dashboard', 'test-suite-runner', 'task-detail']
+        ? ['minikube-environment', 'rosa-hcp-clusters', 'minikube-terminal', 'task-summary', 'test-suite-dashboard', 'test-suite-runner', 'helm-chart-tests', 'task-detail']
         : ['mce-configuration', 'rosa-hcp-clusters', 'mce-terminal', 'task-summary', 'test-suite-dashboard', 'test-suite-runner', 'task-detail'];
 
       return {

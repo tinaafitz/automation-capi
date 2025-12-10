@@ -11,6 +11,7 @@ import TaskSummarySection from '../components/sections/TaskSummarySection';
 import TaskDetailSection from '../components/sections/TaskDetailSection';
 import TestSuiteDashboard from '../components/sections/TestSuiteDashboard';
 import TestSuiteSection from '../components/sections/TestSuiteSection';
+import HelmChartTestDashboard from '../components/sections/HelmChartTestDashboard';
 import DraggableSection from '../components/sections/DraggableSection';
 import NotificationSettingsModal from '../components/modals/NotificationSettingsModal';
 import { RosaProvisionModal } from '../components/RosaProvisionModal';
@@ -152,7 +153,7 @@ const EnvironmentContent = () => {
   // Reset section order to default
   const resetSectionOrder = () => {
     const defaultOrder = app.selectedEnvironment === 'minikube'
-      ? ['minikube-environment', 'rosa-hcp-clusters', 'minikube-terminal', 'task-summary', 'test-suite-dashboard', 'test-suite-runner', 'task-detail']
+      ? ['minikube-environment', 'rosa-hcp-clusters', 'minikube-terminal', 'task-summary', 'test-suite-dashboard', 'test-suite-runner', 'helm-chart-tests', 'task-detail']
       : ['mce-configuration', 'rosa-hcp-clusters', 'mce-terminal', 'task-summary', 'test-suite-dashboard', 'test-suite-runner', 'task-detail'];
     dispatch({ type: AppActionTypes.SET_SECTION_ORDER, payload: defaultOrder });
   };
@@ -494,6 +495,11 @@ const EnvironmentContent = () => {
       case 'test-suite-runner':
         return shouldShowSections ? (
           <TestSuiteSection key="test-suite-runner" theme={app.selectedEnvironment} />
+        ) : null;
+
+      case 'helm-chart-tests':
+        return shouldShowSections ? (
+          <HelmChartTestDashboard key="helm-chart-tests" theme={app.selectedEnvironment} />
         ) : null;
 
       case 'minikube-environment':
