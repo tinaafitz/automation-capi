@@ -140,18 +140,21 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
   const filePath = yamlData?.file_paths?.[0] || 'Generated YAML';
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl min-h-[600px] max-h-[90vh] flex flex-col my-8">
         {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
+        <div className="sticky top-0 bg-white border-b-2 border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
           <div className="flex items-center gap-3">
-            <DocumentTextIcon className="h-7 w-7" />
+            <div className="bg-gradient-to-br from-cyan-600 to-blue-600 p-2 rounded-xl">
+              <DocumentTextIcon className="h-6 w-6 text-white" />
+            </div>
             <div>
-              <h2 className="text-xl font-bold">
+              <h2 className="text-xl font-bold text-gray-900">
                 {readOnly ? 'Resource YAML' : 'Review & Edit Provisioning YAML'}
               </h2>
               {(yamlData?.resource_name || yamlData?.cluster_name) && (
-                <p className="text-sm text-purple-100 mt-0.5">
+                <p className="text-sm text-gray-600 mt-0.5">
                   {yamlData?.resource_name || yamlData?.cluster_name}
                   {yamlData?.resource_type && ` • ${yamlData.resource_type}`}
                   {yamlData?.feature_type && ` • ${yamlData.feature_type}`}
@@ -161,7 +164,7 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
           </div>
           <button
             onClick={onClose}
-            className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
+            className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-2 transition-colors"
             title="Close"
           >
             <XMarkIcon className="h-6 w-6" />
@@ -189,7 +192,7 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
           <div className="flex items-center gap-2">
             <button
               onClick={handleDownload}
-              className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 transition-colors text-sm font-medium"
+              className="flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
               title="Download YAML"
             >
               <ArrowDownTrayIcon className="h-4 w-4" />
@@ -198,7 +201,7 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
             <button
               onClick={handleReset}
               disabled={!hasChanges}
-              className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 text-gray-700 rounded-md hover:bg-gray-100 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               title="Reset to original"
             >
               <ArrowPathIcon className="h-4 w-4" />
@@ -207,10 +210,10 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
             <button
               onClick={() => setShowDiff(!showDiff)}
               disabled={!hasChanges}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
                 showDiff
-                  ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-                  : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                  ? 'bg-cyan-100 text-cyan-700 hover:bg-cyan-200 border border-cyan-300'
+                  : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
               }`}
               title="Show changes"
             >
@@ -221,14 +224,14 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
           {/* Validation Status */}
           <div className="flex items-center gap-2">
             {validationError ? (
-              <div className="flex items-center gap-2 text-red-600 text-sm">
-                <ExclamationTriangleIcon className="h-5 w-5" />
-                <span className="font-medium">Invalid YAML</span>
+              <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg">
+                <ExclamationTriangleIcon className="h-5 w-5 text-red-600" />
+                <span className="font-medium text-red-700 text-sm">Invalid YAML</span>
               </div>
             ) : (
-              <div className="flex items-center gap-2 text-green-600 text-sm">
-                <CheckCircleIcon className="h-5 w-5" />
-                <span className="font-medium">Valid YAML</span>
+              <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+                <CheckCircleIcon className="h-5 w-5 text-green-600" />
+                <span className="font-medium text-green-700 text-sm">Valid YAML</span>
               </div>
             )}
           </div>
@@ -286,19 +289,19 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
             </div>
           ) : (
             /* YAML Editor */
-            <div className="p-4">
+            <div className="p-6 flex-1 min-h-0">
               <textarea
                 ref={textareaRef}
                 value={editedYaml}
                 onChange={handleYamlChange}
                 readOnly={readOnly}
-                className={`w-full h-[500px] p-4 font-mono text-sm bg-white border border-gray-300 rounded-lg resize-none ${
-                  readOnly ? 'cursor-default' : 'focus:ring-2 focus:ring-purple-500 focus:border-purple-500'
+                className={`w-full h-full p-4 font-mono text-sm bg-gray-900 text-gray-100 border-2 border-gray-700 rounded-xl resize-none shadow-inner ${
+                  readOnly ? 'cursor-default' : 'focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500'
                 }`}
                 spellCheck="false"
                 style={{
                   tabSize: 2,
-                  lineHeight: '1.5',
+                  lineHeight: '1.6',
                 }}
               />
             </div>
@@ -306,18 +309,18 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
         </div>
 
         {/* Footer with file path and actions */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 rounded-b-lg">
+        <div className="bg-white border-t-2 border-gray-200 px-6 py-4 rounded-b-2xl">
           <div className="flex items-center justify-between">
             <div className="text-xs text-gray-500">
               <p>
                 Saved to:{' '}
-                <code className="bg-gray-100 px-2 py-0.5 rounded">
+                <code className="bg-gray-100 px-2 py-0.5 rounded text-gray-700 font-medium">
                   generated-yamls/{new Date().toISOString().split('T')[0]}/
                 </code>
               </p>
               <p className="mt-1">
                 File:{' '}
-                <code className="bg-gray-100 px-2 py-0.5 rounded">
+                <code className="bg-gray-100 px-2 py-0.5 rounded text-gray-700 font-medium">
                   {yamlData?.cluster_name}-{yamlData?.feature_type}.yaml
                 </code>
               </p>
@@ -326,7 +329,7 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
               <button
                 type="button"
                 onClick={onClose}
-                className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-medium transition-colors"
+                className="px-5 py-2.5 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
               >
                 {readOnly ? 'Close' : 'Cancel'}
               </button>
@@ -334,7 +337,7 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
                 <button
                   onClick={handleProvision}
                   disabled={!!validationError}
-                  className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-md hover:from-purple-700 hover:to-indigo-700 font-medium transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:from-cyan-700 hover:to-blue-700 font-medium transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Provision Now
                 </button>
@@ -342,6 +345,7 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

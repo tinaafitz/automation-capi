@@ -3,6 +3,7 @@ import EnvironmentCard from '../cards/EnvironmentCard';
 import StatusCard from '../cards/StatusCard';
 import ComponentStatusCard from '../cards/ComponentStatusCard';
 import MinikubeTerminalModal from '../modals/MinikubeTerminalModal';
+import MinikubeClusterConfigModal from '../modals/MinikubeClusterConfigModal';
 import { useMinikubeContext, useRecentOperationsContext, useApp, useAppDispatch } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
 import { cardStyles } from '../../styles/themes';
@@ -13,6 +14,7 @@ const MinikubeEnvironment = () => {
   const minikube = useMinikubeContext();
   const recentOps = useRecentOperationsContext();
   const [showTerminalModal, setShowTerminalModal] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
 
   const {
     verifiedMinikubeClusterInfo,
@@ -77,6 +79,84 @@ const MinikubeEnvironment = () => {
     setShowTerminalModal(true);
   };
 
+  // Handle CAPI/CAPA configuration
+  const handleComponentConfigure = async () => {
+    const configureId = `configure-capi-${Date.now()}`;
+
+    // Get cluster name from the same sources as display
+    const targetClusterName = verifiedMinikubeClusterInfo?.name ||
+                              verifiedMinikubeClusterInfo?.cluster_name ||
+                              selectedMinikubeCluster ||
+                              minikubeClusterInput;
+
+    if (!targetClusterName) {
+      alert('Please verify a Minikube cluster first');
+      return;
+    }
+
+    try {
+      // IMMEDIATELY show "Starting..." in Task Summary for instant feedback (before any async calls!)
+      addToRecent({
+        id: configureId,
+        title: '🚀 INITIALIZE CAPI/CAPA ON MINIKUBE',
+        color: 'bg-purple-600',
+        status: '🚀 Starting initialization...',
+        environment: 'minikube',
+        output: `Initializing CAPI/CAPA components on cluster "${targetClusterName}"...\n\nSubmitting request to backend...\n\nThis will:\n- Install Cluster API controllers\n- Install AWS provider (CAPA)\n- Configure ROSA CRDs\n- Set up credentials`
+      });
+
+      const response = await fetch('http://localhost:8000/api/minikube/initialize-capi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cluster_name: targetClusterName }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success && data.job_id) {
+        console.log(`✅ CAPI initialization started! Job ID: ${data.job_id}`);
+
+        // Remove the frontend entry - backend job will show instead
+        recentOps.removeRecentOperation(configureId);
+
+        // The job history system will track completion automatically
+      } else if (response.ok && data.success) {
+        // Old path without job_id - remove the entry and show simple success
+        recentOps.removeRecentOperation(configureId);
+
+        const completionTime = new Date().toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+        });
+
+        addToRecent({
+          id: `configure-capi-complete-${Date.now()}`,
+          title: 'Initialize CAPI/CAPA on Minikube',
+          color: 'bg-purple-600',
+          status: `✅ CAPI/CAPA initialized at ${completionTime}`,
+          environment: 'minikube',
+          output: `CAPI/CAPA Initialization Complete\n\n✅ Cluster API controllers installed\n✅ AWS provider configured\n✅ ROSA CRDs deployed\n✅ Ready for cluster provisioning\n\nCompleted at ${completionTime}`
+        });
+
+        // Refresh resources
+        await fetchMinikubeActiveResources(
+          verifiedMinikubeClusterInfo?.name,
+          verifiedMinikubeClusterInfo?.namespace
+        );
+      } else {
+        throw new Error(data.message || 'CAPI initialization failed');
+      }
+    } catch (error) {
+      updateRecentOperationStatus(
+        configureId,
+        `❌ Initialization failed: ${error.message}`,
+        `Failed to initialize CAPI/CAPA\n\nError: ${error.message}\n\nPlease check:\n- Minikube cluster is running\n- Cluster has sufficient resources\n- Network connectivity is available`
+      );
+    }
+  };
+
   // Prepare component status data
   const capiComponents = [
     {
@@ -116,7 +196,7 @@ const MinikubeEnvironment = () => {
     {
       label: 'Configure',
       icon: '⚙️',
-      onClick: () => console.log('Configure clicked'),
+      onClick: () => setShowConfigModal(true),
       variant: 'secondary'
     }
   ];
@@ -125,13 +205,7 @@ const MinikubeEnvironment = () => {
     {
       label: 'Configure',
       icon: '⚙️',
-      onClick: () => console.log('Configure clicked'),
-      variant: 'secondary'
-    },
-    {
-      label: 'Terminal',
-      icon: '💻',
-      onClick: handleTerminal,
+      onClick: handleComponentConfigure,
       variant: 'secondary'
     },
     {
@@ -145,20 +219,18 @@ const MinikubeEnvironment = () => {
     }
   ];
 
-  if (!verifiedMinikubeClusterInfo) {
-    return (
-      <div className="mb-6">
-        <div className="text-center py-8 text-gray-500">
-          <p>No verified Minikube cluster found.</p>
-          <p className="mt-2">Please verify a cluster to continue.</p>
-        </div>
-      </div>
-    );
-  }
+  // Show configuration even if no cluster is verified yet
+  const showFullConfig = !!verifiedMinikubeClusterInfo;
+
+  // Get cluster name from multiple sources
+  const clusterName = verifiedMinikubeClusterInfo?.name ||
+                      verifiedMinikubeClusterInfo?.cluster_name ||
+                      selectedMinikubeCluster ||
+                      minikubeClusterInput;
 
   return (
     <>
-      <div className="mb-6 relative max-w-[1800px] mx-auto space-y-6">
+      <div className="mb-6 relative space-y-6">
         {/* Main Environment Container */}
         <EnvironmentCard
           theme="minikube"
@@ -188,19 +260,28 @@ const MinikubeEnvironment = () => {
                   />
                 </svg>
               }
-              status={`${verifiedMinikubeClusterInfo?.status || 'Running'}`}
-              lastVerified={minikubeVerificationResult?.verified_at ? 
-                new Date(minikubeVerificationResult.verified_at).toLocaleDateString() : 
-                'Not verified yet'
+              status={clusterName ? `🔷 ${clusterName}` : 'No cluster selected'}
+              verificationStatus={showFullConfig ? 'Running' : 'Not configured'}
+              lastVerified={showFullConfig && minikubeVerificationResult?.verified_at ?
+                new Date(minikubeVerificationResult.verified_at).toLocaleString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  hour12: true
+                }) :
+                null
               }
               actions={minikubeActions}
             >
               {/* Cluster Information */}
-              <div className="space-y-4">
-                <div className="bg-white p-4 rounded-lg border border-purple-100">
-                  <h5 className="font-semibold text-purple-900 mb-2">
-                    {verifiedMinikubeClusterInfo.name}
-                  </h5>
+              {showFullConfig ? (
+                <div className="space-y-4">
+                  <div className="bg-white p-4 rounded-lg border border-purple-100">
+                    <h5 className="font-semibold text-purple-900 mb-2">
+                      {verifiedMinikubeClusterInfo.name}
+                    </h5>
                   
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
@@ -210,20 +291,41 @@ const MinikubeEnvironment = () => {
                         <span className="text-green-600">Running</span>
                       </div>
                     </div>
-                    
-                    <div>
-                      <span className="font-medium text-gray-600">Clusters:</span>
-                      <div className="mt-1 text-purple-600">0</div>
-                    </div>
-                  </div>
-                  
-                </div>
 
-                {/* No ROSA clusters message */}
-                <div className="text-center py-4 text-gray-500 text-sm bg-gray-50 rounded-lg">
-                  No ROSA clusters found. Create one from the Minikube section below.
+                    {minikubeVerificationResult?.verified_at && (
+                      <div>
+                        <span className="font-medium text-gray-600">Last Verified:</span>
+                        <div className="mt-1 text-gray-700">
+                          {new Date(minikubeVerificationResult.verified_at).toLocaleString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                 </div>
               </div>
+              ) : (
+                <div className="text-center py-8 bg-purple-50 rounded-lg border-2 border-dashed border-purple-200">
+                  <svg className="h-12 w-12 mx-auto mb-3 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <p className="text-gray-700 font-medium mb-2">No Minikube Cluster Configured</p>
+                  <p className="text-sm text-gray-500 mb-4">Click "Configure" to select or create a Minikube cluster</p>
+                  <button
+                    onClick={() => setShowConfigModal(true)}
+                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-lg hover:from-purple-700 hover:to-violet-700 transition-all font-medium text-sm shadow-md"
+                  >
+                    Configure Cluster
+                  </button>
+                </div>
+              )}
             </StatusCard>
 
             {/* Components Card */}
@@ -310,6 +412,12 @@ const MinikubeEnvironment = () => {
         isOpen={showTerminalModal}
         onClose={() => setShowTerminalModal(false)}
         clusterName={verifiedMinikubeClusterInfo?.name}
+      />
+
+      {/* Cluster Config Modal */}
+      <MinikubeClusterConfigModal
+        isOpen={showConfigModal}
+        onClose={() => setShowConfigModal(false)}
       />
     </>
   );

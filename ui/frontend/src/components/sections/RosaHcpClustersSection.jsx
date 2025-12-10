@@ -93,12 +93,22 @@ const RosaHcpClustersSection = ({ theme = 'mce' }) => {
     try {
       console.log(`🗑️ Deleting cluster: ${clusterName} in namespace: ${namespace}`);
 
+      // IMMEDIATELY show "Deleting..." in Task Summary for instant feedback (BEFORE the API call!)
+      addToRecent({
+        id: deleteId,
+        title: `🗑️ DELETE CLUSTER: ${clusterName}`,
+        color: 'bg-red-600',
+        status: '🚀 Starting deletion...',
+        environment: 'mce',
+        output: `Initiating deletion of ROSA HCP cluster "${clusterName}" from namespace "${namespace}"...\n\nSubmitting delete request to backend...\n\nThis will remove:\n- ROSAControlPlane\n- ROSANetwork\n- ROSARoleConfig\n- AWS resources`
+      });
+
       const apiUrl = buildApiUrl(`/api/rosa/clusters/${clusterName}`);
       console.log(`🌐 DELETE URL: ${apiUrl}`);
       console.log(`📦 Request body:`, { namespace });
       console.log(`⏳ About to send DELETE request...`);
 
-      // Call DELETE API FIRST to avoid re-render blocking
+      // Call DELETE API
       const response = await fetch(apiUrl, {
         method: 'DELETE',
         headers: {
@@ -108,16 +118,6 @@ const RosaHcpClustersSection = ({ theme = 'mce' }) => {
       });
 
       console.log(`✅ Fetch completed, status: ${response.status}`);
-
-      // Add to recent operations AFTER the API call succeeds
-      addToRecent({
-        id: deleteId,
-        title: `Delete ROSA HCP Cluster: ${clusterName}`,
-        color: 'bg-red-600',
-        status: '⏳ Deleting...',
-        environment: 'mce',
-        output: `Deleting ROSA HCP cluster "${clusterName}" from namespace "${namespace}"...\n\nRemoving cluster resources:\n- ROSAControlPlane\n- ROSANetwork\n- ROSARoleConfig\n- AWS resources`
-      });
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);

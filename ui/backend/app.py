@@ -130,6 +130,61 @@ class NotificationSettings(BaseModel):
 
 
 # Helper functions
+def run_minikube_init_playbook(playbook_path: str, cluster_name: str, job_id: str):
+    """Run Minikube CAPI initialization playbook asynchronously"""
+    try:
+        jobs[job_id]["status"] = "running"
+        jobs[job_id]["progress"] = 10
+        jobs[job_id]["message"] = f"Initializing CAPI/CAPA on Minikube cluster '{cluster_name}'"
+
+        # Get project root
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+        # Prepare environment with Minikube profile
+        env = os.environ.copy()
+        env["MINIKUBE_PROFILE"] = cluster_name
+        env["KUBECONFIG"] = os.path.expanduser("~/.kube/config")
+
+        # Run the initialization playbook with verbose output
+        result = subprocess.run(
+            ["ansible-playbook", playbook_path, "-vv"],
+            capture_output=True,
+            text=True,
+            timeout=600,  # 10 minutes timeout
+            cwd=project_root,
+            env=env,
+        )
+
+        # Capture all output
+        full_output = f"=== ANSIBLE PLAYBOOK OUTPUT ===\n\n{result.stdout}\n\n"
+        if result.stderr:
+            full_output += f"=== STDERR ===\n\n{result.stderr}\n\n"
+
+        jobs[job_id]["logs"] = full_output.split('\n')
+        jobs[job_id]["progress"] = 100
+
+        if result.returncode == 0:
+            jobs[job_id]["status"] = "completed"
+            jobs[job_id]["message"] = f"✅ CAPI/CAPA initialized successfully on cluster '{cluster_name}'"
+            jobs[job_id]["completed_at"] = datetime.now()
+        else:
+            jobs[job_id]["status"] = "failed"
+            jobs[job_id]["message"] = f"❌ Failed to initialize CAPI/CAPA on cluster '{cluster_name}'"
+            jobs[job_id]["error"] = result.stderr
+            jobs[job_id]["completed_at"] = datetime.now()
+
+    except subprocess.TimeoutExpired:
+        jobs[job_id]["status"] = "failed"
+        jobs[job_id]["message"] = "Initialization timed out after 10 minutes"
+        jobs[job_id]["progress"] = 100
+        jobs[job_id]["completed_at"] = datetime.now()
+    except Exception as e:
+        jobs[job_id]["status"] = "failed"
+        jobs[job_id]["message"] = f"Error: {str(e)}"
+        jobs[job_id]["progress"] = 100
+        jobs[job_id]["completed_at"] = datetime.now()
+
+
 def run_ansible_playbook(playbook: str, config: dict, job_id: str):
     """Run ansible playbook asynchronously"""
     try:
@@ -4536,7 +4591,7 @@ async def verify_minikube_cluster(request: dict):
 
 
 @app.post("/api/minikube/initialize-capi")
-async def initialize_minikube_capi(request: Request):
+async def initialize_minikube_capi(request: Request, background_tasks: BackgroundTasks):
     """Initialize Minikube cluster with CAPI/CAPA support"""
     try:
         body = await request.json()
@@ -4559,45 +4614,34 @@ async def initialize_minikube_capi(request: Request):
                 "suggestion": "Ensure initialize-minikube-capi.yml exists in the project root",
             }
 
-        # Prepare environment with Minikube profile
-        env = os.environ.copy()
-        env["MINIKUBE_PROFILE"] = cluster_name
-        env["KUBECONFIG"] = os.path.expanduser("~/.kube/config")
+        # Generate unique job ID
+        job_id = str(uuid.uuid4())
 
-        # Run the initialization playbook
-        result = subprocess.run(
-            ["ansible-playbook", playbook_path, "-v"],
-            capture_output=True,
-            text=True,
-            timeout=600,  # 10 minutes timeout for initialization
-            cwd=project_root,
-            env=env,
-        )
-
-        if result.returncode == 0:
-            return {
-                "success": True,
-                "message": f"Minikube cluster '{cluster_name}' initialized successfully with CAPI/CAPA",
-                "output": result.stdout,
-            }
-        else:
-            return {
-                "success": False,
-                "message": f"Failed to initialize cluster: {result.stderr}",
-                "output": result.stdout,
-                "error": result.stderr,
-            }
-
-    except subprocess.TimeoutExpired:
-        return {
-            "success": False,
-            "message": "Initialization timed out after 10 minutes",
-            "suggestion": "Check if the cluster is running and accessible",
+        # Create job entry
+        jobs[job_id] = {
+            "id": job_id,
+            "status": "pending",
+            "progress": 0,
+            "message": f"Initializing CAPI/CAPA on Minikube cluster '{cluster_name}'",
+            "started_at": datetime.now(),
+            "logs": [],
+            "environment": "minikube",
+            "description": f"Initialize CAPI/CAPA on Minikube: {cluster_name}",
         }
+
+        # Run initialization in background
+        background_tasks.add_task(run_minikube_init_playbook, playbook_path, cluster_name, job_id)
+
+        return {
+            "success": True,
+            "job_id": job_id,
+            "message": f"CAPI/CAPA initialization started for cluster '{cluster_name}'",
+        }
+
     except Exception as e:
         return {
             "success": False,
-            "message": f"Error initializing cluster: {str(e)}",
+            "message": f"Error starting initialization: {str(e)}",
             "suggestion": "Check the playbook and cluster configuration",
         }
 
@@ -6307,6 +6351,11 @@ async def ai_assistant_chat(request: Request):
         history = body.get("history", [])
         clusters_data = context.get("clusters", [])
 
+        import logging
+        logger = logging.getLogger("uvicorn")
+        logger.info(f"🔍 [AI ASSISTANT] Message: {message}")
+        logger.info(f"🔍 [AI ASSISTANT] Clusters data received: {clusters_data}")
+
         # Ensure clusters_data is a list
         if not isinstance(clusters_data, list):
             clusters_data = []
@@ -6346,12 +6395,33 @@ async def ai_assistant_chat(request: Request):
         if os.environ.get("ANTHROPIC_API_KEY"):
             try:
                 ai_response = await ai_service.chat(message, enriched_context, history)
+                response_text = ai_response.get("response", "")
+
+                logger.info(f"🤖 [AI-ASSISTANT] AI Response: {response_text[:200]}...")
+
+                # Post-process: If user asked about clusters and AI didn't include names, fix it
+                if ("what clusters" in message.lower() or "clusters are running" in message.lower()):
+                    logger.info(f"🔍 [AI-ASSISTANT] Cluster query detected. Clusters data: {[c.get('name') for c in clusters_data]}")
+                    has_cluster_names = any(c.get("name", "") in response_text for c in clusters_data)
+                    logger.info(f"🔍 [AI-ASSISTANT] Response contains cluster names: {has_cluster_names}")
+
+                    if clusters_data and not has_cluster_names:
+                        # AI didn't include cluster names, build proper response
+                        logger.info("🔧 [AI-ASSISTANT] AI response missing cluster names, fixing...")
+                        cluster_list = "\n".join([
+                            f"  - {c.get('name', 'unknown')} (namespace: {c.get('namespace', 'unknown')}, status: {c.get('status', 'unknown')})"
+                            for c in clusters_data
+                        ])
+                        response_text = f"You have {len(clusters_data)} cluster(s):\n\n{cluster_list}"
+                        logger.info(f"✅ [AI-ASSISTANT] Fixed response: {response_text}")
+
                 return {
-                    "response": ai_response.get("response", ""),
+                    "response": response_text,
                     "suggestions": ai_response.get("suggestions", [])
                 }
             except Exception as ai_error:
-                print(f"⚠️ [AI-ASSISTANT] Claude API error: {str(ai_error)}, falling back to simple responses")
+                logger.error(f"⚠️ [AI-ASSISTANT] Claude API error: {str(ai_error)}, falling back to simple responses")
+                logger.error(f"⚠️ [AI-ASSISTANT] Error traceback: ", exc_info=True)
                 # Fall through to simple responses below
 
         # Fallback: Simple rule-based responses if no API key or AI service fails
@@ -6368,6 +6438,8 @@ async def ai_assistant_chat(request: Request):
                 ready_clusters = [c for c in clusters_data if c.get("status") == "ready"]
                 provisioning_clusters = [c for c in clusters_data if c.get("status") == "provisioning"]
                 failed_clusters = [c for c in clusters_data if c.get("status") in ["failed", "error", "provisioning-failed"]]
+                uninstalling_clusters = [c for c in clusters_data if c.get("status") == "uninstalling"]
+                other_clusters = [c for c in clusters_data if c.get("status") not in ["ready", "provisioning", "failed", "error", "provisioning-failed", "uninstalling"]]
 
                 if ready_clusters:
                     response += f"**✅ Ready ({len(ready_clusters)}):**\n"
@@ -6393,16 +6465,210 @@ async def ai_assistant_chat(request: Request):
                         status = cluster.get("status", "unknown")
                         response += f"• **{name}** - Status: {status}\n"
                     response += "\n"
-                    suggestions = ["Troubleshoot failed cluster", "Provision new cluster"]
+
+                if uninstalling_clusters:
+                    response += f"**🗑️ Uninstalling ({len(uninstalling_clusters)}):**\n"
+                    for cluster in uninstalling_clusters:
+                        name = cluster.get("name", "unknown")
+                        namespace = cluster.get("namespace", "unknown")
+                        region = cluster.get("region", "unknown")
+                        response += f"• **{name}** (namespace: {namespace}, region: {region})\n"
+                    response += "\n"
+
+                if other_clusters:
+                    response += f"**ℹ️ Other Status ({len(other_clusters)}):**\n"
+                    for cluster in other_clusters:
+                        name = cluster.get("name", "unknown")
+                        status = cluster.get("status", "unknown")
+                        response += f"• **{name}** - Status: {status}\n"
+                    response += "\n"
+
+                # Set suggestions based on cluster states
+                if failed_clusters:
+                    suggestions = ["Troubleshoot failed cluster", "Show me the logs"]
+                elif uninstalling_clusters:
+                    first_cluster_name = uninstalling_clusters[0].get("name", "unknown")
+                    suggestions = [f"Tell me more about {first_cluster_name}", "Show me the logs"]
                 elif provisioning_clusters:
                     # Add suggestion to check on the provisioning cluster
                     first_cluster_name = provisioning_clusters[0].get("name", "unknown")
-                    suggestions = [f"Tell me about {first_cluster_name}", "Check environment status", "Provision new cluster"]
+                    suggestions = [f"Tell me about {first_cluster_name}", "Check environment status"]
                 else:
                     suggestions = ["Provision new cluster", "What is ROSA HCP?"]
             else:
                 response = "You don't have any clusters running at the moment. Would you like to provision one?"
                 suggestions = ["How to provision cluster?", "What is ROSA HCP?"]
+
+        # Handle "tell me more about" or "tell me about" cluster requests
+        elif ("tell me" in message_lower or "about" in message_lower) and any(c.get("name", "").lower() in message_lower for c in clusters_data):
+            # Find the cluster being asked about
+            target_cluster = None
+            for cluster in clusters_data:
+                cluster_name = cluster.get("name", "")
+                if cluster_name and cluster_name.lower() in message_lower:
+                    target_cluster = cluster
+                    break
+
+            if target_cluster:
+                name = target_cluster.get("name", "unknown")
+                status = target_cluster.get("status", "unknown")
+                namespace = target_cluster.get("namespace", "unknown")
+                region = target_cluster.get("region", "unknown")
+                version = target_cluster.get("version", "N/A")
+                created = target_cluster.get("created", "N/A")
+                domain_prefix = target_cluster.get("domain_prefix", "N/A")
+                progress = target_cluster.get("progress", 0)
+
+                response = f"""## 🔍 Detailed Information: **{name}**
+
+### 📊 Current Status
+**State:** {status.upper()}"""
+
+                if status == "uninstalling":
+                    response += f"""
+
+Your cluster **{name}** is being deleted right now. Here's what I know about it:
+
+**Quick Info:**
+• Running in the `{namespace}` namespace
+• Located in {region}
+• Was running OpenShift version {version}
+• Created on {created}
+
+**What's happening behind the scenes:**
+Right now, the system is busy tearing everything down:
+- Shutting down the OpenShift control plane
+- Cleaning up all the AWS resources (EC2 instances, load balancers, etc.)
+- Removing the networking setup (VPCs, subnets, security groups)
+- Tidying up IAM roles and policies
+
+**Want to check on the progress?**
+Pop open the Terminal section and try these commands:
+```
+oc get rosacontrolplane -n {namespace}
+oc describe rosacontrolplane {name} -n {namespace}
+oc get events -n {namespace} --sort-by='.lastTimestamp'
+```
+
+**How long will this take?**
+Usually about 10-20 minutes. Grab a coffee and it should be done when you get back! ☕"""
+
+                elif status == "provisioning":
+                    response += f"""
+**Progress:** {progress}% complete
+
+### ℹ️ Cluster Details
+• **Namespace:** `{namespace}`
+• **Region:** {region}
+• **OpenShift Version:** {version}
+• **Domain Prefix:** {domain_prefix}
+• **Created:** {created}
+
+### 🚀 Provisioning Stages
+The cluster is being created. Typical stages:
+1. **Network Setup** ({progress < 25 and '🔄 Current' or '✅ Complete'}) - Creating VPC, subnets, security groups
+2. **IAM Configuration** ({25 <= progress < 50 and '🔄 Current' or progress >= 50 and '✅ Complete' or '⏳ Pending'}) - Setting up IAM roles and policies
+3. **Control Plane** ({50 <= progress < 75 and '🔄 Current' or progress >= 75 and '✅ Complete' or '⏳ Pending'}) - Launching OpenShift control plane
+4. **Node Provisioning** ({progress >= 75 and '🔄 Current' or '⏳ Pending'}) - Creating worker nodes
+
+### 🔍 How to Monitor
+```
+oc get rosacontrolplane -n {namespace} -o yaml
+oc describe rosacontrolplane {name} -n {namespace}
+```
+
+### ⏱️ Expected Timeline
+Cluster provisioning typically takes 30-45 minutes to complete."""
+
+                elif status == "ready":
+                    response += f"""
+
+### ℹ️ Cluster Details
+• **Namespace:** `{namespace}`
+• **Region:** {region}
+• **OpenShift Version:** {version}
+• **Domain Prefix:** {domain_prefix}
+• **Created:** {created}
+
+### ✅ Cluster is Ready!
+Your ROSA HCP cluster is fully provisioned and operational.
+
+### 🔗 Access Information
+You can access the cluster using:
+```
+oc get rosacontrolplane {name} -n {namespace} -o yaml
+```
+
+Look for the `oidcEndpointURL` and API server URL in the status section.
+
+### 🛠️ Next Steps
+• Configure node pools for workloads
+• Set up application deployments
+• Configure monitoring and logging
+• Implement backup strategies"""
+
+                else:
+                    response += f"""
+
+### ℹ️ Cluster Details
+• **Namespace:** `{namespace}`
+• **Region:** {region}
+• **OpenShift Version:** {version}
+• **Domain Prefix:** {domain_prefix}
+• **Created:** {created}
+• **Current Status:** {status}
+
+### 🔍 Diagnostic Commands
+```
+oc get rosacontrolplane {name} -n {namespace}
+oc describe rosacontrolplane {name} -n {namespace}
+oc get events -n {namespace} --sort-by='.lastTimestamp'
+```"""
+
+                suggestions = ["Show me the logs", "What clusters are running?"]
+
+        # Handle log requests
+        elif "show" in message_lower and "log" in message_lower:
+            # Find the most recent job related to any cluster
+            recent_jobs = []
+            for job_id, job_data in sorted(jobs.items(), key=lambda x: x[1].get("created_at", ""), reverse=True)[:10]:
+                yaml_file = job_data.get("yaml_file", "")
+                description = job_data.get("description", "")
+                log_lines = job_data.get("logs", [])
+
+                # Check if this job is related to the user's clusters
+                for cluster in clusters_data:
+                    cluster_name = cluster.get("name", "")
+                    if cluster_name and (cluster_name.lower() in yaml_file.lower() or cluster_name.lower() in description.lower()):
+                        recent_jobs.append({
+                            "job_id": job_id,
+                            "cluster_name": cluster_name,
+                            "description": description,
+                            "status": job_data.get("status", "unknown"),
+                            "logs": "\n".join(log_lines[-20:]) if log_lines else "No logs available",
+                            "created_at": job_data.get("created_at", "")
+                        })
+                        break
+
+            if recent_jobs:
+                latest_job = recent_jobs[0]
+                response = f"""**Logs for {latest_job['cluster_name']}**
+
+**Job ID:** {latest_job['job_id']}
+**Description:** {latest_job['description']}
+**Status:** {latest_job['status']}
+**Created:** {latest_job['created_at']}
+
+**Recent Log Output:**
+```
+{latest_job['logs']}
+```
+
+You can view more details in the Task Detail section below."""
+                suggestions = [f"Tell me more about {latest_job['cluster_name']}", "What clusters are running?"]
+            else:
+                response = "I couldn't find any recent logs for your clusters. Logs will appear here when cluster operations (provisioning, deletion, etc.) are running."
+                suggestions = ["What clusters are running?", "Provision new cluster"]
 
         # Handle provisioning questions
         elif "provision" in message_lower or "create cluster" in message_lower or "how to" in message_lower:

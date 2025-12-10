@@ -17,10 +17,10 @@ const TaskDetailSection = ({ theme = 'mce', environment }) => {
     status: job.status === 'completed' ? `✅ ${job.message}` :
             job.status === 'running' ? `⏳ ${job.message}` :
             job.status === 'failed' ? `❌ ${job.message}` : job.message,
-    timestamp: new Date(job.created_at).getTime(),
-    environment: job.description?.toLowerCase().includes('rosa') ||
-                 job.description?.toLowerCase().includes('mce') ||
-                 job.description?.toLowerCase().includes('capi') ? 'mce' : 'minikube',
+    timestamp: new Date(job.created_at || job.started_at).getTime(),
+    environment: job.environment || (  // Use job.environment if set
+                 job.description?.toLowerCase().includes('rosa') ||
+                 job.description?.toLowerCase().includes('mce') ? 'mce' : 'minikube'),
     playbook: job.yaml_file,
     output: job.logs?.join('\n') || ''
   }));
@@ -166,6 +166,7 @@ const TaskDetailSection = ({ theme = 'mce', environment }) => {
               <p className="text-xs mt-2">Detailed logs will appear here when tasks are running</p>
             </div>
           ) : (
+            // Show all tasks with full details
             filteredOperations.map((operation, idx) => (
             <div
               key={operation.id || idx}
@@ -209,7 +210,7 @@ const TaskDetailSection = ({ theme = 'mce', environment }) => {
               {/* Output Details */}
               {operation.output && (
                 <div className="mt-3">
-                  <pre className="bg-gray-900/80 rounded-lg p-4 text-sm text-gray-300 font-mono whitespace-pre-wrap max-h-64 overflow-y-auto border border-gray-700">
+                  <pre className="bg-gray-900/80 rounded-lg p-4 text-sm text-gray-300 font-mono whitespace-pre-wrap border border-gray-700">
                     {operation.output}
                   </pre>
                 </div>

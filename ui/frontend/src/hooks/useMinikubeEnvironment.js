@@ -81,9 +81,9 @@ export const useMinikubeEnvironment = () => {
       
       // Check if verification was successful - either success=true OR (exists=true AND accessible=true)
       const isSuccessful = data.success === true || (data.exists === true && data.accessible === true);
-      
+
       if (response.ok && isSuccessful) {
-        setMinikubeVerificationResult({ ...data, success: true });
+        setMinikubeVerificationResult({ ...data, success: true, verified_at: new Date().toISOString() });
         setVerifiedMinikubeClusterInfo(data.cluster_info);
         setSelectedMinikubeCluster(clusterName);
         return data;
