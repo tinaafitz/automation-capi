@@ -505,7 +505,10 @@ ${selectedCell.data.status === 'pass' ? '✅ All checks passed\n\nTest Summary:\
               {/* Action Buttons */}
               <div className="flex gap-3">
                 <button
-                  onClick={() => handleRunTest(selectedCell.providerId, selectedCell.environment, selectedCell.testTypeId)}
+                  onClick={() => {
+                    handleRunTest(selectedCell.providerId, selectedCell.environment, selectedCell.testTypeId);
+                    setSelectedCell(null);
+                  }}
                   className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 ${colors.buttonBg} text-white rounded-lg ${colors.buttonHover} transition-colors font-medium`}
                 >
                   <PlayIcon className="w-5 h-5" />
