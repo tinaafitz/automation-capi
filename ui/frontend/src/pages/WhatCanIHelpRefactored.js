@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { ChevronDownIcon } from '@heroicons/react/20/solid';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import MinikubeEnvironment from '../components/environments/MinikubeEnvironment';
@@ -27,20 +28,20 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 
 // Environment selector dropdown component
-const EnvironmentSelector = () => {
+const EnvironmentSelector = ({ onResetLayout }) => {
   const app = useApp();
   const dispatch = useAppDispatch();
-  
+
   const environments = [
-    { 
-      id: 'mce', 
-      name: 'MCE', 
+    {
+      id: 'mce',
+      name: 'MCE',
       icon: '🎯',
       description: 'Downstream environment with full MCE features'
     },
-    { 
-      id: 'minikube', 
-      name: 'Minikube', 
+    {
+      id: 'minikube',
+      name: 'Minikube',
       icon: '⚡',
       description: 'Upstream environment for development and testing'
     }
@@ -48,16 +49,44 @@ const EnvironmentSelector = () => {
 
   const selectedEnv = environments.find(e => e.id === app.selectedEnvironment);
 
+  // Get theme colors for header
+  const getHeaderTheme = () => {
+    return app.selectedEnvironment === 'minikube'
+      ? {
+          gradient: 'from-purple-600 to-violet-600',
+          textGradient: 'from-purple-600 to-violet-600',
+        }
+      : {
+          gradient: 'from-cyan-600 to-blue-600',
+          textGradient: 'from-cyan-600 to-blue-600',
+        };
+  };
+
+  const theme = getHeaderTheme();
+
   return (
-    <div className="flex items-center justify-between mb-4">
-      <h2 className="text-xl font-bold text-gray-900">
-        {app.selectedEnvironment === 'mce'
-          ? 'MCE Test Environment (Downstream)'
-          : 'Minikube Test Environment (Upstream)'}
-      </h2>
-      
-      {/* Dropdown Selector */}
-      <div className="relative">
+    <div className="sticky top-0 z-30 bg-white border-b-2 border-gray-200 shadow-sm mb-6 -mx-6 px-6 py-4">
+      <div className="flex items-center justify-between">
+        <h1 className={`text-3xl font-bold bg-gradient-to-r ${theme.textGradient} bg-clip-text text-transparent`}>
+          {app.selectedEnvironment === 'mce'
+            ? 'MCE Test Environment (Downstream)'
+            : 'Minikube Test Environment (Upstream)'}
+        </h1>
+
+        {/* Right side buttons */}
+        <div className="flex items-center gap-3">
+        {/* Reset Layout Button */}
+        <button
+          onClick={onResetLayout}
+          className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-gray-300 rounded-lg hover:border-gray-500 transition-all duration-200 shadow-sm hover:shadow-md text-sm font-medium text-gray-700"
+          title="Reset section order to default"
+        >
+          <ArrowPathIcon className="h-4 w-4" />
+          <span>Reset Layout</span>
+        </button>
+
+        {/* Dropdown Selector */}
+        <div className="relative">
         <button
           onClick={() => dispatch({ type: AppActionTypes.TOGGLE_ENVIRONMENT_DROPDOWN })}
           className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-purple-300 rounded-lg hover:border-purple-500 transition-all duration-200 shadow-sm hover:shadow-md"
@@ -108,9 +137,15 @@ const EnvironmentSelector = () => {
             </div>
           </div>
         )}
+        </div>
+      </div>
       </div>
     </div>
   );
+};
+
+EnvironmentSelector.propTypes = {
+  onResetLayout: PropTypes.func.isRequired,
 };
 
 // Main environment content
@@ -542,6 +577,9 @@ const EnvironmentContent = () => {
 
   return (
     <div>
+      {/* Environment Selector with Reset Layout */}
+      <EnvironmentSelector onResetLayout={resetSectionOrder} />
+
       {/* Show Minikube setup section when Minikube is selected BUT not yet verified */}
       {app.selectedEnvironment === 'minikube' && !minikube.verifiedMinikubeClusterInfo && <MinikubeSetupSection />}
 
@@ -568,47 +606,17 @@ const EnvironmentContent = () => {
       {/* Draggable sections when environment is properly configured */}
       {shouldShowSections && (
         <div className="relative">
-          {/* Reset Layout Button */}
-          <div className="flex justify-end mb-4">
-            <button
-              onClick={resetSectionOrder}
-              className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-gray-300 rounded-lg hover:border-gray-500 transition-all duration-200 shadow-sm hover:shadow-md text-sm font-medium text-gray-700"
-              title="Reset section order to default"
-            >
-              <ArrowPathIcon className="h-4 w-4" />
-              <span>Reset Layout</span>
-            </button>
-          </div>
-
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
             onDragEnd={handleDragEnd}
           >
-            {/* Filing Cabinet Widget Storage - Top Section */}
-            <div className="mb-6">
-              <FilingCabinet
-                hiddenSections={app.hiddenSections}
-                onRestoreSection={(sectionId) => {
-                  dispatch({ type: AppActionTypes.RESTORE_SECTION, payload: sectionId });
-                }}
-                onClearAll={() => {
-                  dispatch({ type: AppActionTypes.RESTORE_ALL_SECTIONS });
-                }}
-                theme={app.selectedEnvironment}
-                isExpanded={app.showFilingCabinet}
-                onToggle={() => {
-                  dispatch({ type: AppActionTypes.TOGGLE_FILING_CABINET });
-                }}
-              />
-            </div>
-
             {/* Main Sections Area */}
             <SortableContext
               items={app.sectionOrder}
               strategy={verticalListSortingStrategy}
             >
-              <div className="space-y-6 pl-8">
+              <div className="space-y-6">
                 {app.sectionOrder.map((sectionId) => {
                   const component = getSectionComponent(sectionId);
                   return component ? (
@@ -619,6 +627,22 @@ const EnvironmentContent = () => {
                 })}
               </div>
             </SortableContext>
+
+            {/* Floating Filing Cabinet Widget - Bottom Right Corner */}
+            <FilingCabinet
+              hiddenSections={app.hiddenSections}
+              onRestoreSection={(sectionId) => {
+                dispatch({ type: AppActionTypes.RESTORE_SECTION, payload: sectionId });
+              }}
+              onClearAll={() => {
+                dispatch({ type: AppActionTypes.RESTORE_ALL_SECTIONS });
+              }}
+              theme={app.selectedEnvironment}
+              isExpanded={app.showFilingCabinet}
+              onToggle={() => {
+                dispatch({ type: AppActionTypes.TOGGLE_FILING_CABINET });
+              }}
+            />
           </DndContext>
         </div>
       )}
@@ -636,8 +660,7 @@ const WhatCanIHelpRefactored = () => {
   return (
     <AppProvider>
       <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto px-4 py-8">
-          <EnvironmentSelector />
+        <div className="pl-16 pr-12 py-8">
           <EnvironmentContent />
         </div>
         <ModalProvider />

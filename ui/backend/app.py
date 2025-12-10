@@ -130,6 +130,61 @@ class NotificationSettings(BaseModel):
 
 
 # Helper functions
+def run_minikube_init_playbook(playbook_path: str, cluster_name: str, job_id: str):
+    """Run Minikube CAPI initialization playbook asynchronously"""
+    try:
+        jobs[job_id]["status"] = "running"
+        jobs[job_id]["progress"] = 10
+        jobs[job_id]["message"] = f"Initializing CAPI/CAPA on Minikube cluster '{cluster_name}'"
+
+        # Get project root
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+        # Prepare environment with Minikube profile
+        env = os.environ.copy()
+        env["MINIKUBE_PROFILE"] = cluster_name
+        env["KUBECONFIG"] = os.path.expanduser("~/.kube/config")
+
+        # Run the initialization playbook with verbose output
+        result = subprocess.run(
+            ["ansible-playbook", playbook_path, "-vv"],
+            capture_output=True,
+            text=True,
+            timeout=600,  # 10 minutes timeout
+            cwd=project_root,
+            env=env,
+        )
+
+        # Capture all output
+        full_output = f"=== ANSIBLE PLAYBOOK OUTPUT ===\n\n{result.stdout}\n\n"
+        if result.stderr:
+            full_output += f"=== STDERR ===\n\n{result.stderr}\n\n"
+
+        jobs[job_id]["logs"] = full_output.split('\n')
+        jobs[job_id]["progress"] = 100
+
+        if result.returncode == 0:
+            jobs[job_id]["status"] = "completed"
+            jobs[job_id]["message"] = f"✅ CAPI/CAPA initialized successfully on cluster '{cluster_name}'"
+            jobs[job_id]["completed_at"] = datetime.now()
+        else:
+            jobs[job_id]["status"] = "failed"
+            jobs[job_id]["message"] = f"❌ Failed to initialize CAPI/CAPA on cluster '{cluster_name}'"
+            jobs[job_id]["error"] = result.stderr
+            jobs[job_id]["completed_at"] = datetime.now()
+
+    except subprocess.TimeoutExpired:
+        jobs[job_id]["status"] = "failed"
+        jobs[job_id]["message"] = "Initialization timed out after 10 minutes"
+        jobs[job_id]["progress"] = 100
+        jobs[job_id]["completed_at"] = datetime.now()
+    except Exception as e:
+        jobs[job_id]["status"] = "failed"
+        jobs[job_id]["message"] = f"Error: {str(e)}"
+        jobs[job_id]["progress"] = 100
+        jobs[job_id]["completed_at"] = datetime.now()
+
+
 def run_ansible_playbook(playbook: str, config: dict, job_id: str):
     """Run ansible playbook asynchronously"""
     try:
@@ -4536,7 +4591,7 @@ async def verify_minikube_cluster(request: dict):
 
 
 @app.post("/api/minikube/initialize-capi")
-async def initialize_minikube_capi(request: Request):
+async def initialize_minikube_capi(request: Request, background_tasks: BackgroundTasks):
     """Initialize Minikube cluster with CAPI/CAPA support"""
     try:
         body = await request.json()
@@ -4559,45 +4614,34 @@ async def initialize_minikube_capi(request: Request):
                 "suggestion": "Ensure initialize-minikube-capi.yml exists in the project root",
             }
 
-        # Prepare environment with Minikube profile
-        env = os.environ.copy()
-        env["MINIKUBE_PROFILE"] = cluster_name
-        env["KUBECONFIG"] = os.path.expanduser("~/.kube/config")
+        # Generate unique job ID
+        job_id = str(uuid.uuid4())
 
-        # Run the initialization playbook
-        result = subprocess.run(
-            ["ansible-playbook", playbook_path, "-v"],
-            capture_output=True,
-            text=True,
-            timeout=600,  # 10 minutes timeout for initialization
-            cwd=project_root,
-            env=env,
-        )
-
-        if result.returncode == 0:
-            return {
-                "success": True,
-                "message": f"Minikube cluster '{cluster_name}' initialized successfully with CAPI/CAPA",
-                "output": result.stdout,
-            }
-        else:
-            return {
-                "success": False,
-                "message": f"Failed to initialize cluster: {result.stderr}",
-                "output": result.stdout,
-                "error": result.stderr,
-            }
-
-    except subprocess.TimeoutExpired:
-        return {
-            "success": False,
-            "message": "Initialization timed out after 10 minutes",
-            "suggestion": "Check if the cluster is running and accessible",
+        # Create job entry
+        jobs[job_id] = {
+            "id": job_id,
+            "status": "pending",
+            "progress": 0,
+            "message": f"Initializing CAPI/CAPA on Minikube cluster '{cluster_name}'",
+            "started_at": datetime.now(),
+            "logs": [],
+            "environment": "minikube",
+            "description": f"Initialize CAPI/CAPA on Minikube: {cluster_name}",
         }
+
+        # Run initialization in background
+        background_tasks.add_task(run_minikube_init_playbook, playbook_path, cluster_name, job_id)
+
+        return {
+            "success": True,
+            "job_id": job_id,
+            "message": f"CAPI/CAPA initialization started for cluster '{cluster_name}'",
+        }
+
     except Exception as e:
         return {
             "success": False,
-            "message": f"Error initializing cluster: {str(e)}",
+            "message": f"Error starting initialization: {str(e)}",
             "suggestion": "Check the playbook and cluster configuration",
         }
 
