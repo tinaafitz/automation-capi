@@ -15,7 +15,7 @@
   tasks:
     - name: Set test context
       set_fact:
-        test_start_time: "{{ ansible_date_time.iso8601 }}"
+        test_start_time: "{{ ansible_date_time.epoch }}"
         test_namespace: "{{ namespace }}"
 
     - name: Display test information
@@ -49,10 +49,14 @@
           register: deploy_status
           failed_when: false
 
+        - name: Get current time for duration calculation
+          set_fact:
+            test_end_time: "{{ ansible_date_time.epoch }}"
+
         - name: Set installation test result
           set_fact:
-            test_result: "{{ 'pass' if (helm_status.rc == 0 or helm_check.stdout == 'exists') else 'fail' }}"
-            test_duration: "{{ ((ansible_date_time.epoch | int) - (test_start_time | to_datetime('%Y-%m-%dT%H:%M:%SZ') | int)) }}"
+            test_result: "{{ 'pass' if ((helm_status | default({})).get('rc', 1) == 0 or helm_check.stdout == 'exists') else 'fail' }}"
+            test_duration: "{{ (test_end_time | int) - (test_start_time | int) }}"
 
     - name: Run Compliance Test
       when: test_type == 'compliance'
@@ -78,7 +82,7 @@
         - name: Set compliance test result
           set_fact:
             test_result: "{{ 'pass' if (non_running_pods.stdout == '' and rbac_check.rc == 0) else 'fail' }}"
-            test_duration: "{{ ((ansible_date_time.epoch | int) - (test_start_time | to_datetime('%Y-%m-%dT%H:%M:%SZ') | int)) }}"
+            test_duration: "{{ (ansible_date_time.epoch | int) - (test_start_time | int) }}"
 
     - name: Run Upgrade/Rollback Test
       when: test_type == 'upgrade'
@@ -104,7 +108,7 @@
         - name: Set upgrade test result
           set_fact:
             test_result: "{{ 'pass' if (current_version.rc == 0 and helm_values.rc == 0) else 'fail' }}"
-            test_duration: "{{ ((ansible_date_time.epoch | int) - (test_start_time | to_datetime('%Y-%m-%dT%H:%M:%SZ') | int)) }}"
+            test_duration: "{{ (ansible_date_time.epoch | int) - (test_start_time | int) }}"
 
     - name: Run Functionality Test
       when: test_type == 'functionality'
@@ -137,7 +141,7 @@
         - name: Set functionality test result
           set_fact:
             test_result: "{{ 'pass' if (unhealthy_controllers.stdout == '' and services_check.rc == 0 and (crd_count.stdout | int) > 0) else 'fail' }}"
-            test_duration: "{{ ((ansible_date_time.epoch | int) - (test_start_time | to_datetime('%Y-%m-%dT%H:%M:%SZ') | int)) }}"
+            test_duration: "{{ (ansible_date_time.epoch | int) - (test_start_time | int) }}"
 
     - name: Calculate pass rate (simulate historical data)
       set_fact:

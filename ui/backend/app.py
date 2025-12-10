@@ -7296,13 +7296,14 @@ async def run_helm_test_playbook(job_id: str, provider: str, environment: str, t
             jobs[job_id]["progress"] = 10
             jobs[job_id]["message"] = f"🧪 Executing {test_type} test for {provider}..."
 
-        # Run ansible-playbook command
+        # Run ansible-playbook command with verbose output
         cmd = [
             "ansible-playbook",
             task_file,
             "-e", f"provider={provider}",
             "-e", f"environment={environment}",
-            "-e", f"test_type={test_type}"
+            "-e", f"test_type={test_type}",
+            "-vv"  # Verbose output for detailed logging
         ]
 
         # Execute playbook
@@ -7320,9 +7321,19 @@ async def run_helm_test_playbook(job_id: str, provider: str, environment: str, t
         # Parse output for results
         output_text = stdout + "\n" + stderr
 
-        # Update job with output
+        # Format output with header like Minikube CAPI initialization
+        full_output = f"=== HELM TEST PLAYBOOK OUTPUT ===\n\n"
+        full_output += f"Provider: {provider}\n"
+        full_output += f"Environment: {environment}\n"
+        full_output += f"Test Type: {test_type}\n\n"
+        full_output += f"=== ANSIBLE OUTPUT ===\n\n{stdout}\n\n"
+        if stderr:
+            full_output += f"=== STDERR ===\n\n{stderr}\n\n"
+
+        # Update job with formatted output as logs array
         if job_id in jobs:
-            jobs[job_id]["output"] = output_text
+            jobs[job_id]["logs"] = full_output.split('\n')
+            jobs[job_id]["output"] = full_output
             jobs[job_id]["progress"] = 90
 
         # Determine test result
@@ -7377,12 +7388,18 @@ async def run_helm_test_playbook(job_id: str, provider: str, environment: str, t
         import traceback
         traceback.print_exc()
 
+        # Format error output
+        error_output = f"=== HELM TEST ERROR ===\n\n"
+        error_output += f"Error: {str(e)}\n\n"
+        error_output += f"=== TRACEBACK ===\n\n{traceback.format_exc()}"
+
         # Update job to failed
         if job_id in jobs:
             jobs[job_id]["status"] = "failed"
             jobs[job_id]["progress"] = 100
             jobs[job_id]["message"] = f"❌ Test failed: {str(e)}"
-            jobs[job_id]["output"] = f"Error: {str(e)}\n{traceback.format_exc()}"
+            jobs[job_id]["logs"] = error_output.split('\n')
+            jobs[job_id]["output"] = error_output
             jobs[job_id]["completed_at"] = datetime.now().isoformat()
 
         # Update database with failure
@@ -7517,15 +7534,19 @@ async def run_helm_test(request: HelmTestRun, background_tasks: BackgroundTasks)
         conn.commit()
         conn.close()
 
+        # Map Helm test environment to UI environment (OpenShift -> mce, Kubernetes -> minikube)
+        ui_environment = "mce" if environment == "OpenShift" else "minikube"
+
         # Initialize job in jobs system (will appear in Task Summary)
         jobs[job_id] = {
             "id": job_id,
             "type": "helm-test",
             "provider": provider,
-            "environment": environment,
+            "environment": ui_environment,  # Use UI environment for Task Summary display
+            "helm_environment": environment,  # Keep original for playbook execution
             "test_type": test_type,
             "yaml_file": "tasks/helm-chart-test.yml",
-            "description": f"Helm Chart Test: {provider} - {test_type} ({environment})",
+            "description": f"🧪 HELM TEST: {provider} - {test_type.capitalize()}",
             "status": "running",
             "progress": 0,
             "message": f"🧪 Running {test_type} test...",
@@ -7592,15 +7613,19 @@ async def run_all_helm_tests(request: HelmTestRunAll, background_tasks: Backgrou
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (provider, env, test_type, 'running', None, None, None, None, timestamp))
 
+                # Map Helm test environment to UI environment
+                ui_environment = "mce" if env == "OpenShift" else "minikube"
+
                 # Create job entry
                 jobs[job_id] = {
                     "id": job_id,
                     "type": "helm-test",
                     "provider": provider,
-                    "environment": env,
+                    "environment": ui_environment,  # Use UI environment for Task Summary display
+                    "helm_environment": env,  # Keep original for playbook execution
                     "test_type": test_type,
                     "yaml_file": "tasks/helm-chart-test.yml",
-                    "description": f"Helm Chart Test: {provider} - {test_type} ({env})",
+                    "description": f"🧪 HELM TEST: {provider} - {test_type.capitalize()}",
                     "status": "running",
                     "progress": 0,
                     "message": f"🧪 Running {test_type} test...",
