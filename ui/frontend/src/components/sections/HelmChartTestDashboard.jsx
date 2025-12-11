@@ -22,6 +22,8 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
   const [showTrendModal, setShowTrendModal] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [expandedProviders, setExpandedProviders] = useState(new Set()); // Start with all collapsed
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState(5000); // 5 seconds
 
   // Get theme colors
   const getThemeColors = () => {
@@ -75,6 +77,30 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
       loadTestMatrix();
     }
   }, [isExpanded]);
+
+  // Auto-refresh effect - polls for updates when tests are running
+  useEffect(() => {
+    if (!isExpanded || !autoRefresh || !testMatrix) {
+      return;
+    }
+
+    // Check if any tests are running
+    const hasRunningTests = Object.values(testMatrix).some(provider =>
+      Object.values(provider).some(env =>
+        Object.values(env).some(test => test.status === 'running')
+      )
+    );
+
+    if (!hasRunningTests) {
+      return; // No need to refresh if no tests are running
+    }
+
+    const intervalId = setInterval(() => {
+      loadTestMatrix();
+    }, refreshInterval);
+
+    return () => clearInterval(intervalId);
+  }, [isExpanded, autoRefresh, testMatrix, refreshInterval]);
 
   const loadTestMatrix = async () => {
     try {
@@ -166,50 +192,26 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
   };
 
   const handleRunTest = async (providerId, env, testTypeId) => {
-    const testId = `helm-test-${providerId}-${env}-${testTypeId}-${Date.now()}`;
     const providerInfo = providers.find(p => p.id === providerId);
     const testTypeInfo = testTypes.find(t => t.id === testTypeId);
 
     try {
-      // IMMEDIATELY show "Starting..." in Task Summary for instant feedback
-      recentOps.addToRecent({
-        id: testId,
-        title: `🧪 HELM TEST: ${providerInfo?.name || providerId} - ${testTypeInfo?.name || testTypeId}`,
-        status: '🚀 Starting test...',
-        color: theme === 'minikube' ? 'bg-purple-600' : 'bg-cyan-600',
-        environment: theme,
-        output: `Starting ${testTypeInfo?.name || testTypeId} test for ${providerInfo?.fullName || providerId}...\n\nEnvironment: ${env}\nTest Type: ${testTypeInfo?.name || testTypeId}`
-      });
-
       const response = await axios.post('http://localhost:8000/api/helm-tests/run', {
         provider: providerId,
         environment: env,
         test_type: testTypeId
       });
 
-      if (response.data.success) {
-        console.log(`✅ Started test for ${providerId} on ${env} - ${testTypeId}`);
+      if (response.data.success && response.data.job_id) {
+        console.log(`✅ Started test job ${response.data.job_id} for ${providerId} on ${env} - ${testTypeId}`);
 
-        // Update to success
-        recentOps.updateRecentOperationStatus(
-          testId,
-          `✅ Test started successfully`,
-          `${testTypeInfo?.name || testTypeId} test started for ${providerInfo?.fullName || providerId}\n\n✅ Environment: ${env}\n✅ Status will appear in the test matrix\n\nRefresh the matrix to see live updates.`
-        );
-
-        // Reload matrix to show running status
+        // Backend creates job entry automatically - just reload matrix
         loadTestMatrix();
+      } else {
+        throw new Error(response.data.message || 'Failed to start test');
       }
     } catch (error) {
       console.error('Error running test:', error);
-
-      // Update to show error
-      recentOps.updateRecentOperationStatus(
-        testId,
-        `❌ Failed to start test`,
-        `Failed to start test: ${error.message}\n\nPlease check the backend logs and try again.`
-      );
-
       alert(`Failed to start test: ${error.message}`);
     }
   };
@@ -227,47 +229,23 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
   };
 
   const handleRunAllTests = async (providerId) => {
-    const testId = `helm-tests-${providerId}-${Date.now()}`;
     const providerInfo = providers.find(p => p.id === providerId);
 
     try {
-      // IMMEDIATELY show "Starting..." in Task Summary for instant feedback
-      recentOps.addToRecent({
-        id: testId,
-        title: `🧪 HELM CHART TESTS: ${providerInfo?.name || providerId}`,
-        status: '🚀 Starting all tests...',
-        color: theme === 'minikube' ? 'bg-purple-600' : 'bg-cyan-600',
-        environment: theme,
-        output: `Starting all Helm chart tests for ${providerInfo?.fullName || providerId}...\n\nTests will run across Kubernetes environment:\n- Installation\n- Compliance\n- Upgrade/Rollback\n- Basic Functionality`
-      });
-
       const response = await axios.post('http://localhost:8000/api/helm-tests/run-all', {
         provider: providerId
       });
 
       if (response.data.success) {
-        console.log(`✅ Started all tests for ${providerId}`);
+        console.log(`✅ Started all tests for ${providerId} - ${response.data.test_count} jobs queued`);
 
-        // Update to success
-        recentOps.updateRecentOperationStatus(
-          testId,
-          `✅ Tests started successfully`,
-          `All Helm chart tests started for ${providerInfo?.fullName || providerId}\n\n✅ ${response.data.test_count} tests queued\n✅ Results will appear in the test matrix below\n\nRefresh the matrix to see live status updates.`
-        );
-
-        // Reload matrix to show running status
+        // Backend creates job entries automatically - just reload matrix
         loadTestMatrix();
+      } else {
+        throw new Error(response.data.message || 'Failed to start tests');
       }
     } catch (error) {
       console.error('Error running all tests:', error);
-
-      // Update to show error
-      recentOps.updateRecentOperationStatus(
-        testId,
-        `❌ Failed to start tests`,
-        `Failed to start Helm chart tests: ${error.message}\n\nPlease check the backend logs and try again.`
-      );
-
       alert(`Failed to start tests: ${error.message}`);
     }
   };
@@ -292,6 +270,20 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setAutoRefresh(!autoRefresh);
+              }}
+              className={`px-3 py-1.5 rounded-lg transition-colors text-sm font-medium ${
+                autoRefresh
+                  ? 'bg-white/30 text-white'
+                  : 'bg-white/10 text-white/60 hover:bg-white/20'
+              }`}
+              title={autoRefresh ? 'Auto-refresh enabled' : 'Auto-refresh disabled'}
+            >
+              {autoRefresh ? '🔄 Auto' : '⏸️ Manual'}
+            </button>
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -426,6 +418,18 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
                                 {testData.passRate && (
                                   <div className="mt-2 text-xs text-gray-600">
                                     Pass Rate: {testData.passRate}%
+                                  </div>
+                                )}
+                                {testData.timestamp && (
+                                  <div className="mt-2 pt-2 border-t border-gray-200 text-[10px] text-gray-500">
+                                    {new Date(testData.timestamp).toLocaleString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      hour12: true
+                                    })}
                                   </div>
                                 )}
                               </div>
