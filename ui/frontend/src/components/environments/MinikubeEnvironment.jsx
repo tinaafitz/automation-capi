@@ -4,6 +4,8 @@ import StatusCard from '../cards/StatusCard';
 import ComponentStatusCard from '../cards/ComponentStatusCard';
 import MinikubeTerminalModal from '../modals/MinikubeTerminalModal';
 import MinikubeClusterConfigModal from '../modals/MinikubeClusterConfigModal';
+import NotificationSettingsModal from '../modals/NotificationSettingsModal';
+import { BellIcon } from '@heroicons/react/24/outline';
 import { useMinikubeContext, useRecentOperationsContext, useApp, useAppDispatch } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
 import { cardStyles } from '../../styles/themes';
@@ -15,6 +17,7 @@ const MinikubeEnvironment = () => {
   const recentOps = useRecentOperationsContext();
   const [showTerminalModal, setShowTerminalModal] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
 
   const {
     verifiedMinikubeClusterInfo,
@@ -238,6 +241,19 @@ const MinikubeEnvironment = () => {
           icon="⚙️"
           isCollapsed={minikubeConfigurationCollapsed}
           onToggle={() => setMinikubeConfigurationCollapsed(!minikubeConfigurationCollapsed)}
+          titleActions={
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowNotificationSettings(true);
+              }}
+              className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition-colors duration-200 flex items-center space-x-2 text-sm font-medium"
+              title="Notification Settings"
+            >
+              <BellIcon className="h-4 w-4" />
+              <span>Notifications</span>
+            </button>
+          }
         >
           {/* Three Column Layout */}
           <div className={cardStyles.grid}>
@@ -418,6 +434,13 @@ const MinikubeEnvironment = () => {
       <MinikubeClusterConfigModal
         isOpen={showConfigModal}
         onClose={() => setShowConfigModal(false)}
+      />
+
+      {/* Notification Settings Modal */}
+      <NotificationSettingsModal
+        isOpen={showNotificationSettings}
+        onClose={() => setShowNotificationSettings(false)}
+        theme="minikube"
       />
     </>
   );

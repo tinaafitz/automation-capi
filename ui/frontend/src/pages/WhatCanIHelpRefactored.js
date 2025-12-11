@@ -206,7 +206,7 @@ const EnvironmentContent = () => {
   // Reset section order to default
   const resetSectionOrder = () => {
     const defaultOrder = app.selectedEnvironment === 'minikube'
-      ? ['minikube-environment', 'rosa-hcp-clusters', 'minikube-terminal', 'task-summary', 'test-suite-dashboard', 'test-suite-runner', 'helm-chart-tests', 'task-detail']
+      ? ['minikube-environment', 'task-summary', 'task-detail', 'rosa-hcp-clusters', 'test-suite-dashboard', 'test-suite-runner', 'minikube-terminal', 'helm-chart-tests']
       : ['mce-configuration', 'task-summary', 'task-detail', 'rosa-hcp-clusters', 'test-suite-dashboard', 'test-suite-runner', 'mce-terminal'];
     dispatch({ type: AppActionTypes.SET_SECTION_ORDER, payload: defaultOrder });
   };
@@ -231,14 +231,14 @@ const EnvironmentContent = () => {
         output: `Initializing MCE environment verification...\nConnecting to OpenShift cluster...\nValidating MCE components...`
       });
 
-      // Fetch credentials from backend to get the actual API URL
-      let apiUrl = 'Loading...';
+      // Fetch credentials from backend to get the actual API URL and update the UI FIRST
       try {
         const credsResponse = await fetch(buildApiUrl(API_ENDPOINTS.CREDENTIALS_GET));
         if (credsResponse.ok) {
           const credsData = await credsResponse.json();
           if (credsData.success && credsData.credentials?.OCP_HUB_API_URL) {
-            apiUrl = credsData.credentials.OCP_HUB_API_URL;
+            // Immediately refresh API status to show the API URL in Configuration section
+            await apiStatus.refreshAllStatus();
           }
         }
       } catch (err) {

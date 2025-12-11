@@ -312,18 +312,29 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
         <div className="bg-white border-t-2 border-gray-200 px-6 py-4 rounded-b-2xl">
           <div className="flex items-center justify-between">
             <div className="text-xs text-gray-500">
-              <p>
-                Saved to:{' '}
-                <code className="bg-gray-100 px-2 py-0.5 rounded text-gray-700 font-medium">
-                  generated-yamls/{new Date().toISOString().split('T')[0]}/
-                </code>
-              </p>
-              <p className="mt-1">
-                File:{' '}
-                <code className="bg-gray-100 px-2 py-0.5 rounded text-gray-700 font-medium">
-                  {yamlData?.cluster_name}-{yamlData?.feature_type}.yaml
-                </code>
-              </p>
+              {yamlData?.file_paths?.[0] ? (
+                <p>
+                  Saved to:{' '}
+                  <code className="bg-gray-100 px-2 py-0.5 rounded text-gray-700 font-medium">
+                    {yamlData.file_paths[0]}
+                  </code>
+                </p>
+              ) : (
+                <>
+                  <p>
+                    Saved to:{' '}
+                    <code className="bg-gray-100 px-2 py-0.5 rounded text-gray-700 font-medium">
+                      generated-yamls/{new Date().toISOString().split('T')[0]}/
+                    </code>
+                  </p>
+                  <p className="mt-1">
+                    File:{' '}
+                    <code className="bg-gray-100 px-2 py-0.5 rounded text-gray-700 font-medium">
+                      {yamlData?.cluster_name}-{yamlData?.feature_type}.yaml
+                    </code>
+                  </p>
+                </>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <button
