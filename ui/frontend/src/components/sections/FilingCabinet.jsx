@@ -65,132 +65,117 @@ const FilingCabinet = ({
 
   return (
     <>
-      {/* Filing Cabinet - Right Sidebar */}
+      {/* Filing Cabinet - Right Sidebar - Always visible */}
       {!isExpanded && (
         <div
-          ref={setNodeRef}
-          onClick={onToggle}
-          className={`rounded-2xl shadow-xl border-2 overflow-hidden cursor-pointer transition-all duration-300 ${
+          onClick={hiddenSections.length > 0 ? onToggle : undefined}
+          className={`rounded-xl overflow-hidden ${hiddenSections.length > 0 ? 'cursor-pointer shadow-xl border-2' : 'shadow-md border'} transition-all duration-300 ${
             isOver
               ? `${colors.border} border-4 shadow-2xl scale-105 bg-gradient-to-br from-yellow-50 to-orange-100`
-              : `${colors.border} hover:shadow-2xl bg-gradient-to-br ${colors.lightBg}`
+              : hiddenSections.length > 0
+                ? `${colors.border} hover:shadow-2xl bg-gradient-to-br ${colors.lightBg}`
+                : 'border-gray-200 bg-white hover:shadow-lg'
           }`}
         >
-          {/* Cabinet Header */}
-          <div className={`bg-gradient-to-br ${colors.gradient} p-3`}>
-            <div className="flex items-center gap-2">
-              <div className="bg-white/30 rounded-lg p-1.5 backdrop-blur-sm">
-                <ArchiveBoxIcon className="h-5 w-5 text-white drop-shadow-lg" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-bold text-white drop-shadow-md truncate">Storage</h3>
-                <p className="text-[10px] text-white/90 font-medium">
-                  {hiddenSections.length > 0
-                    ? `${hiddenSections.length} widget${hiddenSections.length !== 1 ? 's' : ''}`
-                    : 'Drop here'}
-                </p>
-              </div>
-              {hiddenSections.length > 0 && (
+          {/* Drop zone wrapper - always rendered for ref */}
+          <div ref={setNodeRef} className="w-full h-full">
+          {/* Simple header when empty, full header when has sections */}
+          {hiddenSections.length > 0 ? (
+            <div className={`bg-gradient-to-br ${colors.gradient} p-3`}>
+              <div className="flex items-center gap-2">
+                <div className="bg-white/30 rounded-lg p-1.5 backdrop-blur-sm">
+                  <ArchiveBoxIcon className="h-5 w-5 text-white drop-shadow-lg" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-bold text-white drop-shadow-md truncate">Storage</h3>
+                  <p className="text-[10px] text-white/90 font-medium">
+                    {hiddenSections.length} widget{hiddenSections.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
                 <div className="bg-white/30 backdrop-blur-sm rounded-full px-2 py-0.5">
                   <span className="text-white text-xs font-bold">{hiddenSections.length}</span>
                 </div>
-              )}
+              </div>
             </div>
-          </div>
-
-          {/* Drop Zone Area / Drawers */}
-          <div className={`p-3 transition-all duration-300 ${
-            isOver ? 'bg-gradient-to-br from-yellow-100 to-orange-100' : 'bg-white'
-          }`}>
-            {/* Drop Zone When Dragging */}
-            {isOver && (
-              <div className="border-2 border-dashed border-orange-400 bg-white shadow-lg scale-105 rounded-xl p-4 mb-3 transition-all duration-300">
-                <div className="text-center">
-                  <ArchiveBoxIcon className="h-10 w-10 mx-auto mb-2 text-orange-500 animate-bounce" />
-                  <p className="text-sm font-bold text-orange-600 mb-1">Drop Here</p>
-                  <p className="text-xs text-orange-500">Hide section</p>
+          ) : (
+            <div className={`p-2 bg-gradient-to-br ${colors.gradient}`}>
+              <div className="flex items-center gap-2">
+                <ArchiveBoxIcon className="h-4 w-4 text-white" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-white">Storage</p>
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Empty State */}
-            {hiddenSections.length === 0 && !isOver && (
-              <div className={`border-2 border-dashed ${colors.border} bg-gradient-to-br ${colors.lightBg} rounded-xl p-4 text-center`}>
-                <div className="flex items-center justify-center mb-3">
-                  <div className="relative">
-                    <div className={`w-16 h-20 bg-gradient-to-br ${colors.gradient} rounded-lg shadow-xl border-2 ${colors.border}`}>
-                      {/* Colorful drawers */}
-                      <div className="absolute top-2 left-1 right-1 h-4 bg-white/30 backdrop-blur-sm rounded border border-white/40 flex items-center justify-center shadow-md">
-                        <div className="w-4 h-0.5 bg-white/60 rounded-full"></div>
-                      </div>
-                      <div className="absolute top-8 left-1 right-1 h-4 bg-white/30 backdrop-blur-sm rounded border border-white/40 flex items-center justify-center shadow-md">
-                        <div className="w-4 h-0.5 bg-white/60 rounded-full"></div>
-                      </div>
-                      <div className="absolute bottom-2 left-1 right-1 h-4 bg-white/30 backdrop-blur-sm rounded border border-white/40 flex items-center justify-center shadow-md">
-                        <div className="w-4 h-0.5 bg-white/60 rounded-full"></div>
-                      </div>
-                    </div>
+          {/* Drop Zone Area / Drawers - Always rendered for drop functionality */}
+          <div className={`transition-all duration-300 ${
+            isOver ? 'p-3 bg-gradient-to-br from-yellow-100 to-orange-100' : hiddenSections.length > 0 ? 'p-3 bg-white' : ''
+          }`}>
+              {/* Drop Zone When Dragging */}
+              {isOver && (
+                <div className="border-2 border-dashed border-orange-400 bg-white shadow-lg scale-105 rounded-xl p-4 transition-all duration-300">
+                  <div className="text-center">
+                    <ArchiveBoxIcon className="h-10 w-10 mx-auto mb-2 text-orange-500 animate-bounce" />
+                    <p className="text-sm font-bold text-orange-600 mb-1">Drop Here</p>
+                    <p className="text-xs text-orange-500">Hide section</p>
                   </div>
                 </div>
-                <p className={`text-xs font-bold ${colors.text} mb-1`}>Empty</p>
-                <p className="text-[10px] text-gray-500">
-                  Drag here
-                </p>
-              </div>
-            )}
+              )}
 
-            {/* Drawers for Each Section */}
-            {hiddenSections.length > 0 && !isOver && (
-              <div className="space-y-1.5">
-                {hiddenSections.map((sectionId, index) => {
-                  const metadata = sectionMetadata[sectionId] || { name: sectionId, icon: '📦' };
-                  // Alternate drawer colors for visual interest
-                  const drawerGradient = index % 2 === 0
-                    ? `${colors.gradient}`
-                    : 'from-indigo-500 to-purple-600';
+              {/* Drawers for Each Section */}
+              {hiddenSections.length > 0 && !isOver && (
+                <div className="space-y-1.5">
+                  {hiddenSections.map((sectionId, index) => {
+                    const metadata = sectionMetadata[sectionId] || { name: sectionId, icon: '📦' };
+                    // Alternate drawer colors for visual interest
+                    const drawerGradient = index % 2 === 0
+                      ? `${colors.gradient}`
+                      : 'from-indigo-500 to-purple-600';
 
-                  return (
-                    <div
-                      key={sectionId}
-                      className={`bg-gradient-to-r ${drawerGradient} rounded-lg shadow-md border border-white/20 p-2 hover:scale-105 hover:shadow-lg transition-all duration-200 cursor-pointer group`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRestoreSection(sectionId);
-                      }}
-                    >
-                      <div className="flex items-center justify-between gap-1.5">
-                        {/* Drawer Handle & Label */}
-                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                          {/* Handle */}
-                          <div className="bg-white/30 backdrop-blur-sm rounded-full px-2 py-0.5 shadow-sm">
-                            <div className="h-0.5 w-5 bg-white/70"></div>
-                          </div>
-
-                          {/* Section Info */}
+                    return (
+                      <div
+                        key={sectionId}
+                        className={`bg-gradient-to-r ${drawerGradient} rounded-lg shadow-md border border-white/20 p-2 hover:scale-105 hover:shadow-lg transition-all duration-200 cursor-pointer group`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRestoreSection(sectionId);
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-1.5">
+                          {/* Drawer Handle & Label */}
                           <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                            <span className="text-base flex-shrink-0">{metadata.icon}</span>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[10px] font-bold text-white truncate drop-shadow-md leading-tight">{metadata.name}</p>
+                            {/* Handle */}
+                            <div className="bg-white/30 backdrop-blur-sm rounded-full px-2 py-0.5 shadow-sm">
+                              <div className="h-0.5 w-5 bg-white/70"></div>
+                            </div>
+
+                            {/* Section Info */}
+                            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                              <span className="text-base flex-shrink-0">{metadata.icon}</span>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[10px] font-bold text-white truncate drop-shadow-md leading-tight">{metadata.name}</p>
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        {/* Restore Button */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onRestoreSection(sectionId);
-                          }}
-                          className="p-1 bg-white/20 backdrop-blur-sm text-white rounded hover:bg-white/30 transition-all duration-200 opacity-0 group-hover:opacity-100 flex-shrink-0"
-                        >
-                          <ArrowUturnLeftIcon className="h-3 w-3" />
-                        </button>
+                          {/* Restore Button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRestoreSection(sectionId);
+                            }}
+                            className="p-1 bg-white/20 backdrop-blur-sm text-white rounded hover:bg-white/30 transition-all duration-200 opacity-0 group-hover:opacity-100 flex-shrink-0"
+                          >
+                            <ArrowUturnLeftIcon className="h-3 w-3" />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
+          </div>
           </div>
         </div>
       )}

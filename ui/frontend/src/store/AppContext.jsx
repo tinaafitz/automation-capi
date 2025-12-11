@@ -23,9 +23,9 @@ const initialAppState = {
   // Environment State
   selectedEnvironment: 'mce',
   showEnvironmentDropdown: false,
-  collapsedSections: new Set(),
+  collapsedSections: new Set(['capi-rosa-hcp-clusters', 'test-suite-dashboard', 'test-suite-runner', 'mce-terminal']),
   showSetupPrompt: false,
-  sectionOrder: ['mce-configuration', 'rosa-hcp-clusters', 'mce-terminal', 'task-summary', 'test-suite-dashboard', 'test-suite-runner', 'task-detail'],
+  sectionOrder: ['mce-configuration', 'task-summary', 'task-detail', 'rosa-hcp-clusters', 'test-suite-dashboard', 'test-suite-runner', 'mce-terminal'],
   hiddenSections: [],
   showFilingCabinet: false,
 

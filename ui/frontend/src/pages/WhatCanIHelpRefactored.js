@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { ChevronDownIcon } from '@heroicons/react/20/solid';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
@@ -157,6 +157,14 @@ const EnvironmentContent = () => {
   const mce = useMCEContext();
   const apiStatus = useApiStatusContext();
 
+  // Ensure FilingCabinet starts collapsed
+  useEffect(() => {
+    if (app.showFilingCabinet) {
+      dispatch({ type: AppActionTypes.TOGGLE_FILING_CABINET });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
+
   // For Minikube, show if environment is selected (MinikubeEnvironment handles its own display logic)
   const shouldShowMinikube = app.selectedEnvironment === 'minikube';
   const shouldShowMCE = app.selectedEnvironment === 'mce';
@@ -199,7 +207,7 @@ const EnvironmentContent = () => {
   const resetSectionOrder = () => {
     const defaultOrder = app.selectedEnvironment === 'minikube'
       ? ['minikube-environment', 'rosa-hcp-clusters', 'minikube-terminal', 'task-summary', 'test-suite-dashboard', 'test-suite-runner', 'helm-chart-tests', 'task-detail']
-      : ['mce-configuration', 'rosa-hcp-clusters', 'mce-terminal', 'task-summary', 'test-suite-dashboard', 'test-suite-runner', 'task-detail'];
+      : ['mce-configuration', 'task-summary', 'task-detail', 'rosa-hcp-clusters', 'test-suite-dashboard', 'test-suite-runner', 'mce-terminal'];
     dispatch({ type: AppActionTypes.SET_SECTION_ORDER, payload: defaultOrder });
   };
 
@@ -628,21 +636,24 @@ const EnvironmentContent = () => {
               </div>
             </SortableContext>
 
-            {/* Floating Filing Cabinet Widget - Bottom Right Corner */}
-            <FilingCabinet
-              hiddenSections={app.hiddenSections}
-              onRestoreSection={(sectionId) => {
-                dispatch({ type: AppActionTypes.RESTORE_SECTION, payload: sectionId });
-              }}
-              onClearAll={() => {
-                dispatch({ type: AppActionTypes.RESTORE_ALL_SECTIONS });
-              }}
-              theme={app.selectedEnvironment}
-              isExpanded={app.showFilingCabinet}
-              onToggle={() => {
-                dispatch({ type: AppActionTypes.TOGGLE_FILING_CABINET });
-              }}
-            />
+            {/* Filing Cabinet Widget - Fixed Bottom Right (next to AI assistant) - INSIDE DndContext */}
+            <div className="fixed bottom-6 right-24 z-30 w-64">
+              <FilingCabinet
+                hiddenSections={app.hiddenSections}
+                onRestoreSection={(sectionId) => {
+                  dispatch({ type: AppActionTypes.RESTORE_SECTION, payload: sectionId });
+                }}
+                onClearAll={() => {
+                  dispatch({ type: AppActionTypes.RESTORE_ALL_SECTIONS });
+                }}
+                theme={app.selectedEnvironment}
+                isExpanded={app.showFilingCabinet}
+                onToggle={() => {
+                  dispatch({ type: AppActionTypes.TOGGLE_FILING_CABINET });
+                }}
+              />
+            </div>
+
           </DndContext>
         </div>
       )}
