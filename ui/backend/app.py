@@ -562,20 +562,32 @@ async def delete_cluster(cluster_id: str, background_tasks: BackgroundTasks):
 @app.get("/api/jobs")
 async def list_jobs():
     """List all jobs"""
-    # Return all jobs sorted by creation time (newest first)
-    job_list = []
-    for job_id, job in jobs.items():
-        job_data = {**job, "id": job_id}
-        job_list.append(job_data)
+    try:
+        # Return all jobs sorted by creation time (newest first)
+        job_list = []
+        for job_id, job in jobs.items():
+            job_data = {**job, "id": job_id}
+            job_list.append(job_data)
 
-    # Sort by created_at timestamp (newest first)
-    job_list.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        # Sort by created_at timestamp (newest first)
+        # Use empty string "0" as default so missing timestamps sort to end
+        job_list.sort(key=lambda x: x.get("created_at", "0"), reverse=True)
 
-    return {
-        "success": True,
-        "jobs": job_list,
-        "count": len(job_list)
-    }
+        return {
+            "success": True,
+            "jobs": job_list,
+            "count": len(job_list)
+        }
+    except Exception as e:
+        print(f"❌ Error in list_jobs: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "error": str(e),
+            "jobs": [],
+            "count": 0
+        }
 
 @app.delete("/api/jobs")
 async def clear_all_jobs():
