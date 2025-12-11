@@ -107,10 +107,13 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
   const formatTimestamp = (timestamp) => {
     try {
       if (typeof timestamp === 'number') {
-        return new Date(timestamp).toLocaleDateString('en-US', {
+        return new Date(timestamp).toLocaleString('en-US', {
           month: 'short',
           day: 'numeric',
           year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
         });
       }
       return timestamp;
