@@ -3,12 +3,32 @@ import { useState, useEffect, useCallback } from 'react';
 // Custom hook for Minikube environment management
 export const useMinikubeEnvironment = () => {
   const [minikubeClusterInfo, setMinikubeClusterInfo] = useState(null);
-  const [verifiedMinikubeClusterInfo, setVerifiedMinikubeClusterInfo] = useState(null);
+  const [verifiedMinikubeClusterInfo, setVerifiedMinikubeClusterInfo] = useState(() => {
+    try {
+      const saved = localStorage.getItem('minikube-verified-cluster-info');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [minikubeActiveResources, setMinikubeActiveResources] = useState([]);
   const [minikubeClusters, setMinikubeClusters] = useState([]);
-  const [selectedMinikubeCluster, setSelectedMinikubeCluster] = useState('');
+  const [selectedMinikubeCluster, setSelectedMinikubeCluster] = useState(() => {
+    try {
+      return localStorage.getItem('minikube-selected-cluster') || '';
+    } catch {
+      return '';
+    }
+  });
   const [minikubeClusterInput, setMinikubeClusterInput] = useState('');
-  const [minikubeVerificationResult, setMinikubeVerificationResult] = useState(null);
+  const [minikubeVerificationResult, setMinikubeVerificationResult] = useState(() => {
+    try {
+      const saved = localStorage.getItem('minikube-verification-result');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [minikubeLoading, setMinikubeLoading] = useState(false);
   const [minikubeResourcesLoading, setMinikubeResourcesLoading] = useState(false);
   
@@ -152,6 +172,31 @@ export const useMinikubeEnvironment = () => {
   useEffect(() => {
     fetchMinikubeClusters();
   }, [fetchMinikubeClusters]);
+
+  // Persist verification state to localStorage
+  useEffect(() => {
+    if (minikubeVerificationResult) {
+      localStorage.setItem('minikube-verification-result', JSON.stringify(minikubeVerificationResult));
+    } else {
+      localStorage.removeItem('minikube-verification-result');
+    }
+  }, [minikubeVerificationResult]);
+
+  useEffect(() => {
+    if (verifiedMinikubeClusterInfo) {
+      localStorage.setItem('minikube-verified-cluster-info', JSON.stringify(verifiedMinikubeClusterInfo));
+    } else {
+      localStorage.removeItem('minikube-verified-cluster-info');
+    }
+  }, [verifiedMinikubeClusterInfo]);
+
+  useEffect(() => {
+    if (selectedMinikubeCluster) {
+      localStorage.setItem('minikube-selected-cluster', selectedMinikubeCluster);
+    } else {
+      localStorage.removeItem('minikube-selected-cluster');
+    }
+  }, [selectedMinikubeCluster]);
 
   return {
     // State

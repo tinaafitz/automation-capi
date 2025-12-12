@@ -25,6 +25,11 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(5000); // 5 seconds
 
+  // Git source configuration
+  const [chartSource, setChartSource] = useState('git'); // 'helm_repo' or 'git'
+  const [gitBranch, setGitBranch] = useState('main');
+  const [showSourceConfig, setShowSourceConfig] = useState(false);
+
   // Get theme colors
   const getThemeColors = () => {
     switch (theme) {
@@ -199,7 +204,10 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
       const response = await axios.post('http://localhost:8000/api/helm-tests/run', {
         provider: providerId,
         environment: env,
-        test_type: testTypeId
+        test_type: testTypeId,
+        chart_source: chartSource,
+        git_repo: 'https://github.com/stolostron/cluster-api-installer.git',
+        git_branch: gitBranch
       });
 
       if (response.data.success && response.data.job_id) {
@@ -270,6 +278,18 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            {/* Git Source Indicator */}
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowSourceConfig(!showSourceConfig);
+              }}
+              className="px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors text-sm font-medium text-white cursor-pointer"
+              title="Configure chart source"
+            >
+              {chartSource === 'git' ? `📦 Git: ${gitBranch}` : '📦 Helm Repo'}
+            </div>
+
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -303,6 +323,53 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
             </div>
           </div>
         </div>
+
+        {/* Chart Source Configuration Panel */}
+        {showSourceConfig && isExpanded && (
+          <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200 p-4">
+            <div className="max-w-4xl mx-auto">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">Chart Source Configuration</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Chart Source
+                  </label>
+                  <select
+                    value={chartSource}
+                    onChange={(e) => setChartSource(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="git">Git Repository (stolostron)</option>
+                    <option value="helm_repo">Helm Repository</option>
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {chartSource === 'git'
+                      ? 'Clone charts from GitHub repository'
+                      : 'Use published Helm repository (if available)'}
+                  </p>
+                </div>
+
+                {chartSource === 'git' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Git Branch
+                    </label>
+                    <input
+                      type="text"
+                      value={gitBranch}
+                      onChange={(e) => setGitBranch(e.target.value)}
+                      placeholder="main"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Repository: stolostron/cluster-api-installer
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Section Content */}
         {isExpanded && (

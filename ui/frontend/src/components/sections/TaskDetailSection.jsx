@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DocumentTextIcon, ChevronDownIcon, ChevronUpIcon, DocumentDuplicateIcon } from '@heroicons/react/24/outline';
 import { useApp, useAppDispatch, useRecentOperationsContext } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
@@ -9,6 +9,7 @@ const TaskDetailSection = ({ theme = 'mce', environment }) => {
   const dispatch = useAppDispatch();
   const { jobHistory, loading, error } = useJobHistory();
   const recentOps = useRecentOperationsContext();
+  const [expandedOutputs, setExpandedOutputs] = useState(new Set());
 
   // Map jobs to look like recent operations for display
   const jobOperations = jobHistory.map(job => ({
@@ -123,6 +124,18 @@ const TaskDetailSection = ({ theme = 'mce', environment }) => {
     }
   };
 
+  const toggleOutputDetails = (taskId) => {
+    setExpandedOutputs(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(taskId)) {
+        newSet.delete(taskId);
+      } else {
+        newSet.add(taskId);
+      }
+      return newSet;
+    });
+  };
+
   return (
     <div className={`bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-xl shadow-2xl border-2 ${colors.border} overflow-hidden`}>
       <div
@@ -167,56 +180,78 @@ const TaskDetailSection = ({ theme = 'mce', environment }) => {
             </div>
           ) : (
             // Show all tasks with full details
-            filteredOperations.map((operation, idx) => (
+            filteredOperations.map((operation, idx) => {
+              const taskId = operation.id || idx;
+              const isExpanded = expandedOutputs.has(taskId);
+              const hasOutput = operation.output && operation.output.trim().length > 0;
+
+              return (
             <div
-              key={operation.id || idx}
-              className="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-3"
+              key={taskId}
+              className="bg-gray-800/50 rounded-lg border border-gray-700 overflow-hidden"
             >
-              {/* Operation Title */}
-              <div className="flex items-start justify-between">
-                <h4 className="text-white font-semibold text-lg">
-                  {operation.title}
-                </h4>
-                <span className="text-gray-400 text-sm whitespace-nowrap ml-4">
-                  {formatTimestamp(operation.timestamp)}
-                </span>
-              </div>
-
-              {/* Playbook Info */}
-              {operation.playbook && (
-                <div className="flex items-center space-x-2 text-sm">
-                  <span className="text-gray-400">📋</span>
-                  <span className="text-gray-300 font-mono">{operation.playbook}</span>
+              <div className="p-4 space-y-3">
+                {/* Operation Title */}
+                <div className="flex items-start justify-between">
+                  <h4 className="text-white font-semibold text-lg">
+                    {operation.title}
+                  </h4>
+                  <span className="text-gray-400 text-sm whitespace-nowrap ml-4">
+                    {formatTimestamp(operation.timestamp)}
+                  </span>
                 </div>
-              )}
 
-              {/* Status */}
-              <div className="flex items-center space-x-2">
-                <span
-                  className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                    operation.status?.includes('✅') ||
-                    operation.status?.toLowerCase().includes('success')
-                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                      : operation.status?.includes('❌') ||
-                          operation.status?.toLowerCase().includes('failed')
-                        ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                        : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                  }`}
-                >
-                  {operation.status}
-                </span>
+                {/* Playbook Info */}
+                {operation.playbook && (
+                  <div className="flex items-center space-x-2 text-sm">
+                    <span className="text-gray-400">📋</span>
+                    <span className="text-gray-300 font-mono">{operation.playbook}</span>
+                  </div>
+                )}
+
+                {/* Status and View Details Button */}
+                <div className="flex items-center justify-between">
+                  <span
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                      operation.status?.includes('✅') ||
+                      operation.status?.toLowerCase().includes('success')
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                        : operation.status?.includes('❌') ||
+                            operation.status?.toLowerCase().includes('failed')
+                          ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                          : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                    }`}
+                  >
+                    {operation.status}
+                  </span>
+
+                  {hasOutput && (
+                    <button
+                      onClick={() => toggleOutputDetails(taskId)}
+                      className={`px-3 py-1.5 rounded-lg transition-colors text-xs font-medium flex items-center space-x-1 ${
+                        isExpanded
+                          ? 'bg-cyan-600 text-white'
+                          : 'bg-cyan-900/30 text-cyan-400 hover:bg-cyan-800/50'
+                      }`}
+                    >
+                      <DocumentTextIcon className="h-4 w-4" />
+                      <span>{isExpanded ? 'Hide Details' : 'View Details'}</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {/* Output Details */}
-              {operation.output && (
-                <div className="mt-3">
-                  <pre className="bg-gray-900/80 rounded-lg p-4 text-sm text-gray-300 font-mono whitespace-pre-wrap border border-gray-700">
+              {/* Collapsible Output Details */}
+              {isExpanded && hasOutput && (
+                <div className="border-t border-gray-700 bg-gray-900/50 p-4">
+                  <pre className="text-sm text-gray-300 font-mono whitespace-pre-wrap">
                     {operation.output}
                   </pre>
                 </div>
               )}
             </div>
-          ))
+              );
+            })
           )}
         </div>
       )}

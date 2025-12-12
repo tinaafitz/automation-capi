@@ -1,5 +1,5 @@
-import React from 'react';
-import { ClockIcon, ChevronDownIcon, ChevronUpIcon, TrashIcon } from '@heroicons/react/24/outline';
+import React, { useState } from 'react';
+import { ClockIcon, ChevronDownIcon, ChevronUpIcon, TrashIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import { useApp, useAppDispatch, useRecentOperationsContext } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
 import { useJobHistory } from '../../hooks/useJobHistory';
@@ -9,6 +9,7 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
   const dispatch = useAppDispatch();
   const { jobHistory, loading, error, fetchJobHistory } = useJobHistory();
   const recentOps = useRecentOperationsContext();
+  const [expandedTasks, setExpandedTasks] = useState(new Set());
 
   console.log('🔍 [TaskSummarySection] jobHistory:', jobHistory.length, 'jobs, recentOps:', recentOps.recentOperations.length, 'environment:', environment);
 
@@ -122,6 +123,18 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
     }
   };
 
+  const toggleTaskDetails = (taskId) => {
+    setExpandedTasks(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(taskId)) {
+        newSet.delete(taskId);
+      } else {
+        newSet.add(taskId);
+      }
+      return newSet;
+    });
+  };
+
   return (
     <div className={`bg-white rounded-xl shadow-lg border-2 ${colors.border} overflow-hidden`}>
       <div
@@ -170,42 +183,74 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
             </div>
           ) : (
           <div className="space-y-3">
-              {filteredOperations.map((operation, idx) => (
+              {filteredOperations.map((operation, idx) => {
+                const taskId = operation.id || idx;
+                const isExpanded = expandedTasks.has(taskId);
+                const hasDetails = operation.output || operation.detailedOutput;
+
+                return (
                 <div
-                  key={operation.id || idx}
-                  className={`flex items-center justify-between p-4 bg-gradient-to-r from-${colors.accent}-50 to-${colors.accent === 'purple' ? 'violet' : 'teal'}-50 rounded-lg border border-${colors.accent}-200 transition-all duration-200`}
+                  key={taskId}
+                  className={`bg-gradient-to-r from-${colors.accent}-50 to-${colors.accent === 'purple' ? 'violet' : 'teal'}-50 rounded-lg border border-${colors.accent}-200 transition-all duration-200`}
                 >
-                  <div className="flex items-center space-x-3 flex-1 min-w-0">
-                    <div
-                      className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                        operation.status?.includes('✅') ||
-                        operation.status?.toLowerCase().includes('success')
-                          ? 'bg-green-500'
-                          : operation.status?.includes('❌') ||
-                              operation.status?.toLowerCase().includes('failed')
-                            ? 'bg-red-500'
-                            : 'bg-blue-500 animate-pulse'
-                      }`}
-                    ></div>
-                    <div className="flex-1 min-w-0">
-                      <div className={`font-semibold ${colors.text} truncate`}>
-                        {operation.title}
-                      </div>
-                      <div className={`text-sm text-${colors.accent}-700 mt-1`}>
-                        {operation.status}
-                      </div>
-                      {operation.playbook && (
-                        <div className="text-xs text-gray-600 mt-1">
-                          📋 {operation.playbook}
+                  {/* Task Summary Row */}
+                  <div className="flex items-center justify-between p-4">
+                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                      <div
+                        className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                          operation.status?.includes('✅') ||
+                          operation.status?.toLowerCase().includes('success')
+                            ? 'bg-green-500'
+                            : operation.status?.includes('❌') ||
+                                operation.status?.toLowerCase().includes('failed')
+                              ? 'bg-red-500'
+                              : 'bg-blue-500 animate-pulse'
+                        }`}
+                      ></div>
+                      <div className="flex-1 min-w-0">
+                        <div className={`font-semibold ${colors.text} truncate`}>
+                          {operation.title}
                         </div>
+                        <div className={`text-sm text-${colors.accent}-700 mt-1`}>
+                          {operation.status}
+                        </div>
+                        {operation.playbook && (
+                          <div className="text-xs text-gray-600 mt-1">
+                            📋 {operation.playbook}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-3 ml-4 flex-shrink-0">
+                      <div className={`text-xs text-${colors.accent}-600`}>
+                        {formatTimestamp(operation.timestamp)}
+                      </div>
+                      {hasDetails && (
+                        <button
+                          onClick={() => toggleTaskDetails(taskId)}
+                          className={`px-3 py-1.5 rounded-lg transition-colors text-xs font-medium flex items-center space-x-1 ${
+                            isExpanded
+                              ? `bg-${colors.accent}-600 text-white`
+                              : `bg-${colors.accent}-100 text-${colors.accent}-700 hover:bg-${colors.accent}-200`
+                          }`}
+                        >
+                          <DocumentTextIcon className="h-4 w-4" />
+                          <span>{isExpanded ? 'Hide Details' : 'View Details'}</span>
+                        </button>
                       )}
                     </div>
                   </div>
-                  <div className={`text-xs text-${colors.accent}-600 ml-4 flex-shrink-0`}>
-                    {formatTimestamp(operation.timestamp)}
-                  </div>
+
+                  {/* Collapsible Details Section */}
+                  {isExpanded && hasDetails && (
+                    <div className="border-t border-gray-200 bg-white/50 p-4">
+                      <pre className="text-xs bg-gray-900 text-green-400 p-4 rounded-lg overflow-x-auto max-h-96 overflow-y-auto font-mono">
+                        {operation.detailedOutput || operation.output}
+                      </pre>
+                    </div>
+                  )}
                 </div>
-              ))}
+              )})}
           </div>
           )}
         </div>
