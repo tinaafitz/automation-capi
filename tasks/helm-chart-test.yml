@@ -1,6 +1,7 @@
 ---
 # Helm Chart Test Task
 # Tests Helm charts for CAPI providers (installation, compliance, upgrade, functionality)
+# Supports both Helm repository charts and Git-sourced charts
 
 - name: "Helm Chart Test: {{ provider }} - {{ test_type }} ({{ environment }})"
   hosts: localhost
@@ -11,12 +12,18 @@
     environment: "{{ environment | default('Kubernetes') }}"
     namespace: "{{ provider }}-system"
     chart_name: "{{ provider }}"
+    # Git source configuration
+    chart_source: "{{ chart_source | default('helm_repo') }}"  # 'helm_repo' or 'git'
+    git_repo: "{{ git_repo | default('https://github.com/stolostron/cluster-api-installer.git') }}"
+    git_branch: "{{ git_branch | default('main') }}"
+    charts_cache_dir: "{{ lookup('env', 'HOME') }}/.cache/capi-charts"
 
   tasks:
     - name: Set test context
       set_fact:
         test_start_time: "{{ ansible_date_time.epoch }}"
         test_namespace: "{{ namespace }}"
+        chart_source_type: "{{ chart_source }}"
 
     - name: Display test information
       debug:
@@ -26,14 +33,82 @@
           Test Type: {{ test_type }}
           Environment: {{ environment }}
           Namespace: {{ test_namespace }}
+          Chart Source: {{ chart_source_type }}
+
+    # Git-sourced chart preparation
+    - name: Prepare Git-sourced chart
+      when: chart_source == 'git'
+      block:
+        - name: Ensure charts cache directory exists
+          file:
+            path: "{{ charts_cache_dir }}"
+            state: directory
+            mode: '0755'
+
+        - name: Clone or update stolostron chart repository
+          git:
+            repo: "{{ git_repo }}"
+            dest: "{{ charts_cache_dir }}/cluster-api-installer"
+            version: "{{ git_branch }}"
+            update: yes
+            force: yes
+          register: git_clone
+
+        - name: Map provider name to chart directory
+          set_fact:
+            chart_directory_map:
+              capi: "cluster-api"
+              capa: "cluster-api-provider-aws"
+              capz: "cluster-api-provider-azure"
+              cap-metal3: "cluster-api-provider-metal3"
+              capoa: "cluster-api-provider-openshift-assisted"
+
+        - name: Set chart path for Git source
+          set_fact:
+            chart_path: "{{ charts_cache_dir }}/cluster-api-installer/charts/{{ chart_directory_map[provider] }}"
+
+        - name: Verify chart exists
+          stat:
+            path: "{{ chart_path }}/Chart.yaml"
+          register: chart_file
+
+        - name: Fail if chart not found
+          fail:
+            msg: "Chart not found at {{ chart_path }}"
+          when: not chart_file.stat.exists
+
+        - name: Display chart information
+          debug:
+            msg: |
+              Git Repository: {{ git_repo }}
+              Branch: {{ git_branch }}
+              Chart Path: {{ chart_path }}
+              Chart Updated: {{ git_clone.changed }}
 
     - name: Run Installation Test
       when: test_type == 'install'
       block:
-        - name: Check if Helm chart exists
+        - name: Check if release already installed
           shell: |
             helm list -n {{ test_namespace }} | grep -q {{ chart_name }} && echo "exists" || echo "not_found"
           register: helm_check
+          failed_when: false
+
+        - name: Ensure namespace exists
+          when: chart_source == 'git' and "'not_found' in helm_check.stdout"
+          shell: |
+            kubectl create namespace {{ test_namespace }} --dry-run=client -o yaml | kubectl apply -f -
+          register: namespace_create
+          failed_when: false
+
+        - name: Install chart from Git source
+          when: chart_source == 'git' and "'not_found' in helm_check.stdout"
+          shell: |
+            helm install {{ chart_name }} {{ chart_path }} \
+              --namespace {{ test_namespace }} \
+              --wait \
+              --timeout 10m
+          register: helm_install_git
           failed_when: false
 
         - name: Verify chart installation
@@ -41,7 +116,7 @@
             helm status {{ chart_name }} -n {{ test_namespace }} --output json
           register: helm_status
           failed_when: false
-          when: "'exists' in helm_check.stdout"
+          when: "'exists' in helm_check.stdout or (chart_source == 'git' and helm_install_git.rc == 0)"
 
         - name: Check deployment status
           shell: |
@@ -53,10 +128,48 @@
           set_fact:
             test_end_time: "{{ ansible_date_time.epoch }}"
 
+        - name: Get count of healthy deployments
+          set_fact:
+            healthy_deploy_count: >-
+              {{
+                (deploy_status.stdout | from_json).items
+                | selectattr('status.conditions', 'defined')
+                | map(attribute='status.conditions')
+                | flatten
+                | selectattr('type', 'equalto', 'Available')
+                | selectattr('status', 'equalto', 'True')
+                | list
+                | length
+              }}
+          when: deploy_status.stdout | default('') != ''
+
+        - name: Check if deployments are healthy
+          set_fact:
+            deployments_healthy: "{{ (healthy_deploy_count | default(0) | int) > 0 }}"
+          when: deploy_status.stdout | default('') != ''
+
+        - name: Get unhealthy deployments
+          shell: |
+            kubectl get deploy -n {{ test_namespace }} -o json | \
+            jq -r '.items[] | select(.status.conditions[] | select(.type=="Available" and .status!="True")) | .metadata.name' | \
+            paste -sd "," -
+          register: unhealthy_deploys
+          when: deploy_status.stdout | default('') != '' and not (deployments_healthy | default(false) | bool)
+          failed_when: false
+
         - name: Set installation test result
           set_fact:
-            test_result: "{{ 'pass' if ((helm_status | default({})).get('rc', 1) == 0 or helm_check.stdout == 'exists') else 'fail' }}"
+            test_result: >-
+              {{
+                'pass' if (
+                  (helm_status | default({})).get('rc', 1) == 0 or
+                  helm_check.stdout == 'exists' or
+                  (helm_install_git is defined and helm_install_git.rc == 0)
+                ) and (deployments_healthy | default(false) | bool)
+                else 'fail'
+              }}
             test_duration: "{{ (test_end_time | int) - (test_start_time | int) }}"
+            install_method: "{{ 'git' if chart_source == 'git' else 'helm_repo' }}"
 
     - name: Run Compliance Test
       when: test_type == 'compliance'
@@ -156,6 +269,17 @@
           Result: {{ test_result }}
           Duration: {{ test_duration }}s
           Pass Rate: {{ pass_rate }}%
+          Chart Source: {{ chart_source_type }}
+          {% if chart_source == 'git' %}
+          Git Branch: {{ git_branch }}
+          Chart Path: {{ chart_path }}
+          {% endif %}
+          {% if test_type == 'install' and deployments_healthy is defined %}
+          Deployments Healthy: {{ deployments_healthy | bool }}
+          {% if unhealthy_deploys is defined and unhealthy_deploys.stdout | default('') != '' %}
+          Unhealthy Deployments: {{ unhealthy_deploys.stdout }}
+          {% endif %}
+          {% endif %}
 
     - name: Return test results
       set_fact:
@@ -167,3 +291,6 @@
           duration: "{{ test_duration }}"
           pass_rate: "{{ pass_rate }}"
           timestamp: "{{ ansible_date_time.iso8601 }}"
+          chart_source: "{{ chart_source }}"
+          git_branch: "{{ git_branch if chart_source == 'git' else '' }}"
+          install_method: "{{ install_method | default('unknown') }}"

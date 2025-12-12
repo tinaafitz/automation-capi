@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { BeakerIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 
 const TestSuiteDashboard = ({ theme = 'mce', onSelectTestSuite }) => {
-  const [testSuiteCollapsed, setTestSuiteCollapsed] = useState(false);
+  const [testSuiteCollapsed, setTestSuiteCollapsed] = useState(true);
   const [selectedVersion, setSelectedVersion] = useState('4.21');
   const [expandedItems, setExpandedItems] = useState({});
   const [testItems, setTestItems] = useState([

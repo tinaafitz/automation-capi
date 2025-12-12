@@ -4,6 +4,14 @@ skip_ansible_runner: false
 # ansible_async_dir: '/root/.ansible_async'
 ansible_async_dir: '/tmp/.ansible_async'
 
+#==== CAPI Installation ====
+# Installation method for CAPI providers: 'clusterctl' (default) or 'helm'
+# - clusterctl: Uses official clusterctl tool (fast, simple, matches upstream docs)
+# - helm: Uses Helm charts from stolostron/cluster-api-installer (GitOps friendly, customizable)
+capi_installation_method: "clusterctl"
+helm_repo_url: "https://stolostron.github.io/cluster-api-installer"
+helm_chart_version: "latest"  # or specific version like "1.0.0"
+
 #==== Multi-Provider Support ====
 cloud_provider: "aws"                            # Default provider: aws, azure
 supported_providers: ["aws", "azure"]

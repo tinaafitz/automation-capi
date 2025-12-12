@@ -12,6 +12,8 @@ const MinikubeSetupSection = () => {
     selectedMinikubeCluster,
     minikubeClusterInput,
     minikubeVerificationResult,
+    verifiedMinikubeClusterInfo,
+    minikubeClusterInfo,
     minikubeLoading,
     verifyMinikubeCluster,
     fetchMinikubeClusters,
@@ -66,12 +68,22 @@ const MinikubeSetupSection = () => {
       return;
     }
 
+    if (minikubeLoading) {
+      console.log('⚠️ Cluster creation already in progress, ignoring duplicate request');
+      return;
+    }
+
     const createId = `create-minikube-${Date.now()}`;
-    
+
+    // Immediately hide the form and clear input when starting creation
+    setShowCreateForm(false);
+    const clusterNameToCreate = newClusterName.trim();
+    setNewClusterName('');
+
     try {
       addToRecent({
         id: createId,
-        title: `Create Minikube Cluster: ${newClusterName}`,
+        title: `Create Minikube Cluster: ${clusterNameToCreate}`,
         color: 'bg-purple-600',
         status: '⏳ Creating...',
         environment: 'minikube'
@@ -80,11 +92,11 @@ const MinikubeSetupSection = () => {
       const response = await fetch('http://localhost:8000/api/minikube/create-cluster', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cluster_name: newClusterName.trim() }),
+        body: JSON.stringify({ cluster_name: clusterNameToCreate }),
       });
 
       const data = await response.json();
-      
+
       if (response.ok && data.success) {
         const completionTime = new Date().toLocaleTimeString('en-US', {
           hour: 'numeric',
@@ -92,17 +104,15 @@ const MinikubeSetupSection = () => {
           second: '2-digit',
           hour12: true,
         });
-        
+
         updateRecentOperationStatus(
           createId,
-          `✅ Cluster ${newClusterName} created at ${completionTime}`
+          `✅ Cluster ${clusterNameToCreate} created at ${completionTime}`
         );
-        
+
         // Refresh cluster list and set as selected
         await fetchMinikubeClusters();
-        setSelectedMinikubeCluster(newClusterName.trim());
-        setNewClusterName('');
-        setShowCreateForm(false);
+        setSelectedMinikubeCluster(clusterNameToCreate);
       } else {
         throw new Error(data.message || 'Cluster creation failed');
       }
@@ -117,6 +127,13 @@ const MinikubeSetupSection = () => {
   const handleRefreshClusters = async () => {
     await fetchMinikubeClusters();
   };
+
+  // Don't show setup section if a cluster is already selected
+  // Simple approach: if user has selected a cluster from the dropdown, assume they're using it
+  if (selectedMinikubeCluster && selectedMinikubeCluster !== '') {
+    console.log('✅ [MinikubeSetupSection] Hiding setup section - cluster selected:', selectedMinikubeCluster);
+    return null;
+  }
 
   return (
     <div className="mb-6 bg-gradient-to-br from-purple-50 to-violet-50 rounded-2xl border-2 border-purple-200 p-6">

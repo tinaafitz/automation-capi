@@ -12,9 +12,11 @@ import {
 } from '@heroicons/react/24/outline';
 import axios from 'axios';
 import { useRecentOperationsContext } from '../../store/AppContext';
+import { useJobHistory } from '../../hooks/useJobHistory';
 
 const HelmChartTestDashboard = ({ theme = 'mce' }) => {
   const recentOps = useRecentOperationsContext();
+  const { fetchJobHistory } = useJobHistory();
   const [isExpanded, setIsExpanded] = useState(true);
   const [testMatrix, setTestMatrix] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -22,6 +24,13 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
   const [showTrendModal, setShowTrendModal] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [expandedProviders, setExpandedProviders] = useState(new Set()); // Start with all collapsed
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState(5000); // 5 seconds
+
+  // Git source configuration
+  const [chartSource, setChartSource] = useState('git'); // 'helm_repo' or 'git'
+  const [gitBranch, setGitBranch] = useState('main');
+  const [showSourceConfig, setShowSourceConfig] = useState(false);
 
   // Get theme colors
   const getThemeColors = () => {
@@ -75,6 +84,30 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
       loadTestMatrix();
     }
   }, [isExpanded]);
+
+  // Auto-refresh effect - polls for updates when tests are running
+  useEffect(() => {
+    if (!isExpanded || !autoRefresh || !testMatrix) {
+      return;
+    }
+
+    // Check if any tests are running
+    const hasRunningTests = Object.values(testMatrix).some(provider =>
+      Object.values(provider).some(env =>
+        Object.values(env).some(test => test.status === 'running')
+      )
+    );
+
+    if (!hasRunningTests) {
+      return; // No need to refresh if no tests are running
+    }
+
+    const intervalId = setInterval(() => {
+      loadTestMatrix();
+    }, refreshInterval);
+
+    return () => clearInterval(intervalId);
+  }, [isExpanded, autoRefresh, testMatrix, refreshInterval]);
 
   const loadTestMatrix = async () => {
     try {
@@ -166,50 +199,53 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
   };
 
   const handleRunTest = async (providerId, env, testTypeId) => {
-    const testId = `helm-test-${providerId}-${env}-${testTypeId}-${Date.now()}`;
     const providerInfo = providers.find(p => p.id === providerId);
     const testTypeInfo = testTypes.find(t => t.id === testTypeId);
 
+    // Generate a unique ID for this test run
+    const testRunId = `helm-test-${Date.now()}`;
+    const envDisplay = env === 'OpenShift' ? 'mce' : 'minikube';
+    const sourceInfo = chartSource === 'git' ? ` (Git: ${gitBranch})` : ' (Helm repo)';
+
     try {
-      // IMMEDIATELY show "Starting..." in Task Summary for instant feedback
+      // Add immediate feedback to Recent Operations
       recentOps.addToRecent({
-        id: testId,
-        title: `🧪 HELM TEST: ${providerInfo?.name || providerId} - ${testTypeInfo?.name || testTypeId}`,
-        status: '🚀 Starting test...',
+        id: testRunId,
+        title: `🧪 HELM TEST: ${providerId} - ${testTypeId.charAt(0).toUpperCase() + testTypeId.slice(1)}${sourceInfo}`,
         color: theme === 'minikube' ? 'bg-purple-600' : 'bg-cyan-600',
-        environment: theme,
-        output: `Starting ${testTypeInfo?.name || testTypeId} test for ${providerInfo?.fullName || providerId}...\n\nEnvironment: ${env}\nTest Type: ${testTypeInfo?.name || testTypeId}`
+        status: '⏳ Starting test...',
+        environment: envDisplay
       });
 
       const response = await axios.post('http://localhost:8000/api/helm-tests/run', {
         provider: providerId,
         environment: env,
-        test_type: testTypeId
+        test_type: testTypeId,
+        chart_source: chartSource,
+        git_repo: 'https://github.com/stolostron/cluster-api-installer.git',
+        git_branch: gitBranch
       });
 
-      if (response.data.success) {
-        console.log(`✅ Started test for ${providerId} on ${env} - ${testTypeId}`);
+      if (response.data.success && response.data.job_id) {
+        console.log(`✅ Started test job ${response.data.job_id} for ${providerId} on ${env} - ${testTypeId}`);
 
-        // Update to success
-        recentOps.updateRecentOperationStatus(
-          testId,
-          `✅ Test started successfully`,
-          `${testTypeInfo?.name || testTypeId} test started for ${providerInfo?.fullName || providerId}\n\n✅ Environment: ${env}\n✅ Status will appear in the test matrix\n\nRefresh the matrix to see live updates.`
-        );
+        // Update the recent operation status
+        recentOps.updateRecentOperationStatus(testRunId, '⏳ Running test...');
 
-        // Reload matrix to show running status
+        // Immediately fetch job history to show the job in Task Summary
+        fetchJobHistory();
+
+        // Backend creates job entry automatically - just reload matrix
         loadTestMatrix();
+      } else {
+        // Update to show failure
+        recentOps.updateRecentOperationStatus(testRunId, `❌ Failed to start: ${response.data.message || 'Unknown error'}`);
+        throw new Error(response.data.message || 'Failed to start test');
       }
     } catch (error) {
       console.error('Error running test:', error);
-
-      // Update to show error
-      recentOps.updateRecentOperationStatus(
-        testId,
-        `❌ Failed to start test`,
-        `Failed to start test: ${error.message}\n\nPlease check the backend logs and try again.`
-      );
-
+      // Update the recent operation to show error
+      recentOps.updateRecentOperationStatus(testRunId, `❌ Failed to start: ${error.message}`);
       alert(`Failed to start test: ${error.message}`);
     }
   };
@@ -227,47 +263,23 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
   };
 
   const handleRunAllTests = async (providerId) => {
-    const testId = `helm-tests-${providerId}-${Date.now()}`;
     const providerInfo = providers.find(p => p.id === providerId);
 
     try {
-      // IMMEDIATELY show "Starting..." in Task Summary for instant feedback
-      recentOps.addToRecent({
-        id: testId,
-        title: `🧪 HELM CHART TESTS: ${providerInfo?.name || providerId}`,
-        status: '🚀 Starting all tests...',
-        color: theme === 'minikube' ? 'bg-purple-600' : 'bg-cyan-600',
-        environment: theme,
-        output: `Starting all Helm chart tests for ${providerInfo?.fullName || providerId}...\n\nTests will run across Kubernetes environment:\n- Installation\n- Compliance\n- Upgrade/Rollback\n- Basic Functionality`
-      });
-
       const response = await axios.post('http://localhost:8000/api/helm-tests/run-all', {
         provider: providerId
       });
 
       if (response.data.success) {
-        console.log(`✅ Started all tests for ${providerId}`);
+        console.log(`✅ Started all tests for ${providerId} - ${response.data.test_count} jobs queued`);
 
-        // Update to success
-        recentOps.updateRecentOperationStatus(
-          testId,
-          `✅ Tests started successfully`,
-          `All Helm chart tests started for ${providerInfo?.fullName || providerId}\n\n✅ ${response.data.test_count} tests queued\n✅ Results will appear in the test matrix below\n\nRefresh the matrix to see live status updates.`
-        );
-
-        // Reload matrix to show running status
+        // Backend creates job entries automatically - just reload matrix
         loadTestMatrix();
+      } else {
+        throw new Error(response.data.message || 'Failed to start tests');
       }
     } catch (error) {
       console.error('Error running all tests:', error);
-
-      // Update to show error
-      recentOps.updateRecentOperationStatus(
-        testId,
-        `❌ Failed to start tests`,
-        `Failed to start Helm chart tests: ${error.message}\n\nPlease check the backend logs and try again.`
-      );
-
       alert(`Failed to start tests: ${error.message}`);
     }
   };
@@ -292,6 +304,32 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            {/* Git Source Indicator */}
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowSourceConfig(!showSourceConfig);
+              }}
+              className="px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors text-sm font-medium text-white cursor-pointer"
+              title="Configure chart source"
+            >
+              {chartSource === 'git' ? `📦 Git: ${gitBranch}` : '📦 Helm Repo'}
+            </div>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setAutoRefresh(!autoRefresh);
+              }}
+              className={`px-3 py-1.5 rounded-lg transition-colors text-sm font-medium ${
+                autoRefresh
+                  ? 'bg-white/30 text-white'
+                  : 'bg-white/10 text-white/60 hover:bg-white/20'
+              }`}
+              title={autoRefresh ? 'Auto-refresh enabled' : 'Auto-refresh disabled'}
+            >
+              {autoRefresh ? '🔄 Auto' : '⏸️ Manual'}
+            </button>
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -311,6 +349,53 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
             </div>
           </div>
         </div>
+
+        {/* Chart Source Configuration Panel */}
+        {showSourceConfig && isExpanded && (
+          <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200 p-4">
+            <div className="max-w-4xl mx-auto">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">Chart Source Configuration</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Chart Source
+                  </label>
+                  <select
+                    value={chartSource}
+                    onChange={(e) => setChartSource(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="git">Git Repository (stolostron)</option>
+                    <option value="helm_repo">Helm Repository</option>
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {chartSource === 'git'
+                      ? 'Clone charts from GitHub repository'
+                      : 'Use published Helm repository (if available)'}
+                  </p>
+                </div>
+
+                {chartSource === 'git' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Git Branch
+                    </label>
+                    <input
+                      type="text"
+                      value={gitBranch}
+                      onChange={(e) => setGitBranch(e.target.value)}
+                      placeholder="main"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Repository: stolostron/cluster-api-installer
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Section Content */}
         {isExpanded && (
@@ -426,6 +511,18 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
                                 {testData.passRate && (
                                   <div className="mt-2 text-xs text-gray-600">
                                     Pass Rate: {testData.passRate}%
+                                  </div>
+                                )}
+                                {testData.timestamp && (
+                                  <div className="mt-2 pt-2 border-t border-gray-200 text-[10px] text-gray-500">
+                                    {new Date(testData.timestamp).toLocaleString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      hour12: true
+                                    })}
                                   </div>
                                 )}
                               </div>

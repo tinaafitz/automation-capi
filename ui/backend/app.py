@@ -562,20 +562,32 @@ async def delete_cluster(cluster_id: str, background_tasks: BackgroundTasks):
 @app.get("/api/jobs")
 async def list_jobs():
     """List all jobs"""
-    # Return all jobs sorted by creation time (newest first)
-    job_list = []
-    for job_id, job in jobs.items():
-        job_data = {**job, "id": job_id}
-        job_list.append(job_data)
+    try:
+        # Return all jobs sorted by creation time (newest first)
+        job_list = []
+        for job_id, job in jobs.items():
+            job_data = {**job, "id": job_id}
+            job_list.append(job_data)
 
-    # Sort by created_at timestamp (newest first)
-    job_list.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        # Sort by created_at timestamp (newest first)
+        # Use empty string "0" as default so missing timestamps sort to end
+        job_list.sort(key=lambda x: x.get("created_at", "0"), reverse=True)
 
-    return {
-        "success": True,
-        "jobs": job_list,
-        "count": len(job_list)
-    }
+        return {
+            "success": True,
+            "jobs": job_list,
+            "count": len(job_list)
+        }
+    except Exception as e:
+        print(f"❌ Error in list_jobs: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "error": str(e),
+            "jobs": [],
+            "count": 0
+        }
 
 @app.delete("/api/jobs")
 async def clear_all_jobs():
@@ -6935,6 +6947,10 @@ class HelmTestRun(BaseModel):
     provider: str
     environment: str
     test_type: str
+    # Git source configuration (optional)
+    chart_source: str = "helm_repo"  # 'helm_repo' or 'git'
+    git_repo: str = "https://github.com/stolostron/cluster-api-installer.git"
+    git_branch: str = "main"
 
 
 class HelmTestRunAll(BaseModel):
@@ -7277,10 +7293,14 @@ async def get_test_suite_history():
 # Helm Chart Test Endpoints
 # ==============================================================================
 
-async def run_helm_test_playbook(job_id: str, provider: str, environment: str, test_type: str):
+async def run_helm_test_playbook(job_id: str, provider: str, environment: str, test_type: str,
+                                  chart_source: str = "helm_repo", git_repo: str = None, git_branch: str = "main"):
     """
     Background task to run Helm chart test playbook
+    Supports both Helm repository and Git-sourced charts
     """
+    import re  # Import at function start
+
     try:
         project_root = os.environ.get("AUTOMATION_PATH") or os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -7288,23 +7308,32 @@ async def run_helm_test_playbook(job_id: str, provider: str, environment: str, t
 
         task_file = os.path.join(project_root, "tasks", "helm-chart-test.yml")
 
-        print(f"🧪 Running Helm test playbook: {provider}/{environment}/{test_type}")
+        print(f"🧪 Running Helm test playbook: {provider}/{environment}/{test_type} (source: {chart_source})")
 
         # Update job status
         if job_id in jobs:
             jobs[job_id]["status"] = "running"
             jobs[job_id]["progress"] = 10
-            jobs[job_id]["message"] = f"🧪 Executing {test_type} test for {provider}..."
+            source_info = f" from {git_branch} branch" if chart_source == "git" else ""
+            jobs[job_id]["message"] = f"🧪 Executing {test_type} test for {provider}{source_info}..."
 
-        # Run ansible-playbook command with verbose output
+        # Build ansible-playbook command with verbose output
         cmd = [
             "ansible-playbook",
             task_file,
             "-e", f"provider={provider}",
             "-e", f"environment={environment}",
             "-e", f"test_type={test_type}",
+            "-e", f"chart_source={chart_source}",
             "-vv"  # Verbose output for detailed logging
         ]
+
+        # Add Git source parameters if using Git charts
+        if chart_source == "git" and git_repo:
+            cmd.extend([
+                "-e", f"git_repo={git_repo}",
+                "-e", f"git_branch={git_branch}"
+            ])
 
         # Execute playbook
         process = subprocess.Popen(
@@ -7337,15 +7366,22 @@ async def run_helm_test_playbook(job_id: str, provider: str, environment: str, t
             jobs[job_id]["progress"] = 90
 
         # Determine test result
-        test_passed = returncode == 0 and "failed=0" in output_text
-        test_status = "pass" if test_passed else "fail"
+        # Check for actual test result in Ansible output (not just playbook success)
+        # The playbook can succeed (returncode=0, failed=0) but the test itself can fail
+        result_match = re.search(r'Result:\s+(pass|fail)', output_text, re.IGNORECASE)
+        if result_match:
+            test_status = result_match.group(1).lower()
+            test_passed = test_status == "pass"
+        else:
+            # Fallback to returncode check if no explicit result found
+            test_passed = returncode == 0 and "failed=0" in output_text
+            test_status = "pass" if test_passed else "fail"
 
         # Extract duration and pass rate from output (or use defaults)
         duration = None
         pass_rate = None
 
         # Try to extract duration from output
-        import re
         duration_match = re.search(r'Duration:\s+(\d+)', output_text)
         if duration_match:
             duration = int(duration_match.group(1))
@@ -7366,10 +7402,13 @@ async def run_helm_test_playbook(job_id: str, provider: str, environment: str, t
 
         cursor.execute("""
             INSERT OR REPLACE INTO helm_test_results
-            (provider, environment, test_type, status, duration, pass_rate, error_message, logs, timestamp)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (provider, environment, test_type, status, duration, pass_rate, error_message, logs, timestamp,
+             chart_source, git_branch, install_method)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (provider, environment, test_type, test_status, duration, pass_rate,
-              None if test_passed else stderr[:500], output_text, datetime.now().isoformat()))
+              None if test_passed else stderr[:500], output_text, datetime.now().isoformat(),
+              chart_source, git_branch if chart_source == "git" else None,
+              "git" if chart_source == "git" else "helm_repo"))
 
         conn.commit()
         conn.close()
@@ -7378,7 +7417,7 @@ async def run_helm_test_playbook(job_id: str, provider: str, environment: str, t
         if job_id in jobs:
             jobs[job_id]["status"] = "completed" if test_passed else "failed"
             jobs[job_id]["progress"] = 100
-            jobs[job_id]["message"] = f"✅ Test completed: {test_status}" if test_passed else f"❌ Test failed"
+            jobs[job_id]["message"] = f"✅ Test completed: {test_status}" if test_passed else f"❌ Test completed: {test_status}"
             jobs[job_id]["completed_at"] = datetime.now().isoformat()
 
         print(f"✅ Helm test completed: {provider}/{environment}/{test_type} = {test_status}")
@@ -7409,9 +7448,12 @@ async def run_helm_test_playbook(job_id: str, provider: str, environment: str, t
 
         cursor.execute("""
             INSERT OR REPLACE INTO helm_test_results
-            (provider, environment, test_type, status, duration, pass_rate, error_message, logs, timestamp)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (provider, environment, test_type, 'fail', None, None, str(e)[:500], str(e), datetime.now().isoformat()))
+            (provider, environment, test_type, status, duration, pass_rate, error_message, logs, timestamp,
+             chart_source, git_branch, install_method)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (provider, environment, test_type, 'fail', None, None, str(e)[:500], str(e), datetime.now().isoformat(),
+              chart_source, git_branch if chart_source == "git" else None,
+              "git" if chart_source == "git" else "helm_repo"))
 
         conn.commit()
         conn.close()
@@ -7442,14 +7484,18 @@ async def get_helm_test_status():
                 error_message TEXT,
                 logs TEXT,
                 timestamp TEXT NOT NULL,
+                chart_source TEXT DEFAULT 'helm_repo',
+                git_branch TEXT,
+                install_method TEXT,
                 UNIQUE(provider, environment, test_type)
             )
         """)
         conn.commit()
 
-        # Fetch all test results
+        # Fetch all test results including Git source information
         cursor.execute("""
-            SELECT provider, environment, test_type, status, duration, pass_rate, timestamp
+            SELECT provider, environment, test_type, status, duration, pass_rate, timestamp,
+                   chart_source, git_branch, install_method
             FROM helm_test_results
             ORDER BY timestamp DESC
         """)
@@ -7480,7 +7526,10 @@ async def get_helm_test_status():
                             'status': matching_result[3],
                             'duration': matching_result[4],
                             'passRate': matching_result[5],
-                            'timestamp': matching_result[6]
+                            'timestamp': matching_result[6],
+                            'chartSource': matching_result[7] if len(matching_result) > 7 else 'helm_repo',
+                            'gitBranch': matching_result[8] if len(matching_result) > 8 else None,
+                            'installMethod': matching_result[9] if len(matching_result) > 9 else 'helm_repo'
                         }
                     else:
                         # Default to pending status
@@ -7488,7 +7537,10 @@ async def get_helm_test_status():
                             'status': 'pending',
                             'duration': None,
                             'passRate': None,
-                            'timestamp': None
+                            'timestamp': None,
+                            'chartSource': 'helm_repo',
+                            'gitBranch': None,
+                            'installMethod': 'helm_repo'
                         }
 
         return {
@@ -7527,9 +7579,12 @@ async def run_helm_test(request: HelmTestRun, background_tasks: BackgroundTasks)
 
         cursor.execute("""
             INSERT OR REPLACE INTO helm_test_results
-            (provider, environment, test_type, status, duration, pass_rate, error_message, logs, timestamp)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (provider, environment, test_type, 'running', None, None, None, None, timestamp))
+            (provider, environment, test_type, status, duration, pass_rate, error_message, logs, timestamp,
+             chart_source, git_branch, install_method)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (provider, environment, test_type, 'running', None, None, None, None, timestamp,
+              request.chart_source, request.git_branch if request.chart_source == "git" else None,
+              "git" if request.chart_source == "git" else "helm_repo"))
 
         conn.commit()
         conn.close()
@@ -7561,10 +7616,14 @@ async def run_helm_test(request: HelmTestRun, background_tasks: BackgroundTasks)
             job_id,
             provider,
             environment,
-            test_type
+            test_type,
+            request.chart_source,
+            request.git_repo,
+            request.git_branch
         )
 
-        print(f"✅ Started Helm test job {job_id}: {provider}/{environment}/{test_type}")
+        source_info = f" (Git: {request.git_branch})" if request.chart_source == "git" else " (Helm repo)"
+        print(f"✅ Started Helm test job {job_id}: {provider}/{environment}/{test_type}{source_info}")
 
         return {
             "success": True,
@@ -7606,12 +7665,14 @@ async def run_all_helm_tests(request: HelmTestRunAll, background_tasks: Backgrou
                 job_id = str(uuid.uuid4())
                 job_ids.append(job_id)
 
-                # Update database status to running
+                # Update database status to running (defaults to helm_repo for backward compatibility)
                 cursor.execute("""
                     INSERT OR REPLACE INTO helm_test_results
-                    (provider, environment, test_type, status, duration, pass_rate, error_message, logs, timestamp)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (provider, env, test_type, 'running', None, None, None, None, timestamp))
+                    (provider, environment, test_type, status, duration, pass_rate, error_message, logs, timestamp,
+                     chart_source, git_branch, install_method)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (provider, env, test_type, 'running', None, None, None, None, timestamp,
+                      "helm_repo", None, "helm_repo"))
 
                 # Map Helm test environment to UI environment
                 ui_environment = "mce" if env == "OpenShift" else "minikube"
@@ -7634,13 +7695,16 @@ async def run_all_helm_tests(request: HelmTestRunAll, background_tasks: Backgrou
                     "started_at": datetime.now().isoformat()
                 }
 
-                # Queue background task
+                # Queue background task (defaults to helm_repo)
                 background_tasks.add_task(
                     run_helm_test_playbook,
                     job_id,
                     provider,
                     env,
-                    test_type
+                    test_type,
+                    "helm_repo",  # chart_source
+                    None,  # git_repo
+                    "main"  # git_branch
                 )
 
         conn.commit()
