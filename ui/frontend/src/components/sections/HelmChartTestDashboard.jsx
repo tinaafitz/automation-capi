@@ -12,9 +12,11 @@ import {
 } from '@heroicons/react/24/outline';
 import axios from 'axios';
 import { useRecentOperationsContext } from '../../store/AppContext';
+import { useJobHistory } from '../../hooks/useJobHistory';
 
 const HelmChartTestDashboard = ({ theme = 'mce' }) => {
   const recentOps = useRecentOperationsContext();
+  const { fetchJobHistory } = useJobHistory();
   const [isExpanded, setIsExpanded] = useState(true);
   const [testMatrix, setTestMatrix] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -200,7 +202,21 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
     const providerInfo = providers.find(p => p.id === providerId);
     const testTypeInfo = testTypes.find(t => t.id === testTypeId);
 
+    // Generate a unique ID for this test run
+    const testRunId = `helm-test-${Date.now()}`;
+    const envDisplay = env === 'OpenShift' ? 'mce' : 'minikube';
+    const sourceInfo = chartSource === 'git' ? ` (Git: ${gitBranch})` : ' (Helm repo)';
+
     try {
+      // Add immediate feedback to Recent Operations
+      recentOps.addToRecent({
+        id: testRunId,
+        title: `🧪 HELM TEST: ${providerId} - ${testTypeId.charAt(0).toUpperCase() + testTypeId.slice(1)}${sourceInfo}`,
+        color: theme === 'minikube' ? 'bg-purple-600' : 'bg-cyan-600',
+        status: '⏳ Starting test...',
+        environment: envDisplay
+      });
+
       const response = await axios.post('http://localhost:8000/api/helm-tests/run', {
         provider: providerId,
         environment: env,
@@ -213,13 +229,23 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
       if (response.data.success && response.data.job_id) {
         console.log(`✅ Started test job ${response.data.job_id} for ${providerId} on ${env} - ${testTypeId}`);
 
+        // Update the recent operation status
+        recentOps.updateRecentOperationStatus(testRunId, '⏳ Running test...');
+
+        // Immediately fetch job history to show the job in Task Summary
+        fetchJobHistory();
+
         // Backend creates job entry automatically - just reload matrix
         loadTestMatrix();
       } else {
+        // Update to show failure
+        recentOps.updateRecentOperationStatus(testRunId, `❌ Failed to start: ${response.data.message || 'Unknown error'}`);
         throw new Error(response.data.message || 'Failed to start test');
       }
     } catch (error) {
       console.error('Error running test:', error);
+      // Update the recent operation to show error
+      recentOps.updateRecentOperationStatus(testRunId, `❌ Failed to start: ${error.message}`);
       alert(`Failed to start test: ${error.message}`);
     }
   };

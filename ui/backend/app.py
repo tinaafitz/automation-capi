@@ -7299,6 +7299,8 @@ async def run_helm_test_playbook(job_id: str, provider: str, environment: str, t
     Background task to run Helm chart test playbook
     Supports both Helm repository and Git-sourced charts
     """
+    import re  # Import at function start
+
     try:
         project_root = os.environ.get("AUTOMATION_PATH") or os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -7364,15 +7366,22 @@ async def run_helm_test_playbook(job_id: str, provider: str, environment: str, t
             jobs[job_id]["progress"] = 90
 
         # Determine test result
-        test_passed = returncode == 0 and "failed=0" in output_text
-        test_status = "pass" if test_passed else "fail"
+        # Check for actual test result in Ansible output (not just playbook success)
+        # The playbook can succeed (returncode=0, failed=0) but the test itself can fail
+        result_match = re.search(r'Result:\s+(pass|fail)', output_text, re.IGNORECASE)
+        if result_match:
+            test_status = result_match.group(1).lower()
+            test_passed = test_status == "pass"
+        else:
+            # Fallback to returncode check if no explicit result found
+            test_passed = returncode == 0 and "failed=0" in output_text
+            test_status = "pass" if test_passed else "fail"
 
         # Extract duration and pass rate from output (or use defaults)
         duration = None
         pass_rate = None
 
         # Try to extract duration from output
-        import re
         duration_match = re.search(r'Duration:\s+(\d+)', output_text)
         if duration_match:
             duration = int(duration_match.group(1))
@@ -7408,7 +7417,7 @@ async def run_helm_test_playbook(job_id: str, provider: str, environment: str, t
         if job_id in jobs:
             jobs[job_id]["status"] = "completed" if test_passed else "failed"
             jobs[job_id]["progress"] = 100
-            jobs[job_id]["message"] = f"✅ Test completed: {test_status}" if test_passed else f"❌ Test failed"
+            jobs[job_id]["message"] = f"✅ Test completed: {test_status}" if test_passed else f"❌ Test completed: {test_status}"
             jobs[job_id]["completed_at"] = datetime.now().isoformat()
 
         print(f"✅ Helm test completed: {provider}/{environment}/{test_type} = {test_status}")
