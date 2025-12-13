@@ -142,19 +142,12 @@ Please check:
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
         {/* Header */}
         <div className="bg-gradient-to-r from-purple-600 to-violet-600 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-          <div className="flex items-center gap-3">
-            <div className="bg-white/20 backdrop-blur-sm rounded-xl p-2">
-              <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-white">Minikube Cluster Configuration</h2>
-              <p className="text-sm text-purple-100">Select or create a Minikube cluster</p>
-            </div>
+          <div>
+            <h2 className="text-lg font-bold text-white">Minikube Cluster Configuration</h2>
+            <p className="text-sm text-purple-100">Select or create a cluster</p>
           </div>
           <button
             onClick={onClose}

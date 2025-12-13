@@ -1,14 +1,15 @@
 import React from 'react';
 import { themes, buttonStyles } from '../../styles/themes';
 
-const ComponentStatusCard = ({ 
+const ComponentStatusCard = ({
   theme = 'mce',
   title,
   status,
   lastVerified,
   components = [],
   actions = [],
-  className = ''
+  className = '',
+  customHeaderContent
 }) => {
   const themeConfig = themes[theme];
 
@@ -75,8 +76,11 @@ const ComponentStatusCard = ({
               <span className="text-green-600">Enabled</span>
             </div>
           </div>
+
+          {/* Custom Header Content (for method selector, etc.) */}
+          {customHeaderContent && customHeaderContent}
         </div>
-        
+
         {/* Action Buttons */}
         {actions.length > 0 && (
           <div className="flex flex-col gap-2 flex-shrink-0">

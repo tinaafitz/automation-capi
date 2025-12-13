@@ -14,7 +14,10 @@ const FilingCabinet = ({
   onClearAll,
   theme = 'mce',
   isExpanded,
-  onToggle
+  onToggle,
+  onClose,
+  isMinimized,
+  onMinimize
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: 'filing-cabinet-dropzone',
@@ -65,8 +68,27 @@ const FilingCabinet = ({
 
   return (
     <>
+      {/* Minimized Tab - Small button on right edge */}
+      {isMinimized && (
+        <div
+          onClick={onMinimize}
+          className={`rounded-l-xl overflow-hidden cursor-pointer shadow-xl border-2 ${colors.border} ${colors.lightBg} hover:shadow-2xl transition-all duration-300 hover:scale-105`}
+        >
+          <div className={`bg-gradient-to-br ${colors.gradient} p-2`}>
+            <div className="flex flex-col items-center gap-1">
+              <ArchiveBoxIcon className="h-5 w-5 text-white" />
+              {hiddenSections.length > 0 && (
+                <div className="bg-white/30 backdrop-blur-sm rounded-full px-1.5 py-0.5">
+                  <span className="text-white text-xs font-bold">{hiddenSections.length}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Filing Cabinet - Right Sidebar - Always visible */}
-      {!isExpanded && (
+      {!isExpanded && !isMinimized && (
         <div
           onClick={hiddenSections.length > 0 ? onToggle : undefined}
           className={`rounded-xl overflow-hidden ${hiddenSections.length > 0 ? 'cursor-pointer shadow-xl border-2' : 'shadow-md border'} transition-all duration-300 ${
@@ -81,7 +103,7 @@ const FilingCabinet = ({
           <div ref={setNodeRef} className="w-full h-full">
           {/* Simple header when empty, full header when has sections */}
           {hiddenSections.length > 0 ? (
-            <div className={`bg-gradient-to-br ${colors.gradient} p-3`}>
+            <div className={`bg-gradient-to-br ${colors.gradient} p-3 group`}>
               <div className="flex items-center gap-2">
                 <div className="bg-white/30 rounded-lg p-1.5 backdrop-blur-sm">
                   <ArchiveBoxIcon className="h-5 w-5 text-white drop-shadow-lg" />
@@ -95,15 +117,39 @@ const FilingCabinet = ({
                 <div className="bg-white/30 backdrop-blur-sm rounded-full px-2 py-0.5">
                   <span className="text-white text-xs font-bold">{hiddenSections.length}</span>
                 </div>
+                {onMinimize && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onMinimize();
+                    }}
+                    className="p-1 bg-white/20 backdrop-blur-sm rounded hover:bg-white/30 transition-all duration-200 opacity-0 group-hover:opacity-100"
+                    title="Minimize widget"
+                  >
+                    <XMarkIcon className="h-4 w-4 text-white" />
+                  </button>
+                )}
               </div>
             </div>
           ) : (
-            <div className={`p-2 bg-gradient-to-br ${colors.gradient}`}>
+            <div className={`p-2 bg-gradient-to-br ${colors.gradient} group`}>
               <div className="flex items-center gap-2">
                 <ArchiveBoxIcon className="h-4 w-4 text-white" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-white">Storage</p>
                 </div>
+                {onMinimize && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onMinimize();
+                    }}
+                    className="p-0.5 bg-white/20 backdrop-blur-sm rounded hover:bg-white/30 transition-all duration-200 opacity-0 group-hover:opacity-100"
+                    title="Minimize widget"
+                  >
+                    <XMarkIcon className="h-3 w-3 text-white" />
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -292,6 +338,9 @@ FilingCabinet.propTypes = {
   theme: PropTypes.oneOf(['mce', 'minikube']),
   isExpanded: PropTypes.bool.isRequired,
   onToggle: PropTypes.func.isRequired,
+  onClose: PropTypes.func,
+  isMinimized: PropTypes.bool,
+  onMinimize: PropTypes.func,
 };
 
 export default FilingCabinet;

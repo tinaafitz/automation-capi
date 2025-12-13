@@ -651,6 +651,10 @@ const EnvironmentContent = () => {
                 onToggle={() => {
                   dispatch({ type: AppActionTypes.TOGGLE_FILING_CABINET });
                 }}
+                isMinimized={app.filingCabinetMinimized}
+                onMinimize={() => {
+                  dispatch({ type: AppActionTypes.TOGGLE_FILING_CABINET_MINIMIZE });
+                }}
               />
             </div>
 

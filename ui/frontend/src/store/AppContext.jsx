@@ -28,6 +28,7 @@ const initialAppState = {
   sectionOrder: ['mce-configuration', 'task-summary', 'task-detail', 'rosa-hcp-clusters', 'test-suite-dashboard', 'test-suite-runner', 'mce-terminal'],
   hiddenSections: [],
   showFilingCabinet: false,
+  filingCabinetMinimized: false,
 
   // Modal State
   showKindClusterModal: false,
@@ -77,6 +78,7 @@ export const AppActionTypes = {
   RESTORE_SECTION: 'RESTORE_SECTION',
   RESTORE_ALL_SECTIONS: 'RESTORE_ALL_SECTIONS',
   TOGGLE_FILING_CABINET: 'TOGGLE_FILING_CABINET',
+  TOGGLE_FILING_CABINET_MINIMIZE: 'TOGGLE_FILING_CABINET_MINIMIZE',
 
   // Modal Actions
   SHOW_KIND_CLUSTER_MODAL: 'SHOW_KIND_CLUSTER_MODAL',
@@ -198,6 +200,7 @@ const appReducer = (state, action) => {
         ...state,
         hiddenSections: newHiddenSections,
         sectionOrder: newSectionOrder,
+        filingCabinetMinimized: false, // Unminimize filing cabinet when new section is hidden
       };
     }
 
@@ -224,6 +227,9 @@ const appReducer = (state, action) => {
 
     case AppActionTypes.TOGGLE_FILING_CABINET:
       return { ...state, showFilingCabinet: !state.showFilingCabinet };
+
+    case AppActionTypes.TOGGLE_FILING_CABINET_MINIMIZE:
+      return { ...state, filingCabinetMinimized: !state.filingCabinetMinimized, showFilingCabinet: false };
 
     // Modal Actions
     case AppActionTypes.SHOW_KIND_CLUSTER_MODAL:

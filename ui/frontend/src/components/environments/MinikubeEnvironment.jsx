@@ -1,14 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import EnvironmentCard from '../cards/EnvironmentCard';
 import StatusCard from '../cards/StatusCard';
 import ComponentStatusCard from '../cards/ComponentStatusCard';
 import MinikubeTerminalModal from '../modals/MinikubeTerminalModal';
 import MinikubeClusterConfigModal from '../modals/MinikubeClusterConfigModal';
 import NotificationSettingsModal from '../modals/NotificationSettingsModal';
+import CapiInstallMethodModal from '../modals/CapiInstallMethodModal';
 import { BellIcon } from '@heroicons/react/24/outline';
 import { useMinikubeContext, useRecentOperationsContext, useApp, useAppDispatch } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
 import { cardStyles } from '../../styles/themes';
+
+const STORAGE_KEY_METHOD = 'capiInstallMethod';
+const STORAGE_KEY_REMEMBER = 'capiInstallMethodRemember';
 
 const MinikubeEnvironment = () => {
   const app = useApp();
@@ -18,6 +22,10 @@ const MinikubeEnvironment = () => {
   const [showTerminalModal, setShowTerminalModal] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  const [showMethodModal, setShowMethodModal] = useState(false);
+  const [installMethod, setInstallMethod] = useState(() => {
+    return localStorage.getItem(STORAGE_KEY_METHOD) || 'clusterctl';
+  });
 
   const {
     verifiedMinikubeClusterInfo,
@@ -37,6 +45,24 @@ const MinikubeEnvironment = () => {
   } = minikube;
 
   const { addToRecent, updateRecentOperationStatus } = recentOps;
+
+  // Handle installation method selection
+  const handleMethodSelected = (method, remember) => {
+    setInstallMethod(method);
+    localStorage.setItem(STORAGE_KEY_METHOD, method);
+    if (remember) {
+      localStorage.setItem(STORAGE_KEY_REMEMBER, 'true');
+    } else {
+      localStorage.removeItem(STORAGE_KEY_REMEMBER);
+    }
+  };
+
+  // Get method display info
+  const getMethodInfo = (method) => {
+    return method === 'clusterctl'
+      ? { icon: '⚡', name: 'Cluster API' }
+      : { icon: '📦', name: 'Helm Charts' };
+  };
 
   // Handle Minikube verification
   const handleMinikubeVerification = async () => {
@@ -97,21 +123,26 @@ const MinikubeEnvironment = () => {
       return;
     }
 
+    const methodInfo = getMethodInfo(installMethod);
+
     try {
       // IMMEDIATELY show "Starting..." in Task Summary for instant feedback (before any async calls!)
       addToRecent({
         id: configureId,
-        title: '🚀 INITIALIZE CAPI/CAPA ON MINIKUBE',
+        title: `🚀 INITIALIZE CAPI/CAPA ON MINIKUBE (${methodInfo.name})`,
         color: 'bg-purple-600',
         status: '🚀 Starting initialization...',
         environment: 'minikube',
-        output: `Initializing CAPI/CAPA components on cluster "${targetClusterName}"...\n\nSubmitting request to backend...\n\nThis will:\n- Install Cluster API controllers\n- Install AWS provider (CAPA)\n- Configure ROSA CRDs\n- Set up credentials`
+        output: `Initializing CAPI/CAPA components on cluster "${targetClusterName}" using ${methodInfo.name}...\n\nSubmitting request to backend...\n\nThis will:\n- Install Cluster API controllers\n- Install AWS provider (CAPA)\n- Configure ROSA CRDs\n- Set up credentials`
       });
 
       const response = await fetch('http://localhost:8000/api/minikube/initialize-capi', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cluster_name: targetClusterName }),
+        body: JSON.stringify({
+          cluster_name: targetClusterName,
+          install_method: installMethod
+        }),
       });
 
       const data = await response.json();
@@ -204,11 +235,38 @@ const MinikubeEnvironment = () => {
     }
   ];
 
+  // Custom Configure button with method selector
+  const methodInfo = getMethodInfo(installMethod);
+
+  // Check if CAPI is already configured
+  const isCapiConfigured = capiComponents.some(c => c.enabled);
+
+  // Handle configure click - show modal only if not configured yet
+  const handleConfigureClick = () => {
+    if (isCapiConfigured) {
+      // Already configured, just reconfigure with current method
+      handleComponentConfigure();
+    } else {
+      // First time, show modal to choose method
+      setShowMethodModal(true);
+    }
+  };
+
+  // After method is selected from modal, proceed with configuration
+  const handleMethodSelectedAndConfigure = (method, remember) => {
+    handleMethodSelected(method, remember);
+    setShowMethodModal(false);
+    // Give a brief moment for modal to close, then configure
+    setTimeout(() => {
+      handleComponentConfigure();
+    }, 100);
+  };
+
   const componentActions = [
     {
       label: 'Configure',
       icon: '⚙️',
-      onClick: handleComponentConfigure,
+      onClick: handleConfigureClick,
       variant: 'secondary'
     },
     {
@@ -276,7 +334,11 @@ const MinikubeEnvironment = () => {
                   />
                 </svg>
               }
-              status={clusterName ? `🔷 ${clusterName}` : 'No cluster selected'}
+              status={clusterName ? (
+                isCapiConfigured
+                  ? `🔷 ${clusterName} ${methodInfo.icon} ${methodInfo.name}`
+                  : `🔷 ${clusterName}`
+              ) : 'No cluster selected'}
               verificationStatus={showFullConfig ? 'Running' : 'Not configured'}
               lastVerified={showFullConfig && minikubeVerificationResult?.verified_at ?
                 new Date(minikubeVerificationResult.verified_at).toLocaleString('en-US', {
@@ -295,10 +357,10 @@ const MinikubeEnvironment = () => {
               {showFullConfig ? (
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded-lg border border-purple-100">
-                    <h5 className="font-semibold text-purple-900 mb-2">
+                    <h5 className="font-semibold text-purple-900 mb-3">
                       {verifiedMinikubeClusterInfo.name}
                     </h5>
-                  
+
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="font-medium text-gray-600">Status:</span>
@@ -441,6 +503,14 @@ const MinikubeEnvironment = () => {
         isOpen={showNotificationSettings}
         onClose={() => setShowNotificationSettings(false)}
         theme="minikube"
+      />
+
+      {/* CAPI Installation Method Modal */}
+      <CapiInstallMethodModal
+        isOpen={showMethodModal}
+        onClose={() => setShowMethodModal(false)}
+        onMethodSelected={handleMethodSelectedAndConfigure}
+        currentMethod={installMethod}
       />
     </>
   );
