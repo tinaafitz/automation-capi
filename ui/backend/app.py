@@ -130,12 +130,13 @@ class NotificationSettings(BaseModel):
 
 
 # Helper functions
-def run_minikube_init_playbook(playbook_path: str, cluster_name: str, job_id: str):
+def run_minikube_init_playbook(playbook_path: str, cluster_name: str, job_id: str, install_method: str = "clusterctl"):
     """Run Minikube CAPI initialization playbook asynchronously"""
     try:
         jobs[job_id]["status"] = "running"
         jobs[job_id]["progress"] = 10
-        jobs[job_id]["message"] = f"Initializing CAPI/CAPA on Minikube cluster '{cluster_name}'"
+        method_name = "Helm Charts" if install_method == "helm" else "clusterctl"
+        jobs[job_id]["message"] = f"Initializing CAPI/CAPA on Minikube cluster '{cluster_name}' using {method_name}"
 
         # Get project root
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -144,6 +145,7 @@ def run_minikube_init_playbook(playbook_path: str, cluster_name: str, job_id: st
         env = os.environ.copy()
         env["MINIKUBE_PROFILE"] = cluster_name
         env["KUBECONFIG"] = os.path.expanduser("~/.kube/config")
+        env["CAPI_INSTALL_METHOD"] = install_method
 
         # Run the initialization playbook with verbose output
         result = subprocess.run(
@@ -4608,6 +4610,7 @@ async def initialize_minikube_capi(request: Request, background_tasks: Backgroun
     try:
         body = await request.json()
         cluster_name = body.get("cluster_name", "").strip()
+        install_method = body.get("install_method", "clusterctl").strip().lower()
 
         if not cluster_name:
             return {
@@ -4615,39 +4618,51 @@ async def initialize_minikube_capi(request: Request, background_tasks: Backgroun
                 "message": "Cluster name is required",
             }
 
-        # Path to initialization playbook
+        # Validate install method
+        if install_method not in ["clusterctl", "helm"]:
+            return {
+                "success": False,
+                "message": f"Invalid install method: {install_method}. Must be 'clusterctl' or 'helm'",
+            }
+
+        # Determine which task file to use based on install method
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        playbook_path = os.path.join(project_root, "initialize-minikube-capi.yml")
+
+        if install_method == "helm":
+            playbook_path = os.path.join(project_root, "tasks", "helm_install_capi.yml")
+        else:
+            playbook_path = os.path.join(project_root, "tasks", "clusterctl_install_capi.yml")
 
         if not os.path.exists(playbook_path):
             return {
                 "success": False,
                 "message": f"Initialization playbook not found at: {playbook_path}",
-                "suggestion": "Ensure initialize-minikube-capi.yml exists in the project root",
+                "suggestion": f"Ensure {install_method} installation task file exists",
             }
 
         # Generate unique job ID
         job_id = str(uuid.uuid4())
+        method_name = "Helm Charts" if install_method == "helm" else "clusterctl"
 
         # Create job entry
         jobs[job_id] = {
             "id": job_id,
             "status": "pending",
             "progress": 0,
-            "message": f"Initializing CAPI/CAPA on Minikube cluster '{cluster_name}'",
+            "message": f"Initializing CAPI/CAPA on Minikube cluster '{cluster_name}' using {method_name}",
             "started_at": datetime.now(),
             "logs": [],
             "environment": "minikube",
-            "description": f"Initialize CAPI/CAPA on Minikube: {cluster_name}",
+            "description": f"Initialize CAPI/CAPA on Minikube: {cluster_name} ({method_name})",
         }
 
         # Run initialization in background
-        background_tasks.add_task(run_minikube_init_playbook, playbook_path, cluster_name, job_id)
+        background_tasks.add_task(run_minikube_init_playbook, playbook_path, cluster_name, job_id, install_method)
 
         return {
             "success": True,
             "job_id": job_id,
-            "message": f"CAPI/CAPA initialization started for cluster '{cluster_name}'",
+            "message": f"CAPI/CAPA initialization started for cluster '{cluster_name}' using {method_name}",
         }
 
     except Exception as e:
