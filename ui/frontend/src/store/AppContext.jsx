@@ -35,6 +35,7 @@ const initialAppState = {
   showProvisionModal: false,
   showYamlEditorModal: false,
   yamlEditorData: null,
+  provisionTargetContext: null,  // Track target Minikube cluster for provisioning
   showCredentialsModal: false,
 
   // Test Suite State
@@ -85,6 +86,7 @@ export const AppActionTypes = {
   SHOW_PROVISION_MODAL: 'SHOW_PROVISION_MODAL',
   SHOW_YAML_EDITOR_MODAL: 'SHOW_YAML_EDITOR_MODAL',
   SET_YAML_EDITOR_DATA: 'SET_YAML_EDITOR_DATA',
+  SET_PROVISION_TARGET_CONTEXT: 'SET_PROVISION_TARGET_CONTEXT',
   SHOW_CREDENTIALS_MODAL: 'SHOW_CREDENTIALS_MODAL',
 
   // Test Suite Actions
@@ -243,7 +245,10 @@ const appReducer = (state, action) => {
     
     case AppActionTypes.SET_YAML_EDITOR_DATA:
       return { ...state, yamlEditorData: action.payload };
-    
+
+    case AppActionTypes.SET_PROVISION_TARGET_CONTEXT:
+      return { ...state, provisionTargetContext: action.payload };
+
     case AppActionTypes.SHOW_CREDENTIALS_MODAL:
       return { ...state, showCredentialsModal: action.payload };
 

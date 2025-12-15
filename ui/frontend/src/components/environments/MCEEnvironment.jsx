@@ -426,6 +426,8 @@ Once logged in, click "Configure" again to retry.`
 
   // Handle provision action
   const handleProvision = () => {
+    // Set provision target context to null for MCE/OpenShift (uses default oc commands)
+    dispatch({ type: AppActionTypes.SET_PROVISION_TARGET_CONTEXT, payload: null });
     dispatch({ type: AppActionTypes.SHOW_PROVISION_MODAL, payload: true });
   };
 

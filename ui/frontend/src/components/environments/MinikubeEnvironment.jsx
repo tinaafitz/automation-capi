@@ -26,6 +26,7 @@ const MinikubeEnvironment = () => {
   const [installMethod, setInstallMethod] = useState(() => {
     return localStorage.getItem(STORAGE_KEY_METHOD) || 'clusterctl';
   });
+  const [componentVersions, setComponentVersions] = useState([]);
 
   const {
     verifiedMinikubeClusterInfo,
@@ -44,7 +45,13 @@ const MinikubeEnvironment = () => {
     setMinikubeConfigurationCollapsed
   } = minikube;
 
-  const { addToRecent, updateRecentOperationStatus } = recentOps;
+  const { addToRecent, updateRecentOperationStatus, recentOperations } = recentOps;
+
+  // Check if a CAPI configuration is currently in progress
+  const isConfiguring = recentOperations?.some(op =>
+    op.id?.startsWith('configure-capi-') &&
+    op.status?.includes('⏳')
+  ) || false;
 
   // Handle installation method selection
   const handleMethodSelected = (method, remember) => {
@@ -100,6 +107,13 @@ const MinikubeEnvironment = () => {
 
   // Handle provision action
   const handleProvision = () => {
+    // Set the target context to the verified Minikube cluster name
+    const targetClusterName = verifiedMinikubeClusterInfo?.name ||
+                              verifiedMinikubeClusterInfo?.cluster_name ||
+                              selectedMinikubeCluster ||
+                              minikubeClusterInput;
+
+    dispatch({ type: AppActionTypes.SET_PROVISION_TARGET_CONTEXT, payload: targetClusterName });
     dispatch({ type: AppActionTypes.SHOW_PROVISION_MODAL, payload: true });
   };
 
@@ -109,7 +123,13 @@ const MinikubeEnvironment = () => {
   };
 
   // Handle CAPI/CAPA configuration
-  const handleComponentConfigure = async () => {
+  const handleComponentConfigure = async (customImage = null, method = null) => {
+    // Prevent multiple simultaneous configurations
+    if (isConfiguring) {
+      alert('A CAPI configuration is already in progress. Please wait for it to complete.');
+      return;
+    }
+
     const configureId = `configure-capi-${Date.now()}`;
 
     // Get cluster name from the same sources as display
@@ -123,32 +143,57 @@ const MinikubeEnvironment = () => {
       return;
     }
 
-    const methodInfo = getMethodInfo(installMethod);
+    // Use the provided method or fall back to state
+    const activeMethod = method || installMethod;
+    const methodInfo = getMethodInfo(activeMethod);
 
     try {
+      // Build output message
+      let outputMessage = `Configuring CAPI/CAPA components on cluster "${targetClusterName}" using ${methodInfo.name}...\n\nSubmitting request to backend...\n\nThis will:\n- Install Cluster API controllers\n- Install AWS provider (CAPA)\n- Configure ROSA CRDs\n- Set up credentials`;
+
+      if (customImage) {
+        outputMessage += `\n\n🎨 Using Custom CAPA Image:\n- Repository: ${customImage.repository}\n- Tag: ${customImage.tag}`;
+        if (customImage.sourcePath) {
+          outputMessage += `\n- Source: ${customImage.sourcePath}\n- Will apply updated CRDs from config/default/`;
+        }
+      }
+
       // IMMEDIATELY show "Starting..." in Task Summary for instant feedback (before any async calls!)
       addToRecent({
         id: configureId,
-        title: `🚀 INITIALIZE CAPI/CAPA ON MINIKUBE (${methodInfo.name})`,
+        title: `🚀 CONFIGURE CAPI/CAPA ON MINIKUBE (${methodInfo.name})`,
         color: 'bg-purple-600',
-        status: '🚀 Starting initialization...',
+        status: '⏳ Configuring...',
         environment: 'minikube',
-        output: `Initializing CAPI/CAPA components on cluster "${targetClusterName}" using ${methodInfo.name}...\n\nSubmitting request to backend...\n\nThis will:\n- Install Cluster API controllers\n- Install AWS provider (CAPA)\n- Configure ROSA CRDs\n- Set up credentials`
+        output: outputMessage
       });
+
+      // Build request body
+      const requestBody = {
+        cluster_name: targetClusterName,
+        install_method: activeMethod
+      };
+
+      if (customImage) {
+        requestBody.custom_capa_image = {
+          repository: customImage.repository,
+          tag: customImage.tag
+        };
+      }
 
       const response = await fetch('http://localhost:8000/api/minikube/initialize-capi', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cluster_name: targetClusterName,
-          install_method: installMethod
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
 
       if (response.ok && data.success && data.job_id) {
-        console.log(`✅ CAPI initialization started! Job ID: ${data.job_id}`);
+        console.log(`✅ CAPI configuration started! Job ID: ${data.job_id}`);
+
+        // Store the installation method for this cluster
+        localStorage.setItem(`minikube-cluster-method-${targetClusterName}`, activeMethod);
 
         // Remove the frontend entry - backend job will show instead
         recentOps.removeRecentOperation(configureId);
@@ -157,6 +202,9 @@ const MinikubeEnvironment = () => {
       } else if (response.ok && data.success) {
         // Old path without job_id - remove the entry and show simple success
         recentOps.removeRecentOperation(configureId);
+
+        // Store the installation method for this cluster
+        localStorage.setItem(`minikube-cluster-method-${targetClusterName}`, activeMethod);
 
         const completionTime = new Date().toLocaleTimeString('en-US', {
           hour: 'numeric',
@@ -167,11 +215,11 @@ const MinikubeEnvironment = () => {
 
         addToRecent({
           id: `configure-capi-complete-${Date.now()}`,
-          title: 'Initialize CAPI/CAPA on Minikube',
+          title: 'Configure CAPI/CAPA on Minikube',
           color: 'bg-purple-600',
-          status: `✅ CAPI/CAPA initialized at ${completionTime}`,
+          status: `✅ CAPI/CAPI configured at ${completionTime}`,
           environment: 'minikube',
-          output: `CAPI/CAPA Initialization Complete\n\n✅ Cluster API controllers installed\n✅ AWS provider configured\n✅ ROSA CRDs deployed\n✅ Ready for cluster provisioning\n\nCompleted at ${completionTime}`
+          output: `CAPI/CAPA Configuration Complete\n\n✅ Cluster API controllers installed\n✅ AWS provider configured\n✅ ROSA CRDs deployed\n✅ Ready for cluster provisioning\n\nCompleted at ${completionTime}`
         });
 
         // Refresh resources
@@ -180,42 +228,54 @@ const MinikubeEnvironment = () => {
           verifiedMinikubeClusterInfo?.namespace
         );
       } else {
-        throw new Error(data.message || 'CAPI initialization failed');
+        throw new Error(data.message || 'CAPI configuration failed');
       }
     } catch (error) {
       updateRecentOperationStatus(
         configureId,
-        `❌ Initialization failed: ${error.message}`,
-        `Failed to initialize CAPI/CAPA\n\nError: ${error.message}\n\nPlease check:\n- Minikube cluster is running\n- Cluster has sufficient resources\n- Network connectivity is available`
+        `❌ Configuration failed: ${error.message}`,
+        `Failed to configure CAPI/CAPA\n\nError: ${error.message}\n\nPlease check:\n- Minikube cluster is running\n- Cluster has sufficient resources\n- Network connectivity is available`
       );
     }
   };
 
-  // Prepare component status data
-  const capiComponents = [
+  // Fetch component versions from backend
+  useEffect(() => {
+    const fetchComponentVersions = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/capi/component-versions');
+        if (response.ok) {
+          const data = await response.json();
+          setComponentVersions(data.components);
+        }
+      } catch (error) {
+        console.error('Failed to fetch component versions:', error);
+      }
+    };
+    fetchComponentVersions();
+  }, []);
+
+  // Use fetched versions or fallback to defaults
+  const capiComponents = componentVersions.length > 0 ? componentVersions : [
     {
       name: 'Cert Manager',
       enabled: true,
-      version: 'v2.10.0',
-      date: '11/3/2025'
+      version: 'loading...'
     },
     {
       name: 'CAPI Controller',
       enabled: true,
-      version: 'v2.10.0',
-      date: '11/3/2025'
+      version: 'loading...'
     },
     {
       name: 'CAPA Controller',
       enabled: true,
-      version: 'v2.10.0',
-      date: '11/3/2025'
+      version: 'loading...'
     },
     {
       name: 'ROSA CRD',
       enabled: true,
-      version: 'v2.10.0',
-      date: '11/3/2025'
+      version: 'loading...'
     }
   ];
 
@@ -238,35 +298,53 @@ const MinikubeEnvironment = () => {
   // Custom Configure button with method selector
   const methodInfo = getMethodInfo(installMethod);
 
-  // Check if CAPI is already configured
-  const isCapiConfigured = capiComponents.some(c => c.enabled);
+  // Check if user wants to remember their method choice
+  const rememberMethodChoice = localStorage.getItem(STORAGE_KEY_REMEMBER) === 'true';
 
-  // Handle configure click - show modal only if not configured yet
+  // Handle configure click - show modal if user hasn't set "remember choice"
   const handleConfigureClick = () => {
-    if (isCapiConfigured) {
-      // Already configured, just reconfigure with current method
+    // Get cluster name to check if it already has a known method
+    const targetClusterName = verifiedMinikubeClusterInfo?.name ||
+                              verifiedMinikubeClusterInfo?.cluster_name ||
+                              selectedMinikubeCluster ||
+                              minikubeClusterInput;
+
+    // Check if this cluster already has a stored installation method
+    const clusterMethod = targetClusterName ? localStorage.getItem(`minikube-cluster-method-${targetClusterName}`) : null;
+
+    if (clusterMethod) {
+      // Cluster already has CAPI installed with a known method - use it directly
+      console.log(`Using existing installation method for ${targetClusterName}: ${clusterMethod}`);
+      handleComponentConfigure(null, clusterMethod);
+    } else if (rememberMethodChoice) {
+      // User chose to remember their method preference, use it directly
       handleComponentConfigure();
     } else {
-      // First time, show modal to choose method
+      // Show modal to choose method each time
       setShowMethodModal(true);
     }
   };
 
+  // Store custom image config
+  const [customImageConfig, setCustomImageConfig] = useState(null);
+
   // After method is selected from modal, proceed with configuration
-  const handleMethodSelectedAndConfigure = (method, remember) => {
+  const handleMethodSelectedAndConfigure = (method, remember, customImage) => {
     handleMethodSelected(method, remember);
+    setCustomImageConfig(customImage);
     setShowMethodModal(false);
     // Give a brief moment for modal to close, then configure
     setTimeout(() => {
-      handleComponentConfigure();
+      handleComponentConfigure(customImage, method);
     }, 100);
   };
 
   const componentActions = [
     {
-      label: 'Configure',
+      label: isConfiguring ? 'Configuring...' : 'Configure',
       icon: '⚙️',
       onClick: handleConfigureClick,
+      disabled: isConfiguring,
       variant: 'secondary'
     },
     {
@@ -288,6 +366,10 @@ const MinikubeEnvironment = () => {
                       verifiedMinikubeClusterInfo?.cluster_name ||
                       selectedMinikubeCluster ||
                       minikubeClusterInput;
+
+  // Get stored installation method for this cluster
+  const clusterMethod = clusterName ? localStorage.getItem(`minikube-cluster-method-${clusterName}`) : null;
+  const methodDisplay = clusterMethod === 'helm' ? '📦 Helm' : clusterMethod === 'clusterctl' ? '⚡ clusterctl' : '';
 
   return (
     <>
@@ -334,11 +416,7 @@ const MinikubeEnvironment = () => {
                   />
                 </svg>
               }
-              status={clusterName ? (
-                isCapiConfigured
-                  ? `🔷 ${clusterName} ${methodInfo.icon} ${methodInfo.name}`
-                  : `🔷 ${clusterName}`
-              ) : 'No cluster selected'}
+              status={clusterName ? `🔷 ${clusterName}${methodDisplay ? ` (${methodDisplay})` : ''}` : 'No cluster selected'}
               verificationStatus={showFullConfig ? 'Running' : 'Not configured'}
               lastVerified={showFullConfig && minikubeVerificationResult?.verified_at ?
                 new Date(minikubeVerificationResult.verified_at).toLocaleString('en-US', {
@@ -496,6 +574,18 @@ const MinikubeEnvironment = () => {
       <MinikubeClusterConfigModal
         isOpen={showConfigModal}
         onClose={() => setShowConfigModal(false)}
+        onClusterCreated={(method) => {
+          // After cluster is created with method selected, handle based on method
+          if (method === 'clusterctl') {
+            // For clusterctl, show custom image modal
+            setInstallMethod(method);
+            setShowMethodModal(true);
+          } else {
+            // For Helm, configure directly without custom image options
+            setInstallMethod(method);
+            handleComponentConfigure(null, method);
+          }
+        }}
       />
 
       {/* Notification Settings Modal */}

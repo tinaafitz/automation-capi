@@ -147,6 +147,29 @@ spec:
     podCIDR: {{ cluster_network.pod_cidr | default('10.128.0.0/14') }}
     serviceCIDR: {{ cluster_network.service_cidr | default('172.30.0.0/16') }}
 
+  # ======================================
+  # LOG FORWARDING CONFIGURATION
+  # PR: https://github.com/kubernetes-sigs/cluster-api-provider-aws/pull/5786
+  # ======================================
+  {% if log_forward_enabled | default(false) %}
+  cloudWatchlogForwarder:
+    # CloudWatch configuration
+    {% if log_forward_cloudwatch_role_arn is defined and log_forward_cloudwatch_role_arn %}
+    cloudWatchLogRoleArn: {{ log_forward_cloudwatch_role_arn | trim }}
+    {% endif %}
+    {% if log_forward_cloudwatch_log_group is defined and log_forward_cloudwatch_log_group %}
+    cloudWatchLogGroupName: {{ log_forward_cloudwatch_log_group | trim }}
+    {% endif %}
+
+    # S3 configuration (optional)
+    {% if log_forward_s3_bucket is defined and log_forward_s3_bucket %}
+    s3ConfigBucketName: {{ log_forward_s3_bucket | trim }}
+    {% endif %}
+    {% if log_forward_s3_prefix is defined and log_forward_s3_prefix %}
+    s3ConfigBucketPrefix: {{ log_forward_s3_prefix | trim }}
+    {% endif %}
+  {% endif %}
+
   # Complete automation: No manual subnets, availability zones, or role ARNs required
   # All infrastructure will be created automatically by ROSANetwork and ROSARoleConfig
 ---

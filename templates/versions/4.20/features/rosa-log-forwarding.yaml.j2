@@ -147,36 +147,36 @@ spec:
   # PR: https://github.com/kubernetes-sigs/cluster-api-provider-aws/pull/5786
   # ======================================
   {% if log_forward_enabled | default(false) %}
-  logForwarder:
+  cloudWatchlogForwarder:
     # CloudWatch configuration
     {% if log_forward_cloudwatch_role_arn is defined and log_forward_cloudwatch_role_arn %}
-    cloudWatchLogRoleArn: {{ log_forward_cloudwatch_role_arn }}
+    cloudWatchLogRoleArn: {{ log_forward_cloudwatch_role_arn | trim }}
     {% endif %}
     {% if log_forward_cloudwatch_log_group is defined and log_forward_cloudwatch_log_group %}
-    cloudWatchLogGroupName: {{ log_forward_cloudwatch_log_group }}
+    cloudWatchLogGroupName: {{ log_forward_cloudwatch_log_group | trim }}
     {% endif %}
 
     # S3 configuration (optional)
     {% if log_forward_s3_bucket is defined and log_forward_s3_bucket %}
-    s3ConfigBucketName: {{ log_forward_s3_bucket }}
+    s3ConfigBucketName: {{ log_forward_s3_bucket | trim }}
     {% endif %}
     {% if log_forward_s3_prefix is defined and log_forward_s3_prefix %}
-    s3ConfigBucketPrefix: {{ log_forward_s3_prefix }}
+    s3ConfigBucketPrefix: {{ log_forward_s3_prefix | trim }}
     {% endif %}
 
     # Applications to forward logs for
     {% if log_forward_applications is defined and log_forward_applications | length > 0 %}
     applications:
       {% for app in log_forward_applications %}
-      - {{ app }}
+      - {{ app | trim }}
       {% endfor %}
     {% endif %}
 
     # Log version groups (optional)
     {% if log_forward_groups_log_version is defined and log_forward_groups_log_version | length > 0 %}
-    groupsLogVersion:
+    groupLogVersions:
       {% for version in log_forward_groups_log_version %}
-      - {{ version }}
+      - {{ version | trim }}
       {% endfor %}
     {% endif %}
   {% endif %}
