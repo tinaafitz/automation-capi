@@ -130,7 +130,7 @@ class NotificationSettings(BaseModel):
 
 
 # Helper functions
-def run_minikube_init_playbook(playbook_path: str, cluster_name: str, job_id: str, install_method: str = "clusterctl"):
+def run_minikube_init_playbook(playbook_path: str, cluster_name: str, job_id: str, install_method: str = "clusterctl", custom_capa_image: dict = None):
     """Run Minikube CAPI initialization playbook asynchronously"""
     try:
         jobs[job_id]["status"] = "running"
@@ -141,15 +141,52 @@ def run_minikube_init_playbook(playbook_path: str, cluster_name: str, job_id: st
         # Get project root
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+        # Load credentials from user_vars.yml
+        config_path = os.path.join(project_root, "vars", "user_vars.yml")
+        credentials = {}
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r") as file:
+                    config = yaml.safe_load(file) or {}
+                    credentials = {
+                        "AWS_ACCESS_KEY_ID": config.get("AWS_ACCESS_KEY_ID", ""),
+                        "AWS_SECRET_ACCESS_KEY": config.get("AWS_SECRET_ACCESS_KEY", ""),
+                        "AWS_REGION": config.get("AWS_REGION", "us-west-2"),
+                        "OCM_CLIENT_ID": config.get("OCM_CLIENT_ID", ""),
+                        "OCM_CLIENT_SECRET": config.get("OCM_CLIENT_SECRET", ""),
+                    }
+            except Exception as e:
+                print(f"Warning: Failed to load credentials: {e}")
+
         # Prepare environment with Minikube profile
         env = os.environ.copy()
         env["MINIKUBE_PROFILE"] = cluster_name
         env["KUBECONFIG"] = os.path.expanduser("~/.kube/config")
         env["CAPI_INSTALL_METHOD"] = install_method
 
+        # Add AWS credentials to environment
+        if credentials:
+            env.update(credentials)
+
+        # Add custom CAPA image environment variables if provided
+        if custom_capa_image:
+            env["CUSTOM_CAPA_IMAGE"] = "true"
+            env["CUSTOM_CAPA_IMAGE_REPO"] = custom_capa_image.get("repository", "")
+            env["CUSTOM_CAPA_IMAGE_TAG"] = custom_capa_image.get("tag", "")
+            env["CUSTOM_CAPA_SOURCE_PATH"] = custom_capa_image.get("sourcePath", "")
+            jobs[job_id]["message"] = f"Initializing CAPI/CAPA on Minikube cluster '{cluster_name}' using {method_name} with custom image {custom_capa_image['repository']}:{custom_capa_image['tag']}"
+
+        # Build ansible-playbook command with AWS credentials as extra vars
+        cmd = ["ansible-playbook", playbook_path, "-vv"]
+
+        # Add AWS credentials as Ansible extra vars
+        if credentials:
+            for key, value in credentials.items():
+                cmd.extend(["-e", f"{key}={value}"])
+
         # Run the initialization playbook with verbose output
         result = subprocess.run(
-            ["ansible-playbook", playbook_path, "-vv"],
+            cmd,
             capture_output=True,
             text=True,
             timeout=600,  # 10 minutes timeout
@@ -4202,6 +4239,85 @@ async def run_ansible_playbook_endpoint(request: dict, background_tasks: Backgro
 # ===========================
 
 
+@app.get("/api/capi/component-versions")
+async def get_capi_component_versions():
+    """Get CAPI component versions from the cluster"""
+    try:
+        components = []
+
+        # Get cert-manager version
+        try:
+            cert_manager_result = subprocess.run(
+                ["oc", "get", "deployment", "cert-manager", "-n", "cert-manager",
+                 "-o", "jsonpath={.spec.template.spec.containers[0].image}"],
+                capture_output=True, text=True, timeout=10
+            )
+            if cert_manager_result.returncode == 0:
+                image = cert_manager_result.stdout.strip()
+                version = image.split(":")[-1] if ":" in image else "unknown"
+                components.append({"name": "Cert Manager", "version": version, "enabled": True})
+        except:
+            components.append({"name": "Cert Manager", "version": "unknown", "enabled": False})
+
+        # Get CAPI controller version
+        try:
+            capi_result = subprocess.run(
+                ["oc", "get", "deployment", "capi-controller-manager", "-n", "capi-system",
+                 "-o", "jsonpath={.spec.template.spec.containers[?(@.name=='manager')].image}"],
+                capture_output=True, text=True, timeout=10
+            )
+            if capi_result.returncode == 0:
+                image = capi_result.stdout.strip()
+                version = image.split(":")[-1] if ":" in image else "unknown"
+                components.append({"name": "CAPI Controller", "version": version, "enabled": True})
+        except:
+            components.append({"name": "CAPI Controller", "version": "unknown", "enabled": False})
+
+        # Get CAPA controller version
+        try:
+            capa_result = subprocess.run(
+                ["oc", "get", "deployment", "capa-controller-manager", "-n", "capa-system",
+                 "-o", "jsonpath={.spec.template.spec.containers[?(@.name=='manager')].image}"],
+                capture_output=True, text=True, timeout=10
+            )
+            if capa_result.returncode == 0:
+                image = capa_result.stdout.strip()
+                # Extract version/tag from image
+                if ":" in image:
+                    repo = image.split(":")[0]
+                    tag = image.split(":")[-1]
+                    # Check if it's a custom image
+                    if "quay.io/melserng" in image or "dev" in tag or "pr" in tag.lower():
+                        # Show repo shortname + tag for custom images
+                        repo_name = repo.split("/")[-1] if "/" in repo else repo
+                        version = f"{tag} ({repo_name})"
+                    else:
+                        version = tag
+                else:
+                    version = "unknown"
+                components.append({"name": "CAPA Controller", "version": version, "enabled": True})
+        except:
+            components.append({"name": "CAPA Controller", "version": "unknown", "enabled": False})
+
+        # Get ROSA CRD version
+        try:
+            rosa_crd_result = subprocess.run(
+                ["oc", "get", "crd", "rosacontrolplanes.controlplane.cluster.x-k8s.io",
+                 "-o", "jsonpath={.metadata.annotations.controller-gen\\.kubebuilder\\.io/version}"],
+                capture_output=True, text=True, timeout=10
+            )
+            if rosa_crd_result.returncode == 0:
+                version = rosa_crd_result.stdout.strip() or "unknown"
+                components.append({"name": "ROSA CRD", "version": version, "enabled": True})
+        except:
+            components.append({"name": "ROSA CRD", "version": "unknown", "enabled": False})
+
+        return {"components": components, "timestamp": datetime.now().isoformat()}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get component versions: {str(e)}")
+
+
 @app.get("/api/minikube/list-clusters")
 async def list_minikube_clusters():
     """List available Minikube profiles"""
@@ -4589,6 +4705,27 @@ async def verify_minikube_cluster(request: dict):
 
                 cluster_info["components"] = components
 
+                # Detect installation method (helm vs clusterctl)
+                install_method = "clusterctl"  # Default
+                try:
+                    # Check for Helm releases related to CAPI
+                    helm_check = subprocess.run(
+                        ["helm", "list", "-A", "-o", "json", "--kubeconfig", os.path.expanduser("~/.kube/config")],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    if helm_check.returncode == 0:
+                        import json
+                        helm_releases = json.loads(helm_check.stdout)
+                        # Look for CAPI-related Helm releases
+                        capi_helm_releases = [r for r in helm_releases if "cluster-api" in r.get("name", "").lower() or "capi" in r.get("chart", "").lower()]
+                        if capi_helm_releases:
+                            install_method = "helm"
+                except:
+                    # If Helm check fails, stick with default (clusterctl)
+                    pass
+
                 return {
                     "exists": True,
                     "accessible": True,
@@ -4596,6 +4733,7 @@ async def verify_minikube_cluster(request: dict):
                     "cluster_name": cluster_name,
                     "context_name": context_name,
                     "cluster_info": cluster_info,
+                    "install_method": install_method,
                     "suggestion": f"You can use this cluster for testing. Update your vars/user_vars.yml with the cluster details.",
                 }
             else:
@@ -4642,6 +4780,7 @@ async def initialize_minikube_capi(request: Request, background_tasks: Backgroun
         body = await request.json()
         cluster_name = body.get("cluster_name", "").strip()
         install_method = body.get("install_method", "clusterctl").strip().lower()
+        custom_capa_image = body.get("custom_capa_image", None)
 
         if not cluster_name:
             return {
@@ -4655,6 +4794,19 @@ async def initialize_minikube_capi(request: Request, background_tasks: Backgroun
                 "success": False,
                 "message": f"Invalid install method: {install_method}. Must be 'clusterctl' or 'helm'",
             }
+
+        # Validate custom image config if provided (only for clusterctl)
+        if custom_capa_image and install_method == "clusterctl":
+            if not isinstance(custom_capa_image, dict):
+                return {
+                    "success": False,
+                    "message": "custom_capa_image must be an object with repository and tag",
+                }
+            if not custom_capa_image.get("repository") or not custom_capa_image.get("tag"):
+                return {
+                    "success": False,
+                    "message": "custom_capa_image requires both repository and tag",
+                }
 
         # Determine which task file to use based on install method
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -4675,25 +4827,31 @@ async def initialize_minikube_capi(request: Request, background_tasks: Backgroun
         job_id = str(uuid.uuid4())
         method_name = "Helm Charts" if install_method == "helm" else "clusterctl"
 
+        # Build description with custom image info
+        description = f"Configure CAPI/CAPA on Minikube: {cluster_name} ({method_name})"
+        if custom_capa_image:
+            description += f" [Custom Image: {custom_capa_image['repository']}:{custom_capa_image['tag']}]"
+
         # Create job entry
         jobs[job_id] = {
             "id": job_id,
             "status": "pending",
             "progress": 0,
-            "message": f"Initializing CAPI/CAPA on Minikube cluster '{cluster_name}' using {method_name}",
+            "message": f"Configuring CAPI/CAPA on Minikube cluster '{cluster_name}' using {method_name}",
             "started_at": datetime.now(),
             "logs": [],
             "environment": "minikube",
-            "description": f"Initialize CAPI/CAPA on Minikube: {cluster_name} ({method_name})",
+            "description": description,
+            "custom_capa_image": custom_capa_image,
         }
 
-        # Run initialization in background
-        background_tasks.add_task(run_minikube_init_playbook, playbook_path, cluster_name, job_id, install_method)
+        # Run configuration in background
+        background_tasks.add_task(run_minikube_init_playbook, playbook_path, cluster_name, job_id, install_method, custom_capa_image)
 
         return {
             "success": True,
             "job_id": job_id,
-            "message": f"CAPI/CAPA initialization started for cluster '{cluster_name}' using {method_name}",
+            "message": f"CAPI/CAPA configuration started for cluster '{cluster_name}' using {method_name}",
         }
 
     except Exception as e:
@@ -5735,6 +5893,48 @@ async def save_rosa_yaml_path(request: Request):
         }
 
 
+@app.get("/api/provisioning/log-forwarding-config/{cluster_name}")
+async def get_log_forwarding_config(cluster_name: str):
+    """Get log forwarding configuration for a cluster if it exists"""
+    try:
+        project_root = os.environ.get("AUTOMATION_PATH") or os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+
+        # Check for config file
+        config_file = os.path.join(project_root, f"log-forwarding-config-{cluster_name}.yml")
+
+        if not os.path.exists(config_file):
+            return {
+                "success": False,
+                "found": False,
+                "message": f"No log forwarding config found for {cluster_name}"
+            }
+
+        # Read and parse the config file
+        import yaml
+        with open(config_file, 'r') as f:
+            config_data = yaml.safe_load(f)
+
+        # Extract values
+        return {
+            "success": True,
+            "found": True,
+            "cluster_name": cluster_name,
+            "cloudwatch_log_group_name": config_data.get("cloudwatch_log_group_name", ""),
+            "cloudwatch_log_role_arn": config_data.get("cloudwatch_log_role_arn", ""),
+            "s3_log_bucket_name": config_data.get("s3_log_bucket_name", ""),
+            "s3_log_bucket_prefix": config_data.get("s3_log_bucket_prefix", ""),
+            "message": f"Found log forwarding config for {cluster_name}"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "found": False,
+            "message": f"Error reading config: {str(e)}"
+        }
+
+
 @app.post("/api/provisioning/generate-yaml")
 async def generate_provisioning_yaml(request: Request):
     """Generate provisioning YAML without applying it (preview mode) - Direct Jinja2 rendering"""
@@ -5753,6 +5953,13 @@ async def generate_provisioning_yaml(request: Request):
         domain_prefix = config.get("domainPrefix", "")
         channel_group = config.get("channelGroup", "stable")
         aws_region = config.get("awsRegion", "us-west-2")
+
+        # Extract log forwarding configuration
+        enable_log_forwarding = config.get("enableLogForwarding", False)
+        log_forward_cloudwatch_role_arn = config.get("logForwardCloudWatchRoleArn", "")
+        log_forward_cloudwatch_log_group = config.get("logForwardCloudWatchLogGroup", "")
+        log_forward_s3_bucket = config.get("logForwardS3Bucket", "")
+        log_forward_s3_prefix = config.get("logForwardS3Prefix", "")
 
         if not cluster_name:
             raise HTTPException(status_code=400, detail="cluster_name is required")
@@ -5846,6 +6053,12 @@ async def generate_provisioning_yaml(request: Request):
                 "max_replicas": 3,
                 "replicas": 2,
             },
+            # Log forwarding configuration
+            "log_forward_enabled": enable_log_forwarding,
+            "log_forward_cloudwatch_role_arn": log_forward_cloudwatch_role_arn,
+            "log_forward_cloudwatch_log_group": log_forward_cloudwatch_log_group,
+            "log_forward_s3_bucket": log_forward_s3_bucket,
+            "log_forward_s3_prefix": log_forward_s3_prefix,
         }
 
         # Determine which template to use based on automation options
@@ -6013,6 +6226,7 @@ async def apply_provisioning_yaml(request: Request, background_tasks: Background
         yaml_content = body.get("yaml_content")
         cluster_name = body.get("cluster_name")
         feature_type = body.get("feature_type", "manual")
+        cluster_context = body.get("cluster_context")  # Optional: Minikube cluster name or kubeconfig context
 
         if not yaml_content or not cluster_name:
             raise HTTPException(
@@ -6103,8 +6317,16 @@ async def apply_provisioning_yaml(request: Request, background_tasks: Background
                         temp_path = temp_file.name
 
                     try:
+                        # Build kubectl/oc command with optional context
+                        if cluster_context:
+                            # Use kubectl with --context for Minikube or other non-OpenShift clusters
+                            apply_cmd = ["kubectl", "--context", cluster_context, "apply", "-f", temp_path]
+                        else:
+                            # Default to oc for OpenShift clusters
+                            apply_cmd = ["oc", "apply", "-f", temp_path]
+
                         result = subprocess.run(
-                            ["oc", "apply", "-f", temp_path],
+                            apply_cmd,
                             cwd=project_root,
                             capture_output=True,
                             text=True,
@@ -6126,9 +6348,15 @@ async def apply_provisioning_yaml(request: Request, background_tasks: Background
                                     )
 
                                     try:
+                                        # Build kubectl/oc commands with optional context
+                                        if cluster_context:
+                                            kubectl_cmd = "kubectl --context " + cluster_context
+                                        else:
+                                            kubectl_cmd = "oc"
+
                                         # Check if rosa-creds-secret exists in multicluster-engine namespace
                                         check_secret = subprocess.run(
-                                            ["oc", "get", "secret", "rosa-creds-secret", "-n", "multicluster-engine"],
+                                            [kubectl_cmd.split()[0]] + (kubectl_cmd.split()[1:] if cluster_context else []) + ["get", "secret", "rosa-creds-secret", "-n", "multicluster-engine"],
                                             capture_output=True,
                                             text=True,
                                             timeout=10,
@@ -6137,12 +6365,12 @@ async def apply_provisioning_yaml(request: Request, background_tasks: Background
                                         if check_secret.returncode == 0:
                                             # Secret exists, copy it to the new namespace
                                             copy_cmd = f"""
-oc get secret rosa-creds-secret -n multicluster-engine -o yaml | \
+{kubectl_cmd} get secret rosa-creds-secret -n multicluster-engine -o yaml | \
 sed 's/namespace: multicluster-engine/namespace: {namespace_name}/' | \
 sed '/resourceVersion:/d' | \
 sed '/uid:/d' | \
 sed '/creationTimestamp:/d' | \
-oc apply -f -
+{kubectl_cmd} apply -f -
 """
                                             copy_result = subprocess.run(
                                                 ["bash", "-c", copy_cmd],

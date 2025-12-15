@@ -1,0 +1,396 @@
+---
+# Setup AWS prerequisites for ROSA HCP Log Forwarding
+# This task file creates the necessary AWS resources for testing the logForward feature
+# Reference: https://github.com/kubernetes-sigs/cluster-api-provider-aws/pull/5786
+
+- name: Setup ROSA Log Forwarding Prerequisites
+  block:
+    - name: Set default variables for log forwarding
+      set_fact:
+        log_forward_config:
+          cloudwatch_log_group_name: "{{ cloudwatch_log_group_name | default('/aws/rosa/' + cluster_name + '/audit') }}"
+          cloudwatch_retention_days: "{{ cloudwatch_retention_days | default(7) }}"
+          iam_role_name: "{{ log_forward_iam_role_name | default(cluster_name + '-log-forward-role') }}"
+          iam_policy_name: "{{ log_forward_iam_policy_name | default(cluster_name + '-log-forward-policy') }}"
+          s3_bucket_name: "{{ s3_log_bucket_name | default('') }}"
+          s3_bucket_prefix: "{{ s3_log_bucket_prefix | default('rosa-logs/') }}"
+          aws_region: "{{ aws_region | default('us-west-2') }}"
+
+    - name: Display log forwarding configuration
+      debug:
+        msg:
+          - "CloudWatch Log Group: {{ log_forward_config.cloudwatch_log_group_name }}"
+          - "IAM Role Name: {{ log_forward_config.iam_role_name }}"
+          - "IAM Policy Name: {{ log_forward_config.iam_policy_name }}"
+          - "AWS Region: {{ log_forward_config.aws_region }}"
+          - "S3 Bucket: {{ log_forward_config.s3_bucket_name if log_forward_config.s3_bucket_name else 'Not configured' }}"
+
+    # ======================================
+    # CloudWatch Log Group Setup
+    # ======================================
+    - name: Create CloudWatch log group for ROSA audit logs
+      command: >
+        aws logs create-log-group
+        --log-group-name {{ log_forward_config.cloudwatch_log_group_name }}
+        --region {{ log_forward_config.aws_region }}
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+        AWS_REGION: "{{ log_forward_config.aws_region }}"
+      register: create_log_group_result
+      failed_when:
+        - create_log_group_result.rc != 0
+        - "'ResourceAlreadyExistsException' not in create_log_group_result.stderr"
+      changed_when: create_log_group_result.rc == 0
+
+    - name: Set log group retention policy
+      command: >
+        aws logs put-retention-policy
+        --log-group-name {{ log_forward_config.cloudwatch_log_group_name }}
+        --retention-in-days {{ log_forward_config.cloudwatch_retention_days }}
+        --region {{ log_forward_config.aws_region }}
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+        AWS_REGION: "{{ log_forward_config.aws_region }}"
+      register: retention_result
+      changed_when: retention_result.rc == 0
+
+    - name: Tag CloudWatch log group
+      command: >
+        aws logs tag-log-group
+        --log-group-name {{ log_forward_config.cloudwatch_log_group_name }}
+        --tags cluster={{ cluster_name }},purpose=rosa-log-forwarding-test,managed-by=ansible-automation
+        --region {{ log_forward_config.aws_region }}
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+        AWS_REGION: "{{ log_forward_config.aws_region }}"
+      register: tag_result
+      changed_when: tag_result.rc == 0
+
+    # ======================================
+    # S3 Bucket Setup (Optional)
+    # ======================================
+    - name: Create S3 bucket for log forwarding
+      block:
+        - name: Create S3 bucket
+          command: >
+            aws s3api create-bucket
+            --bucket {{ log_forward_config.s3_bucket_name }}
+            --region {{ log_forward_config.aws_region }}
+            {% if log_forward_config.aws_region != 'us-east-1' %}
+            --create-bucket-configuration LocationConstraint={{ log_forward_config.aws_region }}
+            {% endif %}
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+            AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+            AWS_REGION: "{{ log_forward_config.aws_region }}"
+          register: create_s3_result
+          failed_when:
+            - create_s3_result.rc != 0
+            - "'BucketAlreadyOwnedByYou' not in create_s3_result.stderr"
+            - "'BucketAlreadyExists' not in create_s3_result.stderr"
+          changed_when: create_s3_result.rc == 0
+
+        - name: Enable S3 bucket versioning
+          command: >
+            aws s3api put-bucket-versioning
+            --bucket {{ log_forward_config.s3_bucket_name }}
+            --versioning-configuration Status=Enabled
+            --region {{ log_forward_config.aws_region }}
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+            AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+            AWS_REGION: "{{ log_forward_config.aws_region }}"
+          register: versioning_result
+          changed_when: versioning_result.rc == 0
+
+        - name: Tag S3 bucket
+          command: >
+            aws s3api put-bucket-tagging
+            --bucket {{ log_forward_config.s3_bucket_name }}
+            --tagging 'TagSet=[{Key=cluster,Value={{ cluster_name }}},{Key=purpose,Value=rosa-log-forwarding-test},{Key=managed-by,Value=ansible-automation}]'
+            --region {{ log_forward_config.aws_region }}
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+            AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+            AWS_REGION: "{{ log_forward_config.aws_region }}"
+          register: tag_s3_result
+          changed_when: tag_s3_result.rc == 0
+      when: log_forward_config.s3_bucket_name | length > 0
+
+    # ======================================
+    # Get AWS Account ID
+    # ======================================
+    - name: Get AWS account ID
+      command: aws sts get-caller-identity --query Account --output text
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+        AWS_REGION: "{{ log_forward_config.aws_region }}"
+      register: aws_account_id_result
+      changed_when: false
+
+    - name: Set AWS account ID fact
+      set_fact:
+        aws_account_id: "{{ aws_account_id_result.stdout }}"
+
+    # ======================================
+    # IAM Policy for Log Forwarding
+    # ======================================
+    - name: Create IAM policy document for CloudWatch log forwarding
+      set_fact:
+        log_forward_policy_document:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:DescribeLogGroups
+                - logs:DescribeLogStreams
+                - logs:PutLogEvents
+                - logs:PutRetentionPolicy
+              Resource:
+                - "arn:aws:logs:{{ log_forward_config.aws_region }}:{{ aws_account_id }}:log-group:{{ log_forward_config.cloudwatch_log_group_name }}:*"
+            - Effect: Allow
+              Action:
+                - logs:DescribeLogGroups
+              Resource: "*"
+
+    - name: Add S3 permissions to policy if S3 bucket is configured
+      set_fact:
+        log_forward_policy_document: >-
+          {{
+            log_forward_policy_document | combine({
+              'Statement': log_forward_policy_document.Statement + [{
+                'Effect': 'Allow',
+                'Action': ['s3:PutObject', 's3:GetObject', 's3:ListBucket'],
+                'Resource': [
+                  'arn:aws:s3:::' + log_forward_config.s3_bucket_name,
+                  'arn:aws:s3:::' + log_forward_config.s3_bucket_name + '/*'
+                ]
+              }]
+            })
+          }}
+      when: log_forward_config.s3_bucket_name | length > 0
+
+    - name: Write IAM policy document to temp file
+      copy:
+        content: "{{ log_forward_policy_document | to_nice_json }}"
+        dest: "/tmp/{{ log_forward_config.iam_policy_name }}.json"
+      changed_when: false
+
+    - name: Create IAM policy for log forwarding
+      command: >
+        aws iam create-policy
+        --policy-name {{ log_forward_config.iam_policy_name }}
+        --policy-document file:///tmp/{{ log_forward_config.iam_policy_name }}.json
+        --description "Policy for ROSA cluster {{ cluster_name }} log forwarding to CloudWatch and S3"
+        --tags Key=cluster,Value={{ cluster_name }} Key=purpose,Value=rosa-log-forwarding-test Key=managed-by,Value=ansible-automation
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+        AWS_REGION: "{{ log_forward_config.aws_region }}"
+      register: create_policy_result
+      failed_when:
+        - create_policy_result.rc != 0
+        - "'EntityAlreadyExists' not in create_policy_result.stderr"
+      changed_when: create_policy_result.rc == 0
+
+    - name: Get IAM policy ARN
+      command: >
+        aws iam list-policies
+        --query "Policies[?PolicyName=='{{ log_forward_config.iam_policy_name }}'].Arn"
+        --output text
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+        AWS_REGION: "{{ log_forward_config.aws_region }}"
+      register: policy_arn_result
+      changed_when: false
+
+    - name: Set policy ARN fact
+      set_fact:
+        log_forward_policy_arn: "{{ policy_arn_result.stdout }}"
+
+    # ======================================
+    # Get ROSA OIDC Provider
+    # ======================================
+    - name: Get ROSA cluster OIDC provider (if cluster exists)
+      block:
+        - name: Check if ROSA cluster exists
+          command: rosa describe cluster --cluster={{ cluster_name }} --output json
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+            AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+            AWS_REGION: "{{ log_forward_config.aws_region }}"
+          register: rosa_cluster_info
+          failed_when: false
+          changed_when: false
+
+        - name: Extract OIDC provider from cluster info
+          set_fact:
+            oidc_provider_url: "{{ (rosa_cluster_info.stdout | from_json).aws.sts.oidc_endpoint_url | regex_replace('^https://', '') }}"
+          when: rosa_cluster_info.rc == 0
+
+        - name: Set placeholder OIDC provider if cluster doesn't exist
+          set_fact:
+            oidc_provider_url: "PLACEHOLDER_OIDC_PROVIDER"
+          when: rosa_cluster_info.rc != 0
+
+        - name: Display OIDC provider warning
+          debug:
+            msg:
+              - "WARNING: Could not retrieve OIDC provider from cluster."
+              - "You will need to update the IAM role trust policy after cluster creation."
+              - "Run: rosa describe cluster --cluster={{ cluster_name }} --output json | jq -r '.aws.sts.oidc_endpoint_url'"
+          when: rosa_cluster_info.rc != 0
+      rescue:
+        - name: Set placeholder OIDC provider on error
+          set_fact:
+            oidc_provider_url: "PLACEHOLDER_OIDC_PROVIDER"
+
+        - name: Display OIDC provider error warning
+          debug:
+            msg:
+              - "WARNING: Error retrieving OIDC provider from cluster."
+              - "You will need to update the IAM role trust policy after cluster creation."
+
+    # ======================================
+    # IAM Role for Log Forwarding
+    # ======================================
+    - name: Create IAM trust policy for ROSA log forwarding
+      set_fact:
+        log_forward_trust_policy:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Federated: "arn:aws:iam::{{ aws_account_id }}:oidc-provider/{{ oidc_provider_url }}"
+              Action: "sts:AssumeRoleWithWebIdentity"
+              Condition:
+                StringEquals:
+                  "{{ oidc_provider_url }}:sub": "system:serviceaccount:openshift-logging:logcollector"
+
+    - name: Write IAM trust policy to temp file
+      copy:
+        content: "{{ log_forward_trust_policy | to_nice_json }}"
+        dest: "/tmp/{{ log_forward_config.iam_role_name }}-trust.json"
+      changed_when: false
+
+    - name: Create IAM role for log forwarding
+      command: >
+        aws iam create-role
+        --role-name {{ log_forward_config.iam_role_name }}
+        --assume-role-policy-document file:///tmp/{{ log_forward_config.iam_role_name }}-trust.json
+        --description "IAM role for ROSA cluster {{ cluster_name }} log forwarding"
+        --tags Key=cluster,Value={{ cluster_name }} Key=purpose,Value=rosa-log-forwarding-test Key=managed-by,Value=ansible-automation
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+        AWS_REGION: "{{ log_forward_config.aws_region }}"
+      register: create_role_result
+      failed_when:
+        - create_role_result.rc != 0
+        - "'EntityAlreadyExists' not in create_role_result.stderr"
+      changed_when: create_role_result.rc == 0
+
+    - name: Attach policy to IAM role
+      command: >
+        aws iam attach-role-policy
+        --role-name {{ log_forward_config.iam_role_name }}
+        --policy-arn {{ log_forward_policy_arn }}
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+        AWS_REGION: "{{ log_forward_config.aws_region }}"
+      register: attach_policy_result
+      changed_when: attach_policy_result.rc == 0
+
+    - name: Get IAM role ARN
+      command: >
+        aws iam get-role
+        --role-name {{ log_forward_config.iam_role_name }}
+        --query Role.Arn
+        --output text
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+        AWS_REGION: "{{ log_forward_config.aws_region }}"
+      register: role_arn_result
+      changed_when: false
+
+    - name: Set IAM role ARN fact
+      set_fact:
+        log_forward_role_arn: "{{ role_arn_result.stdout }}"
+
+    # ======================================
+    # Cleanup temp files
+    # ======================================
+    - name: Clean up temporary policy files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/tmp/{{ log_forward_config.iam_policy_name }}.json"
+        - "/tmp/{{ log_forward_config.iam_role_name }}-trust.json"
+      changed_when: false
+
+    # ======================================
+    # Summary Output
+    # ======================================
+    - name: Display log forwarding setup summary
+      debug:
+        msg:
+          - "========================================="
+          - "ROSA Log Forwarding Prerequisites Created"
+          - "========================================="
+          - ""
+          - "CloudWatch Configuration:"
+          - "  Log Group: {{ log_forward_config.cloudwatch_log_group_name }}"
+          - "  Region: {{ log_forward_config.aws_region }}"
+          - "  Retention: {{ log_forward_config.cloudwatch_retention_days }} days"
+          - ""
+          - "IAM Configuration:"
+          - "  Role Name: {{ log_forward_config.iam_role_name }}"
+          - "  Role ARN: {{ log_forward_role_arn }}"
+          - "  Policy ARN: {{ log_forward_policy_arn }}"
+          - ""
+          - "S3 Configuration: {{ 'Bucket: ' + log_forward_config.s3_bucket_name if log_forward_config.s3_bucket_name else 'Not enabled' }}"
+          - ""
+          - "Add to your ROSAControlPlane spec:"
+          - "  logForwarder:"
+          - "    cloudWatchLogRoleArn: {{ log_forward_role_arn }}"
+          - "    cloudWatchLogGroupName: {{ log_forward_config.cloudwatch_log_group_name }}"
+          - "========================================="
+
+    - name: Save log forwarding configuration to file
+      copy:
+        content: |
+          # ROSA Log Forwarding Configuration
+          # Generated: {{ ansible_date_time.iso8601 }}
+          # Cluster: {{ cluster_name }}
+
+          cloudwatch_log_group_name: {{ log_forward_config.cloudwatch_log_group_name }}
+          cloudwatch_log_role_arn: {{ log_forward_role_arn }}
+          {% if log_forward_config.s3_bucket_name | length > 0 %}
+          s3_log_bucket_name: {{ log_forward_config.s3_bucket_name }}
+          s3_log_bucket_prefix: {{ log_forward_config.s3_bucket_prefix }}
+          {% endif %}
+
+          # Use these values in your ROSAControlPlane template
+        dest: "{{ playbook_dir }}/log-forwarding-config-{{ cluster_name }}.yml"
+      delegate_to: localhost
+
+  rescue:
+    - name: Display error message
+      debug:
+        msg:
+          - "ERROR: Failed to set up log forwarding prerequisites"
+          - "Error: {{ ansible_failed_result.msg | default('Unknown error') }}"
+
+    - name: Fail the playbook
+      fail:
+        msg: "Log forwarding setup failed. Check the error messages above."

@@ -39,6 +39,7 @@ import TestEnvironmentCard from '../components/TestEnvironmentCard';
 import TestActivityFeed from '../components/TestActivityFeed';
 import { RosaProvisionModal } from '../components/RosaProvisionModal';
 import { YamlEditorModal } from '../components/YamlEditorModal';
+import { useApp } from '../store/AppContext';
 
 // Helper function to calculate age from ISO timestamp
 function calculateAge(isoTimestamp) {
@@ -326,6 +327,9 @@ export function WhatCanIHelp() {
   // Sorting states for Key Components table
   const [mceComponentSortField, setMceComponentSortField] = useState('component');
   const [mceComponentSortDirection, setMceComponentSortDirection] = useState('asc');
+
+  // Access global app state for provision target context
+  const app = useApp();
 
   // Test Suite Dashboard state
   const [testSuiteCollapsed, setTestSuiteCollapsed] = useState(false);
@@ -8830,6 +8834,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
               feature_type: generateData.feature_type,
               file_paths: generateData.file_paths,
               config: config, // Store original config for later use
+              cluster_context: app.provisionTargetContext, // Pass Minikube cluster context if provisioning from Minikube
             });
             setShowYamlEditorModal(true);
             console.log('✅ [GENERATE-YAML] Opening YAML editor modal');
@@ -8900,6 +8905,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 yaml_content: editedYaml,
                 cluster_name: yamlEditorData?.cluster_name,
                 feature_type: yamlEditorData?.feature_type,
+                cluster_context: yamlEditorData?.cluster_context,  // Minikube cluster name for kubectl --context
               }),
             });
 

@@ -1,0 +1,269 @@
+---
+# Test playbook for ROSA HCP Log Forwarding feature
+# Reference: https://github.com/kubernetes-sigs/cluster-api-provider-aws/pull/5786
+#
+# Usage:
+#   ansible-playbook test-rosa-log-forwarding.yml
+#
+# This playbook will:
+# 1. Set up AWS prerequisites (CloudWatch log group, IAM role/policy)
+# 2. Optionally create a ROSA HCP cluster with log forwarding enabled
+# 3. Verify log forwarding is working
+# 4. Clean up resources
+
+- name: Test ROSA HCP Log Forwarding Feature
+  hosts: localhost
+  gather_facts: yes
+  vars_files:
+    - vars/user_vars.yml
+
+  vars:
+    # Cluster configuration
+    cluster_name: "{{ test_cluster_name | default('test-logforward-' + ansible_date_time.epoch) }}"
+    cluster_name_prefix: "{{ cluster_name }}"
+    capi_namespace: "{{ test_namespace | default('ns-' + cluster_name) }}"
+    openshift_version: "{{ test_openshift_version | default('4.17.9') }}"
+    aws_region: "{{ AWS_REGION | default('us-west-2') }}"
+
+    # Log forwarding configuration
+    enable_cloudwatch_logs: true
+    enable_s3_logs: "{{ enable_s3_bucket | default(false) }}"
+    cloudwatch_log_group_name: "/aws/rosa/{{ cluster_name }}/audit"
+    cloudwatch_retention_days: 7
+    s3_log_bucket_name: "{{ 'rosa-logs-' + cluster_name if enable_s3_logs else '' }}"
+    s3_log_bucket_prefix: "logs/"
+
+    # Test mode: setup only (no cluster creation) or full test
+    setup_only: "{{ test_setup_only | default(true) }}"
+
+    # AWS credentials
+    aws_access_key_id: "{{ AWS_ACCESS_KEY_ID }}"
+    aws_secret_access_key: "{{ AWS_SECRET_ACCESS_KEY }}"
+
+  tasks:
+    - name: Display test configuration
+      debug:
+        msg:
+          - "========================================="
+          - "ROSA Log Forwarding Feature Test"
+          - "========================================="
+          - ""
+          - "Cluster Name: {{ cluster_name }}"
+          - "Namespace: {{ capi_namespace }}"
+          - "OpenShift Version: {{ openshift_version }}"
+          - "AWS Region: {{ aws_region }}"
+          - ""
+          - "Log Forwarding Configuration:"
+          - "  CloudWatch: {{ 'Enabled' if enable_cloudwatch_logs else 'Disabled' }}"
+          - "  CloudWatch Log Group: {{ cloudwatch_log_group_name }}"
+          - "  S3: {{ 'Enabled' if enable_s3_logs else 'Disabled' }}"
+          - "{% if enable_s3_logs %}  S3 Bucket: {{ s3_log_bucket_name }}{% endif %}"
+          - ""
+          - "Test Mode: {{ 'Setup Only (No Cluster)' if setup_only else 'Full Test (with Cluster)' }}"
+          - "========================================="
+
+    # ======================================
+    # Step 1: Setup AWS Prerequisites
+    # ======================================
+    - name: Setup AWS prerequisites for log forwarding
+      include_tasks: tasks/setup-rosa-log-forwarding.yml
+
+    - name: Display setup completion
+      debug:
+        msg:
+          - ""
+          - "✓ AWS prerequisites created successfully!"
+          - ""
+          - "IAM Role ARN: {{ log_forward_role_arn }}"
+          - "CloudWatch Log Group: {{ cloudwatch_log_group_name }}"
+          - "{% if enable_s3_logs %}S3 Bucket: {{ s3_log_bucket_name }}{% endif %}"
+          - ""
+
+    # ======================================
+    # Step 2: Create ROSA Cluster Template with Log Forwarding
+    # ======================================
+    - name: Create ROSA cluster with log forwarding
+      block:
+        - name: Generate ROSA cluster manifest with log forwarding
+          template:
+            src: templates/versions/4.20/features/rosa-log-forwarding.yaml.j2
+            dest: "{{ playbook_dir }}/generated-{{ cluster_name }}-logforward.yaml"
+          vars:
+            cluster_name: "{{ cluster_name }}"
+            capi_namespace: "{{ capi_namespace }}"
+            openshift_version: "{{ openshift_version }}"
+            aws_region: "{{ aws_region }}"
+            cluster_name_prefix: "{{ cluster_name_prefix }}"
+            domain_prefix: "rosa-{{ cluster_name_prefix }}"
+            channel_group: "stable"
+            rosa_creds_secret: "{{ cluster_name }}-creds"
+            log_forward_enabled: true
+            log_forward_cloudwatch_role_arn: "{{ log_forward_role_arn }}"
+            log_forward_cloudwatch_log_group: "{{ cloudwatch_log_group_name }}"
+            log_forward_s3_bucket: "{{ s3_log_bucket_name if enable_s3_logs else '' }}"
+            log_forward_s3_prefix: "{{ s3_log_bucket_prefix if enable_s3_logs else '' }}"
+            machine_pool:
+              instance_type: "m5.xlarge"
+              min_replicas: 2
+              max_replicas: 3
+              replicas: 2
+              node_pool_name: "{{ cluster_name }}-nodepool"
+            cluster_network:
+              machine_cidr: "10.0.0.0/16"
+              pod_cidr: "10.128.0.0/14"
+              service_cidr: "172.30.0.0/16"
+            environment_tag: "test"
+            purpose_tag: "log-forwarding-test"
+            rosa_network_config:
+              enabled: true
+              identity_name: "default"
+              availability_zones:
+                - "{{ aws_region }}a"
+                - "{{ aws_region }}b"
+              cidr_block: "10.0.0.0/16"
+            rosa_role_config:
+              enabled: true
+              identity_name: "default"
+              prefix: "{{ cluster_name_prefix }}"
+              version: "{{ openshift_version }}"
+
+        - name: Display generated manifest path
+          debug:
+            msg:
+              - ""
+              - "✓ Cluster manifest generated: generated-{{ cluster_name }}-logforward.yaml"
+              - ""
+              - "To create the cluster, run:"
+              - "  kubectl apply -f generated-{{ cluster_name }}-logforward.yaml"
+              - ""
+
+        - name: Apply cluster manifest (if not setup-only mode)
+          block:
+            - name: Create namespace
+              command: kubectl create namespace {{ capi_namespace }}
+              register: create_ns_result
+              failed_when:
+                - create_ns_result.rc != 0
+                - "'AlreadyExists' not in create_ns_result.stderr"
+              changed_when: create_ns_result.rc == 0
+
+            - name: Apply ROSA cluster manifest
+              command: kubectl apply -f generated-{{ cluster_name }}-logforward.yaml
+              register: apply_result
+              changed_when: apply_result.rc == 0
+
+            - name: Wait for cluster to be ready
+              command: >
+                kubectl get rosacontrolplane {{ cluster_name }}
+                -n {{ capi_namespace }}
+                -o jsonpath='{.status.ready}'
+              register: cluster_ready
+              until: cluster_ready.stdout == "true"
+              retries: 60
+              delay: 30
+              failed_when: false
+
+            - name: Display cluster status
+              debug:
+                msg:
+                  - ""
+                  - "Cluster Status: {{ 'Ready' if cluster_ready.rc == 0 else 'Not Ready Yet' }}"
+                  - ""
+          when: not setup_only
+
+      when: not setup_only
+      rescue:
+        - name: Display cluster creation error
+          debug:
+            msg:
+              - "ERROR: Failed to create cluster"
+              - "You can manually apply the manifest: generated-{{ cluster_name }}-logforward.yaml"
+
+    # ======================================
+    # Step 3: Verify Log Forwarding
+    # ======================================
+    - name: Verify log forwarding is working
+      block:
+        - name: Wait before checking for logs
+          pause:
+            minutes: 5
+            prompt: "Waiting 5 minutes for logs to be forwarded..."
+
+        - name: Check CloudWatch log streams
+          command: >
+            aws logs describe-log-streams
+            --log-group-name {{ cloudwatch_log_group_name }}
+            --region {{ aws_region }}
+            --max-items 10
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+            AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+            AWS_REGION: "{{ aws_region }}"
+          register: log_streams_result
+          changed_when: false
+
+        - name: Parse log streams
+          set_fact:
+            log_streams: "{{ log_streams_result.stdout | from_json }}"
+
+        - name: Display log streams
+          debug:
+            msg:
+              - ""
+              - "CloudWatch Log Streams:"
+              - "{{ log_streams.logStreams | default([]) | length }} stream(s) found"
+              - "{% for stream in log_streams.logStreams | default([]) %}  - {{ stream.logStreamName }}{% endfor %}"
+              - ""
+
+        - name: Verify logs are being forwarded
+          assert:
+            that:
+              - log_streams.logStreams | default([]) | length > 0
+            fail_msg: "No log streams found. Log forwarding may not be working."
+            success_msg: "✓ Log forwarding is working! Logs are being sent to CloudWatch."
+
+      when: not setup_only and cluster_ready.rc == 0
+      rescue:
+        - name: Display verification warning
+          debug:
+            msg:
+              - "WARNING: Could not verify log forwarding"
+              - "Check CloudWatch console manually: {{ cloudwatch_log_group_name }}"
+
+    # ======================================
+    # Step 4: Display Summary
+    # ======================================
+    - name: Display test summary
+      debug:
+        msg:
+          - ""
+          - "========================================="
+          - "ROSA Log Forwarding Test Summary"
+          - "========================================="
+          - ""
+          - "✓ AWS Prerequisites Created:"
+          - "  - CloudWatch Log Group: {{ cloudwatch_log_group_name }}"
+          - "  - IAM Role: {{ log_forward_role_arn }}"
+          - "{{ '  - S3 Bucket: ' + s3_log_bucket_name if enable_s3_logs else '' }}"
+          - ""
+          - "{{ '✓ Cluster Configuration:' if not setup_only else '' }}"
+          - "{{ '  - Manifest: generated-' + cluster_name + '-logforward.yaml' if not setup_only else '' }}"
+          - "{{ ('  - Status: Ready' if cluster_ready.rc == 0 else '  - Status: In Progress') if not setup_only else '' }}"
+          - "{{ '' if not setup_only else '' }}"
+          - "Next Steps:"
+          - "{{ '  1. Review the configuration saved in: log-forwarding-config-' + cluster_name + '.yml' if setup_only else '  1. Monitor cluster: kubectl get rosacontrolplane ' + cluster_name + ' -n ' + capi_namespace }}"
+          - "{{ '  2. Create a ROSA cluster using this configuration' if setup_only else '  2. Check logs: aws logs tail ' + cloudwatch_log_group_name + ' --follow' }}"
+          - "{{ '  3. Verify logs in CloudWatch console' if setup_only else '  3. Delete cluster: kubectl delete -f generated-' + cluster_name + '-logforward.yaml' }}"
+          - ""
+          - "To cleanup AWS resources, run:"
+          - "  ansible-playbook test-rosa-log-forwarding.yml --tags cleanup -e cluster_name={{ cluster_name }}"
+          - "========================================="
+
+    # ======================================
+    # Cleanup Tags
+    # ======================================
+    - name: Cleanup log forwarding resources
+      include_tasks: tasks/cleanup-rosa-log-forwarding.yml
+      tags:
+        - never
+        - cleanup

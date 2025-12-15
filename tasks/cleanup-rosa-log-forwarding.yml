@@ -1,0 +1,178 @@
+---
+# Cleanup AWS resources created for ROSA HCP Log Forwarding testing
+# This task file removes IAM roles, policies, CloudWatch log groups, and S3 buckets
+
+- name: Cleanup ROSA Log Forwarding Resources
+  block:
+    - name: Set cleanup variables
+      set_fact:
+        log_forward_config:
+          cloudwatch_log_group_name: "{{ cloudwatch_log_group_name | default('/aws/rosa/' + cluster_name + '/audit') }}"
+          iam_role_name: "{{ log_forward_iam_role_name | default(cluster_name + '-log-forward-role') }}"
+          iam_policy_name: "{{ log_forward_iam_policy_name | default(cluster_name + '-log-forward-policy') }}"
+          s3_bucket_name: "{{ s3_log_bucket_name | default('') }}"
+          aws_region: "{{ aws_region | default('us-west-2') }}"
+
+    - name: Display cleanup configuration
+      debug:
+        msg:
+          - "Cleaning up log forwarding resources for cluster: {{ cluster_name }}"
+          - "CloudWatch Log Group: {{ log_forward_config.cloudwatch_log_group_name }}"
+          - "IAM Role: {{ log_forward_config.iam_role_name }}"
+          - "IAM Policy: {{ log_forward_config.iam_policy_name }}"
+          - "S3 Bucket: {{ log_forward_config.s3_bucket_name if log_forward_config.s3_bucket_name else 'Not configured' }}"
+
+    # ======================================
+    # Get AWS Account ID
+    # ======================================
+    - name: Get AWS account ID
+      command: aws sts get-caller-identity --query Account --output text
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+        AWS_REGION: "{{ log_forward_config.aws_region }}"
+      register: aws_account_id_result
+      changed_when: false
+
+    - name: Set AWS account ID fact
+      set_fact:
+        aws_account_id: "{{ aws_account_id_result.stdout }}"
+
+    # ======================================
+    # Detach and Delete IAM Policy
+    # ======================================
+    - name: Get IAM policy ARN
+      command: >
+        aws iam list-policies
+        --query "Policies[?PolicyName=='{{ log_forward_config.iam_policy_name }}'].Arn"
+        --output text
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+        AWS_REGION: "{{ log_forward_config.aws_region }}"
+      register: policy_arn_result
+      changed_when: false
+      failed_when: false
+
+    - name: Detach policy from IAM role
+      command: >
+        aws iam detach-role-policy
+        --role-name {{ log_forward_config.iam_role_name }}
+        --policy-arn {{ policy_arn_result.stdout }}
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+        AWS_REGION: "{{ log_forward_config.aws_region }}"
+      register: detach_result
+      failed_when: false
+      changed_when: detach_result.rc == 0
+      when: policy_arn_result.stdout | length > 0
+
+    - name: Delete IAM role
+      command: >
+        aws iam delete-role
+        --role-name {{ log_forward_config.iam_role_name }}
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+        AWS_REGION: "{{ log_forward_config.aws_region }}"
+      register: delete_role_result
+      failed_when: false
+      changed_when: delete_role_result.rc == 0
+
+    - name: Delete IAM policy
+      command: >
+        aws iam delete-policy
+        --policy-arn {{ policy_arn_result.stdout }}
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+        AWS_REGION: "{{ log_forward_config.aws_region }}"
+      register: delete_policy_result
+      failed_when: false
+      changed_when: delete_policy_result.rc == 0
+      when: policy_arn_result.stdout | length > 0
+
+    # ======================================
+    # Delete CloudWatch Log Group
+    # ======================================
+    - name: Delete CloudWatch log group
+      command: >
+        aws logs delete-log-group
+        --log-group-name {{ log_forward_config.cloudwatch_log_group_name }}
+        --region {{ log_forward_config.aws_region }}
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+        AWS_REGION: "{{ log_forward_config.aws_region }}"
+      register: delete_log_group_result
+      failed_when: false
+      changed_when: delete_log_group_result.rc == 0
+
+    # ======================================
+    # Delete S3 Bucket (Optional)
+    # ======================================
+    - name: Delete S3 bucket contents and bucket
+      block:
+        - name: Empty S3 bucket
+          command: >
+            aws s3 rm s3://{{ log_forward_config.s3_bucket_name }}
+            --recursive
+            --region {{ log_forward_config.aws_region }}
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+            AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+            AWS_REGION: "{{ log_forward_config.aws_region }}"
+          register: empty_bucket_result
+          failed_when: false
+          changed_when: empty_bucket_result.rc == 0
+
+        - name: Delete S3 bucket
+          command: >
+            aws s3api delete-bucket
+            --bucket {{ log_forward_config.s3_bucket_name }}
+            --region {{ log_forward_config.aws_region }}
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+            AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+            AWS_REGION: "{{ log_forward_config.aws_region }}"
+          register: delete_bucket_result
+          failed_when: false
+          changed_when: delete_bucket_result.rc == 0
+      when: log_forward_config.s3_bucket_name | length > 0
+
+    # ======================================
+    # Delete saved configuration file
+    # ======================================
+    - name: Delete saved log forwarding configuration file
+      file:
+        path: "{{ playbook_dir }}/log-forwarding-config-{{ cluster_name }}.yml"
+        state: absent
+      delegate_to: localhost
+      failed_when: false
+
+    # ======================================
+    # Summary Output
+    # ======================================
+    - name: Display cleanup summary
+      debug:
+        msg:
+          - "========================================="
+          - "ROSA Log Forwarding Cleanup Summary"
+          - "========================================="
+          - ""
+          - "IAM Role: {{ 'Deleted' if delete_role_result.rc == 0 else 'Not found or failed to delete' }}"
+          - "IAM Policy: {{ 'Deleted' if delete_policy_result.rc == 0 else 'Not found or failed to delete' }}"
+          - "CloudWatch Log Group: {{ 'Deleted' if delete_log_group_result.rc == 0 else 'Not found or failed to delete' }}"
+          - "{% if log_forward_config.s3_bucket_name | length > 0 %}S3 Bucket: {{ 'Deleted' if delete_bucket_result.rc == 0 else 'Not found or failed to delete' }}{% endif %}"
+          - ""
+          - "Cleanup complete for cluster: {{ cluster_name }}"
+          - "========================================="
+
+  rescue:
+    - name: Display cleanup error
+      debug:
+        msg:
+          - "WARNING: Some cleanup operations may have failed"
+          - "Error: {{ ansible_failed_result.msg | default('Unknown error') }}"
+          - "Please verify resources manually in AWS Console"

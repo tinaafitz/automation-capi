@@ -4,9 +4,8 @@ metadata:
   name: {{ cluster_name }}
   namespace: {{ capi_namespace }}
   labels:
-    automation.acm.redhat.com/test-case: "ACM-21174-Combined"
-    automation.acm.redhat.com/network-automation: "true"
-    automation.acm.redhat.com/role-automation: "true"
+    automation.acm.redhat.com/test-case: "ROSA-LogForwarding"
+    automation.acm.redhat.com/pr-5786: "true"
 spec:
   hubAcceptsClient: true
 ---
@@ -16,9 +15,8 @@ metadata:
   name: {{ cluster_name }}
   namespace: {{ capi_namespace }}
   labels:
-    automation.acm.redhat.com/test-case: "ACM-21174-Combined"
-    automation.acm.redhat.com/network-automation: "true"
-    automation.acm.redhat.com/role-automation: "true"
+    automation.acm.redhat.com/test-case: "ROSA-LogForwarding"
+    automation.acm.redhat.com/pr-5786: "true"
 spec:
   clusterNetwork:
     pods:
@@ -40,9 +38,8 @@ metadata:
   name: {{ cluster_name }}
   namespace: {{ capi_namespace }}
   labels:
-    automation.acm.redhat.com/test-case: "ACM-21174-Combined"
-    automation.acm.redhat.com/network-automation: "true"
-    automation.acm.redhat.com/role-automation: "true"
+    automation.acm.redhat.com/test-case: "ROSA-LogForwarding"
+    automation.acm.redhat.com/pr-5786: "true"
 spec: {}
 ---
 # ROSANetwork for automated VPC and subnet creation
@@ -53,7 +50,7 @@ metadata:
   namespace: {{ capi_namespace }}
   labels:
     cluster.x-k8s.io/cluster-name: {{ cluster_name }}
-    automation.acm.redhat.com/test-case: "ACM-21174-Combined"
+    automation.acm.redhat.com/test-case: "ROSA-LogForwarding"
     automation.acm.redhat.com/created-by: "ansible-automation"
 spec:
   identityRef:
@@ -68,11 +65,11 @@ spec:
   cidrBlock: {{ rosa_network_config.cidr_block | default('10.0.0.0/16') }}
   tags:
     Environment: {{ environment_tag | default('test') }}
-    TestCase: "ACM-21174-Combined"
+    TestCase: "ROSA-LogForwarding"
     CreatedBy: "ansible-automation"
-    Purpose: "combined-automation-testing"
+    Purpose: "pr-5786-testing"
 ---
-# ROSARoleConfig for automated AWS IAM role creation (if 4.20 templates available)
+# ROSARoleConfig for automated AWS IAM role creation
 {% if rosa_role_config is defined and rosa_role_config.enabled | default(false) %}
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: ROSARoleConfig
@@ -81,7 +78,7 @@ metadata:
   namespace: {{ capi_namespace }}
   labels:
     cluster.x-k8s.io/cluster-name: {{ cluster_name }}
-    automation.acm.redhat.com/test-case: "ACM-21174-Combined"
+    automation.acm.redhat.com/test-case: "ROSA-LogForwarding"
     automation.acm.redhat.com/created-by: "ansible-automation"
 spec:
   identityRef:
@@ -101,15 +98,13 @@ kind: ROSAControlPlane
 metadata:
   name: {{ cluster_name }}
   namespace: {{ capi_namespace }}
-  annotations:
-    {% if cluster_description is defined and cluster_description %}
-    cluster.x-k8s.io/description: |
-{{ cluster_description | indent(6, first=True) }}
-    {% endif %}
   labels:
-    automation.acm.redhat.com/test-case: "ACM-21174-Combined"
-    automation.acm.redhat.com/network-automation: "true"
-    automation.acm.redhat.com/role-automation: "true"
+    automation.acm.redhat.com/test-case: "ROSA-LogForwarding"
+    automation.acm.redhat.com/pr-5786: "true"
+  annotations:
+    cluster.x-k8s.io/description: |
+      ROSA HCP cluster with log forwarding enabled
+      Testing PR: https://github.com/kubernetes-sigs/cluster-api-provider-aws/pull/5786
 spec:
   # Network automation reference
   rosaNetworkRef:
@@ -137,10 +132,10 @@ spec:
 
   additionalTags:
     env: {{ environment_tag | default('test') }}
-    purpose: {{ purpose_tag | default('acm21174-combined-testing') }}
+    purpose: {{ purpose_tag | default('log-forwarding-test') }}
     automated: "true"
-    network-automation: "true"
-    role-automation: "{{ 'true' if rosa_role_config is defined and rosa_role_config.enabled | default(false) else 'false' }}"
+    pr-test: "5786"
+    feature: "log-forwarding"
 
   network:
     machineCIDR: {{ cluster_network.machine_cidr | default('10.0.0.0/16') }}
@@ -168,10 +163,23 @@ spec:
     {% if log_forward_s3_prefix is defined and log_forward_s3_prefix %}
     s3ConfigBucketPrefix: {{ log_forward_s3_prefix | trim }}
     {% endif %}
-  {% endif %}
 
-  # Complete automation: No manual subnets, availability zones, or role ARNs required
-  # All infrastructure will be created automatically by ROSANetwork and ROSARoleConfig
+    # Applications to forward logs for
+    {% if log_forward_applications is defined and log_forward_applications | length > 0 %}
+    applications:
+      {% for app in log_forward_applications %}
+      - {{ app | trim }}
+      {% endfor %}
+    {% endif %}
+
+    # Log version groups (optional)
+    {% if log_forward_groups_log_version is defined and log_forward_groups_log_version | length > 0 %}
+    groupLogVersions:
+      {% for version in log_forward_groups_log_version %}
+      - {{ version | trim }}
+      {% endfor %}
+    {% endif %}
+  {% endif %}
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachinePool
@@ -179,9 +187,8 @@ metadata:
   name: {{ cluster_name }}
   namespace: {{ capi_namespace }}
   labels:
-    automation.acm.redhat.com/test-case: "ACM-21174-Combined"
-    automation.acm.redhat.com/network-automation: "true"
-    automation.acm.redhat.com/role-automation: "true"
+    automation.acm.redhat.com/test-case: "ROSA-LogForwarding"
+    automation.acm.redhat.com/pr-5786: "true"
 spec:
   clusterName: {{ cluster_name }}
   replicas: {{ machine_pool.replicas | default(2) }}
@@ -201,9 +208,8 @@ metadata:
   name: {{ cluster_name }}
   namespace: {{ capi_namespace }}
   labels:
-    automation.acm.redhat.com/test-case: "ACM-21174-Combined"
-    automation.acm.redhat.com/network-automation: "true"
-    automation.acm.redhat.com/role-automation: "true"
+    automation.acm.redhat.com/test-case: "ROSA-LogForwarding"
+    automation.acm.redhat.com/pr-5786: "true"
 spec:
   nodePoolName: {{ machine_pool.node_pool_name | default(cluster_name + '-nodepool') }}
   instanceType: {{ machine_pool.instance_type | default('m5.xlarge') }}
