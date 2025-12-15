@@ -1,0 +1,91 @@
+---
+# Environment Detection Tasks
+# Detects whether running on OpenShift or standard Kubernetes (Minikube)
+
+- name: Get cluster nodes information
+  shell: kubectl get nodes -o json
+  environment:
+    KUBECONFIG: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+  register: nodes_info
+  failed_when: false
+
+- name: Parse node information
+  set_fact:
+    nodes_data: "{{ nodes_info.stdout | from_json }}"
+  when: nodes_info.rc == 0
+
+- name: Check for OpenShift indicators
+  set_fact:
+    is_openshift: "{{
+      (nodes_data['items'][0].status.nodeInfo.osImage | lower is search('red hat')) or
+      (nodes_data['items'][0].metadata.labels['node.openshift.io/os_id'] is defined) or
+      (nodes_data['items'][0].metadata.labels['node-role.kubernetes.io/master'] is defined and
+       nodes_data['items'][0].metadata.labels['node-role.kubernetes.io/worker'] is defined)
+    }}"
+  when:
+    - nodes_info.rc == 0
+    - nodes_data['items'] | length > 0
+
+- name: Check for Minikube indicators
+  set_fact:
+    is_minikube: "{{
+      (nodes_data['items'][0].metadata.labels['minikube.k8s.io/name'] is defined) or
+      (nodes_data['items'][0].metadata.name is search('minikube'))
+    }}"
+  when:
+    - nodes_info.rc == 0
+    - nodes_data['items'] | length > 0
+
+- name: Check for cert-manager operator (OpenShift)
+  shell: |
+    kubectl get csv -n openshift-cert-manager 2>/dev/null | grep cert-manager
+  environment:
+    KUBECONFIG: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+  register: ocp_cert_manager
+  failed_when: false
+  when: is_openshift | default(false)
+
+- name: Check for standalone cert-manager (Kubernetes)
+  shell: |
+    kubectl get namespace cert-manager 2>/dev/null
+  environment:
+    KUBECONFIG: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+  register: k8s_cert_manager
+  failed_when: false
+  when: not (is_openshift | default(false))
+
+- name: Set environment facts
+  set_fact:
+    environment_type: "{{ 'openshift' if (is_openshift | default(false)) else 'minikube' if (is_minikube | default(false)) else 'kubernetes' }}"
+    has_cert_manager: "{{ (ocp_cert_manager.rc == 0 if is_openshift | default(false) else k8s_cert_manager.rc == 0) }}"
+    recommended_chart: "{{ 'stolostron' if (is_openshift | default(false)) else 'capi-operator' }}"
+    cert_manager_type: "{{ 'openshift-operator' if (is_openshift | default(false)) else 'standalone' }}"
+
+- name: Display environment detection results
+  debug:
+    msg:
+      - "Environment Detection Results:"
+      - "  Type: {{ environment_type }}"
+      - "  OpenShift: {{ is_openshift | default(false) }}"
+      - "  Minikube: {{ is_minikube | default(false) }}"
+      - "  cert-manager installed: {{ has_cert_manager }}"
+      - "  cert-manager type: {{ cert_manager_type }}"
+      - "  Recommended Helm chart: {{ recommended_chart }}"
+      - "  Node OS: {{ nodes_data['items'][0].status.nodeInfo.osImage if nodes_data is defined else 'Unknown' }}"
+      - "  Kubernetes version: {{ nodes_data['items'][0].status.nodeInfo.kubeletVersion if nodes_data is defined else 'Unknown' }}"
+
+- name: Save environment facts to file
+  copy:
+    content: |
+      {
+        "environment_type": "{{ environment_type }}",
+        "is_openshift": {{ is_openshift | default(false) | to_json }},
+        "is_minikube": {{ is_minikube | default(false) | to_json }},
+        "has_cert_manager": {{ has_cert_manager | to_json }},
+        "cert_manager_type": "{{ cert_manager_type }}",
+        "recommended_chart": "{{ recommended_chart }}",
+        "kubernetes_version": "{{ nodes_data['items'][0].status.nodeInfo.kubeletVersion if nodes_data is defined else 'Unknown' }}",
+        "os_image": "{{ nodes_data['items'][0].status.nodeInfo.osImage if nodes_data is defined else 'Unknown' }}"
+      }
+    dest: "{{ test_results_dir }}/environment.json"
+  delegate_to: localhost

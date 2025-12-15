@@ -1,0 +1,91 @@
+---
+# cert-manager Prerequisite Check Tasks
+# Ensures cert-manager is installed for non-OpenShift environments
+
+- name: Load environment facts
+  include_vars:
+    file: "{{ test_results_dir }}/environment.json"
+    name: env_facts
+
+- name: Display environment type
+  debug:
+    msg: "Environment type: {{ env_facts.environment_type }}"
+
+- name: Skip cert-manager installation for OpenShift
+  debug:
+    msg: "OpenShift environment detected - using OpenShift cert-manager operator"
+  when: env_facts.is_openshift
+
+- name: Check if cert-manager namespace exists
+  shell: |
+    kubectl get namespace cert-manager
+  environment:
+    KUBECONFIG: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+  register: cert_manager_check
+  failed_when: false
+  when: not env_facts.is_openshift
+
+- name: Install cert-manager if not present (Kubernetes/Minikube)
+  shell: |
+    kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.0/cert-manager.yaml
+  environment:
+    KUBECONFIG: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+  when:
+    - not env_facts.is_openshift
+    - cert_manager_check.rc != 0
+  register: cert_manager_install
+
+- name: Wait for cert-manager to be ready
+  shell: |
+    kubectl wait --for=condition=Available --timeout=300s \
+      deployment/{{ item }} -n cert-manager
+  environment:
+    KUBECONFIG: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+  loop:
+    - cert-manager
+    - cert-manager-webhook
+    - cert-manager-cainjector
+  when:
+    - not env_facts.is_openshift
+    - cert_manager_check.rc != 0 or cert_manager_install.changed
+  register: cert_manager_ready
+  retries: 10
+  delay: 30
+  until: cert_manager_ready.rc == 0
+
+- name: Verify cert-manager pods are running
+  shell: |
+    kubectl get pods -n cert-manager -o json
+  environment:
+    KUBECONFIG: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+  register: cert_manager_pods
+  when: not env_facts.is_openshift
+
+- name: Parse cert-manager pod status
+  set_fact:
+    cert_manager_pod_data: "{{ cert_manager_pods.stdout | from_json }}"
+  when:
+    - not env_facts.is_openshift
+    - cert_manager_pods.rc == 0
+
+- name: Display cert-manager status
+  debug:
+    msg:
+      - "cert-manager Status:"
+      - "  Installed: {{ 'Yes' if not env_facts.is_openshift and cert_manager_check.rc == 0 else 'Newly Installed' if cert_manager_install.changed | default(false) else 'Using OpenShift Operator' }}"
+      - "  Version: v1.14.0"
+      - "  Namespace: {{ 'cert-manager' if not env_facts.is_openshift else 'openshift-cert-manager' }}"
+      - "  Pods Running: {{ cert_manager_pod_data['items'] | selectattr('status.phase', 'equalto', 'Running') | list | length if cert_manager_pod_data is defined else 'N/A' }}"
+
+- name: Save cert-manager status to file
+  copy:
+    content: |
+      {
+        "cert_manager_installed": {{ (not env_facts.is_openshift and cert_manager_check.rc == 0) or env_facts.is_openshift | to_json }},
+        "cert_manager_version": "v1.14.0",
+        "cert_manager_type": "{{ 'openshift-operator' if env_facts.is_openshift else 'standalone' }}",
+        "namespace": "{{ 'openshift-cert-manager' if env_facts.is_openshift else 'cert-manager' }}",
+        "installation_method": "{{ 'pre-existing' if cert_manager_check.rc == 0 else 'newly-installed' if cert_manager_install.changed | default(false) else 'openshift-operator' }}"
+      }
+    dest: "{{ test_results_dir }}/cert-manager-status.json"
+  delegate_to: localhost
