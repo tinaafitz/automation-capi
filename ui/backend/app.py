@@ -561,6 +561,37 @@ async def delete_cluster(cluster_id: str, background_tasks: BackgroundTasks):
     return {"job_id": job_id, "message": "Cluster deletion started"}
 
 
+def normalize_timestamp(value):
+    """Normalize various timestamp formats to datetime for comparison"""
+    from datetime import datetime
+
+    if value is None:
+        return datetime.min
+
+    # Already a datetime object
+    if isinstance(value, datetime):
+        return value
+
+    # Unix timestamp (float or int)
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.fromtimestamp(value)
+        except (ValueError, OSError):
+            return datetime.min
+
+    # ISO string or other string format
+    if isinstance(value, str):
+        if not value or value == "0":
+            return datetime.min
+        try:
+            # Try parsing ISO format
+            return datetime.fromisoformat(value.replace('Z', '+00:00'))
+        except (ValueError, AttributeError):
+            return datetime.min
+
+    return datetime.min
+
+
 @app.get("/api/jobs")
 async def list_jobs():
     """List all jobs"""
@@ -572,8 +603,8 @@ async def list_jobs():
             job_list.append(job_data)
 
         # Sort by created_at timestamp (newest first)
-        # Use empty string "0" as default so missing timestamps sort to end
-        job_list.sort(key=lambda x: x.get("created_at", "0"), reverse=True)
+        # Use normalize_timestamp to handle different timestamp formats
+        job_list.sort(key=lambda x: normalize_timestamp(x.get("created_at")), reverse=True)
 
         return {
             "success": True,
@@ -3557,7 +3588,7 @@ async def get_rosa_clusters():
             clusters.append(cluster_info)
 
         # Sort by creation time (newest first)
-        clusters.sort(key=lambda x: x.get("created", ""), reverse=True)
+        clusters.sort(key=lambda x: normalize_timestamp(x.get("created")), reverse=True)
 
         return {
             "success": True,
@@ -6272,7 +6303,7 @@ async def list_clusters():
             clusters.append(cluster_info)
 
         # Sort by creation time (newest first)
-        clusters.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        clusters.sort(key=lambda x: normalize_timestamp(x.get("created_at")), reverse=True)
 
         return {
             "success": True,
@@ -6658,7 +6689,7 @@ oc get events -n {namespace} --sort-by='.lastTimestamp'
         elif "show" in message_lower and "log" in message_lower:
             # Find the most recent job related to any cluster
             recent_jobs = []
-            for job_id, job_data in sorted(jobs.items(), key=lambda x: x[1].get("created_at", ""), reverse=True)[:10]:
+            for job_id, job_data in sorted(jobs.items(), key=lambda x: normalize_timestamp(x[1].get("created_at")), reverse=True)[:10]:
                 yaml_file = job_data.get("yaml_file", "")
                 description = job_data.get("description", "")
                 log_lines = job_data.get("logs", [])
