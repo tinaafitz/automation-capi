@@ -1,0 +1,109 @@
+---
+# CAPI Installation Test Orchestration
+# Runs complete test suite for CAPI/CAPA installation
+
+- name: CAPI/CAPA Installation Test Suite
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    test_results_dir: "{{ playbook_dir }}/../../results"
+    go_validator_path: "{{ playbook_dir }}/../go/cmd"
+  tasks:
+
+  - name: Create results directory
+    file:
+      path: "{{ test_results_dir }}"
+      state: directory
+      mode: '0755'
+
+  - name: Display test banner
+    debug:
+      msg:
+        - "╔═══════════════════════════════════════════════════════════════╗"
+        - "║       CAPI/CAPA Helm Chart Installation Test Suite          ║"
+        - "║                   Ansible + Go Hybrid Framework               ║"
+        - "╚═══════════════════════════════════════════════════════════════╝"
+
+  - name: "Phase 1: Detect cluster environment"
+    include_tasks: detect_environment.yml
+
+  - name: Load environment facts
+    include_vars:
+      file: "{{ test_results_dir }}/environment.json"
+      name: env_facts
+
+  - name: Display detected environment
+    debug:
+      msg:
+        - "Detected Environment:"
+        - "  Type: {{ env_facts.environment_type }}"
+        - "  Recommended Chart: {{ env_facts.recommended_chart }}"
+
+  - name: "Phase 2: Check cert-manager prerequisites"
+    include_tasks: check_cert_manager.yml
+
+  - name: "Phase 3: Install CAPI/CAPA based on environment"
+    block:
+      - name: Install CAPI/CAPA on Minikube using capi-operator
+        shell: |
+          cd {{ playbook_dir }}/../../
+          ansible-playbook tasks/helm_install_capi.yml -e @vars/user_vars.yml
+        when: env_facts.environment_type == 'minikube'
+        register: capi_install
+
+      - name: Install CAPI/CAPA on OpenShift using stolostron charts
+        debug:
+          msg: "OpenShift installation not yet implemented in test framework"
+        when: env_facts.environment_type == 'openshift'
+
+  - name: "Phase 4: Wait for deployments to stabilize"
+    pause:
+      seconds: 30
+      prompt: "Waiting for CAPI/CAPA deployments to stabilize..."
+
+  - name: "Phase 5: Run Go-based validations"
+    shell: |
+      cd {{ go_validator_path }}
+      go run main.go \
+        --env {{ env_facts.environment_type }} \
+        --suite "capi-installation-{{ env_facts.environment_type }}" \
+        --output {{ test_results_dir }}/validation-results.json
+    register: go_validation
+    failed_when: false
+
+  - name: Load validation results
+    include_vars:
+      file: "{{ test_results_dir }}/validation-results.json"
+      name: validation_results
+    when: go_validation.rc == 0
+
+  - name: Display validation summary
+    debug:
+      msg:
+        - "Validation Results:"
+        - "  Environment: {{ validation_results.environment }}"
+        - "  Test Suite: {{ validation_results.test_suite }}"
+        - "  Total Tests: {{ validation_results.total_tests }}"
+        - "  Passed: {{ validation_results.passed_tests }}"
+        - "  Failed: {{ validation_results.failed_tests }}"
+        - "  Duration: {{ validation_results.duration }}"
+        - "  Status: {{ validation_results.status }}"
+    when: validation_results is defined
+
+  - name: Fail if validations did not pass
+    fail:
+      msg: "Test suite FAILED - {{ validation_results.failed_tests }} test(s) failed"
+    when:
+      - validation_results is defined
+      - validation_results.status == "FAILED"
+
+  - name: Display success message
+    debug:
+      msg:
+        - "╔═══════════════════════════════════════════════════════════════╗"
+        - "║           ✅  ALL TESTS PASSED SUCCESSFULLY  ✅                ║"
+        - "╚═══════════════════════════════════════════════════════════════╝"
+    when:
+      - validation_results is defined
+      - validation_results.status == "PASSED"

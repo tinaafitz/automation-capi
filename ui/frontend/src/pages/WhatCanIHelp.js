@@ -31,8 +31,6 @@ import {
 import { ROSAStatus } from '../components/ROSAStatus';
 import { ConfigStatus } from '../components/ConfigStatus';
 import { OCPConnectionStatus } from '../components/OCPConnectionStatus';
-import { KindClusterModal } from '../components/KindClusterModal';
-import { KindTerminalModal } from '../components/KindTerminalModal';
 import ResourceConnectionsCard from '../components/ResourceConnectionsCard';
 import { MinikubeClusterModal } from '../components/MinikubeClusterModal';
 import { MinikubeTerminalModal } from '../components/MinikubeTerminalModal';
@@ -313,15 +311,9 @@ export function WhatCanIHelp() {
   const [ocpStatus, setOcpStatus] = useState(null);
   const [guidedSetupStatus, setGuidedSetupStatus] = useState(null);
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
-  const [showKindClusterModal, setShowKindClusterModal] = useState(false);
   const [showProvisionModal, setShowProvisionModal] = useState(false);
   const [showYamlEditorModal, setShowYamlEditorModal] = useState(false);
   const [yamlEditorData, setYamlEditorData] = useState(null);
-  const [kindClusters, setKindClusters] = useState([]);
-  const [selectedKindCluster, setSelectedKindCluster] = useState('');
-  const [kindClusterInput, setKindClusterInput] = useState('');
-  const [kindVerificationResult, setKindVerificationResult] = useState(null);
-  const [kindLoading, setKindLoading] = useState(false);
   const [mceLoading, setMceLoading] = useState(false);
   // Sorting states for Active Resources tables
   const [minikubeSortField, setMinikubeSortField] = useState('type');
@@ -523,18 +515,7 @@ export function WhatCanIHelp() {
   const [prefixInput, setPrefixInput] = useState('');
   const [prefixLoading, setPrefixLoading] = useState(false);
   const [savedPrefix, setSavedPrefix] = useState('');
-  const [verifiedKindClusterInfo, setVerifiedKindClusterInfo] = useState(() => {
-    try {
-      const saved = localStorage.getItem('verifiedKindClusterInfo');
-      return saved ? JSON.parse(saved) : null;
-    } catch (error) {
-      console.error('Error loading verifiedKindClusterInfo from localStorage:', error);
-      return null;
-    }
-  });
   const [activeResources, setActiveResources] = useState([]);
-  const [showKindConfigModal, setShowKindConfigModal] = useState(false);
-  const [showKindTerminalModal, setShowKindTerminalModal] = useState(false);
   const [showResourceDetailModal, setShowResourceDetailModal] = useState(false);
   const [selectedResourceDetail, setSelectedResourceDetail] = useState(null);
   const [showMceYamlModal, setShowMceYamlModal] = useState(false);
