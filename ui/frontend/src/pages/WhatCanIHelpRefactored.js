@@ -792,13 +792,16 @@ Update completed at ${completionTime}`
 
           try {
             // Add immediate feedback to Recent Operations BEFORE calling API
+            // Use the currently selected environment (mce or minikube)
+            const currentEnvironment = app.selectedEnvironment || 'mce';
+            const envColor = currentEnvironment === 'minikube' ? 'bg-purple-600' : 'bg-cyan-600';
 
             addToRecent({
               id: provisionId,
               title: `Provision ROSA HCP Cluster: ${clusterName}`,
               status: '⏳ Starting provisioning...',
-              color: 'bg-cyan-600',
-              environment: 'mce',
+              color: envColor,
+              environment: currentEnvironment,
               timestamp: new Date().toISOString(),
               output: `Starting provisioning for cluster "${clusterName}"...\n\nSubmitting YAML configuration to backend...\n\nThis will appear in the Task Summary and Task Detail sections.`
             });

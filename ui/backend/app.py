@@ -136,7 +136,7 @@ def run_minikube_init_playbook(playbook_path: str, cluster_name: str, job_id: st
         jobs[job_id]["status"] = "running"
         jobs[job_id]["progress"] = 10
         method_name = "Helm Charts" if install_method == "helm" else "clusterctl"
-        jobs[job_id]["message"] = f"Initializing CAPI/CAPA on Minikube cluster '{cluster_name}' using {method_name}"
+        jobs[job_id]["message"] = f"Configuring CAPI/CAPA on Minikube cluster '{cluster_name}' using {method_name}"
 
         # Get project root
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -174,7 +174,7 @@ def run_minikube_init_playbook(playbook_path: str, cluster_name: str, job_id: st
             env["CUSTOM_CAPA_IMAGE_REPO"] = custom_capa_image.get("repository", "")
             env["CUSTOM_CAPA_IMAGE_TAG"] = custom_capa_image.get("tag", "")
             env["CUSTOM_CAPA_SOURCE_PATH"] = custom_capa_image.get("sourcePath", "")
-            jobs[job_id]["message"] = f"Initializing CAPI/CAPA on Minikube cluster '{cluster_name}' using {method_name} with custom image {custom_capa_image['repository']}:{custom_capa_image['tag']}"
+            jobs[job_id]["message"] = f"Configuring CAPI/CAPA on Minikube cluster '{cluster_name}' using {method_name} with custom image {custom_capa_image['repository']}:{custom_capa_image['tag']}"
 
         # Build ansible-playbook command with AWS credentials as extra vars
         cmd = ["ansible-playbook", playbook_path, "-vv"]
@@ -4240,44 +4240,61 @@ async def run_ansible_playbook_endpoint(request: dict, background_tasks: Backgro
 
 
 @app.get("/api/capi/component-versions")
-async def get_capi_component_versions():
-    """Get CAPI component versions from the cluster"""
+async def get_capi_component_versions(cluster_name: str = None, environment: str = None):
+    """Get CAPI component versions from the cluster
+
+    Args:
+        cluster_name: Optional cluster name (for Minikube context)
+        environment: Optional environment type ('mce' or 'minikube')
+    """
     try:
         components = []
+
+        # Determine which CLI to use
+        if environment == "minikube" or cluster_name:
+            # Use kubectl for Minikube
+            cli_cmd = ["kubectl"]
+            if cluster_name:
+                cli_cmd.extend(["--context", cluster_name])
+        else:
+            # Use oc for OpenShift/MCE (default)
+            cli_cmd = ["oc"]
 
         # Get cert-manager version
         try:
             cert_manager_result = subprocess.run(
-                ["oc", "get", "deployment", "cert-manager", "-n", "cert-manager",
-                 "-o", "jsonpath={.spec.template.spec.containers[0].image}"],
+                cli_cmd + ["get", "deployment", "cert-manager", "-n", "cert-manager",
+                          "-o", "jsonpath={.spec.template.spec.containers[0].image}"],
                 capture_output=True, text=True, timeout=10
             )
             if cert_manager_result.returncode == 0:
                 image = cert_manager_result.stdout.strip()
                 version = image.split(":")[-1] if ":" in image else "unknown"
                 components.append({"name": "Cert Manager", "version": version, "enabled": True})
-        except:
+        except Exception as e:
+            print(f"Failed to get cert-manager version: {e}")
             components.append({"name": "Cert Manager", "version": "unknown", "enabled": False})
 
         # Get CAPI controller version
         try:
             capi_result = subprocess.run(
-                ["oc", "get", "deployment", "capi-controller-manager", "-n", "capi-system",
-                 "-o", "jsonpath={.spec.template.spec.containers[?(@.name=='manager')].image}"],
+                cli_cmd + ["get", "deployment", "capi-controller-manager", "-n", "capi-system",
+                          "-o", "jsonpath={.spec.template.spec.containers[?(@.name=='manager')].image}"],
                 capture_output=True, text=True, timeout=10
             )
             if capi_result.returncode == 0:
                 image = capi_result.stdout.strip()
                 version = image.split(":")[-1] if ":" in image else "unknown"
                 components.append({"name": "CAPI Controller", "version": version, "enabled": True})
-        except:
+        except Exception as e:
+            print(f"Failed to get CAPI controller version: {e}")
             components.append({"name": "CAPI Controller", "version": "unknown", "enabled": False})
 
         # Get CAPA controller version
         try:
             capa_result = subprocess.run(
-                ["oc", "get", "deployment", "capa-controller-manager", "-n", "capa-system",
-                 "-o", "jsonpath={.spec.template.spec.containers[?(@.name=='manager')].image}"],
+                cli_cmd + ["get", "deployment", "capa-controller-manager", "-n", "capa-system",
+                          "-o", "jsonpath={.spec.template.spec.containers[?(@.name=='manager')].image}"],
                 capture_output=True, text=True, timeout=10
             )
             if capa_result.returncode == 0:
@@ -4296,20 +4313,22 @@ async def get_capi_component_versions():
                 else:
                     version = "unknown"
                 components.append({"name": "CAPA Controller", "version": version, "enabled": True})
-        except:
+        except Exception as e:
+            print(f"Failed to get CAPA controller version: {e}")
             components.append({"name": "CAPA Controller", "version": "unknown", "enabled": False})
 
         # Get ROSA CRD version
         try:
             rosa_crd_result = subprocess.run(
-                ["oc", "get", "crd", "rosacontrolplanes.controlplane.cluster.x-k8s.io",
-                 "-o", "jsonpath={.metadata.annotations.controller-gen\\.kubebuilder\\.io/version}"],
+                cli_cmd + ["get", "crd", "rosacontrolplanes.controlplane.cluster.x-k8s.io",
+                          "-o", "jsonpath={.metadata.annotations.controller-gen\\.kubebuilder\\.io/version}"],
                 capture_output=True, text=True, timeout=10
             )
             if rosa_crd_result.returncode == 0:
                 version = rosa_crd_result.stdout.strip() or "unknown"
                 components.append({"name": "ROSA CRD", "version": version, "enabled": True})
-        except:
+        except Exception as e:
+            print(f"Failed to get ROSA CRD version: {e}")
             components.append({"name": "ROSA CRD", "version": "unknown", "enabled": False})
 
         return {"components": components, "timestamp": datetime.now().isoformat()}
@@ -5954,6 +5973,9 @@ async def generate_provisioning_yaml(request: Request):
         channel_group = config.get("channelGroup", "stable")
         aws_region = config.get("awsRegion", "us-west-2")
 
+        # Extract node pool configuration
+        node_pool_name = config.get("nodePoolName", "")
+
         # Extract log forwarding configuration
         enable_log_forwarding = config.get("enableLogForwarding", False)
         log_forward_cloudwatch_role_arn = config.get("logForwardCloudWatchRoleArn", "")
@@ -6052,6 +6074,7 @@ async def generate_provisioning_yaml(request: Request):
                 "min_replicas": 2,
                 "max_replicas": 3,
                 "replicas": 2,
+                "node_pool_name": node_pool_name,
             },
             # Log forwarding configuration
             "log_forward_enabled": enable_log_forwarding,

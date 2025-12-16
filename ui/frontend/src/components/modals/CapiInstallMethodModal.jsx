@@ -5,6 +5,10 @@ import { XMarkIcon, CheckIcon } from '@heroicons/react/24/outline';
 const CapiInstallMethodModal = ({ isOpen, onClose, onMethodSelected, currentMethod }) => {
   const [selectedMethod, setSelectedMethod] = useState(currentMethod || 'clusterctl');
   const [rememberChoice, setRememberChoice] = useState(false);
+  const [useCustomImage, setUseCustomImage] = useState(false);
+  const [customImageRepo, setCustomImageRepo] = useState('');
+  const [customImageTag, setCustomImageTag] = useState('');
+  const [capaSourcePath, setCapaSourcePath] = useState('');
 
   useEffect(() => {
     if (currentMethod) {
@@ -13,7 +17,15 @@ const CapiInstallMethodModal = ({ isOpen, onClose, onMethodSelected, currentMeth
   }, [currentMethod]);
 
   const handleContinue = () => {
-    onMethodSelected(selectedMethod, rememberChoice);
+    const customImageConfig = useCustomImage && selectedMethod === 'clusterctl'
+      ? {
+          repository: customImageRepo,
+          tag: customImageTag,
+          sourcePath: capaSourcePath
+        }
+      : null;
+
+    onMethodSelected(selectedMethod, rememberChoice, customImageConfig);
     onClose();
   };
 
@@ -33,10 +45,10 @@ const CapiInstallMethodModal = ({ isOpen, onClose, onMethodSelected, currentMeth
   ];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-auto flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-violet-600 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+        <div className="bg-gradient-to-r from-purple-600 to-violet-600 px-6 py-4 flex items-center justify-between rounded-t-2xl flex-shrink-0">
           <div>
             <h2 className="text-lg font-bold text-white">Choose Installation Method</h2>
             <p className="text-sm text-purple-100">Select how to install CAPI</p>
@@ -50,7 +62,7 @@ const CapiInstallMethodModal = ({ isOpen, onClose, onMethodSelected, currentMeth
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-3">
+        <div className="p-6 space-y-3 overflow-y-auto flex-1">
           {methods.map((method) => (
             <div
               key={method.id}
@@ -85,10 +97,85 @@ const CapiInstallMethodModal = ({ isOpen, onClose, onMethodSelected, currentMeth
               <span className="text-sm text-gray-700">Remember my choice</span>
             </label>
           </div>
+
+          {/* Custom CAPA Image Configuration - Only for clusterctl */}
+          {selectedMethod === 'clusterctl' && (
+            <div className="pt-4 border-t border-gray-200">
+              <label className="flex items-start gap-2 cursor-pointer mb-3">
+                <input
+                  type="checkbox"
+                  checked={useCustomImage}
+                  onChange={(e) => setUseCustomImage(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                />
+                <div>
+                  <span className="text-sm font-medium text-gray-900">Use Custom CAPA Image</span>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Specify a custom CAPA controller image and source directory for testing pre-release features. CRDs will be applied before deployment.
+                  </p>
+                </div>
+              </label>
+
+              {useCustomImage && (
+                <div className="space-y-3 pl-6 border-l-2 border-purple-200">
+                  {/* Image Repository */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Image Repository
+                    </label>
+                    <input
+                      type="text"
+                      value={customImageRepo}
+                      onChange={(e) => setCustomImageRepo(e.target.value)}
+                      placeholder="quay.io/username/cluster-api-aws-controller"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm font-mono"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Full path to the custom CAPA controller image repository
+                    </p>
+                  </div>
+
+                  {/* Image Tag */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Image Tag
+                    </label>
+                    <input
+                      type="text"
+                      value={customImageTag}
+                      onChange={(e) => setCustomImageTag(e.target.value)}
+                      placeholder="pr-5786"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm font-mono"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Image tag (e.g., pr-5786, latest, v2.10.0)
+                    </p>
+                  </div>
+
+                  {/* CAPA Source Path */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      CAPA Source Directory
+                    </label>
+                    <input
+                      type="text"
+                      value={capaSourcePath}
+                      onChange={(e) => setCapaSourcePath(e.target.value)}
+                      placeholder="/path/to/cluster-api-provider-aws"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm font-mono"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Path to CAPA source directory containing config/default/ (for applying updated CRDs)
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 px-6 py-4 bg-gray-50 rounded-b-2xl flex gap-3 justify-end">
+        <div className="border-t border-gray-200 px-6 py-4 bg-gray-50 rounded-b-2xl flex gap-3 justify-end flex-shrink-0">
           <button
             onClick={onClose}
             className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors font-medium"
