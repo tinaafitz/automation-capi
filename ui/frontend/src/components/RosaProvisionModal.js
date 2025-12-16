@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { buildApiUrl, API_ENDPOINTS } from '../config/api';
 
 export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
   const [config, setConfig] = useState({
@@ -17,7 +18,64 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
     awsRegion: 'us-west-2',
     privateNetwork: false,
     additionalTags: '',
+    nodePoolName: '',
+    // Log forwarding configuration
+    enableLogForwarding: false,
+    logForwardCloudWatchRoleArn: '',
+    logForwardCloudWatchLogGroup: '',
+    logForwardS3Bucket: '',
+    logForwardS3Prefix: '',
   });
+
+  const [logForwardingConfigAvailable, setLogForwardingConfigAvailable] = useState(null);
+  const [loadingLogForwardingConfig, setLoadingLogForwardingConfig] = useState(false);
+
+  // Check for log forwarding config when cluster name changes
+  useEffect(() => {
+    const checkLogForwardingConfig = async () => {
+      if (!config.clusterName || config.clusterName.length < 3) {
+        setLogForwardingConfigAvailable(null);
+        return;
+      }
+
+      try {
+        setLoadingLogForwardingConfig(true);
+        const response = await fetch(
+          buildApiUrl(`${API_ENDPOINTS.PROVISIONING_LOG_FORWARDING_CONFIG}/${config.clusterName}`)
+        );
+        const data = await response.json();
+
+        if (data.found) {
+          setLogForwardingConfigAvailable(data);
+        } else {
+          setLogForwardingConfigAvailable(null);
+        }
+      } catch (error) {
+        console.error('Error checking log forwarding config:', error);
+        setLogForwardingConfigAvailable(null);
+      } finally {
+        setLoadingLogForwardingConfig(false);
+      }
+    };
+
+    // Debounce the check to avoid too many API calls
+    const timeoutId = setTimeout(checkLogForwardingConfig, 500);
+    return () => clearTimeout(timeoutId);
+  }, [config.clusterName]);
+
+  // Load log forwarding config into form
+  const loadLogForwardingConfig = () => {
+    if (!logForwardingConfigAvailable) return;
+
+    setConfig(prev => ({
+      ...prev,
+      enableLogForwarding: true,
+      logForwardCloudWatchRoleArn: logForwardingConfigAvailable.cloudwatch_log_role_arn || '',
+      logForwardCloudWatchLogGroup: logForwardingConfigAvailable.cloudwatch_log_group_name || '',
+      logForwardS3Bucket: logForwardingConfigAvailable.s3_log_bucket_name || '',
+      logForwardS3Prefix: logForwardingConfigAvailable.s3_log_bucket_prefix || '',
+    }));
+  };
 
   // Update config when testSuite changes
   useEffect(() => {
@@ -41,6 +99,19 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
       });
     }
   }, [testSuite]);
+
+  // Auto-generate nodePoolName when clusterName changes
+  useEffect(() => {
+    if (config.clusterName && !config.nodePoolName) {
+      // Generate nodepool name: max 15 chars total
+      const maxLength = 6; // Leave 9 chars for '-nodepool'
+      const truncatedName = config.clusterName.slice(0, maxLength);
+      setConfig(prev => ({
+        ...prev,
+        nodePoolName: `${truncatedName}-np`
+      }));
+    }
+  }, [config.clusterName]);
 
   if (!isOpen) return null;
 
@@ -110,6 +181,30 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
               placeholder="test-420-network-roles-test"
             />
             <p className="mt-1 text-xs text-gray-500">Name for your ROSA HCP cluster</p>
+          </div>
+
+          {/* Node Pool Name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Node Pool Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={config.nodePoolName}
+              onChange={(e) => handleChange('nodePoolName', e.target.value)}
+              maxLength="15"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="lft-np"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Name for the default node pool (max 15 characters, auto-generated from cluster name)
+            </p>
+            {config.nodePoolName && config.nodePoolName.length > 15 && (
+              <p className="mt-1 text-xs text-red-600">
+                ⚠️ Node pool name must be 15 characters or less
+              </p>
+            )}
           </div>
 
           {/* Cluster Description */}
@@ -371,6 +466,153 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
             </div>
           )}
 
+          {/* Log Forwarding Configuration */}
+          <div className="border-t pt-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Log Forwarding Configuration</h3>
+
+            {/* Enable Log Forwarding Toggle */}
+            <label className="flex items-start gap-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200 cursor-pointer hover:bg-yellow-100 transition-colors mb-4">
+              <input
+                type="checkbox"
+                checked={config.enableLogForwarding}
+                onChange={(e) => handleChange('enableLogForwarding', e.target.checked)}
+                className="mt-1 h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-900">Enable Log Forwarding</span>
+                  <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded-full font-semibold">NEW</span>
+                </div>
+                <p className="text-xs text-gray-600 mt-1">
+                  Forward cluster audit logs to AWS CloudWatch and optionally to S3
+                </p>
+              </div>
+            </label>
+
+            {/* Log Forwarding Config Available Notification */}
+            {logForwardingConfigAvailable && !config.enableLogForwarding && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                <div className="flex items-start gap-2">
+                  <span className="text-green-600 text-sm">✓</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-green-900">Log Forwarding Configuration Found!</p>
+                    <p className="text-xs text-green-700 mt-1">
+                      Pre-configured log forwarding setup detected for this cluster name.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={loadLogForwardingConfig}
+                      className="mt-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors font-medium"
+                    >
+                      📋 Load Configuration
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Loading indicator */}
+            {loadingLogForwardingConfig && (
+              <div className="text-center py-2 mb-4">
+                <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
+                <span className="ml-2 text-sm text-gray-600">Checking for log forwarding config...</span>
+              </div>
+            )}
+
+            {/* Log Forwarding Fields - Only show when enabled */}
+            {config.enableLogForwarding && (
+              <div className="space-y-4 pl-4 border-l-2 border-yellow-200">
+                {/* CloudWatch Log Role ARN */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    CloudWatch Log Role ARN <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required={config.enableLogForwarding}
+                    value={config.logForwardCloudWatchRoleArn}
+                    onChange={(e) => handleChange('logForwardCloudWatchRoleArn', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 font-mono text-sm"
+                    placeholder="arn:aws:iam::123456789012:role/cluster-log-forward-role"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    IAM role ARN with permissions to write to CloudWatch Logs. Created by setup task.
+                  </p>
+                </div>
+
+                {/* CloudWatch Log Group Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    CloudWatch Log Group <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required={config.enableLogForwarding}
+                    value={config.logForwardCloudWatchLogGroup}
+                    onChange={(e) => handleChange('logForwardCloudWatchLogGroup', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 font-mono text-sm"
+                    placeholder="/aws/rosa/cluster-name/audit"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    CloudWatch log group name where audit logs will be sent
+                  </p>
+                </div>
+
+                {/* S3 Bucket (Optional) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    S3 Bucket (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={config.logForwardS3Bucket}
+                    onChange={(e) => handleChange('logForwardS3Bucket', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 font-mono text-sm"
+                    placeholder="my-rosa-logs-bucket"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Optional S3 bucket name for additional log storage
+                  </p>
+                </div>
+
+                {/* S3 Prefix (Optional) */}
+                {config.logForwardS3Bucket && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      S3 Prefix (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={config.logForwardS3Prefix}
+                      onChange={(e) => handleChange('logForwardS3Prefix', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 font-mono text-sm"
+                      placeholder="logs/"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Object prefix/path within the S3 bucket
+                    </p>
+                  </div>
+                )}
+
+                {/* Info Box */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <span className="text-blue-600 text-sm">ℹ️</span>
+                    <div className="flex-1">
+                      <p className="text-xs text-blue-800 font-medium mb-1">Setup Prerequisites</p>
+                      <p className="text-xs text-blue-700">
+                        Run the log forwarding setup first to create the IAM role and CloudWatch log group:
+                      </p>
+                      <code className="text-xs bg-blue-100 text-blue-900 px-2 py-1 rounded mt-1 block">
+                        ansible-playbook test-rosa-log-forwarding.yml -e setup_only=true
+                      </code>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Provisioning Summary */}
           <div className="border-t pt-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Provisioning Summary</h3>
@@ -413,6 +655,15 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
                   <span className="text-green-600">✓</span>
                   <span className="text-gray-700">
                     Will apply additional tags: {config.additionalTags}
+                  </span>
+                </div>
+              )}
+              {config.enableLogForwarding && (
+                <div className="flex items-center gap-2">
+                  <span className="text-green-600">✓</span>
+                  <span className="text-gray-700">
+                    Log forwarding enabled to CloudWatch
+                    {config.logForwardS3Bucket && ' and S3'}
                   </span>
                 </div>
               )}

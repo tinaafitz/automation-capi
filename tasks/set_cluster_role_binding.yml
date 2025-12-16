@@ -10,7 +10,7 @@
         kind: ClusterRole
         name: capi-operator-manager-role
       subjects:
-      - kind: ServiceAccount
+      - kind: ServiceAccount 
         name: registration-controller-sa
         namespace: open-cluster-management-hub
     dest: "{{ output_dir }}/cluster-role-binding.yaml"

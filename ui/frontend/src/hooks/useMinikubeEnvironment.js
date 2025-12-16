@@ -106,6 +106,13 @@ export const useMinikubeEnvironment = () => {
         setMinikubeVerificationResult({ ...data, success: true, verified_at: new Date().toISOString() });
         setVerifiedMinikubeClusterInfo(data.cluster_info);
         setSelectedMinikubeCluster(clusterName);
+
+        // Store installation method if detected by backend
+        if (data.install_method) {
+          localStorage.setItem(`minikube-cluster-method-${clusterName}`, data.install_method);
+          console.log(`✅ Detected installation method: ${data.install_method}`);
+        }
+
         return data;
       } else {
         setMinikubeVerificationResult({ ...data, success: false });

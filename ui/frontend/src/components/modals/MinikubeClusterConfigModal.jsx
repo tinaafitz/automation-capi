@@ -3,11 +3,12 @@ import PropTypes from 'prop-types';
 import { XMarkIcon, PlusIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { useMinikubeContext, useRecentOperationsContext } from '../../store/AppContext';
 
-const MinikubeClusterConfigModal = ({ isOpen, onClose }) => {
+const MinikubeClusterConfigModal = ({ isOpen, onClose, onClusterCreated }) => {
   const minikube = useMinikubeContext();
   const recentOps = useRecentOperationsContext();
   const [activeTab, setActiveTab] = useState('select'); // 'select' or 'create'
   const [newClusterName, setNewClusterName] = useState('');
+  const [installMethod, setInstallMethod] = useState('clusterctl');
 
   const {
     minikubeClusters,
@@ -71,27 +72,34 @@ const MinikubeClusterConfigModal = ({ isOpen, onClose }) => {
     }
 
     const createId = `create-minikube-${Date.now()}`;
+    const clusterName = newClusterName.trim();
+    const selectedMethod = installMethod;
 
-    try {
-      addToRecent({
-        id: createId,
-        title: `Create Minikube Cluster: ${newClusterName}`,
-        color: 'bg-purple-600',
-        status: '⏳ Creating...',
-        environment: 'minikube',
-        output: `Creating new Minikube cluster "${newClusterName}"...
+    // Add to recent operations
+    addToRecent({
+      id: createId,
+      title: `Create Minikube Cluster: ${clusterName}`,
+      color: 'bg-purple-600',
+      status: '⏳ Creating...',
+      environment: 'minikube',
+      output: `Creating new Minikube cluster "${clusterName}"...
 
 This may take several minutes:
 - Starting Minikube VM
 - Downloading Kubernetes components
 - Configuring cluster networking
 - Starting cluster services`
-      });
+    });
 
+    // Close modal immediately
+    onClose();
+
+    // Continue cluster creation in the background
+    try {
       const response = await fetch('http://localhost:8000/api/minikube/create-cluster', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cluster_name: newClusterName.trim() }),
+        body: JSON.stringify({ cluster_name: clusterName }),
       });
 
       const data = await response.json();
@@ -106,10 +114,10 @@ This may take several minutes:
 
         updateRecentOperationStatus(
           createId,
-          `✅ Cluster ${newClusterName} created at ${completionTime}`,
+          `✅ Cluster ${clusterName} created at ${completionTime}`,
           `Minikube Cluster Created Successfully
 
-✅ Cluster: ${newClusterName}
+✅ Cluster: ${clusterName}
 ✅ Status: Running
 ✅ Ready for CAPI configuration
 
@@ -118,7 +126,15 @@ Completed at ${completionTime}`
 
         // Refresh cluster list and verify the new cluster
         await fetchMinikubeClusters();
-        await handleSelectAndVerify(newClusterName.trim());
+        await verifyMinikubeCluster(clusterName);
+
+        // Store the installation method for this cluster
+        localStorage.setItem(`minikube-cluster-method-${clusterName}`, selectedMethod);
+
+        // Trigger CAPI configuration callback with the selected method
+        if (onClusterCreated) {
+          onClusterCreated(selectedMethod);
+        }
       } else {
         throw new Error(data.message || 'Cluster creation failed');
       }
@@ -141,8 +157,8 @@ Please check:
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-auto flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="bg-gradient-to-r from-purple-600 to-violet-600 px-6 py-4 flex items-center justify-between rounded-t-2xl">
           <div>
@@ -278,6 +294,46 @@ Please check:
                 </p>
               </div>
 
+              {/* Installation Method Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  CAPI Installation Method
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setInstallMethod('clusterctl')}
+                    className={`relative border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                      installMethod === 'clusterctl'
+                        ? 'border-purple-500 bg-purple-50 shadow-md'
+                        : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex flex-col items-center text-center">
+                      <div className="text-3xl mb-2">⚡</div>
+                      <h4 className="text-sm font-bold text-gray-900">Cluster API</h4>
+                      <p className="text-xs text-gray-500 mt-1">Official clusterctl</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setInstallMethod('helm')}
+                    className={`relative border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                      installMethod === 'helm'
+                        ? 'border-purple-500 bg-purple-50 shadow-md'
+                        : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex flex-col items-center text-center">
+                      <div className="text-3xl mb-2">📦</div>
+                      <h4 className="text-sm font-bold text-gray-900">Helm Charts</h4>
+                      <p className="text-xs text-gray-500 mt-1">Helm deployment</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               <button
                 onClick={handleCreateCluster}
                 disabled={minikubeLoading || !newClusterName.trim()}
@@ -312,6 +368,7 @@ Please check:
 MinikubeClusterConfigModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
+  onClusterCreated: PropTypes.func,
 };
 
 export default MinikubeClusterConfigModal;

@@ -243,7 +243,19 @@ const MinikubeEnvironment = () => {
   useEffect(() => {
     const fetchComponentVersions = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/capi/component-versions');
+        // Get cluster name for the API call
+        const targetClusterName = verifiedMinikubeClusterInfo?.name ||
+                                   verifiedMinikubeClusterInfo?.cluster_name ||
+                                   selectedMinikubeCluster ||
+                                   minikubeClusterInput;
+
+        // Build URL with query parameters
+        let url = 'http://localhost:8000/api/capi/component-versions?environment=minikube';
+        if (targetClusterName) {
+          url += `&cluster_name=${encodeURIComponent(targetClusterName)}`;
+        }
+
+        const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
           setComponentVersions(data.components);
@@ -253,7 +265,7 @@ const MinikubeEnvironment = () => {
       }
     };
     fetchComponentVersions();
-  }, []);
+  }, [verifiedMinikubeClusterInfo, selectedMinikubeCluster, minikubeClusterInput]);
 
   // Use fetched versions or fallback to defaults
   const capiComponents = componentVersions.length > 0 ? componentVersions : [

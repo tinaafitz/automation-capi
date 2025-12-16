@@ -33,6 +33,7 @@ export const API_ENDPOINTS = {
   // Provisioning endpoints
   PROVISIONING_GENERATE_YAML: '/api/provisioning/generate-yaml',
   PROVISIONING_APPLY_YAML: '/api/provisioning/apply-yaml',
+  PROVISIONING_LOG_FORWARDING_CONFIG: '/api/provisioning/log-forwarding-config',
   
   // Status endpoints
   STATUS_API: '/api/status',

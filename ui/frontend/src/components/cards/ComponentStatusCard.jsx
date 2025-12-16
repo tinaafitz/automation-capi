@@ -112,10 +112,15 @@ const ComponentStatusCard = ({
         {/* All CAPI Components Status */}
         <div>
           <h6 className={`font-medium ${theme === 'minikube' ? 'text-purple-900' : 'text-cyan-900'} mb-2`}>All CAPI Components Status</h6>
-          <div className="space-y-1">
+          <div className="space-y-2">
             {components.slice(0, 4).map((component, index) => (
               <div key={index} className="flex items-center justify-between text-sm">
-                <span>{component.name.toLowerCase().replace(/\s+/g, '-')}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{component.name.toLowerCase().replace(/\s+/g, '-')}</span>
+                  {component.version && (
+                    <span className="text-xs text-gray-500 font-mono">{component.version}</span>
+                  )}
+                </div>
                 <span className={component.enabled ? 'text-green-600' : 'text-red-600'}>
                   {component.enabled ? '✓' : '✕'}
                 </span>
