@@ -16,7 +16,7 @@ export const themes = {
       },
       button: {
         primary: 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700',
-        secondary: 'text-cyan-700 hover:text-cyan-800 border-cyan-200 hover:border-cyan-300 hover:bg-cyan-50'
+        secondary: 'bg-white text-cyan-700 hover:text-cyan-800 border-cyan-200 hover:border-cyan-300 hover:bg-cyan-50'
       }
     },
     icon: '🎯'
@@ -25,7 +25,7 @@ export const themes = {
     name: 'Minikube',
     primary: {
       50: 'from-purple-50 to-violet-50',
-      100: 'from-purple-100 to-violet-100', 
+      100: 'from-purple-100 to-violet-100',
       600: 'from-purple-600 to-violet-600',
       700: 'from-purple-700 to-violet-700'
     },
@@ -37,7 +37,7 @@ export const themes = {
       },
       button: {
         primary: 'bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700',
-        secondary: 'text-purple-700 hover:text-purple-800 border-purple-200 hover:border-purple-300 hover:bg-purple-50'
+        secondary: 'bg-white text-purple-700 hover:text-purple-800 border-purple-200 hover:border-purple-300 hover:bg-purple-50'
       }
     },
     icon: '⚡'
@@ -54,7 +54,7 @@ export const cardStyles = {
 
 export const buttonStyles = {
   primary: 'px-4 py-2.5 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md min-w-[90px] text-sm',
-  secondary: 'px-4 py-2.5 rounded-lg font-medium transition-all duration-200 border border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50 shadow-sm hover:shadow-md min-w-[90px] text-sm',
+  secondary: 'px-4 py-2.5 rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md min-w-[90px] text-sm',
   compact: 'px-3 py-1.5 rounded-md font-medium transition-all duration-200 text-xs min-w-[70px]',
   icon: 'p-2.5 rounded-lg transition-all duration-200 transform hover:scale-110 shadow-sm hover:shadow-md'
 };

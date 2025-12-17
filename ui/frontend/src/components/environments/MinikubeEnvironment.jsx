@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import EnvironmentCard from '../cards/EnvironmentCard';
 import StatusCard from '../cards/StatusCard';
 import ComponentStatusCard from '../cards/ComponentStatusCard';
@@ -10,6 +10,7 @@ import { BellIcon } from '@heroicons/react/24/outline';
 import { useMinikubeContext, useRecentOperationsContext, useApp, useAppDispatch } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
 import { cardStyles } from '../../styles/themes';
+import { buildApiUrl, API_ENDPOINTS } from '../../config/api';
 
 const STORAGE_KEY_METHOD = 'capiInstallMethod';
 const STORAGE_KEY_REMEMBER = 'capiInstallMethodRemember';
@@ -239,33 +240,40 @@ const MinikubeEnvironment = () => {
     }
   };
 
-  // Fetch component versions from backend
-  useEffect(() => {
-    const fetchComponentVersions = async () => {
-      try {
-        // Get cluster name for the API call
-        const targetClusterName = verifiedMinikubeClusterInfo?.name ||
-                                   verifiedMinikubeClusterInfo?.cluster_name ||
-                                   selectedMinikubeCluster ||
-                                   minikubeClusterInput;
+  // Fetch component versions function (can be called manually or by useEffect)
+  const fetchComponentVersions = useCallback(async () => {
+    try {
+      // Get cluster name for the API call
+      const targetClusterName = verifiedMinikubeClusterInfo?.name ||
+                                 verifiedMinikubeClusterInfo?.cluster_name ||
+                                 selectedMinikubeCluster ||
+                                 minikubeClusterInput;
 
-        // Build URL with query parameters
-        let url = 'http://localhost:8000/api/capi/component-versions?environment=minikube';
-        if (targetClusterName) {
-          url += `&cluster_name=${encodeURIComponent(targetClusterName)}`;
-        }
-
-        const response = await fetch(url);
-        if (response.ok) {
-          const data = await response.json();
-          setComponentVersions(data.components);
-        }
-      } catch (error) {
-        console.error('Failed to fetch component versions:', error);
+      // Build URL with query parameters
+      const params = new URLSearchParams({ environment: 'minikube' });
+      if (targetClusterName) {
+        params.append('cluster_name', targetClusterName);
       }
-    };
-    fetchComponentVersions();
+      const url = `${buildApiUrl(API_ENDPOINTS.CAPI_COMPONENT_VERSIONS)}?${params.toString()}`;
+
+      console.log('Fetching component versions from:', url);
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Component versions received:', data.components);
+        setComponentVersions(data.components);
+      } else {
+        console.error('Failed to fetch component versions, status:', response.status);
+      }
+    } catch (error) {
+      console.error('Failed to fetch component versions:', error);
+    }
   }, [verifiedMinikubeClusterInfo, selectedMinikubeCluster, minikubeClusterInput]);
+
+  // Fetch component versions from backend on mount or when cluster changes
+  useEffect(() => {
+    fetchComponentVersions();
+  }, [fetchComponentVersions]);
 
   // Use fetched versions or fallback to defaults
   const capiComponents = componentVersions.length > 0 ? componentVersions : [
@@ -362,10 +370,34 @@ const MinikubeEnvironment = () => {
     {
       label: 'Refresh',
       icon: '🔄',
-      onClick: () => fetchMinikubeActiveResources(
-        verifiedMinikubeClusterInfo?.name,
-        verifiedMinikubeClusterInfo?.namespace
-      ),
+      onClick: () => {
+        console.log('🔄 Refreshing component versions and resources...');
+
+        // Add to recent operations
+        const refreshId = `refresh-components-${Date.now()}`;
+        const completionTime = new Date().toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+        });
+
+        addToRecent({
+          id: refreshId,
+          title: 'Refresh Component Versions',
+          description: `✅ Component versions refreshed at ${completionTime}`,
+          status: 'completed',
+          timestamp: new Date().toISOString(),
+          environment: 'minikube',
+        });
+
+        // Refresh data
+        fetchComponentVersions();
+        fetchMinikubeActiveResources(
+          verifiedMinikubeClusterInfo?.name,
+          verifiedMinikubeClusterInfo?.namespace
+        );
+      },
       variant: 'secondary'
     }
   ];

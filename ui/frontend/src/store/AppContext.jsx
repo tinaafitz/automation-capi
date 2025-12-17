@@ -21,11 +21,13 @@ const initialAppState = {
   favorites: new Set(),
 
   // Environment State
-  selectedEnvironment: 'mce',
+  selectedEnvironment: localStorage.getItem('selectedEnvironment') || 'mce',
   showEnvironmentDropdown: false,
   collapsedSections: new Set(['capi-rosa-hcp-clusters', 'test-suite-dashboard', 'test-suite-runner', 'mce-terminal', 'minikube-terminal', 'helm-chart-tests']),
   showSetupPrompt: false,
-  sectionOrder: ['mce-configuration', 'task-summary', 'task-detail', 'rosa-hcp-clusters', 'test-suite-dashboard', 'test-suite-runner', 'mce-terminal'],
+  sectionOrder: (localStorage.getItem('selectedEnvironment') || 'mce') === 'minikube'
+    ? ['minikube-environment', 'task-summary', 'task-detail', 'rosa-hcp-clusters', 'test-suite-dashboard', 'test-suite-runner', 'minikube-terminal', 'helm-chart-tests']
+    : ['mce-configuration', 'task-summary', 'task-detail', 'rosa-hcp-clusters', 'test-suite-dashboard', 'test-suite-runner', 'mce-terminal'],
   hiddenSections: [],
   showFilingCabinet: false,
   filingCabinetMinimized: false,
@@ -189,10 +191,16 @@ const appReducer = (state, action) => {
     case AppActionTypes.SET_SETUP_PROMPT:
       return { ...state, showSetupPrompt: action.payload };
 
-    case AppActionTypes.SET_SECTION_ORDER:
+    case AppActionTypes.SET_SECTION_ORDER: {
+      // Ensure Configuration section is always first
+      const configSection = state.selectedEnvironment === 'minikube' ? 'minikube-environment' : 'mce-configuration';
+      const otherSections = action.payload.filter(id => id !== configSection);
+      const enforcedOrder = [configSection, ...otherSections];
+
       // Persist to localStorage
-      localStorage.setItem('mce-section-order', JSON.stringify(action.payload));
-      return { ...state, sectionOrder: action.payload };
+      localStorage.setItem('mce-section-order', JSON.stringify(enforcedOrder));
+      return { ...state, sectionOrder: enforcedOrder };
+    }
 
     case AppActionTypes.HIDE_SECTION: {
       const newHiddenSections = [...state.hiddenSections, action.payload];
@@ -337,9 +345,17 @@ export const AppProvider = ({ children }) => {
           return id;
         });
 
-        // Ensure all new sections are included (merge with default)
-        const defaultOrder = ['mce-configuration', 'rosa-hcp-clusters', 'mce-terminal', 'task-summary', 'test-suite-dashboard', 'test-suite-runner', 'task-detail'];
-        const mergedOrder = [...new Set([...migratedOrder, ...defaultOrder])];
+        // Ensure all new sections are included (merge with default based on environment)
+        const currentEnv = localStorage.getItem('selectedEnvironment') || 'mce';
+        const defaultOrder = currentEnv === 'minikube'
+          ? ['minikube-environment', 'task-summary', 'task-detail', 'rosa-hcp-clusters', 'test-suite-dashboard', 'test-suite-runner', 'minikube-terminal', 'helm-chart-tests']
+          : ['mce-configuration', 'task-summary', 'task-detail', 'rosa-hcp-clusters', 'test-suite-dashboard', 'test-suite-runner', 'mce-terminal'];
+
+        // Merge orders but ensure Configuration is always first
+        const configSection = currentEnv === 'minikube' ? 'minikube-environment' : 'mce-configuration';
+        const otherSections = [...new Set([...migratedOrder, ...defaultOrder])].filter(id => id !== configSection);
+        const mergedOrder = [configSection, ...otherSections];
+
         dispatch({
           type: AppActionTypes.SET_SECTION_ORDER,
           payload: mergedOrder
@@ -374,6 +390,11 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('favorites', JSON.stringify([...state.favorites]));
   }, [state.favorites]);
+
+  // Persist selected environment to localStorage
+  useEffect(() => {
+    localStorage.setItem('selectedEnvironment', state.selectedEnvironment);
+  }, [state.selectedEnvironment]);
 
   return (
     <AppContext.Provider value={state}>
