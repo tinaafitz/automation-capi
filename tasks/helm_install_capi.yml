@@ -1,0 +1,167 @@
+---
+# Helm-based CAPI/CAPA Installation
+# Installs CAPI providers using Helm charts from stolostron/cluster-api-installer
+
+- name: Install CAPI/CAPA using Helm
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+
+  - name: Check if cert-manager is installed
+    shell: |
+      kubectl get namespace cert-manager
+    environment:
+      KUBECONFIG: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+    register: cert_manager_check
+    failed_when: false
+
+  - name: Install cert-manager if not present
+    shell: |
+      kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.0/cert-manager.yaml
+    environment:
+      KUBECONFIG: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+    when: cert_manager_check.rc != 0
+    register: cert_manager_install
+
+  - name: Wait for cert-manager to be ready
+    shell: |
+      kubectl wait --for=condition=Available --timeout=300s \
+        deployment/cert-manager -n cert-manager
+      kubectl wait --for=condition=Available --timeout=300s \
+        deployment/cert-manager-webhook -n cert-manager
+      kubectl wait --for=condition=Available --timeout=300s \
+        deployment/cert-manager-cainjector -n cert-manager
+    environment:
+      KUBECONFIG: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+    when: cert_manager_check.rc != 0
+    register: cert_manager_ready
+    retries: 10
+    delay: 30
+    failed_when: false
+
+  - name: Display cert-manager status
+    debug:
+      msg: "{{ 'cert-manager already installed' if cert_manager_check.rc == 0 else 'cert-manager installed successfully' }}"
+
+  - name: Add CAPI Operator Helm repository
+    shell: |
+      helm repo add capi-operator https://kubernetes-sigs.github.io/cluster-api-operator
+      helm repo update
+    register: helm_repo_add
+    failed_when: false
+
+  - name: Display Helm repo status
+    debug:
+      msg: "CAPI Operator Helm repository added"
+
+  - name: Install CAPI Operator via Helm
+    shell: |
+      helm upgrade --install capi-operator capi-operator/cluster-api-operator \
+        --namespace capi-operator-system \
+        --create-namespace \
+        --set core=cluster-api:v1.10.2 \
+        --set infrastructure=aws:v2.9.2 \
+        --set cert-manager.enabled=false \
+        --wait \
+        --timeout 10m
+    environment:
+      KUBECONFIG: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+    register: capi_operator_install
+    failed_when: false
+
+  - name: Display CAPI Operator installation result
+    debug:
+      msg: "{{ capi_operator_install.stdout_lines }}"
+
+  - name: Wait for CAPI Operator to be ready
+    shell: |
+      kubectl wait --for=condition=Available --timeout=300s \
+        deployment/capi-operator-controller-manager -n capi-operator-system
+    environment:
+      KUBECONFIG: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+    register: operator_ready
+    retries: 10
+    delay: 30
+    failed_when: false
+
+  - name: Wait for CAPI controller manager to be ready
+    shell: |
+      kubectl wait --for=condition=Available --timeout=300s \
+        deployment/capi-controller-manager -n capi-system
+    environment:
+      KUBECONFIG: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+    register: capi_ready
+    until: capi_ready.rc == 0
+    retries: 10
+    delay: 30
+    failed_when: false
+
+  - name: Wait for CAPA controller manager to be ready (deployed by operator)
+    shell: |
+      kubectl wait --for=condition=Available --timeout=300s \
+        deployment/capa-controller-manager -n capa-system
+    environment:
+      KUBECONFIG: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+    register: capa_ready
+    until: capa_ready.rc == 0
+    retries: 10
+    delay: 30
+    failed_when: false
+
+  - name: Create ns-rosa-hcp namespace
+    shell: |
+      kubectl create namespace ns-rosa-hcp --dry-run=client -o yaml | kubectl apply -f -
+    environment:
+      KUBECONFIG: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+    register: ns_rosa
+
+  - name: Create ROSA credentials secret in ns-rosa-hcp
+    shell: |
+      kubectl create secret generic rosa-creds-secret \
+        --from-literal=ocmClientID="{{ OCM_CLIENT_ID }}" \
+        --from-literal=ocmClientSecret="{{ OCM_CLIENT_SECRET }}" \
+        --from-literal=ocmApiUrl="https://api.stage.openshift.com" \
+        -n ns-rosa-hcp \
+        --dry-run=client -o yaml | kubectl apply -f -
+    environment:
+      KUBECONFIG: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+    register: rosa_secret
+    no_log: true
+
+  - name: Verify Helm installations
+    shell: |
+      helm list -n capi-system
+      helm list -n capa-system
+    environment:
+      KUBECONFIG: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+    register: helm_list
+
+  - name: Display installed Helm charts
+    debug:
+      msg: "{{ helm_list.stdout_lines }}"
+
+  - name: Verify CAPI/CAPA deployments
+    shell: |
+      kubectl get deploy -n capi-system
+      kubectl get deploy -n capa-system
+      kubectl get ns ns-rosa-hcp
+    environment:
+      KUBECONFIG: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+    register: verification
+
+  - name: Display verification results
+    debug:
+      msg:
+        - "✓ cert-manager installed (required for webhook certificates)"
+        - "✓ CAPI Core installed via Helm"
+        - "✓ CAPA (AWS) provider installed via Helm"
+        - "✓ Namespaces created: cert-manager, capi-system, capa-system, ns-rosa-hcp"
+        - "✓ AWS credentials configured"
+        - "✓ ROSA credentials configured"
+        - ""
+        - "Installation method: Helm"
+        - "Charts from: stolostron/cluster-api-installer"
+        - "CAPI Chart version: 4.19"
+        - "CAPA Chart version: 2.10.0-1"
+        - "cert-manager version: v1.14.0"

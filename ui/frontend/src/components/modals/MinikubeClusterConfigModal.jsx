@@ -12,13 +12,9 @@ const MinikubeClusterConfigModal = ({ isOpen, onClose, onClusterCreated }) => {
 
   const {
     minikubeClusters,
-    selectedMinikubeCluster,
-    minikubeClusterInput,
     minikubeLoading,
     verifyMinikubeCluster,
-    fetchMinikubeClusters,
-    setSelectedMinikubeCluster,
-    setMinikubeClusterInput
+    fetchMinikubeClusters
   } = minikube;
 
   const { addToRecent, updateRecentOperationStatus } = recentOps;
@@ -74,15 +70,16 @@ const MinikubeClusterConfigModal = ({ isOpen, onClose, onClusterCreated }) => {
     const createId = `create-minikube-${Date.now()}`;
     const clusterName = newClusterName.trim();
     const selectedMethod = installMethod;
+    const methodDisplay = selectedMethod === 'helm' ? '📦 Helm' : '⚡ clusterctl';
 
     // Add to recent operations
     addToRecent({
       id: createId,
-      title: `Create Minikube Cluster: ${clusterName}`,
+      title: `Create Minikube Cluster: ${clusterName} (${methodDisplay})`,
       color: 'bg-purple-600',
       status: '⏳ Creating...',
       environment: 'minikube',
-      output: `Creating new Minikube cluster "${clusterName}"...
+      output: `Creating new Minikube cluster "${clusterName}" with ${methodDisplay} installation...
 
 This may take several minutes:
 - Starting Minikube VM
@@ -114,10 +111,11 @@ This may take several minutes:
 
         updateRecentOperationStatus(
           createId,
-          `✅ Cluster ${clusterName} created at ${completionTime}`,
+          `✅ Cluster ${clusterName} (${methodDisplay}) created at ${completionTime}`,
           `Minikube Cluster Created Successfully
 
 ✅ Cluster: ${clusterName}
+✅ Installation Method: ${methodDisplay}
 ✅ Status: Running
 ✅ Ready for CAPI configuration
 

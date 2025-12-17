@@ -130,8 +130,8 @@ class NotificationSettings(BaseModel):
 
 
 # Helper functions
-def run_minikube_init_playbook(playbook_path: str, cluster_name: str, job_id: str, install_method: str = "clusterctl", custom_capa_image: dict = None):
-    """Run Minikube CAPI initialization playbook asynchronously"""
+async def run_minikube_init_playbook(playbook_path: str, cluster_name: str, job_id: str, install_method: str = "clusterctl", custom_capa_image: dict = None):
+    """Run Minikube CAPI initialization playbook asynchronously with real-time log streaming"""
     try:
         jobs[job_id]["status"] = "running"
         jobs[job_id]["progress"] = 10
@@ -184,35 +184,59 @@ def run_minikube_init_playbook(playbook_path: str, cluster_name: str, job_id: st
             for key, value in credentials.items():
                 cmd.extend(["-e", f"{key}={value}"])
 
-        # Run the initialization playbook with verbose output
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=600,  # 10 minutes timeout
+        # Initialize logs list
+        jobs[job_id]["logs"] = ["=== ANSIBLE PLAYBOOK OUTPUT ===", ""]
+
+        # Run the initialization playbook with real-time output streaming
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
             cwd=project_root,
             env=env,
         )
 
-        # Capture all output
-        full_output = f"=== ANSIBLE PLAYBOOK OUTPUT ===\n\n{result.stdout}\n\n"
-        if result.stderr:
-            full_output += f"=== STDERR ===\n\n{result.stderr}\n\n"
+        # Stream stdout and stderr in real-time
+        async def read_stream(stream, is_stderr=False):
+            while True:
+                line = await stream.readline()
+                if not line:
+                    break
+                line_text = line.decode('utf-8').rstrip()
+                if is_stderr:
+                    jobs[job_id]["logs"].append(f"[STDERR] {line_text}")
+                else:
+                    jobs[job_id]["logs"].append(line_text)
 
-        jobs[job_id]["logs"] = full_output.split('\n')
+                # Update progress based on log content
+                if "TASK" in line_text:
+                    current_progress = jobs[job_id]["progress"]
+                    if current_progress < 90:
+                        jobs[job_id]["progress"] = min(current_progress + 5, 90)
+
+        # Read both streams concurrently
+        await asyncio.gather(
+            read_stream(process.stdout, False),
+            read_stream(process.stderr, True)
+        )
+
+        # Wait for process to complete
+        returncode = await process.wait()
+
+        jobs[job_id]["logs"].append("")
+        jobs[job_id]["logs"].append("=== PLAYBOOK COMPLETED ===")
         jobs[job_id]["progress"] = 100
 
-        if result.returncode == 0:
+        if returncode == 0:
             jobs[job_id]["status"] = "completed"
             jobs[job_id]["message"] = f"✅ CAPI/CAPA initialized successfully on cluster '{cluster_name}'"
             jobs[job_id]["completed_at"] = datetime.now()
         else:
             jobs[job_id]["status"] = "failed"
             jobs[job_id]["message"] = f"❌ Failed to initialize CAPI/CAPA on cluster '{cluster_name}'"
-            jobs[job_id]["error"] = result.stderr
             jobs[job_id]["completed_at"] = datetime.now()
 
-    except subprocess.TimeoutExpired:
+    except asyncio.TimeoutError:
         jobs[job_id]["status"] = "failed"
         jobs[job_id]["message"] = "Initialization timed out after 10 minutes"
         jobs[job_id]["progress"] = 100
@@ -220,6 +244,7 @@ def run_minikube_init_playbook(playbook_path: str, cluster_name: str, job_id: st
     except Exception as e:
         jobs[job_id]["status"] = "failed"
         jobs[job_id]["message"] = f"Error: {str(e)}"
+        jobs[job_id]["logs"].append(f"ERROR: {str(e)}")
         jobs[job_id]["progress"] = 100
         jobs[job_id]["completed_at"] = datetime.now()
 

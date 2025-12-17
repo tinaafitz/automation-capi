@@ -928,14 +928,14 @@ Export completed at ${completionTime}`
       label: 'Credentials',
       icon: '🔑',
       onClick: handleCredentials,
-      variant: 'secondary'
+      variant: 'primary'
     },
     {
       label: 'Refresh',
       icon: '🔄',
       onClick: handleRefresh,
       disabled: apiLoading,
-      variant: 'secondary'
+      variant: 'primary'
     }
   ];
 
@@ -944,14 +944,14 @@ Export completed at ${completionTime}`
       label: 'Configure',
       icon: '⚙️',
       onClick: handleConfigure,
-      variant: 'secondary'
+      variant: 'primary'
     },
     {
       label: 'Refresh',
       icon: '🔄',
       onClick: handleRefresh,
       disabled: apiLoading,
-      variant: 'secondary'
+      variant: 'primary'
     }
   ];
 
@@ -960,20 +960,20 @@ Export completed at ${completionTime}`
       label: 'Provision',
       icon: '❄️',
       onClick: handleProvision,
-      variant: 'secondary'
+      variant: 'primary'
     },
     {
       label: 'Export',
       icon: '📤',
       onClick: handleExport,
-      variant: 'secondary'
+      variant: 'primary'
     },
     {
       label: 'Refresh',
       icon: '🔄',
       onClick: handleRefresh,
       disabled: apiLoading,
-      variant: 'secondary'
+      variant: 'primary'
     }
   ];
 

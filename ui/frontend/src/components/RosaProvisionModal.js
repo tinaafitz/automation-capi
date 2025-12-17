@@ -128,7 +128,7 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto m-4">
         {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
+        <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-violet-600 text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🚀</span>
             <div>
@@ -502,7 +502,7 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
                     <button
                       type="button"
                       onClick={loadLogForwardingConfig}
-                      className="mt-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors font-medium"
+                      className="mt-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors font-medium"
                     >
                       📋 Load Configuration
                     </button>
@@ -681,7 +681,7 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-md hover:from-blue-700 hover:to-cyan-700 font-medium transition-colors shadow-md"
+              className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-md hover:from-purple-700 hover:to-violet-700 font-medium transition-colors shadow-md"
             >
               Preview & Provision
             </button>

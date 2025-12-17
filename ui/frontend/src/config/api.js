@@ -45,7 +45,10 @@ export const API_ENDPOINTS = {
   JOBS_STATUS: '/api/jobs/status',
 
   // Credentials endpoints
-  CREDENTIALS_GET: '/api/credentials'
+  CREDENTIALS_GET: '/api/credentials',
+
+  // CAPI endpoints
+  CAPI_COMPONENT_VERSIONS: '/api/capi/component-versions'
 };
 
 // Helper function to build full URL

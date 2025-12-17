@@ -400,7 +400,7 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
                 {
                   label: 'Configure Credentials',
                   onClick: handleOpenCredentialsModal,
-                  variant: 'secondary',
+                  variant: 'primary',
                 },
                 {
                   label: 'Verify Environment',
@@ -438,12 +438,12 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
                 {
                   label: 'Configure',
                   onClick: onConfigure,
-                  variant: 'secondary',
+                  variant: 'primary',
                 },
                 {
                   label: 'Refresh',
                   onClick: handleComponentRefresh,
-                  variant: 'secondary',
+                  variant: 'primary',
                 },
               ]}
             >
@@ -505,17 +505,17 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
                 {
                   label: 'Provision',
                   onClick: onProvision,
-                  variant: 'secondary',
+                  variant: 'primary',
                 },
                 {
                   label: 'Export',
                   onClick: onExport,
-                  variant: 'secondary',
+                  variant: 'primary',
                 },
                 {
                   label: 'Refresh',
                   onClick: handleResourceRefresh,
-                  variant: 'secondary',
+                  variant: 'primary',
                 },
               ]}
             >

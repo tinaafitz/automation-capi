@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import EnvironmentCard from '../cards/EnvironmentCard';
 import StatusCard from '../cards/StatusCard';
 import ComponentStatusCard from '../cards/ComponentStatusCard';
@@ -10,6 +10,7 @@ import { BellIcon } from '@heroicons/react/24/outline';
 import { useMinikubeContext, useRecentOperationsContext, useApp, useAppDispatch } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
 import { cardStyles } from '../../styles/themes';
+import { buildApiUrl, API_ENDPOINTS } from '../../config/api';
 
 const STORAGE_KEY_METHOD = 'capiInstallMethod';
 const STORAGE_KEY_REMEMBER = 'capiInstallMethodRemember';
@@ -239,33 +240,40 @@ const MinikubeEnvironment = () => {
     }
   };
 
-  // Fetch component versions from backend
-  useEffect(() => {
-    const fetchComponentVersions = async () => {
-      try {
-        // Get cluster name for the API call
-        const targetClusterName = verifiedMinikubeClusterInfo?.name ||
-                                   verifiedMinikubeClusterInfo?.cluster_name ||
-                                   selectedMinikubeCluster ||
-                                   minikubeClusterInput;
+  // Fetch component versions function (can be called manually or by useEffect)
+  const fetchComponentVersions = useCallback(async () => {
+    try {
+      // Get cluster name for the API call
+      const targetClusterName = verifiedMinikubeClusterInfo?.name ||
+                                 verifiedMinikubeClusterInfo?.cluster_name ||
+                                 selectedMinikubeCluster ||
+                                 minikubeClusterInput;
 
-        // Build URL with query parameters
-        let url = 'http://localhost:8000/api/capi/component-versions?environment=minikube';
-        if (targetClusterName) {
-          url += `&cluster_name=${encodeURIComponent(targetClusterName)}`;
-        }
-
-        const response = await fetch(url);
-        if (response.ok) {
-          const data = await response.json();
-          setComponentVersions(data.components);
-        }
-      } catch (error) {
-        console.error('Failed to fetch component versions:', error);
+      // Build URL with query parameters
+      const params = new URLSearchParams({ environment: 'minikube' });
+      if (targetClusterName) {
+        params.append('cluster_name', targetClusterName);
       }
-    };
-    fetchComponentVersions();
+      const url = `${buildApiUrl(API_ENDPOINTS.CAPI_COMPONENT_VERSIONS)}?${params.toString()}`;
+
+      console.log('Fetching component versions from:', url);
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Component versions received:', data.components);
+        setComponentVersions(data.components);
+      } else {
+        console.error('Failed to fetch component versions, status:', response.status);
+      }
+    } catch (error) {
+      console.error('Failed to fetch component versions:', error);
+    }
   }, [verifiedMinikubeClusterInfo, selectedMinikubeCluster, minikubeClusterInput]);
+
+  // Fetch component versions from backend on mount or when cluster changes
+  useEffect(() => {
+    fetchComponentVersions();
+  }, [fetchComponentVersions]);
 
   // Use fetched versions or fallback to defaults
   const capiComponents = componentVersions.length > 0 ? componentVersions : [
@@ -303,7 +311,7 @@ const MinikubeEnvironment = () => {
       label: 'Configure',
       icon: '⚙️',
       onClick: () => setShowConfigModal(true),
-      variant: 'secondary'
+      variant: 'primary'
     }
   ];
 
@@ -357,31 +365,77 @@ const MinikubeEnvironment = () => {
       icon: '⚙️',
       onClick: handleConfigureClick,
       disabled: isConfiguring,
-      variant: 'secondary'
+      variant: 'primary'
     },
     {
       label: 'Refresh',
       icon: '🔄',
-      onClick: () => fetchMinikubeActiveResources(
-        verifiedMinikubeClusterInfo?.name,
-        verifiedMinikubeClusterInfo?.namespace
-      ),
-      variant: 'secondary'
+      onClick: () => {
+        console.log('🔄 Refreshing component versions and resources...');
+
+        // Add to recent operations
+        const refreshId = `refresh-components-${Date.now()}`;
+        const completionTime = new Date().toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+        });
+
+        addToRecent({
+          id: refreshId,
+          title: 'Refresh Component Versions',
+          description: `✅ Component versions refreshed at ${completionTime}`,
+          status: 'completed',
+          timestamp: new Date().toISOString(),
+          environment: 'minikube',
+        });
+
+        // Refresh data
+        fetchComponentVersions();
+        fetchMinikubeActiveResources(
+          verifiedMinikubeClusterInfo?.name,
+          verifiedMinikubeClusterInfo?.namespace
+        );
+      },
+      variant: 'primary'
     }
   ];
 
   // Show configuration even if no cluster is verified yet
   const showFullConfig = !!verifiedMinikubeClusterInfo;
 
-  // Get cluster name from multiple sources
-  const clusterName = verifiedMinikubeClusterInfo?.name ||
+  // Check if there's a cluster creation in progress
+  const creatingClusterOp = recentOperations?.find(op =>
+    op.title?.startsWith('Create Minikube Cluster:') &&
+    (op.status?.includes('⏳') || op.status?.includes('Creating'))
+  );
+
+  // Extract cluster name and method from creation operation if in progress
+  let creatingClusterName = null;
+  let creatingMethod = null;
+  if (creatingClusterOp) {
+    // Extract from title format: "Create Minikube Cluster: cluster-name (Method)"
+    const match = creatingClusterOp.title.match(/Create Minikube Cluster: (.+?) \((.+?)\)/);
+    if (match) {
+      creatingClusterName = match[1];
+      creatingMethod = match[2]; // Will be "Helm" or "clusterctl"
+    }
+  }
+
+  // Get cluster name from multiple sources - prioritize creating cluster
+  const clusterName = creatingClusterName ||
+                      verifiedMinikubeClusterInfo?.name ||
                       verifiedMinikubeClusterInfo?.cluster_name ||
                       selectedMinikubeCluster ||
                       minikubeClusterInput;
 
-  // Get stored installation method for this cluster
-  const clusterMethod = clusterName ? localStorage.getItem(`minikube-cluster-method-${clusterName}`) : null;
-  const methodDisplay = clusterMethod === 'helm' ? '📦 Helm' : clusterMethod === 'clusterctl' ? '⚡ clusterctl' : '';
+  // Get stored installation method for this cluster - prioritize creating method
+  const clusterMethod = creatingMethod ||
+                        (clusterName ? localStorage.getItem(`minikube-cluster-method-${clusterName}`) : null);
+  const methodDisplay = clusterMethod === 'Helm' ? '📦 Helm' :
+                        clusterMethod === 'helm' ? '📦 Helm' :
+                        clusterMethod === 'clusterctl' ? '⚡ clusterctl' : '';
 
   return (
     <>
@@ -429,7 +483,7 @@ const MinikubeEnvironment = () => {
                 </svg>
               }
               status={clusterName ? `🔷 ${clusterName}${methodDisplay ? ` (${methodDisplay})` : ''}` : 'No cluster selected'}
-              verificationStatus={showFullConfig ? 'Running' : 'Not configured'}
+              verificationStatus={creatingClusterOp ? 'Creating...' : showFullConfig ? 'Running' : 'Not configured'}
               lastVerified={showFullConfig && minikubeVerificationResult?.verified_at ?
                 new Date(minikubeVerificationResult.verified_at).toLocaleString('en-US', {
                   month: 'short',
@@ -516,22 +570,45 @@ const MinikubeEnvironment = () => {
                   label: 'Provision',
                   icon: '❄️',
                   onClick: handleProvision,
-                  variant: 'secondary'
+                  variant: 'primary'
                 },
                 {
                   label: 'Export',
                   icon: '📤',
                   onClick: () => console.log('Export clicked'),
-                  variant: 'secondary'
+                  variant: 'primary'
                 },
                 {
                   label: 'Refresh',
                   icon: '🔄',
-                  onClick: () => fetchMinikubeActiveResources(
-                    verifiedMinikubeClusterInfo?.name,
-                    verifiedMinikubeClusterInfo?.namespace
-                  ),
-                  variant: 'secondary'
+                  onClick: () => {
+                    console.log('🔄 Refreshing active resources...');
+
+                    // Add to recent operations
+                    const refreshId = `refresh-resources-${Date.now()}`;
+                    const completionTime = new Date().toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      second: '2-digit',
+                      hour12: true,
+                    });
+
+                    addToRecent({
+                      id: refreshId,
+                      title: 'Refresh Active Resources',
+                      description: `✅ Active resources refreshed at ${completionTime}`,
+                      status: 'completed',
+                      timestamp: new Date().toISOString(),
+                      environment: 'minikube',
+                    });
+
+                    // Refresh resources
+                    fetchMinikubeActiveResources(
+                      verifiedMinikubeClusterInfo?.name,
+                      verifiedMinikubeClusterInfo?.namespace
+                    );
+                  },
+                  variant: 'primary'
                 }
               ]}
             >
