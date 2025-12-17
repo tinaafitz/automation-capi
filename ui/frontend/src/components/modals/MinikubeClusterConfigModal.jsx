@@ -12,13 +12,9 @@ const MinikubeClusterConfigModal = ({ isOpen, onClose, onClusterCreated }) => {
 
   const {
     minikubeClusters,
-    selectedMinikubeCluster,
-    minikubeClusterInput,
     minikubeLoading,
     verifyMinikubeCluster,
-    fetchMinikubeClusters,
-    setSelectedMinikubeCluster,
-    setMinikubeClusterInput
+    fetchMinikubeClusters
   } = minikube;
 
   const { addToRecent, updateRecentOperationStatus } = recentOps;
