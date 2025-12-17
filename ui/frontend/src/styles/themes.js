@@ -16,7 +16,7 @@ export const themes = {
       },
       button: {
         primary: 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700',
-        secondary: 'bg-white text-cyan-700 hover:text-cyan-800 border-cyan-200 hover:border-cyan-300 hover:bg-cyan-50'
+        secondary: 'bg-cyan-100 text-cyan-700 hover:text-cyan-900 border-2 border-cyan-300 hover:border-cyan-400 hover:bg-cyan-200'
       }
     },
     icon: '🎯'
@@ -37,7 +37,7 @@ export const themes = {
       },
       button: {
         primary: 'bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700',
-        secondary: 'bg-white text-purple-700 hover:text-purple-800 border-purple-200 hover:border-purple-300 hover:bg-purple-50'
+        secondary: 'bg-purple-100 text-purple-700 hover:text-purple-900 border-2 border-purple-300 hover:border-purple-400 hover:bg-purple-200'
       }
     },
     icon: '⚡'

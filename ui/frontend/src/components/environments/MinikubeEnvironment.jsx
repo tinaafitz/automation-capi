@@ -311,7 +311,7 @@ const MinikubeEnvironment = () => {
       label: 'Configure',
       icon: '⚙️',
       onClick: () => setShowConfigModal(true),
-      variant: 'secondary'
+      variant: 'primary'
     }
   ];
 
@@ -365,7 +365,7 @@ const MinikubeEnvironment = () => {
       icon: '⚙️',
       onClick: handleConfigureClick,
       disabled: isConfiguring,
-      variant: 'secondary'
+      variant: 'primary'
     },
     {
       label: 'Refresh',
@@ -398,22 +398,44 @@ const MinikubeEnvironment = () => {
           verifiedMinikubeClusterInfo?.namespace
         );
       },
-      variant: 'secondary'
+      variant: 'primary'
     }
   ];
 
   // Show configuration even if no cluster is verified yet
   const showFullConfig = !!verifiedMinikubeClusterInfo;
 
-  // Get cluster name from multiple sources
-  const clusterName = verifiedMinikubeClusterInfo?.name ||
+  // Check if there's a cluster creation in progress
+  const creatingClusterOp = recentOperations?.find(op =>
+    op.title?.startsWith('Create Minikube Cluster:') &&
+    (op.status?.includes('⏳') || op.status?.includes('Creating'))
+  );
+
+  // Extract cluster name and method from creation operation if in progress
+  let creatingClusterName = null;
+  let creatingMethod = null;
+  if (creatingClusterOp) {
+    // Extract from title format: "Create Minikube Cluster: cluster-name (Method)"
+    const match = creatingClusterOp.title.match(/Create Minikube Cluster: (.+?) \((.+?)\)/);
+    if (match) {
+      creatingClusterName = match[1];
+      creatingMethod = match[2]; // Will be "Helm" or "clusterctl"
+    }
+  }
+
+  // Get cluster name from multiple sources - prioritize creating cluster
+  const clusterName = creatingClusterName ||
+                      verifiedMinikubeClusterInfo?.name ||
                       verifiedMinikubeClusterInfo?.cluster_name ||
                       selectedMinikubeCluster ||
                       minikubeClusterInput;
 
-  // Get stored installation method for this cluster
-  const clusterMethod = clusterName ? localStorage.getItem(`minikube-cluster-method-${clusterName}`) : null;
-  const methodDisplay = clusterMethod === 'helm' ? '📦 Helm' : clusterMethod === 'clusterctl' ? '⚡ clusterctl' : '';
+  // Get stored installation method for this cluster - prioritize creating method
+  const clusterMethod = creatingMethod ||
+                        (clusterName ? localStorage.getItem(`minikube-cluster-method-${clusterName}`) : null);
+  const methodDisplay = clusterMethod === 'Helm' ? '📦 Helm' :
+                        clusterMethod === 'helm' ? '📦 Helm' :
+                        clusterMethod === 'clusterctl' ? '⚡ clusterctl' : '';
 
   return (
     <>
@@ -461,7 +483,7 @@ const MinikubeEnvironment = () => {
                 </svg>
               }
               status={clusterName ? `🔷 ${clusterName}${methodDisplay ? ` (${methodDisplay})` : ''}` : 'No cluster selected'}
-              verificationStatus={showFullConfig ? 'Running' : 'Not configured'}
+              verificationStatus={creatingClusterOp ? 'Creating...' : showFullConfig ? 'Running' : 'Not configured'}
               lastVerified={showFullConfig && minikubeVerificationResult?.verified_at ?
                 new Date(minikubeVerificationResult.verified_at).toLocaleString('en-US', {
                   month: 'short',
@@ -548,13 +570,13 @@ const MinikubeEnvironment = () => {
                   label: 'Provision',
                   icon: '❄️',
                   onClick: handleProvision,
-                  variant: 'secondary'
+                  variant: 'primary'
                 },
                 {
                   label: 'Export',
                   icon: '📤',
                   onClick: () => console.log('Export clicked'),
-                  variant: 'secondary'
+                  variant: 'primary'
                 },
                 {
                   label: 'Refresh',
@@ -586,7 +608,7 @@ const MinikubeEnvironment = () => {
                       verifiedMinikubeClusterInfo?.namespace
                     );
                   },
-                  variant: 'secondary'
+                  variant: 'primary'
                 }
               ]}
             >
