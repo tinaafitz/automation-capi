@@ -559,10 +559,33 @@ const MinikubeEnvironment = () => {
                 {
                   label: 'Refresh',
                   icon: '🔄',
-                  onClick: () => fetchMinikubeActiveResources(
-                    verifiedMinikubeClusterInfo?.name,
-                    verifiedMinikubeClusterInfo?.namespace
-                  ),
+                  onClick: () => {
+                    console.log('🔄 Refreshing active resources...');
+
+                    // Add to recent operations
+                    const refreshId = `refresh-resources-${Date.now()}`;
+                    const completionTime = new Date().toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      second: '2-digit',
+                      hour12: true,
+                    });
+
+                    addToRecent({
+                      id: refreshId,
+                      title: 'Refresh Active Resources',
+                      description: `✅ Active resources refreshed at ${completionTime}`,
+                      status: 'completed',
+                      timestamp: new Date().toISOString(),
+                      environment: 'minikube',
+                    });
+
+                    // Refresh resources
+                    fetchMinikubeActiveResources(
+                      verifiedMinikubeClusterInfo?.name,
+                      verifiedMinikubeClusterInfo?.namespace
+                    );
+                  },
                   variant: 'secondary'
                 }
               ]}
