@@ -251,10 +251,10 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
         )}
 
         {/* Editor / Diff View */}
-        <div className="flex-1 overflow-auto bg-gray-50">
+        <div className="flex-1 overflow-hidden bg-gray-50 flex flex-col min-h-0">
           {showDiff && hasChanges ? (
             /* Diff View */
-            <div className="p-4">
+            <div className="p-4 overflow-auto flex-1">
               <div className="bg-white rounded-lg border border-gray-300 overflow-hidden">
                 <div className="bg-gray-100 px-4 py-2 border-b border-gray-300">
                   <h3 className="text-sm font-semibold text-gray-700">
@@ -289,19 +289,20 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
             </div>
           ) : (
             /* YAML Editor */
-            <div className="p-6 flex-1 min-h-0">
+            <div className="p-4 flex-1 flex flex-col min-h-0">
               <textarea
                 ref={textareaRef}
                 value={editedYaml}
                 onChange={handleYamlChange}
                 readOnly={readOnly}
-                className={`w-full h-full p-4 font-mono text-sm bg-gray-900 text-gray-100 border-2 border-gray-700 rounded-xl resize-none shadow-inner ${
+                className={`w-full flex-1 p-4 font-mono text-sm bg-gray-900 text-gray-100 border-2 border-gray-700 rounded-xl resize-none shadow-inner ${
                   readOnly ? 'cursor-default' : 'focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500'
                 }`}
                 spellCheck="false"
                 style={{
                   tabSize: 2,
                   lineHeight: '1.6',
+                  minHeight: '400px',
                 }}
               />
             </div>
