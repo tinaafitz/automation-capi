@@ -124,7 +124,7 @@ const MinikubeEnvironment = () => {
   };
 
   // Handle CAPI/CAPA configuration
-  const handleComponentConfigure = async (customImage = null, method = null) => {
+  const handleComponentConfigure = async (customImage = null, method = null, clusterName = null) => {
     // Prevent multiple simultaneous configurations
     if (isConfiguring) {
       alert('A CAPI configuration is already in progress. Please wait for it to complete.');
@@ -133,8 +133,9 @@ const MinikubeEnvironment = () => {
 
     const configureId = `configure-capi-${Date.now()}`;
 
-    // Get cluster name from the same sources as display
-    const targetClusterName = verifiedMinikubeClusterInfo?.name ||
+    // Get cluster name from parameter first, then fall back to state sources
+    const targetClusterName = clusterName ||
+                              verifiedMinikubeClusterInfo?.name ||
                               verifiedMinikubeClusterInfo?.cluster_name ||
                               selectedMinikubeCluster ||
                               minikubeClusterInput;
@@ -199,7 +200,14 @@ const MinikubeEnvironment = () => {
         // Remove the frontend entry - backend job will show instead
         recentOps.removeRecentOperation(configureId);
 
-        // The job history system will track completion automatically
+        // Poll for component versions after a delay to allow installation to complete
+        setTimeout(async () => {
+          await fetchComponentVersions();
+          await fetchMinikubeActiveResources(
+            verifiedMinikubeClusterInfo?.name,
+            verifiedMinikubeClusterInfo?.namespace
+          );
+        }, 5000); // Wait 5 seconds for components to be ready
       } else if (response.ok && data.success) {
         // Old path without job_id - remove the entry and show simple success
         recentOps.removeRecentOperation(configureId);
@@ -223,7 +231,8 @@ const MinikubeEnvironment = () => {
           output: `CAPI/CAPA Configuration Complete\n\n✅ Cluster API controllers installed\n✅ AWS provider configured\n✅ ROSA CRDs deployed\n✅ Ready for cluster provisioning\n\nCompleted at ${completionTime}`
         });
 
-        // Refresh resources
+        // Refresh both component versions and resources
+        await fetchComponentVersions();
         await fetchMinikubeActiveResources(
           verifiedMinikubeClusterInfo?.name,
           verifiedMinikubeClusterInfo?.namespace
@@ -276,26 +285,28 @@ const MinikubeEnvironment = () => {
   }, [fetchComponentVersions]);
 
   // Use fetched versions or fallback to defaults
+  // Show "loading..." only if we have a verified cluster, otherwise show "not installed"
+  const hasVerifiedCluster = !!verifiedMinikubeClusterInfo;
   const capiComponents = componentVersions.length > 0 ? componentVersions : [
     {
       name: 'Cert Manager',
-      enabled: true,
-      version: 'loading...'
+      enabled: hasVerifiedCluster,
+      version: hasVerifiedCluster ? 'loading...' : 'not installed'
     },
     {
       name: 'CAPI Controller',
-      enabled: true,
-      version: 'loading...'
+      enabled: hasVerifiedCluster,
+      version: hasVerifiedCluster ? 'loading...' : 'not installed'
     },
     {
       name: 'CAPA Controller',
-      enabled: true,
-      version: 'loading...'
+      enabled: hasVerifiedCluster,
+      version: hasVerifiedCluster ? 'loading...' : 'not installed'
     },
     {
       name: 'ROSA CRD',
-      enabled: true,
-      version: 'loading...'
+      enabled: hasVerifiedCluster,
+      version: hasVerifiedCluster ? 'loading...' : 'not installed'
     }
   ];
 
@@ -321,7 +332,10 @@ const MinikubeEnvironment = () => {
   // Check if user wants to remember their method choice
   const rememberMethodChoice = localStorage.getItem(STORAGE_KEY_REMEMBER) === 'true';
 
-  // Handle configure click - show modal if user hasn't set "remember choice"
+  // State to track if we're reconfiguring
+  const [isReconfiguring, setIsReconfiguring] = useState(false);
+
+  // Handle configure click - always show modal to allow custom image configuration
   const handleConfigureClick = () => {
     // Get cluster name to check if it already has a known method
     const targetClusterName = verifiedMinikubeClusterInfo?.name ||
@@ -333,14 +347,18 @@ const MinikubeEnvironment = () => {
     const clusterMethod = targetClusterName ? localStorage.getItem(`minikube-cluster-method-${targetClusterName}`) : null;
 
     if (clusterMethod) {
-      // Cluster already has CAPI installed with a known method - use it directly
-      console.log(`Using existing installation method for ${targetClusterName}: ${clusterMethod}`);
-      handleComponentConfigure(null, clusterMethod);
+      // Cluster already has CAPI installed - show modal in reconfiguration mode
+      console.log(`Reconfiguring ${targetClusterName} with existing method: ${clusterMethod}`);
+      setInstallMethod(clusterMethod);
+      setIsReconfiguring(true);
+      setShowMethodModal(true);
     } else if (rememberMethodChoice) {
       // User chose to remember their method preference, use it directly
+      setIsReconfiguring(false);
       handleComponentConfigure();
     } else {
       // Show modal to choose method each time
+      setIsReconfiguring(false);
       setShowMethodModal(true);
     }
   };
@@ -359,9 +377,17 @@ const MinikubeEnvironment = () => {
     }, 100);
   };
 
+  // Get cluster name to check if already configured
+  const configTargetClusterName = verifiedMinikubeClusterInfo?.name ||
+                                  verifiedMinikubeClusterInfo?.cluster_name ||
+                                  selectedMinikubeCluster ||
+                                  minikubeClusterInput;
+  const configClusterMethod = configTargetClusterName ? localStorage.getItem(`minikube-cluster-method-${configTargetClusterName}`) : null;
+  const isAlreadyConfigured = !!configClusterMethod;
+
   const componentActions = [
     {
-      label: isConfiguring ? 'Configuring...' : 'Configure',
+      label: isConfiguring ? 'Configuring...' : (isAlreadyConfigured ? 'Reconfigure' : 'Configure'),
       icon: '⚙️',
       onClick: handleConfigureClick,
       disabled: isConfiguring,
@@ -431,11 +457,11 @@ const MinikubeEnvironment = () => {
                       minikubeClusterInput;
 
   // Get stored installation method for this cluster - prioritize creating method
-  const clusterMethod = creatingMethod ||
-                        (clusterName ? localStorage.getItem(`minikube-cluster-method-${clusterName}`) : null);
-  const methodDisplay = clusterMethod === 'Helm' ? '📦 Helm' :
-                        clusterMethod === 'helm' ? '📦 Helm' :
-                        clusterMethod === 'clusterctl' ? '⚡ clusterctl' : '';
+  const displayClusterMethod = creatingMethod ||
+                               (clusterName ? localStorage.getItem(`minikube-cluster-method-${clusterName}`) : null);
+  const methodDisplay = displayClusterMethod === 'Helm' ? '📦 Helm' :
+                        displayClusterMethod === 'helm' ? '📦 Helm' :
+                        displayClusterMethod === 'clusterctl' ? '⚡ clusterctl' : '';
 
   return (
     <>
@@ -663,17 +689,11 @@ const MinikubeEnvironment = () => {
       <MinikubeClusterConfigModal
         isOpen={showConfigModal}
         onClose={() => setShowConfigModal(false)}
-        onClusterCreated={(method) => {
-          // After cluster is created with method selected, handle based on method
-          if (method === 'clusterctl') {
-            // For clusterctl, show custom image modal
-            setInstallMethod(method);
-            setShowMethodModal(true);
-          } else {
-            // For Helm, configure directly without custom image options
-            setInstallMethod(method);
-            handleComponentConfigure(null, method);
-          }
+        onClusterCreated={(method, clusterName) => {
+          // After cluster is created, configure CAPI with standard images first
+          // User can reconfigure with custom image after verifying base setup
+          setInstallMethod(method);
+          handleComponentConfigure(null, method, clusterName);
         }}
       />
 
@@ -687,9 +707,13 @@ const MinikubeEnvironment = () => {
       {/* CAPI Installation Method Modal */}
       <CapiInstallMethodModal
         isOpen={showMethodModal}
-        onClose={() => setShowMethodModal(false)}
+        onClose={() => {
+          setShowMethodModal(false);
+          setIsReconfiguring(false);
+        }}
         onMethodSelected={handleMethodSelectedAndConfigure}
         currentMethod={installMethod}
+        isReconfiguration={isReconfiguring}
       />
     </>
   );
