@@ -4872,7 +4872,8 @@ async def initialize_minikube_capi(request: Request, background_tasks: Backgroun
         method_name = "Helm Charts" if install_method == "helm" else "clusterctl"
 
         # Build description with custom image info
-        description = f"Configure CAPI/CAPA on Minikube: {cluster_name} ({method_name})"
+        action = "Reconfigure" if custom_capa_image else "Configure"
+        description = f"{action} CAPI/CAPA on Minikube: {cluster_name} ({method_name})"
         if custom_capa_image:
             description += f" [Custom Image: {custom_capa_image['repository']}:{custom_capa_image['tag']}]"
 
@@ -4881,7 +4882,7 @@ async def initialize_minikube_capi(request: Request, background_tasks: Backgroun
             "id": job_id,
             "status": "pending",
             "progress": 0,
-            "message": f"Configuring CAPI/CAPA on Minikube cluster '{cluster_name}' using {method_name}",
+            "message": f"{action}ing CAPI/CAPA on Minikube cluster '{cluster_name}' using {method_name}",
             "started_at": datetime.now(),
             "logs": [],
             "environment": "minikube",
@@ -6003,6 +6004,7 @@ async def generate_provisioning_yaml(request: Request):
 
         # Extract log forwarding configuration
         enable_log_forwarding = config.get("enableLogForwarding", False)
+        log_forward_applications = config.get("logForwardApplications", ["application", "infrastructure"])
         log_forward_cloudwatch_role_arn = config.get("logForwardCloudWatchRoleArn", "")
         log_forward_cloudwatch_log_group = config.get("logForwardCloudWatchLogGroup", "")
         log_forward_s3_bucket = config.get("logForwardS3Bucket", "")
@@ -6103,6 +6105,7 @@ async def generate_provisioning_yaml(request: Request):
             },
             # Log forwarding configuration
             "log_forward_enabled": enable_log_forwarding,
+            "log_forward_applications": log_forward_applications,
             "log_forward_cloudwatch_role_arn": log_forward_cloudwatch_role_arn,
             "log_forward_cloudwatch_log_group": log_forward_cloudwatch_log_group,
             "log_forward_s3_bucket": log_forward_s3_bucket,
