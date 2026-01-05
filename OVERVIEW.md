@@ -46,7 +46,7 @@ Managing ROSA clusters used to mean:
 
 <div align="center">
 
-[Get Started ↓](#getting-started) | [See Personas ↓](#-built-for-different-personas) | [Local Dev Power ↓](#-local-development-power) | [See CI/CD ↓](#️-production-ready-cicd-pipeline-github-actions) | [See Screenshots ↓](#screenshots)
+[Get Started ↓](#getting-started) | [Architecture →](docs/ARCHITECTURE.md) | [See Personas ↓](#-built-for-different-personas) | [Local Dev Power ↓](#-local-development-power) | [See CI/CD ↓](#️-production-ready-cicd-pipeline-github-actions) | [See Screenshots ↓](#screenshots)
 
 </div>
 
@@ -1135,7 +1135,7 @@ You should see the dashboard. From here you can:
 - PR automation (semantic titles, size checks, changed files tracking)
 - All checks required before merge
 
-[See full technical details →](README.md)
+[See architecture diagram and technical details →](docs/ARCHITECTURE.md)
 
 ---
 
