@@ -21,6 +21,7 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
     nodePoolName: '',
     // Log forwarding configuration
     enableLogForwarding: false,
+    logForwardApplications: ['application', 'infrastructure'],
     logForwardCloudWatchRoleArn: '',
     logForwardCloudWatchLogGroup: '',
     logForwardS3Bucket: '',
@@ -537,6 +538,34 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
                   />
                   <p className="mt-1 text-xs text-gray-500">
                     IAM role ARN with permissions to write to CloudWatch Logs. Created by setup task.
+                  </p>
+                </div>
+
+                {/* Applications to Forward */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Applications to Forward <span className="text-red-500">*</span>
+                  </label>
+                  <div className="space-y-2">
+                    {['application', 'infrastructure', 'audit-webhook'].map((app) => (
+                      <label key={app} className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-200 hover:bg-gray-100 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={config.logForwardApplications.includes(app)}
+                          onChange={(e) => {
+                            const newApps = e.target.checked
+                              ? [...config.logForwardApplications, app]
+                              : config.logForwardApplications.filter((a) => a !== app);
+                            handleChange('logForwardApplications', newApps);
+                          }}
+                          className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
+                        />
+                        <span className="text-sm text-gray-700">{app}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Select which log types to forward to CloudWatch (at least one required)
                   </p>
                 </div>
 

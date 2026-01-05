@@ -122,16 +122,15 @@ This may take several minutes:
 Completed at ${completionTime}`
         );
 
-        // Refresh cluster list and verify the new cluster
-        await fetchMinikubeClusters();
+        // Verify the new cluster (this will also refresh the cluster list)
         await verifyMinikubeCluster(clusterName);
 
         // Store the installation method for this cluster
         localStorage.setItem(`minikube-cluster-method-${clusterName}`, selectedMethod);
 
-        // Trigger CAPI configuration callback with the selected method
+        // Trigger CAPI configuration callback with the selected method and cluster name
         if (onClusterCreated) {
-          onClusterCreated(selectedMethod);
+          onClusterCreated(selectedMethod, clusterName);
         }
       } else {
         throw new Error(data.message || 'Cluster creation failed');

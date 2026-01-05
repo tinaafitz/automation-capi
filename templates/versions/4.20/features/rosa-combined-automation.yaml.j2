@@ -46,6 +46,7 @@ metadata:
 spec: {}
 ---
 # ROSANetwork for automated VPC and subnet creation
+# FIXED: Removed unsupported credentialsSecretRef, changed tags to stackTags, added required stackName and region
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: ROSANetwork
 metadata:
@@ -59,20 +60,21 @@ spec:
   identityRef:
     kind: AWSClusterControllerIdentity
     name: {{ rosa_network_config.identity_name | default('default') }}
-  credentialsSecretRef:
-    name: {{ rosa_creds_secret }}
+  region: {{ aws_region }}
+  cidrBlock: {{ rosa_network_config.cidr_block | default('10.0.0.0/16') }}
+  stackName: {{ cluster_name }}-network-stack
   availabilityZones:
     {% for az in rosa_network_config.availability_zones %}
     - {{ az }}
     {% endfor %}
-  cidrBlock: {{ rosa_network_config.cidr_block | default('10.0.0.0/16') }}
-  tags:
+  stackTags:
     Environment: {{ environment_tag | default('test') }}
     TestCase: "ACM-21174-Combined"
     CreatedBy: "ansible-automation"
     Purpose: "combined-automation-testing"
 ---
 # ROSARoleConfig for automated AWS IAM role creation (if 4.20 templates available)
+# FIXED: Removed unsupported credentialsSecretRef field
 {% if rosa_role_config is defined and rosa_role_config.enabled | default(false) %}
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: ROSARoleConfig
@@ -87,8 +89,6 @@ spec:
   identityRef:
     kind: AWSClusterControllerIdentity
     name: {{ rosa_role_config.identity_name | default('default') }}
-  credentialsSecretRef:
-    name: {{ rosa_creds_secret }}
   accountRoleConfig:
     prefix: "{{ rosa_role_config.prefix | default(cluster_name_prefix) }}"
     version: {{ rosa_role_config.version | default(openshift_version) }}
@@ -153,6 +153,14 @@ spec:
   # ======================================
   {% if log_forward_enabled | default(false) %}
   cloudWatchlogForwarder:
+    # Applications to forward (valid values: application, infrastructure, audit-webhook)
+    {% if log_forward_applications is defined and log_forward_applications %}
+    applications:
+    {% for app in log_forward_applications %}
+      - {{ app }}
+    {% endfor %}
+    {% endif %}
+
     # CloudWatch configuration
     {% if log_forward_cloudwatch_role_arn is defined and log_forward_cloudwatch_role_arn %}
     cloudWatchLogRoleArn: {{ log_forward_cloudwatch_role_arn | trim }}
