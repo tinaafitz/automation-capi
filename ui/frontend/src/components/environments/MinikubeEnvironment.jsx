@@ -352,12 +352,9 @@ const MinikubeEnvironment = () => {
       setInstallMethod(clusterMethod);
       setIsReconfiguring(true);
       setShowMethodModal(true);
-    } else if (rememberMethodChoice) {
-      // User chose to remember their method preference, use it directly
-      setIsReconfiguring(false);
-      handleComponentConfigure();
     } else {
-      // Show modal to choose method each time
+      // Always show modal to allow custom image configuration
+      // even if user has a remembered method preference
       setIsReconfiguring(false);
       setShowMethodModal(true);
     }

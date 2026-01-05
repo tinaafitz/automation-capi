@@ -38,6 +38,11 @@ const CapiInstallMethodModal = ({ isOpen, onClose, onMethodSelected, currentMeth
 
   if (!isOpen) return null;
 
+  // Debug logging
+  console.log('CapiInstallMethodModal - selectedMethod:', selectedMethod);
+  console.log('CapiInstallMethodModal - isReconfiguration:', isReconfiguration);
+  console.log('CapiInstallMethodModal - currentMethod:', currentMethod);
+
   const methods = [
     {
       id: 'clusterctl',
