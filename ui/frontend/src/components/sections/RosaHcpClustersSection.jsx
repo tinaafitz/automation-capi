@@ -260,6 +260,17 @@ const RosaHcpClustersSection = ({ theme = 'mce' }) => {
                             Version: {cluster.version}
                           </div>
                         )}
+                        {/* Display error message for failed clusters */}
+                        {cluster.status === 'failed' && cluster.error_message && (
+                          <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs">
+                            <div className="font-semibold text-red-800 mb-1">
+                              ❌ {cluster.error_reason || 'Error'}
+                            </div>
+                            <div className="text-red-700">
+                              {cluster.error_message}
+                            </div>
+                          </div>
+                        )}
                         {/* Progress bar for provisioning clusters */}
                         {cluster.status === 'provisioning' && cluster.progress !== undefined && (
                           <div className="mt-2 w-full bg-gray-200 rounded-full h-2">

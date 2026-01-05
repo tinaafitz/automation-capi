@@ -3565,15 +3565,17 @@ async def get_rosa_clusters():
             is_deleting = deletion_timestamp is not None
             is_uninstalling = False
             has_error = False
+            error_message = None
+            error_reason = None
 
             # Check conditions for uninstalling or error state
             for condition in conditions:
                 if condition.get("type") in ["Ready", "ROSAControlPlaneReady", "RosaControlPlaneReady"]:
                     reason = condition.get("reason", "").lower()
-                    message = condition.get("message", "").lower()
+                    message = condition.get("message", "")
 
                     # Check if uninstalling
-                    if reason == "uninstalling" or "uninstalling" in message or "deleting" in message:
+                    if reason == "uninstalling" or "uninstalling" in message.lower() or "deleting" in message.lower():
                         is_uninstalling = True
                         break
 
@@ -3584,6 +3586,8 @@ async def get_rosa_clusters():
                         # Only mark as error if reason is NOT a normal provisioning state
                         if reason not in provisioning_reasons:
                             has_error = True
+                            error_message = message  # Store the full error message
+                            error_reason = condition.get("reason", "Unknown")
 
             # Determine status string
             if is_deleting or is_uninstalling:
@@ -3645,6 +3649,8 @@ async def get_rosa_clusters():
                 "version": spec.get("version", "N/A"),
                 "namespace": metadata.get("namespace", "default"),
                 "progress": progress,
+                "error_message": error_message,
+                "error_reason": error_reason,
             }
 
             clusters.append(cluster_info)

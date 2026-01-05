@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import PropTypes from 'prop-types';
 import {
   XMarkIcon,
@@ -139,10 +140,9 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
   const diffLines = showDiff ? generateDiff() : [];
   const filePath = yamlData?.file_paths?.[0] || 'Generated YAML';
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl min-h-[600px] max-h-[90vh] flex flex-col my-8">
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl min-h-[600px] max-h-[90vh] flex flex-col my-8 mx-4">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b-2 border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
           <div className="flex items-center gap-3">
@@ -358,8 +358,8 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
           </div>
         </div>
       </div>
-      </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

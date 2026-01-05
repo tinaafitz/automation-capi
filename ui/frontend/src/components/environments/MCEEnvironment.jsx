@@ -1265,8 +1265,25 @@ Export completed at ${completionTime}`
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">CAPI Providers</div>
                 <div className="space-y-1">
                   {allCAPIComponents.map((component, index) => (
-                    <div key={index} className="flex items-center justify-between text-sm">
-                      <span>{component.name}</span>
+                    <div
+                      key={index}
+                      className="flex items-center justify-between text-sm cursor-pointer hover:bg-cyan-50 rounded p-2 transition-colors"
+                      onClick={() => component.enabled && handleResourceClick({
+                        name: component.name,
+                        type: 'Deployment',
+                        namespace: component.name === 'cluster-api' ? 'capi-system' :
+                                   component.name === 'cluster-api-provider-aws' ? 'capa-system' :
+                                   component.name === 'cluster-api-provider-metal3' ? 'capm3-system' :
+                                   'capi-system'
+                      })}
+                      title={component.enabled ? "Click to view YAML" : "Component not enabled"}
+                    >
+                      <div className="flex flex-col">
+                        <span className={component.enabled ? 'hover:text-cyan-700' : ''}>{component.name}</span>
+                        {component.version && (
+                          <span className="text-xs text-gray-500 font-mono">{component.version}</span>
+                        )}
+                      </div>
                       <span className={component.enabled ? 'text-green-600' : 'text-red-600'}>
                         {component.enabled ? '✓' : '✕'}
                       </span>
@@ -1280,8 +1297,22 @@ Export completed at ${completionTime}`
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Hypershift</div>
                 <div className="space-y-1">
                   {hypershiftComponents.map((component, index) => (
-                    <div key={index} className="flex items-center justify-between text-sm">
-                      <span>{component.name}</span>
+                    <div
+                      key={index}
+                      className="flex items-center justify-between text-sm cursor-pointer hover:bg-cyan-50 rounded p-2 transition-colors"
+                      onClick={() => component.enabled && handleResourceClick({
+                        name: component.name,
+                        type: 'Deployment',
+                        namespace: 'hypershift'
+                      })}
+                      title={component.enabled ? "Click to view YAML" : "Component not enabled"}
+                    >
+                      <div className="flex flex-col">
+                        <span className={component.enabled ? 'hover:text-cyan-700' : ''}>{component.name}</span>
+                        {component.version && (
+                          <span className="text-xs text-gray-500 font-mono">{component.version}</span>
+                        )}
+                      </div>
                       <span className={component.enabled ? 'text-green-600' : 'text-red-600'}>
                         {component.enabled ? '✓' : '✕'}
                       </span>
