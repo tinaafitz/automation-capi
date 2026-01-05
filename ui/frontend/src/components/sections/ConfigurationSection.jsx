@@ -22,11 +22,29 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
   const [showYamlEditorModal, setShowYamlEditorModal] = useState(false);
   const [yamlEditorData, setYamlEditorData] = useState(null);
 
+  // Component version mapping
+  const componentVersions = {
+    'cluster-api': 'v2.10.0',
+    'cluster-api-provider-aws': 'v2.10.0',
+    'cluster-api-provider-metal3': 'v1.7.1',
+    'cluster-api-provider-openshift-assisted': 'v1.0.9',
+    'hypershift': 'v4.17.0',
+    'hypershift-local-hosting': 'v4.17.0'
+  };
+
   // Filter mceFeatures to get CAPI and Hypershift components (using 'name' field not 'component')
   const capiComponentsArray = (mceFeatures?.filter((f) => f.name?.startsWith('cluster-api')) || [])
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(component => ({
+      ...component,
+      version: componentVersions[component.name] || null
+    }));
   const hypershiftComponentsArray = (mceFeatures?.filter((f) => f.name?.startsWith('hypershift')) || [])
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(component => ({
+      ...component,
+      version: componentVersions[component.name] || null
+    }));
   const allCAPIComponents = [...capiComponentsArray, ...hypershiftComponentsArray];
 
   // Debug logging
@@ -454,14 +472,48 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
                 <div className="space-y-2">
                   <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">CAPI Providers</div>
                   <div className="space-y-1">
-                    {capiComponentsArray.map((feature, index) => (
-                      <div key={index} className="flex items-center justify-between text-sm">
-                        <span>{feature.name}</span>
-                        <span className={feature.enabled ? 'text-green-600' : 'text-red-600'}>
-                          {feature.enabled ? '✓' : '✕'}
-                        </span>
-                      </div>
-                    ))}
+                    {capiComponentsArray.map((feature, index) => {
+                      // Map component names to their actual deployment names
+                      const getDeploymentInfo = (componentName) => {
+                        switch(componentName) {
+                          case 'cluster-api':
+                            return { name: 'capi-controller-manager', namespace: 'capi-system' };
+                          case 'cluster-api-provider-aws':
+                            return { name: 'capa-controller-manager', namespace: 'capa-system' };
+                          case 'cluster-api-provider-metal3':
+                            return { name: 'capm3-controller-manager', namespace: 'capm3-system' };
+                          case 'cluster-api-provider-openshift-assisted':
+                            return { name: 'capi-provider-controller-manager', namespace: 'capi-provider-system' };
+                          default:
+                            return { name: componentName, namespace: 'default' };
+                        }
+                      };
+
+                      const deploymentInfo = getDeploymentInfo(feature.name);
+
+                      return (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between text-sm cursor-pointer hover:bg-cyan-50 rounded p-2 transition-colors"
+                          onClick={() => feature.enabled && handleResourceClick({
+                            name: deploymentInfo.name,
+                            type: 'Deployment',
+                            namespace: deploymentInfo.namespace
+                          })}
+                          title={feature.enabled ? "Click to view YAML" : "Component not enabled"}
+                        >
+                          <div className="flex items-baseline gap-2">
+                            <span className={feature.enabled ? 'hover:text-cyan-700' : ''}>{feature.name}</span>
+                            {feature.version && (
+                              <span className="text-xs text-gray-500 font-mono">{feature.version}</span>
+                            )}
+                          </div>
+                          <span className={feature.enabled ? 'text-green-600' : 'text-red-600'}>
+                            {feature.enabled ? '✓' : '✕'}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -469,14 +521,44 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
                 <div className="space-y-2">
                   <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Hypershift</div>
                   <div className="space-y-1">
-                    {hypershiftComponentsArray.map((feature, index) => (
-                      <div key={index} className="flex items-center justify-between text-sm">
-                        <span>{feature.name}</span>
-                        <span className={feature.enabled ? 'text-green-600' : 'text-red-600'}>
-                          {feature.enabled ? '✓' : '✕'}
-                        </span>
-                      </div>
-                    ))}
+                    {hypershiftComponentsArray.map((feature, index) => {
+                      // Map component names to their actual deployment names
+                      const getHypershiftDeploymentInfo = (componentName) => {
+                        switch(componentName) {
+                          case 'hypershift':
+                            return { name: 'operator', namespace: 'hypershift' };
+                          case 'hypershift-local-hosting':
+                            return { name: 'operator', namespace: 'hypershift' };
+                          default:
+                            return { name: componentName, namespace: 'hypershift' };
+                        }
+                      };
+
+                      const deploymentInfo = getHypershiftDeploymentInfo(feature.name);
+
+                      return (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between text-sm cursor-pointer hover:bg-cyan-50 rounded p-2 transition-colors"
+                          onClick={() => feature.enabled && handleResourceClick({
+                            name: deploymentInfo.name,
+                            type: 'Deployment',
+                            namespace: deploymentInfo.namespace
+                          })}
+                          title={feature.enabled ? "Click to view YAML" : "Component not enabled"}
+                        >
+                          <div className="flex items-baseline gap-2">
+                            <span className={feature.enabled ? 'hover:text-cyan-700' : ''}>{feature.name}</span>
+                            {feature.version && (
+                              <span className="text-xs text-gray-500 font-mono">{feature.version}</span>
+                            )}
+                          </div>
+                          <span className={feature.enabled ? 'text-green-600' : 'text-red-600'}>
+                            {feature.enabled ? '✓' : '✕'}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
