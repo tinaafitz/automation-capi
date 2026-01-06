@@ -328,6 +328,12 @@ export function WhatCanIHelp() {
   const [mceComponentSortField, setMceComponentSortField] = useState('component');
   const [mceComponentSortDirection, setMceComponentSortDirection] = useState('asc');
 
+  // Kind cluster state variables
+  const [verifiedKindClusterInfo, setVerifiedKindClusterInfo] = useState(null);
+  const [kindLoading, setKindLoading] = useState(false);
+  const [kindClusters, setKindClusters] = useState([]);
+  const [showKindClusterModal, setShowKindClusterModal] = useState(false);
+
   // Access global app state for provision target context
   const app = useApp();
 

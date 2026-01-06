@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   XCircleIcon,
   ArrowPathIcon,
-  DocumentTextIcon,
-  CogIcon,
   ClipboardDocumentIcon,
 } from '@heroicons/react/24/outline';
 
@@ -270,3 +269,9 @@ export function ConfigStatus({ compact = false, showRefresh = true, statusData =
     </div>
   );
 }
+
+ConfigStatus.propTypes = {
+  compact: PropTypes.bool,
+  showRefresh: PropTypes.bool,
+  statusData: PropTypes.object,
+};

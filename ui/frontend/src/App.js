@@ -1,6 +1,5 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Navigation } from './components/Navigation';
 import WhatCanIHelpRefactored from './pages/WhatCanIHelpRefactored';
 import { Dashboard } from './pages/Dashboard';
 import { CreateCluster } from './pages/CreateCluster';

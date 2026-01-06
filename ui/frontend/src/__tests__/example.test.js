@@ -11,11 +11,17 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
+import PropTypes from 'prop-types';
 
 // Example: Simple component for testing
 function Button({ onClick, children }) {
   return <button onClick={onClick}>{children}</button>;
 }
+
+Button.propTypes = {
+  onClick: PropTypes.func,
+  children: PropTypes.node,
+};
 
 function Counter() {
   const [count, setCount] = React.useState(0);
@@ -67,6 +73,10 @@ function ClusterForm({ onSubmit }) {
     </form>
   );
 }
+
+ClusterForm.propTypes = {
+  onSubmit: PropTypes.func.isRequired,
+};
 
 // Import React for JSX
 import React from 'react';
