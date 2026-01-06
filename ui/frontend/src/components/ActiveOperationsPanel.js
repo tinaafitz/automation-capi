@@ -1,5 +1,4 @@
 import React from 'react';
-import PropTypes from 'prop-types';
 
 const ActiveOperationsPanel = ({ resources = [], operations = [] }) => {
   // Find resources that are currently in provisioning/pending states
@@ -168,11 +167,6 @@ const ActiveOperationsPanel = ({ resources = [], operations = [] }) => {
       </div>
     </div>
   );
-};
-
-ActiveOperationsPanel.propTypes = {
-  resources: PropTypes.array,
-  operations: PropTypes.array,
 };
 
 export default ActiveOperationsPanel;
