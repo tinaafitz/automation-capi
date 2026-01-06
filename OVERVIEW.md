@@ -1,11 +1,5 @@
 # CAPI Automation
 
-<div align="center">
-
-[![CI/CD Pipeline](https://github.com/tinaafitz/automation-capi/actions/workflows/ci.yml/badge.svg)](https://github.com/tinaafitz/automation-capi/actions/workflows/ci.yml) [![PR Checks](https://github.com/tinaafitz/automation-capi/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/tinaafitz/automation-capi/actions/workflows/pr-checks.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![GitHub stars](https://img.shields.io/github/stars/tinaafitz/automation-capi?style=social)](https://github.com/tinaafitz/automation-capi/stargazers)
-
-</div>
-
 Tired of juggling 10 terminal windows just to provision a ROSA cluster? Manually creating VPCs, subnets, and IAM roles for an hour before you can even start? Writing YAML and hoping you didn't typo an ARN?
 
 CAPI Automation uses intelligent agents to handle all of that autonomously. Agents auto-generate your AWS infrastructure, validate configs before deployment, monitor progress in real-time, and an AI agent answers your questions in plain language - all working together while you watch.
