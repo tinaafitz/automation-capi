@@ -46,7 +46,7 @@ Managing ROSA clusters used to mean:
 
 ---
 
-## Manual vs CAPI Automation Time Savings Comparison
+## From 2 Hours to 2 Minutes
 
 | Task | Manual ROSA CLI | CAPI Automation (with Agents) |
 |------|----------------|-----------------|
@@ -136,7 +136,7 @@ All you did was click once. Agents handled everything else.
 
 ---
 
-## 🤖 AI That Actually Helps
+## 💬 AI That Actually Helps
 
 This isn't just a chatbot bolted onto a UI. CAPI Automation was built with AI, and AI helps you throughout your entire workflow - from generating infrastructure to troubleshooting errors.
 
@@ -225,7 +225,7 @@ One UI that adapts to your role. The customizable workspace layout makes CAPI Au
 
 **You can completely transform the view** to focus on your specific task - whether that's provisioning clusters, running tests, or executing playbooks.
 
-### How It Works
+### The Storage Cabinet System
 
 Use the **Storage cabinet** to hide sections you don't need. They're stored away but easy to retrieve when needed. The cabinet shows a count of hidden widgets and displays them clearly so you can pull them back out anytime.
 
@@ -295,7 +295,7 @@ Hidden in Storage:
 
 **Result:** Completely transformed workspace focused solely on running playbooks - everything else hidden in the Storage cabinet.
 
-### Why This Matters
+### Benefits for Your Team
 
 **One tool, multiple personas:**
 - No need for different tools for different roles
@@ -314,7 +314,7 @@ Hidden in Storage:
 
 One of the most powerful features of CAPI Automation: **provision real ROSA HCP clusters from your local Minikube environment.**
 
-### How It Works
+### Three-Step Local Workflow
 
 **1. Configure your local Minikube cluster**
 - Choose **clusterctl** OR **Helm charts** - both work perfectly
@@ -331,7 +331,7 @@ One of the most powerful features of CAPI Automation: **provision real ROSA HCP 
 - Test with clusterctl → Switch to Helm → Same tests validate both
 - Same playbooks, same validation, full flexibility
 
-### Why This Is Powerful
+### Who Benefits from Local Testing
 
 **For developers:**
 - Test ROSA provisioning without production MCE access
@@ -461,7 +461,7 @@ Every commit and pull request runs through comprehensive checks:
 - **Changed files summary**: Auto-commented on PRs
 - **Build verification**: Ensures production builds succeed
 
-### Why This Matters
+### Why Quality Gates Matter
 
 **For contributors:**
 - Catch bugs before they reach production
@@ -482,9 +482,9 @@ All checks run automatically on GitHub Actions - no manual intervention needed.
 
 ---
 
-## How CAPI Automation Helps
+## Real-World Problems, Solved
 
-Here are the most common pain points we've solved:
+Here are the most common pain points we've eliminated:
 
 ---
 
@@ -830,13 +830,15 @@ Get help right where you're working:
 
 <div align="center">
 
-## Ready to try AI-powered cluster management?
+## Try It in 3 Commands
 
 ```bash
+git clone https://github.com/tinaafitz/automation-capi
+cd automation-capi/ui
 docker-compose up
 ```
 
-Open http://localhost:3000 and provision your first cluster in minutes.
+Open http://localhost:3000 and watch agents provision your first cluster.
 
 [⬇️ Get Started](#getting-started) | [📸 See Screenshots](#screenshots)
 
@@ -887,7 +889,7 @@ You should see the dashboard. From here you can:
 
 ---
 
-## What's Included
+## Everything You Need
 
 ### Two environments
 
