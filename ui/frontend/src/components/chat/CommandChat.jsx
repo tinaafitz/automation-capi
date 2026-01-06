@@ -121,12 +121,13 @@ export function CommandChat() {
           );
           break;
 
-        case 'list':
+        case 'list': {
           const url = params.region
             ? `http://localhost:8000/api/rosa-hcp/clusters?region=${params.region}`
             : 'http://localhost:8000/api/rosa-hcp/clusters';
           response = await fetch(url);
           break;
+        }
 
         case 'verify':
           response = await fetch('http://localhost:8000/api/mce/verify', {
