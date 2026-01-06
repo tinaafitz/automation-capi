@@ -8,7 +8,7 @@ import {
   ClockIcon,
   ChartBarIcon,
   ArrowPathIcon,
-  PlayIcon
+  PlayIcon,
 } from '@heroicons/react/24/outline';
 import axios from 'axios';
 import { useRecentOperationsContext } from '../../store/AppContext';
@@ -64,7 +64,7 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
     { id: 'install', name: 'Installation', icon: '📦' },
     { id: 'compliance', name: 'Compliance', icon: '✓' },
     { id: 'upgrade', name: 'Upgrade/Rollback', icon: '⬆️' },
-    { id: 'functionality', name: 'Basic Functionality', icon: '⚙️' }
+    { id: 'functionality', name: 'Basic Functionality', icon: '⚙️' },
   ];
 
   // Providers
@@ -73,7 +73,7 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
     { id: 'capa', name: 'CAPA', fullName: 'Cluster API Provider AWS' },
     { id: 'capz', name: 'CAPZ', fullName: 'Cluster API Provider Azure' },
     { id: 'cap-metal3', name: 'CAP-metal3', fullName: 'Cluster API Provider Metal3' },
-    { id: 'capoa', name: 'CAPOA', fullName: 'Cluster API Provider OpenStack' }
+    { id: 'capoa', name: 'CAPOA', fullName: 'Cluster API Provider OpenStack' },
   ];
 
   // Environments - filter based on current environment
@@ -92,9 +92,9 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
     }
 
     // Check if any tests are running
-    const hasRunningTests = Object.values(testMatrix).some(provider =>
-      Object.values(provider).some(env =>
-        Object.values(env).some(test => test.status === 'running')
+    const hasRunningTests = Object.values(testMatrix).some((provider) =>
+      Object.values(provider).some((env) =>
+        Object.values(env).some((test) => test.status === 'running')
       )
     );
 
@@ -136,18 +136,19 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
 
   const generateMockData = () => {
     const matrix = {};
-    providers.forEach(provider => {
+    providers.forEach((provider) => {
       matrix[provider.id] = {};
-      environments.forEach(env => {
+      environments.forEach((env) => {
         matrix[provider.id][env] = {};
-        testTypes.forEach(test => {
+        testTypes.forEach((test) => {
           const random = Math.random();
-          const status = random > 0.7 ? 'pass' : random > 0.5 ? 'fail' : random > 0.3 ? 'running' : 'pending';
+          const status =
+            random > 0.7 ? 'pass' : random > 0.5 ? 'fail' : random > 0.3 ? 'running' : 'pending';
           matrix[provider.id][env][test.id] = {
             status,
             duration: status === 'pass' ? Math.floor(Math.random() * 300) + 60 : null,
             timestamp: new Date(Date.now() - Math.random() * 86400000).toISOString(),
-            passRate: Math.floor(Math.random() * 30) + 70
+            passRate: Math.floor(Math.random() * 30) + 70,
           };
         });
       });
@@ -194,13 +195,13 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
       testTypeId: testType.id,
       testTypeName: testType.name,
       testTypeIcon: testType.icon,
-      data
+      data,
     });
   };
 
   const handleRunTest = async (providerId, env, testTypeId) => {
-    const providerInfo = providers.find(p => p.id === providerId);
-    const testTypeInfo = testTypes.find(t => t.id === testTypeId);
+    const providerInfo = providers.find((p) => p.id === providerId);
+    const testTypeInfo = testTypes.find((t) => t.id === testTypeId);
 
     // Generate a unique ID for this test run
     const testRunId = `helm-test-${Date.now()}`;
@@ -214,7 +215,7 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
         title: `🧪 HELM TEST: ${providerId} - ${testTypeId.charAt(0).toUpperCase() + testTypeId.slice(1)}${sourceInfo}`,
         color: theme === 'minikube' ? 'bg-purple-600' : 'bg-cyan-600',
         status: '⏳ Starting test...',
-        environment: envDisplay
+        environment: envDisplay,
       });
 
       const response = await axios.post('http://localhost:8000/api/helm-tests/run', {
@@ -223,11 +224,13 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
         test_type: testTypeId,
         chart_source: chartSource,
         git_repo: 'https://github.com/stolostron/cluster-api-installer.git',
-        git_branch: gitBranch
+        git_branch: gitBranch,
       });
 
       if (response.data.success && response.data.job_id) {
-        console.log(`✅ Started test job ${response.data.job_id} for ${providerId} on ${env} - ${testTypeId}`);
+        console.log(
+          `✅ Started test job ${response.data.job_id} for ${providerId} on ${env} - ${testTypeId}`
+        );
 
         // Update the recent operation status
         recentOps.updateRecentOperationStatus(testRunId, '⏳ Running test...');
@@ -239,7 +242,10 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
         loadTestMatrix();
       } else {
         // Update to show failure
-        recentOps.updateRecentOperationStatus(testRunId, `❌ Failed to start: ${response.data.message || 'Unknown error'}`);
+        recentOps.updateRecentOperationStatus(
+          testRunId,
+          `❌ Failed to start: ${response.data.message || 'Unknown error'}`
+        );
         throw new Error(response.data.message || 'Failed to start test');
       }
     } catch (error) {
@@ -251,7 +257,7 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
   };
 
   const toggleProvider = (providerId) => {
-    setExpandedProviders(prev => {
+    setExpandedProviders((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(providerId)) {
         newSet.delete(providerId);
@@ -263,15 +269,17 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
   };
 
   const handleRunAllTests = async (providerId) => {
-    const providerInfo = providers.find(p => p.id === providerId);
+    const providerInfo = providers.find((p) => p.id === providerId);
 
     try {
       const response = await axios.post('http://localhost:8000/api/helm-tests/run-all', {
-        provider: providerId
+        provider: providerId,
       });
 
       if (response.data.success) {
-        console.log(`✅ Started all tests for ${providerId} - ${response.data.test_count} jobs queued`);
+        console.log(
+          `✅ Started all tests for ${providerId} - ${response.data.test_count} jobs queued`
+        );
 
         // Backend creates job entries automatically - just reload matrix
         loadTestMatrix();
@@ -354,7 +362,9 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
         {showSourceConfig && isExpanded && (
           <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200 p-4">
             <div className="max-w-4xl mx-auto">
-              <h4 className="text-sm font-semibold text-gray-700 mb-3">Chart Source Configuration</h4>
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                Chart Source Configuration
+              </h4>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -437,101 +447,105 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
                   providers.map((provider) => {
                     const isProviderExpanded = expandedProviders.has(provider.id);
                     return (
-                  <div key={provider.id} className="border border-gray-200 rounded-lg overflow-hidden">
-                    {/* Provider Header - Clickable */}
-                    <div
-                      className="bg-gradient-to-r from-gray-100 to-gray-50 p-4 border-b border-gray-200 cursor-pointer hover:from-gray-200 hover:to-gray-100 transition-colors"
-                      onClick={() => toggleProvider(provider.id)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          {isProviderExpanded ? (
-                            <ChevronUpIcon className="w-5 h-5 text-gray-600" />
-                          ) : (
-                            <ChevronDownIcon className="w-5 h-5 text-gray-600" />
-                          )}
-                          <div>
-                            <h4 className="font-bold text-gray-900">{provider.name}</h4>
-                            <p className="text-xs text-gray-600">{provider.fullName}</p>
+                      <div
+                        key={provider.id}
+                        className="border border-gray-200 rounded-lg overflow-hidden"
+                      >
+                        {/* Provider Header - Clickable */}
+                        <div
+                          className="bg-gradient-to-r from-gray-100 to-gray-50 p-4 border-b border-gray-200 cursor-pointer hover:from-gray-200 hover:to-gray-100 transition-colors"
+                          onClick={() => toggleProvider(provider.id)}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              {isProviderExpanded ? (
+                                <ChevronUpIcon className="w-5 h-5 text-gray-600" />
+                              ) : (
+                                <ChevronDownIcon className="w-5 h-5 text-gray-600" />
+                              )}
+                              <div>
+                                <h4 className="font-bold text-gray-900">{provider.name}</h4>
+                                <p className="text-xs text-gray-600">{provider.fullName}</p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent toggling when clicking button
+                                handleRunAllTests(provider.id);
+                              }}
+                              className={`flex items-center gap-2 px-4 py-2 ${colors.buttonBg} text-white rounded-lg ${colors.buttonHover} transition-colors text-sm font-medium`}
+                            >
+                              <PlayIcon className="w-4 h-4" />
+                              Run All Tests
+                            </button>
                           </div>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation(); // Prevent toggling when clicking button
-                            handleRunAllTests(provider.id);
-                          }}
-                          className={`flex items-center gap-2 px-4 py-2 ${colors.buttonBg} text-white rounded-lg ${colors.buttonHover} transition-colors text-sm font-medium`}
-                        >
-                          <PlayIcon className="w-4 h-4" />
-                          Run All Tests
-                        </button>
-                      </div>
-                    </div>
 
-                    {/* Environment Sections - Only show when expanded */}
-                    {isProviderExpanded && environments.map((env) => (
-                      <div key={env} className="p-4 border-b border-gray-100 last:border-b-0">
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="text-sm font-semibold text-gray-700">{env}</span>
-                        </div>
-
-                        {/* Test Type Grid */}
-                        <div className="grid grid-cols-4 gap-3">
-                          {testTypes.map((test) => {
-                            const testData = testMatrix[provider.id]?.[env]?.[test.id];
-                            if (!testData) return null;
-
-                            return (
-                              <div
-                                key={test.id}
-                                className={`border-2 rounded-lg p-3 cursor-pointer transition-all ${getStatusColor(testData.status)}`}
-                                onClick={() => handleCellClick(provider, env, test, testData)}
-                              >
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="text-lg">{test.icon}</span>
-                                  {getStatusIcon(testData.status)}
-                                </div>
-                                <div className="text-xs font-medium text-gray-800 mb-1">
-                                  {test.name}
-                                </div>
-                                <div className="text-xs text-gray-600">
-                                  {testData.status === 'pass' && testData.duration && (
-                                    <span>{testData.duration}s</span>
-                                  )}
-                                  {testData.status === 'fail' && (
-                                    <span className="text-red-700">Failed</span>
-                                  )}
-                                  {testData.status === 'running' && (
-                                    <span className="text-blue-700">In Progress...</span>
-                                  )}
-                                  {testData.status === 'pending' && (
-                                    <span className="text-gray-500">Not Run</span>
-                                  )}
-                                </div>
-                                {testData.passRate && (
-                                  <div className="mt-2 text-xs text-gray-600">
-                                    Pass Rate: {testData.passRate}%
-                                  </div>
-                                )}
-                                {testData.timestamp && (
-                                  <div className="mt-2 pt-2 border-t border-gray-200 text-[10px] text-gray-500">
-                                    {new Date(testData.timestamp).toLocaleString('en-US', {
-                                      month: 'short',
-                                      day: 'numeric',
-                                      year: 'numeric',
-                                      hour: 'numeric',
-                                      minute: '2-digit',
-                                      hour12: true
-                                    })}
-                                  </div>
-                                )}
+                        {/* Environment Sections - Only show when expanded */}
+                        {isProviderExpanded &&
+                          environments.map((env) => (
+                            <div key={env} className="p-4 border-b border-gray-100 last:border-b-0">
+                              <div className="flex items-center gap-2 mb-3">
+                                <span className="text-sm font-semibold text-gray-700">{env}</span>
                               </div>
-                            );
-                          })}
-                        </div>
+
+                              {/* Test Type Grid */}
+                              <div className="grid grid-cols-4 gap-3">
+                                {testTypes.map((test) => {
+                                  const testData = testMatrix[provider.id]?.[env]?.[test.id];
+                                  if (!testData) return null;
+
+                                  return (
+                                    <div
+                                      key={test.id}
+                                      className={`border-2 rounded-lg p-3 cursor-pointer transition-all ${getStatusColor(testData.status)}`}
+                                      onClick={() => handleCellClick(provider, env, test, testData)}
+                                    >
+                                      <div className="flex items-center justify-between mb-2">
+                                        <span className="text-lg">{test.icon}</span>
+                                        {getStatusIcon(testData.status)}
+                                      </div>
+                                      <div className="text-xs font-medium text-gray-800 mb-1">
+                                        {test.name}
+                                      </div>
+                                      <div className="text-xs text-gray-600">
+                                        {testData.status === 'pass' && testData.duration && (
+                                          <span>{testData.duration}s</span>
+                                        )}
+                                        {testData.status === 'fail' && (
+                                          <span className="text-red-700">Failed</span>
+                                        )}
+                                        {testData.status === 'running' && (
+                                          <span className="text-blue-700">In Progress...</span>
+                                        )}
+                                        {testData.status === 'pending' && (
+                                          <span className="text-gray-500">Not Run</span>
+                                        )}
+                                      </div>
+                                      {testData.passRate && (
+                                        <div className="mt-2 text-xs text-gray-600">
+                                          Pass Rate: {testData.passRate}%
+                                        </div>
+                                      )}
+                                      {testData.timestamp && (
+                                        <div className="mt-2 pt-2 border-t border-gray-200 text-[10px] text-gray-500">
+                                          {new Date(testData.timestamp).toLocaleString('en-US', {
+                                            month: 'short',
+                                            day: 'numeric',
+                                            year: 'numeric',
+                                            hour: 'numeric',
+                                            minute: '2-digit',
+                                            hour12: true,
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
                       </div>
-                    ))}
-                  </div>
                     );
                   })
                 )}
@@ -554,7 +568,8 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
             <div className={`bg-gradient-to-r ${colors.headerGradient} text-white p-6`}>
               <h3 className="text-xl font-bold mb-2">Test Details</h3>
               <p className="text-sm text-white/80">
-                {selectedCell.providerFullName} • {selectedCell.environment} • {selectedCell.testTypeName}
+                {selectedCell.providerFullName} • {selectedCell.environment} •{' '}
+                {selectedCell.testTypeName}
               </p>
             </div>
 
@@ -591,7 +606,7 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
               {/* Test Logs Placeholder */}
               <div className="bg-black text-green-400 font-mono text-xs p-4 rounded-lg h-64 overflow-y-auto">
                 <pre className="whitespace-pre-wrap">
-{`$ helm test ${selectedCell.providerId} --namespace ${selectedCell.environment.toLowerCase()}
+                  {`$ helm test ${selectedCell.providerId} --namespace ${selectedCell.environment.toLowerCase()}
 
 Running ${selectedCell.testTypeName} tests...
 
@@ -603,7 +618,11 @@ ${selectedCell.data.status === 'pass' ? '✅ All checks passed\n\nTest Summary:\
               <div className="flex gap-3">
                 <button
                   onClick={() => {
-                    handleRunTest(selectedCell.providerId, selectedCell.environment, selectedCell.testTypeId);
+                    handleRunTest(
+                      selectedCell.providerId,
+                      selectedCell.environment,
+                      selectedCell.testTypeId
+                    );
                     setSelectedCell(null);
                   }}
                   className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 ${colors.buttonBg} text-white rounded-lg ${colors.buttonHover} transition-colors font-medium`}

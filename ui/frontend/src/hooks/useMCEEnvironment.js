@@ -8,13 +8,13 @@ export const useMCEEnvironment = () => {
   const [mceLastVerified, setMceLastVerified] = useState(null);
   const [mceLoading, setMceLoading] = useState(false);
   const [mceResourcesLoading, setMceResourcesLoading] = useState(false);
-  
+
   // Sorting states
   const [mceSortField, setMceSortField] = useState('type');
   const [mceSortDirection, setMceSortDirection] = useState('asc');
   const [mceComponentSortField, setMceComponentSortField] = useState('component');
   const [mceComponentSortDirection, setMceComponentSortDirection] = useState('asc');
-  
+
   // Collapse states
   const [mceConfigurationCollapsed, setMceConfigurationCollapsed] = useState(false);
   const [mceRecentOpsCollapsed, setMceRecentOpsCollapsed] = useState(false);
@@ -42,7 +42,7 @@ export const useMCEEnvironment = () => {
 
       const data = await response.json();
       console.log('✅ MCE active resources fetched:', data);
-      
+
       if (data.resources && Array.isArray(data.resources)) {
         setMceActiveResources(data.resources);
       } else {
@@ -64,17 +64,17 @@ export const useMCEEnvironment = () => {
 
     try {
       const timestamp = Date.now();
-      
+
       // Refresh MCE features data
       const mceResponse = await fetch(`http://localhost:8000/api/mce/features?t=${timestamp}`);
       const mceData = await mceResponse.json();
-      
+
       // Update states with fresh data
       if (mceResponse.ok) {
         setMceFeatures(mceData.features || []);
         setMceInfo(mceData.mce_info || null);
         setMceLastVerified(new Date().toISOString());
-        
+
         // Also fetch active resources if we have MCE info
         if (mceData.mce_info) {
           await fetchMceActiveResources();
@@ -97,7 +97,7 @@ export const useMCEEnvironment = () => {
   const sortedMceResources = [...mceActiveResources].sort((a, b) => {
     const aValue = a[mceSortField] || '';
     const bValue = b[mceSortField] || '';
-    
+
     if (mceSortDirection === 'asc') {
       return aValue.localeCompare(bValue);
     } else {
@@ -105,20 +105,23 @@ export const useMCEEnvironment = () => {
     }
   });
 
-  const handleMceSort = useCallback((field) => {
-    if (mceSortField === field) {
-      setMceSortDirection(mceSortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setMceSortField(field);
-      setMceSortDirection('asc');
-    }
-  }, [mceSortField, mceSortDirection]);
+  const handleMceSort = useCallback(
+    (field) => {
+      if (mceSortField === field) {
+        setMceSortDirection(mceSortDirection === 'asc' ? 'desc' : 'asc');
+      } else {
+        setMceSortField(field);
+        setMceSortDirection('asc');
+      }
+    },
+    [mceSortField, mceSortDirection]
+  );
 
   // Sort components (features)
   const sortedMceFeatures = [...mceFeatures].sort((a, b) => {
     const aValue = a[mceComponentSortField] || '';
     const bValue = b[mceComponentSortField] || '';
-    
+
     if (mceComponentSortDirection === 'asc') {
       return aValue.localeCompare(bValue);
     } else {
@@ -126,20 +129,23 @@ export const useMCEEnvironment = () => {
     }
   });
 
-  const handleMceComponentSort = useCallback((field) => {
-    if (mceComponentSortField === field) {
-      setMceComponentSortDirection(mceComponentSortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setMceComponentSortField(field);
-      setMceComponentSortDirection('asc');
-    }
-  }, [mceComponentSortField, mceComponentSortDirection]);
+  const handleMceComponentSort = useCallback(
+    (field) => {
+      if (mceComponentSortField === field) {
+        setMceComponentSortDirection(mceComponentSortDirection === 'asc' ? 'desc' : 'asc');
+      } else {
+        setMceComponentSortField(field);
+        setMceComponentSortDirection('asc');
+      }
+    },
+    [mceComponentSortField, mceComponentSortDirection]
+  );
 
   // Auto-fetch resources when MCE info changes
   useEffect(() => {
     if (mceInfo?.name) {
       console.log('📡 Auto-fetching MCE active resources for:', mceInfo.name);
-      fetchMceActiveResources().catch((err) => 
+      fetchMceActiveResources().catch((err) =>
         console.error('Auto-fetch MCE active resources failed:', err)
       );
     }
@@ -151,11 +157,11 @@ export const useMCEEnvironment = () => {
     mceFeatures: sortedMceFeatures,
     mceActiveResources: sortedMceResources,
     mceLastVerified,
-    
+
     // Loading states
     mceLoading,
     mceResourcesLoading,
-    
+
     // Sorting
     mceSortField,
     mceSortDirection,
@@ -163,15 +169,15 @@ export const useMCEEnvironment = () => {
     mceComponentSortField,
     mceComponentSortDirection,
     handleMceComponentSort,
-    
+
     // Collapse states
     mceConfigurationCollapsed,
     mceRecentOpsCollapsed,
-    
+
     // Actions
     fetchMceActiveResources,
     verifyMceEnvironment,
-    
+
     // Setters
     setMceInfo,
     setMceFeatures,
@@ -182,7 +188,7 @@ export const useMCEEnvironment = () => {
     setMceSortField,
     setMceSortDirection,
     setMceComponentSortField,
-    setMceComponentSortDirection
+    setMceComponentSortDirection,
   };
 };
 

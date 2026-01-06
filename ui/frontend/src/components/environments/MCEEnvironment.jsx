@@ -11,12 +11,30 @@ import MCETerminalSection from '../sections/MCETerminalSection';
 import TaskSummarySection from '../sections/TaskSummarySection';
 import TaskDetailSection from '../sections/TaskDetailSection';
 import RosaHcpClustersSection from '../sections/RosaHcpClustersSection';
-import { useApiStatusContext, useRecentOperationsContext, useApp, useAppDispatch } from '../../store/AppContext';
+import {
+  useApiStatusContext,
+  useRecentOperationsContext,
+  useApp,
+  useAppDispatch,
+} from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
 import { cardStyles } from '../../styles/themes';
-import { Cog6ToothIcon, ChevronDownIcon, ChevronUpIcon, ChartBarIcon, ArrowPathIcon, BellIcon, TrashIcon } from '@heroicons/react/24/outline';
+import {
+  Cog6ToothIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  ChartBarIcon,
+  ArrowPathIcon,
+  BellIcon,
+  TrashIcon,
+} from '@heroicons/react/24/outline';
 import { useJobHistory } from '../../hooks/useJobHistory';
-import { buildApiUrl, API_ENDPOINTS, validateApiResponse, extractSafeErrorMessage } from '../../config/api';
+import {
+  buildApiUrl,
+  API_ENDPOINTS,
+  validateApiResponse,
+  extractSafeErrorMessage,
+} from '../../config/api';
 
 const MCEEnvironment = () => {
   const app = useApp();
@@ -37,7 +55,7 @@ const MCEEnvironment = () => {
     loading: apiLoading,
     refreshAllStatus,
     setOcpStatus,
-    setMceLastVerified
+    setMceLastVerified,
   } = apiStatus;
 
   const { addToRecent, updateRecentOperationStatus } = recentOps;
@@ -73,7 +91,8 @@ const MCEEnvironment = () => {
         status: '🚀 Starting verification...',
         environment: 'mce',
         playbook: 'tasks/validate-capa-environment.yml',
-        output: 'Initializing MCE environment verification...\nConnecting to OpenShift cluster...\nValidating MCE components...'
+        output:
+          'Initializing MCE environment verification...\nConnecting to OpenShift cluster...\nValidating MCE components...',
       });
 
       const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_TASK), {
@@ -84,8 +103,8 @@ const MCEEnvironment = () => {
         body: JSON.stringify({
           task_file: 'tasks/validate-capa-environment.yml',
           description: 'Verify MCE Environment',
-          cluster_type: 'mce'
-        })
+          cluster_type: 'mce',
+        }),
       });
 
       if (!response.ok) {
@@ -128,21 +147,24 @@ const MCEEnvironment = () => {
         await refreshAllStatus();
       } else {
         // Check if OpenShift login was successful (even if verification failed)
-        const loginSuccessful = result.output?.includes('Login successful') ||
-                               result.output?.includes('Successfully logged in');
+        const loginSuccessful =
+          result.output?.includes('Login successful') ||
+          result.output?.includes('Successfully logged in');
 
         // Check if environment needs configuration
-        const needsConfiguration = result.error?.includes('ENVIRONMENT NEEDS TO BE CONFIGURED') ||
-                                   result.output?.includes('ENVIRONMENT NEEDS TO BE CONFIGURED') ||
-                                   result.error?.includes('CAPI controller') ||
-                                   result.output?.includes('CAPI controller');
+        const needsConfiguration =
+          result.error?.includes('ENVIRONMENT NEEDS TO BE CONFIGURED') ||
+          result.output?.includes('ENVIRONMENT NEEDS TO BE CONFIGURED') ||
+          result.error?.includes('CAPI controller') ||
+          result.output?.includes('CAPI controller');
 
         // Check if this is an OpenShift login failure
-        const isLoginFailure = result.error?.includes('OPENSHIFT LOGIN FAILED') ||
-                               result.error?.includes('Unauthorized') ||
-                               result.error?.includes('You must be logged in') ||
-                               result.output?.includes('OPENSHIFT LOGIN FAILED') ||
-                               result.output?.includes('Unauthorized');
+        const isLoginFailure =
+          result.error?.includes('OPENSHIFT LOGIN FAILED') ||
+          result.error?.includes('Unauthorized') ||
+          result.error?.includes('You must be logged in') ||
+          result.output?.includes('OPENSHIFT LOGIN FAILED') ||
+          result.output?.includes('Unauthorized');
 
         if (needsConfiguration && !isLoginFailure) {
           // CAPI not configured - show helpful setup instructions (not a failure!)
@@ -150,7 +172,7 @@ const MCEEnvironment = () => {
             connected: true,
             status: 'connected',
             message: 'Connected - Configuration required',
-            api_url: ocpStatus?.api_url
+            api_url: ocpStatus?.api_url,
           });
           setMceLastVerified(new Date().toISOString());
 
@@ -189,7 +211,7 @@ Your OpenShift cluster connection is working! The CAPI/CAPA components just need
             connected: false,
             status: 'error',
             message: result.error || 'Verification failed',
-            api_url: ocpStatus?.api_url
+            api_url: ocpStatus?.api_url,
           });
           setMceLastVerified(null);
 
@@ -226,7 +248,7 @@ Once logged in, click "Verify" again to retry.`
             connected: false,
             status: 'error',
             message: result.error || 'Verification failed',
-            api_url: ocpStatus?.api_url
+            api_url: ocpStatus?.api_url,
           });
           setMceLastVerified(null);
 
@@ -237,21 +259,17 @@ Once logged in, click "Verify" again to retry.`
           );
         }
       }
-
     } catch (error) {
       // Update status to reflect failure
       setOcpStatus({
         connected: false,
         status: 'error',
         message: error.message || 'Verification failed',
-        api_url: ocpStatus?.api_url
+        api_url: ocpStatus?.api_url,
       });
       setMceLastVerified(null);
 
-      updateRecentOperationStatus(
-        verifyId,
-        `❌ Verification failed: ${error.message}`
-      );
+      updateRecentOperationStatus(verifyId, `❌ Verification failed: ${error.message}`);
     }
   };
 
@@ -288,7 +306,8 @@ Once logged in, click "Verify" again to retry.`
         status: '🚀 Starting configuration...',
         environment: 'mce',
         playbook: 'configure_capi_environment.yaml',
-        output: 'Starting MCE CAPI/CAPA environment configuration...\nPreparing OpenShift login...\nConfiguring Cluster API components...\nSetting up AWS provider...'
+        output:
+          'Starting MCE CAPI/CAPA environment configuration...\nPreparing OpenShift login...\nConfiguring Cluster API components...\nSetting up AWS provider...',
       });
 
       const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_TASK), {
@@ -299,8 +318,8 @@ Once logged in, click "Verify" again to retry.`
         body: JSON.stringify({
           playbook_file: 'configure_capi_environment.yaml',
           description: 'Configure MCE CAPI/CAPA Environment',
-          cluster_type: 'mce'
-        })
+          cluster_type: 'mce',
+        }),
       });
 
       if (!response.ok) {
@@ -339,7 +358,7 @@ Once logged in, click "Verify" again to retry.`
         // Configuration typically enables cluster-api and cluster-api-provider-aws
         const expectedComponents = [
           { name: 'cluster-api', enabled: true },
-          { name: 'cluster-api-provider-aws', enabled: true }
+          { name: 'cluster-api-provider-aws', enabled: true },
         ];
 
         const reconciled = await waitForMCEReconciliation(expectedComponents);
@@ -368,11 +387,12 @@ Once logged in, click "Verify" again to retry.`
         await refreshAllStatus();
       } else {
         // Check if this is an OpenShift login failure
-        const isLoginFailure = result.error?.includes('OPENSHIFT LOGIN FAILED') ||
-                               result.error?.includes('Unauthorized') ||
-                               result.error?.includes('You must be logged in') ||
-                               result.output?.includes('OPENSHIFT LOGIN FAILED') ||
-                               result.output?.includes('Unauthorized');
+        const isLoginFailure =
+          result.error?.includes('OPENSHIFT LOGIN FAILED') ||
+          result.error?.includes('Unauthorized') ||
+          result.error?.includes('You must be logged in') ||
+          result.output?.includes('OPENSHIFT LOGIN FAILED') ||
+          result.output?.includes('Unauthorized');
 
         if (isLoginFailure) {
           updateRecentOperationStatus(
@@ -410,12 +430,8 @@ Once logged in, click "Configure" again to retry.`
           );
         }
       }
-
     } catch (error) {
-      updateRecentOperationStatus(
-        configureId,
-        `❌ Configuration failed: ${error.message}`
-      );
+      updateRecentOperationStatus(configureId, `❌ Configuration failed: ${error.message}`);
     }
   };
 
@@ -442,7 +458,7 @@ Once logged in, click "Configure" again to retry.`
         const response = await fetch(buildApiUrl(`/api/mce/features?t=${timestamp}`));
         if (!response.ok) {
           console.warn('Failed to fetch MCE features during polling');
-          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          await new Promise((resolve) => setTimeout(resolve, pollInterval));
           continue;
         }
 
@@ -450,8 +466,8 @@ Once logged in, click "Configure" again to retry.`
         const features = data.features || [];
 
         // Check if all expected components match their expected enabled state
-        const allMatch = expectedComponents.every(expected => {
-          const feature = features.find(f => f.name === expected.name);
+        const allMatch = expectedComponents.every((expected) => {
+          const feature = features.find((f) => f.name === expected.name);
           return feature && feature.enabled === expected.enabled;
         });
 
@@ -461,10 +477,10 @@ Once logged in, click "Configure" again to retry.`
         }
 
         // Wait before next poll
-        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
       } catch (error) {
         console.error('Error polling MCE features:', error);
-        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
       }
     }
 
@@ -485,7 +501,8 @@ Once logged in, click "Configure" again to retry.`
         status: '🚀 Starting disable operation...',
         environment: 'mce',
         playbook: 'tasks/disable_capi.yml',
-        output: 'Starting CAPI component disable operation...\nUpdating MultiClusterEngine configuration...\nDisabling cluster-api and cluster-api-provider-aws...\nEnabling hypershift and hypershift-local-hosting...'
+        output:
+          'Starting CAPI component disable operation...\nUpdating MultiClusterEngine configuration...\nDisabling cluster-api and cluster-api-provider-aws...\nEnabling hypershift and hypershift-local-hosting...',
       });
 
       const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_TASK), {
@@ -496,8 +513,8 @@ Once logged in, click "Configure" again to retry.`
         body: JSON.stringify({
           task_file: 'tasks/disable_capi.yml',
           description: 'Disable CAPI Components',
-          cluster_type: 'mce'
-        })
+          cluster_type: 'mce',
+        }),
       });
 
       if (!response.ok) {
@@ -537,7 +554,7 @@ Once logged in, click "Configure" again to retry.`
           { name: 'cluster-api', enabled: false },
           { name: 'cluster-api-provider-aws', enabled: false },
           { name: 'hypershift', enabled: true },
-          { name: 'hypershift-local-hosting', enabled: true }
+          { name: 'hypershift-local-hosting', enabled: true },
         ];
 
         const reconciled = await waitForMCEReconciliation(expectedComponents);
@@ -566,11 +583,12 @@ Once logged in, click "Configure" again to retry.`
         await refreshAllStatus();
       } else {
         // Check if this is an OpenShift login failure
-        const isLoginFailure = result.error?.includes('OPENSHIFT LOGIN FAILED') ||
-                               result.error?.includes('Unauthorized') ||
-                               result.error?.includes('You must be logged in') ||
-                               result.output?.includes('OPENSHIFT LOGIN FAILED') ||
-                               result.output?.includes('Unauthorized');
+        const isLoginFailure =
+          result.error?.includes('OPENSHIFT LOGIN FAILED') ||
+          result.error?.includes('Unauthorized') ||
+          result.error?.includes('You must be logged in') ||
+          result.output?.includes('OPENSHIFT LOGIN FAILED') ||
+          result.output?.includes('Unauthorized');
 
         if (isLoginFailure) {
           updateRecentOperationStatus(
@@ -609,10 +627,7 @@ Once logged in, click "Disable CAPI" again to retry.`
         }
       }
     } catch (error) {
-      updateRecentOperationStatus(
-        disableId,
-        `❌ Failed to disable CAPI: ${error.message}`
-      );
+      updateRecentOperationStatus(disableId, `❌ Failed to disable CAPI: ${error.message}`);
     }
   };
 
@@ -633,19 +648,19 @@ Once logged in, click "Disable CAPI" again to retry.`
       color: 'bg-cyan-600',
       status: '⏳ Exporting...',
       environment: 'mce',
-      output: `Exporting ${mceResources.length} resources to ${fileName}...`
+      output: `Exporting ${mceResources.length} resources to ${fileName}...`,
     });
 
     // Create export data
     const exportData = {
       exported_at: new Date().toISOString(),
       total_resources: mceResources.length,
-      resources: mceResources.map(resource => ({
+      resources: mceResources.map((resource) => ({
         name: resource.name,
         type: resource.type,
         namespace: resource.namespace,
-        status: resource.status
-      }))
+        status: resource.status,
+      })),
     };
 
     // Convert to JSON
@@ -691,7 +706,7 @@ Export completed at ${completionTime}`
         setYamlEditorData({
           yaml_content: resource.yaml,
           resource_name: resource.name,
-          resource_type: resource.type
+          resource_type: resource.type,
         });
         setShowYamlEditorModal(true);
         return;
@@ -713,7 +728,7 @@ Export completed at ${completionTime}`
           setYamlEditorData({
             yaml_content: result.yaml,
             resource_name: resource.name,
-            resource_type: resource.type
+            resource_type: resource.type,
           });
 
           setShowYamlEditorModal(true);
@@ -722,13 +737,14 @@ Export completed at ${completionTime}`
           throw new Error('Failed to get MCE YAML from API');
         }
       }
-      
+
       // For other resources, use kubectl/oc command
       console.log('🖱️ [RESOURCE-CLICK] Clicked on resource:', resource);
 
       // Build oc command - handle cluster-scoped resources (no namespace)
       const namespaceFlag = resource.namespace ? `-n ${resource.namespace}` : '';
-      const ocCommand = `oc get ${resource.type.toLowerCase()} ${resource.name} ${namespaceFlag} -o yaml`.trim();
+      const ocCommand =
+        `oc get ${resource.type.toLowerCase()} ${resource.name} ${namespaceFlag} -o yaml`.trim();
       console.log('🔧 [OC-COMMAND]', ocCommand);
 
       const response = await fetch('/api/ansible/run-task', {
@@ -740,8 +756,8 @@ Export completed at ${completionTime}`
           task_file: 'tasks/enter_shell_command.yml',
           description: `Get YAML for ${resource.name}`,
           shell_command: ocCommand,
-          cluster_type: 'mce'
-        })
+          cluster_type: 'mce',
+        }),
       });
 
       if (!response.ok) {
@@ -749,35 +765,34 @@ Export completed at ${completionTime}`
       }
 
       const result = await response.json();
-      
+
       // Parse the output to extract YAML content
       let yamlContent = '';
       if (result.output) {
         // Extract YAML from the command output
         const lines = result.output.split('\n');
-        const yamlStartIndex = lines.findIndex(line => line.trim().startsWith('apiVersion:'));
+        const yamlStartIndex = lines.findIndex((line) => line.trim().startsWith('apiVersion:'));
         if (yamlStartIndex !== -1) {
           yamlContent = lines.slice(yamlStartIndex).join('\n').trim();
         } else {
           yamlContent = result.output;
         }
       }
-      
+
       if (!yamlContent || yamlContent.includes('error') || yamlContent.includes('not found')) {
         throw new Error('Resource not found or error in response');
       }
-      
+
       setYamlEditorData({
         yaml_content: yamlContent,
         resource_name: resource.name,
-        resource_type: resource.type
+        resource_type: resource.type,
       });
-      
+
       setShowYamlEditorModal(true);
     } catch (error) {
       // Try alternative command format
       try {
-        
         const altResponse = await fetch('/api/ansible/run-task', {
           method: 'POST',
           headers: {
@@ -787,8 +802,8 @@ Export completed at ${completionTime}`
             task_file: 'tasks/enter_shell_command.yml',
             description: `Get YAML for ${resource.name} (alternative)`,
             shell_command: `oc get ${resource.name} -o yaml`,
-            cluster_type: 'mce'
-          })
+            cluster_type: 'mce',
+          }),
         });
 
         if (altResponse.ok) {
@@ -797,7 +812,7 @@ Export completed at ${completionTime}`
             setYamlEditorData({
               yaml_content: altResult.output,
               resource_name: resource.name,
-              resource_type: resource.type
+              resource_type: resource.type,
             });
             setShowYamlEditorModal(true);
             return;
@@ -806,7 +821,7 @@ Export completed at ${completionTime}`
       } catch (altError) {
         // Alternative method failed, continue to fallback
       }
-      
+
       // Final fallback: show informative message
       setYamlEditorData({
         yaml_content: `# Unable to fetch YAML for ${resource.name}
@@ -822,9 +837,9 @@ Export completed at ${completionTime}`
 # Type: ${resource.type}
 # Namespace: ${resource.namespace || 'default'}`,
         resource_name: resource.name,
-        resource_type: resource.type
+        resource_type: resource.type,
       });
-      
+
       setShowYamlEditorModal(true);
     }
   };
@@ -833,47 +848,50 @@ Export completed at ${completionTime}`
   const capiComponents = [
     {
       name: 'cluster-api',
-      enabled: mceFeatures.some(f => f.name === 'cluster-api' && f.enabled),
+      enabled: mceFeatures.some((f) => f.name === 'cluster-api' && f.enabled),
       version: 'v2.10.0',
-      date: '11/3/2025'
+      date: '11/3/2025',
     },
     {
-      name: 'cluster-api-provider-aws', 
-      enabled: mceFeatures.some(f => f.name === 'cluster-api-provider-aws' && f.enabled),
+      name: 'cluster-api-provider-aws',
+      enabled: mceFeatures.some((f) => f.name === 'cluster-api-provider-aws' && f.enabled),
       version: 'v2.10.0',
-      date: '11/3/2025'
-    }
+      date: '11/3/2025',
+    },
   ];
 
   // Add additional components status
   const hypershiftComponents = [
     {
       name: 'hypershift',
-      enabled: mceFeatures.some(f => f.name === 'hypershift' && f.enabled),
+      enabled: mceFeatures.some((f) => f.name === 'hypershift' && f.enabled),
       version: null,
-      date: null
+      date: null,
     },
     {
       name: 'hypershift-local-hosting',
-      enabled: mceFeatures.some(f => f.name === 'hypershift-local-hosting' && f.enabled),
+      enabled: mceFeatures.some((f) => f.name === 'hypershift-local-hosting' && f.enabled),
       version: null,
-      date: null
-    }
+      date: null,
+    },
   ];
 
-  const allCAPIComponents = [...capiComponents, 
-    { 
-      name: 'cluster-api-provider-metal3', 
-      enabled: mceFeatures.some(f => f.name === 'cluster-api-provider-metal3' && f.enabled), 
-      version: null, 
-      date: null 
+  const allCAPIComponents = [
+    ...capiComponents,
+    {
+      name: 'cluster-api-provider-metal3',
+      enabled: mceFeatures.some((f) => f.name === 'cluster-api-provider-metal3' && f.enabled),
+      version: null,
+      date: null,
     },
-    { 
-      name: 'cluster-api-provider-openshift-assisted', 
-      enabled: mceFeatures.some(f => f.name === 'cluster-api-provider-openshift-assisted' && f.enabled), 
-      version: null, 
-      date: null 
-    }
+    {
+      name: 'cluster-api-provider-openshift-assisted',
+      enabled: mceFeatures.some(
+        (f) => f.name === 'cluster-api-provider-openshift-assisted' && f.enabled
+      ),
+      version: null,
+      date: null,
+    },
   ];
 
   // Fetch MCE resources from the cluster dynamically
@@ -922,21 +940,21 @@ Export completed at ${completionTime}`
       icon: '✓',
       onClick: handleMceVerification,
       disabled: apiLoading,
-      variant: 'primary'
+      variant: 'primary',
     },
     {
       label: 'Credentials',
       icon: '🔑',
       onClick: handleCredentials,
-      variant: 'primary'
+      variant: 'primary',
     },
     {
       label: 'Refresh',
       icon: '🔄',
       onClick: handleRefresh,
       disabled: apiLoading,
-      variant: 'primary'
-    }
+      variant: 'primary',
+    },
   ];
 
   const componentActions = [
@@ -944,15 +962,15 @@ Export completed at ${completionTime}`
       label: 'Configure',
       icon: '⚙️',
       onClick: handleConfigure,
-      variant: 'primary'
+      variant: 'primary',
     },
     {
       label: 'Refresh',
       icon: '🔄',
       onClick: handleRefresh,
       disabled: apiLoading,
-      variant: 'primary'
-    }
+      variant: 'primary',
+    },
   ];
 
   const resourceActions = [
@@ -960,27 +978,27 @@ Export completed at ${completionTime}`
       label: 'Provision',
       icon: '❄️',
       onClick: handleProvision,
-      variant: 'primary'
+      variant: 'primary',
     },
     {
       label: 'Export',
       icon: '📤',
       onClick: handleExport,
-      variant: 'primary'
+      variant: 'primary',
     },
     {
       label: 'Refresh',
       icon: '🔄',
       onClick: handleRefresh,
       disabled: apiLoading,
-      variant: 'primary'
-    }
+      variant: 'primary',
+    },
   ];
 
   // Group resources by namespace
   const groupResourcesByNamespace = (resources) => {
     const grouped = {};
-    resources.forEach(resource => {
+    resources.forEach((resource) => {
       const ns = resource.namespace || 'default';
       if (!grouped[ns]) {
         grouped[ns] = [];
@@ -994,7 +1012,7 @@ Export completed at ${completionTime}`
 
   // Toggle namespace expansion
   const toggleNamespace = (namespace) => {
-    setExpandedNamespaces(prev => {
+    setExpandedNamespaces((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(namespace)) {
         newSet.delete(namespace);
@@ -1028,40 +1046,45 @@ Export completed at ${completionTime}`
   const getLastVerifiedText = () => {
     // First check for recent verification operations
     const recentMceVerification = recentOps.recentOperations
-      .filter(op => op.environment === 'mce' && (op.status?.includes('✅') || op.status?.toLowerCase().includes('verified')))
+      .filter(
+        (op) =>
+          op.environment === 'mce' &&
+          (op.status?.includes('✅') || op.status?.toLowerCase().includes('verified'))
+      )
       .sort((a, b) => {
         const timeA = typeof a.timestamp === 'number' ? a.timestamp : Date.parse(a.timestamp);
         const timeB = typeof b.timestamp === 'number' ? b.timestamp : Date.parse(b.timestamp);
         return timeB - timeA; // Most recent first
       })[0];
-    
+
     if (recentMceVerification) {
-      const timestamp = typeof recentMceVerification.timestamp === 'number' 
-        ? recentMceVerification.timestamp 
-        : Date.parse(recentMceVerification.timestamp);
-      
+      const timestamp =
+        typeof recentMceVerification.timestamp === 'number'
+          ? recentMceVerification.timestamp
+          : Date.parse(recentMceVerification.timestamp);
+
       return new Date(timestamp).toLocaleDateString('en-US', {
         year: 'numeric',
-        month: 'short', 
+        month: 'short',
         day: 'numeric',
         hour: 'numeric',
         minute: '2-digit',
-        hour12: true
+        hour12: true,
       });
     }
-    
+
     // Fall back to API data if available
     if (mceLastVerified) {
       return new Date(mceLastVerified).toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
-        hour: 'numeric', 
+        hour: 'numeric',
         minute: '2-digit',
-        hour12: true
+        hour12: true,
       });
     }
-    
+
     return 'Not verified yet';
   };
 
@@ -1072,31 +1095,36 @@ Export completed at ${completionTime}`
   useEffect(() => {
     // Check recent MCE validation and configuration jobs to determine verification status
     const mceJobs = jobHistory.getJobsByEnvironment('mce');
-    
+
     // Check validation jobs first
     const recentValidationJob = mceJobs
-      .filter(job => job.task_file?.includes('validate-capa-environment'))
+      .filter((job) => job.task_file?.includes('validate-capa-environment'))
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
-    
-    // Check configuration jobs  
+
+    // Check configuration jobs
     const recentConfigJob = mceJobs
-      .filter(job => job.task_file?.includes('configure_capi_environment'))
+      .filter((job) => job.task_file?.includes('configure_capi_environment'))
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
-    
+
     // Use the most recent job between validation and configuration
     const mostRecentJob = [recentValidationJob, recentConfigJob]
       .filter(Boolean)
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
-    
+
     if (mostRecentJob) {
       // If it's a successful configuration job, mark as verified
-      if (mostRecentJob.task_file?.includes('configure_capi_environment') && mostRecentJob.status === 'completed') {
+      if (
+        mostRecentJob.task_file?.includes('configure_capi_environment') &&
+        mostRecentJob.status === 'completed'
+      ) {
         setRecentVerificationStatus('verified');
       }
       // If it's a validation job, check for configuration error
       else if (mostRecentJob.task_file?.includes('validate-capa-environment')) {
-        const needsConfiguration = mostRecentJob.error?.includes('ENVIRONMENT NEEDS TO BE CONFIGURED');
-        
+        const needsConfiguration = mostRecentJob.error?.includes(
+          'ENVIRONMENT NEEDS TO BE CONFIGURED'
+        );
+
         if (needsConfiguration) {
           setRecentVerificationStatus('needs_configuration');
         } else if (mostRecentJob.status === 'completed') {
@@ -1109,36 +1137,39 @@ Export completed at ${completionTime}`
   }, [jobHistory.jobHistory]);
 
   // For backward compatibility, check recent operations too
-  const recentVerificationSuccess = recentOps.recentOperations.some(op => {
-    const isCorrectEnv = op.environment === 'mce';
-    const isSuccessful = op.status?.includes('✅') || op.status?.toLowerCase().includes('verified');
-    const isRecent = Date.now() - (typeof op.timestamp === 'number' ? op.timestamp : Date.parse(op.timestamp)) < 1800000; // 30 minutes
-    
-    return isCorrectEnv && isSuccessful && isRecent;
-  }) && recentVerificationStatus !== 'needs_configuration'; // Override if job history shows config needed
-  
+  const recentVerificationSuccess =
+    recentOps.recentOperations.some((op) => {
+      const isCorrectEnv = op.environment === 'mce';
+      const isSuccessful =
+        op.status?.includes('✅') || op.status?.toLowerCase().includes('verified');
+      const isRecent =
+        Date.now() - (typeof op.timestamp === 'number' ? op.timestamp : Date.parse(op.timestamp)) <
+        1800000; // 30 minutes
+
+      return isCorrectEnv && isSuccessful && isRecent;
+    }) && recentVerificationStatus !== 'needs_configuration'; // Override if job history shows config needed
+
   // Check if environment was ever configured (has MCE info or features)
   const hasBeenConfigured = mceInfo || mceFeatures.length > 0 || mceLastVerified;
-  
+
   // Check if environment has ever been successfully verified (stored in localStorage)
   // Set to true since we can see from task history that verification was successful
   localStorage.setItem('mce-environment-verified', 'true');
   const hasEverBeenVerified = localStorage.getItem('mce-environment-verified') === 'true';
-  
+
   // Show tiles if connected OR recent verification success OR has been configured before OR was previously verified
-  const shouldShowEnvironment = ocpStatus?.connected || recentVerificationSuccess || hasBeenConfigured || hasEverBeenVerified;
-  
+  const shouldShowEnvironment =
+    ocpStatus?.connected || recentVerificationSuccess || hasBeenConfigured || hasEverBeenVerified;
+
   // Environment state validation complete
-  
+
   if (!shouldShowEnvironment) {
     return (
       <div className="mb-6">
         <div className="text-center py-12 bg-gradient-to-br from-cyan-50 to-blue-50 rounded-2xl border-2 border-cyan-200">
           <div className="max-w-md mx-auto">
             <span className="text-6xl mb-4 block">🎯</span>
-            <h3 className="text-xl font-bold text-cyan-900 mb-2">
-              MCE Environment Setup Required
-            </h3>
+            <h3 className="text-xl font-bold text-cyan-900 mb-2">MCE Environment Setup Required</h3>
             <p className="text-gray-600 mb-6">
               Please establish your OpenShift Hub connection to continue.
             </p>
@@ -1183,10 +1214,12 @@ Export completed at ${completionTime}`
         title="Configuration"
         icon="⚙️"
         isCollapsed={app.collapsedSections?.has('mce-configuration')}
-        onToggle={() => dispatch({
-          type: AppActionTypes.TOGGLE_SECTION,
-          payload: 'mce-configuration'
-        })}
+        onToggle={() =>
+          dispatch({
+            type: AppActionTypes.TOGGLE_SECTION,
+            payload: 'mce-configuration',
+          })
+        }
         titleActions={
           <button
             onClick={() => setShowNotificationSettings(true)}
@@ -1206,16 +1239,22 @@ Export completed at ${completionTime}`
             title="MCE Environment"
             icon={
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                />
               </svg>
             }
             status={getConnectionStatus()}
             verificationStatus={
               recentVerificationStatus === 'needs_configuration'
                 ? 'Configuration Required'
-                : recentVerificationStatus === 'verified' || (ocpStatus?.connected && recentVerificationSuccess)
-                ? 'Verified'
-                : 'Not Verified'
+                : recentVerificationStatus === 'verified' ||
+                    (ocpStatus?.connected && recentVerificationSuccess)
+                  ? 'Verified'
+                  : 'Not Verified'
             }
             lastVerified={getLastVerifiedText()}
             actions={mceActions}
@@ -1225,17 +1264,21 @@ Export completed at ${completionTime}`
               <div className="bg-white p-4 rounded-lg border border-cyan-100">
                 <h5
                   className="font-semibold text-cyan-900 mb-2 cursor-pointer hover:text-cyan-700 transition-colors flex items-center gap-2"
-                  onClick={() => handleResourceClick({
-                    name: mceInfo?.name || 'multiclusterengine',
-                    type: 'MultiClusterEngine',
-                    namespace: 'multicluster-engine'
-                  })}
+                  onClick={() =>
+                    handleResourceClick({
+                      name: mceInfo?.name || 'multiclusterengine',
+                      type: 'MultiClusterEngine',
+                      namespace: 'multicluster-engine',
+                    })
+                  }
                   title="Click to view YAML"
                 >
                   <span>{mceInfo?.name || 'multiclusterengine'}</span>
-                  <span className="text-sm font-normal text-cyan-600">{mceInfo?.version || '2.10.0'}</span>
+                  <span className="text-sm font-normal text-cyan-600">
+                    {mceInfo?.version || '2.10.0'}
+                  </span>
                 </h5>
-                
+
                 <div className="space-y-2 text-sm">
                   <div>
                     <span className="font-medium text-gray-600">API Server:</span>
@@ -1253,7 +1296,7 @@ Export completed at ${completionTime}`
             theme="mce"
             title="Components"
             icon="🔧"
-            status={`${allCAPIComponents.filter(c => c.enabled).length} configured`}
+            status={`${allCAPIComponents.filter((c) => c.enabled).length} configured`}
             actions={componentActions}
           >
             <div className="space-y-3">
@@ -1262,26 +1305,39 @@ Export completed at ${completionTime}`
 
               {/* CAPI Components */}
               <div className="space-y-2">
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">CAPI Providers</div>
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  CAPI Providers
+                </div>
                 <div className="space-y-1">
                   {allCAPIComponents.map((component, index) => (
                     <div
                       key={index}
                       className="flex items-center justify-between text-sm cursor-pointer hover:bg-cyan-50 rounded p-2 transition-colors"
-                      onClick={() => component.enabled && handleResourceClick({
-                        name: component.name,
-                        type: 'Deployment',
-                        namespace: component.name === 'cluster-api' ? 'capi-system' :
-                                   component.name === 'cluster-api-provider-aws' ? 'capa-system' :
-                                   component.name === 'cluster-api-provider-metal3' ? 'capm3-system' :
-                                   'capi-system'
-                      })}
-                      title={component.enabled ? "Click to view YAML" : "Component not enabled"}
+                      onClick={() =>
+                        component.enabled &&
+                        handleResourceClick({
+                          name: component.name,
+                          type: 'Deployment',
+                          namespace:
+                            component.name === 'cluster-api'
+                              ? 'capi-system'
+                              : component.name === 'cluster-api-provider-aws'
+                                ? 'capa-system'
+                                : component.name === 'cluster-api-provider-metal3'
+                                  ? 'capm3-system'
+                                  : 'capi-system',
+                        })
+                      }
+                      title={component.enabled ? 'Click to view YAML' : 'Component not enabled'}
                     >
                       <div className="flex flex-col">
-                        <span className={component.enabled ? 'hover:text-cyan-700' : ''}>{component.name}</span>
+                        <span className={component.enabled ? 'hover:text-cyan-700' : ''}>
+                          {component.name}
+                        </span>
                         {component.version && (
-                          <span className="text-xs text-gray-500 font-mono">{component.version}</span>
+                          <span className="text-xs text-gray-500 font-mono">
+                            {component.version}
+                          </span>
                         )}
                       </div>
                       <span className={component.enabled ? 'text-green-600' : 'text-red-600'}>
@@ -1294,23 +1350,32 @@ Export completed at ${completionTime}`
 
               {/* Hypershift Components */}
               <div className="space-y-2">
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Hypershift</div>
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  Hypershift
+                </div>
                 <div className="space-y-1">
                   {hypershiftComponents.map((component, index) => (
                     <div
                       key={index}
                       className="flex items-center justify-between text-sm cursor-pointer hover:bg-cyan-50 rounded p-2 transition-colors"
-                      onClick={() => component.enabled && handleResourceClick({
-                        name: component.name,
-                        type: 'Deployment',
-                        namespace: 'hypershift'
-                      })}
-                      title={component.enabled ? "Click to view YAML" : "Component not enabled"}
+                      onClick={() =>
+                        component.enabled &&
+                        handleResourceClick({
+                          name: component.name,
+                          type: 'Deployment',
+                          namespace: 'hypershift',
+                        })
+                      }
+                      title={component.enabled ? 'Click to view YAML' : 'Component not enabled'}
                     >
                       <div className="flex flex-col">
-                        <span className={component.enabled ? 'hover:text-cyan-700' : ''}>{component.name}</span>
+                        <span className={component.enabled ? 'hover:text-cyan-700' : ''}>
+                          {component.name}
+                        </span>
                         {component.version && (
-                          <span className="text-xs text-gray-500 font-mono">{component.version}</span>
+                          <span className="text-xs text-gray-500 font-mono">
+                            {component.version}
+                          </span>
                         )}
                       </div>
                       <span className={component.enabled ? 'text-green-600' : 'text-red-600'}>
@@ -1322,7 +1387,7 @@ Export completed at ${completionTime}`
               </div>
 
               {/* Disable CAPI Button - Only show when CAPI is enabled */}
-              {capiComponents.some(c => c.name === 'cluster-api' && c.enabled) && (
+              {capiComponents.some((c) => c.name === 'cluster-api' && c.enabled) && (
                 <div className="pt-4 border-t border-gray-200">
                   <button
                     onClick={handleDisableCapi}
@@ -1361,19 +1426,18 @@ Export completed at ${completionTime}`
                   {Object.entries(groupedResources).map(([namespace, resources]) => {
                     const isExpanded = expandedNamespaces.has(namespace);
                     return (
-                      <div key={namespace} className="border-b border-gray-200 pb-2 last:border-b-0">
+                      <div
+                        key={namespace}
+                        className="border-b border-gray-200 pb-2 last:border-b-0"
+                      >
                         {/* Clickable namespace header */}
                         <div
                           className="flex items-center justify-between cursor-pointer py-2 px-2 hover:bg-cyan-50 rounded transition-colors"
                           onClick={() => toggleNamespace(namespace)}
                         >
                           <div className="flex items-center gap-2">
-                            <span className="text-gray-400">
-                              {isExpanded ? '▼' : '▶'}
-                            </span>
-                            <h4 className="font-semibold text-gray-800 text-base">
-                              {namespace}
-                            </h4>
+                            <span className="text-gray-400">{isExpanded ? '▼' : '▶'}</span>
+                            <h4 className="font-semibold text-gray-800 text-base">{namespace}</h4>
                           </div>
                           <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                             {resources.length}
@@ -1395,7 +1459,9 @@ Export completed at ${completionTime}`
                                 </h5>
                                 {/* Resource type */}
                                 <div className="mt-1">
-                                  <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${getResourceTypeColor(resource.type)}`}>
+                                  <span
+                                    className={`inline-block px-2 py-1 rounded text-xs font-medium ${getResourceTypeColor(resource.type)}`}
+                                  >
                                     {resource.type}
                                   </span>
                                 </div>
@@ -1429,10 +1495,7 @@ Export completed at ${completionTime}`
       <MCETerminalSection />
 
       {/* Terminal Modal */}
-      <MCETerminalModal
-        isOpen={showTerminalModal}
-        onClose={() => setShowTerminalModal(false)}
-      />
+      <MCETerminalModal isOpen={showTerminalModal} onClose={() => setShowTerminalModal(false)} />
 
       {/* YAML Editor Modal */}
       <YamlEditorModal

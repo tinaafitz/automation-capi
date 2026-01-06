@@ -3,7 +3,13 @@ import ReactDOM from 'react-dom';
 import PropTypes from 'prop-types';
 import { XMarkIcon, CheckIcon } from '@heroicons/react/24/outline';
 
-const CapiInstallMethodModal = ({ isOpen, onClose, onMethodSelected, currentMethod, isReconfiguration = false }) => {
+const CapiInstallMethodModal = ({
+  isOpen,
+  onClose,
+  onMethodSelected,
+  currentMethod,
+  isReconfiguration = false,
+}) => {
   const [selectedMethod, setSelectedMethod] = useState(currentMethod || 'clusterctl');
   const [rememberChoice, setRememberChoice] = useState(false);
   const [useCustomImage, setUseCustomImage] = useState(isReconfiguration); // Auto-enable for reconfiguration
@@ -24,13 +30,14 @@ const CapiInstallMethodModal = ({ isOpen, onClose, onMethodSelected, currentMeth
   }, [isReconfiguration]);
 
   const handleContinue = () => {
-    const customImageConfig = useCustomImage && selectedMethod === 'clusterctl'
-      ? {
-          repository: customImageRepo,
-          tag: customImageTag,
-          crdLocation: crdLocation
-        }
-      : null;
+    const customImageConfig =
+      useCustomImage && selectedMethod === 'clusterctl'
+        ? {
+            repository: customImageRepo,
+            tag: customImageTag,
+            crdLocation: crdLocation,
+          }
+        : null;
 
     onMethodSelected(selectedMethod, rememberChoice, customImageConfig);
     onClose();
@@ -47,13 +54,13 @@ const CapiInstallMethodModal = ({ isOpen, onClose, onMethodSelected, currentMeth
     {
       id: 'clusterctl',
       name: 'Cluster API',
-      icon: '⚡'
+      icon: '⚡',
     },
     {
       id: 'helm',
       name: 'Helm Charts',
-      icon: '📦'
-    }
+      icon: '📦',
+    },
   ];
 
   return ReactDOM.createPortal(
@@ -66,7 +73,9 @@ const CapiInstallMethodModal = ({ isOpen, onClose, onMethodSelected, currentMeth
               {isReconfiguration ? 'Reconfigure CAPI/CAPA' : 'Choose Installation Method'}
             </h2>
             <p className="text-sm text-purple-100 mt-1">
-              {isReconfiguration ? 'Update CAPI configuration with custom image' : 'Select how to install CAPI'}
+              {isReconfiguration
+                ? 'Update CAPI configuration with custom image'
+                : 'Select how to install CAPI'}
             </p>
           </div>
           <button
@@ -136,7 +145,7 @@ const CapiInstallMethodModal = ({ isOpen, onClose, onMethodSelected, currentMeth
 
           {/* Custom CAPA Image Configuration - Only for clusterctl */}
           {selectedMethod === 'clusterctl' && (
-            <div className={isReconfiguration ? "" : "pt-4 border-t border-gray-200"}>
+            <div className={isReconfiguration ? '' : 'pt-4 border-t border-gray-200'}>
               <label className="flex items-start gap-2 cursor-pointer mb-2">
                 <input
                   type="checkbox"
@@ -147,7 +156,8 @@ const CapiInstallMethodModal = ({ isOpen, onClose, onMethodSelected, currentMeth
                 <div>
                   <span className="text-sm font-medium text-gray-900">Use Custom CAPA Image</span>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Specify a custom CAPA controller image and CRD location for testing pre-release features. Updated CRDs will be applied before deployment.
+                    Specify a custom CAPA controller image and CRD location for testing pre-release
+                    features. Updated CRDs will be applied before deployment.
                   </p>
                 </div>
               </label>
@@ -201,7 +211,8 @@ const CapiInstallMethodModal = ({ isOpen, onClose, onMethodSelected, currentMeth
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm font-mono"
                     />
                     <p className="mt-1 text-xs text-gray-500">
-                      GitHub URL to v1beta2 CRDs directory (e.g., https://github.com/serngawy/cluster-api-provider-aws/tree/logforward/api/v1beta2)
+                      GitHub URL to v1beta2 CRDs directory (e.g.,
+                      https://github.com/serngawy/cluster-api-provider-aws/tree/logforward/api/v1beta2)
                     </p>
                   </div>
                 </div>

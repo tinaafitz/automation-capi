@@ -7,7 +7,12 @@ import MinikubeClusterConfigModal from '../modals/MinikubeClusterConfigModal';
 import NotificationSettingsModal from '../modals/NotificationSettingsModal';
 import CapiInstallMethodModal from '../modals/CapiInstallMethodModal';
 import { BellIcon } from '@heroicons/react/24/outline';
-import { useMinikubeContext, useRecentOperationsContext, useApp, useAppDispatch } from '../../store/AppContext';
+import {
+  useMinikubeContext,
+  useRecentOperationsContext,
+  useApp,
+  useAppDispatch,
+} from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
 import { cardStyles } from '../../styles/themes';
 import { buildApiUrl, API_ENDPOINTS } from '../../config/api';
@@ -43,16 +48,16 @@ const MinikubeEnvironment = () => {
     fetchMinikubeActiveResources,
     setSelectedMinikubeCluster,
     setMinikubeClusterInput,
-    setMinikubeConfigurationCollapsed
+    setMinikubeConfigurationCollapsed,
   } = minikube;
 
   const { addToRecent, updateRecentOperationStatus, recentOperations } = recentOps;
 
   // Check if a CAPI configuration is currently in progress
-  const isConfiguring = recentOperations?.some(op =>
-    op.id?.startsWith('configure-capi-') &&
-    op.status?.includes('⏳')
-  ) || false;
+  const isConfiguring =
+    recentOperations?.some(
+      (op) => op.id?.startsWith('configure-capi-') && op.status?.includes('⏳')
+    ) || false;
 
   // Handle installation method selection
   const handleMethodSelected = (method, remember) => {
@@ -75,44 +80,42 @@ const MinikubeEnvironment = () => {
   // Handle Minikube verification
   const handleMinikubeVerification = async () => {
     const verifyId = `verify-minikube-${Date.now()}`;
-    
+
     try {
       addToRecent({
         id: verifyId,
         title: 'Minikube Environment Verification',
         color: 'bg-purple-600',
         status: '⏳ Verifying...',
-        environment: 'minikube'
+        environment: 'minikube',
       });
 
       const result = await verifyMinikubeCluster(selectedMinikubeCluster || minikubeClusterInput);
-      
+
       const completionTime = new Date().toLocaleTimeString('en-US', {
         hour: 'numeric',
         minute: '2-digit',
         second: '2-digit',
         hour12: true,
       });
-      
+
       updateRecentOperationStatus(
         verifyId,
         `✅ Minikube Environment verified at ${completionTime}`
       );
     } catch (error) {
-      updateRecentOperationStatus(
-        verifyId,
-        `❌ Verification failed: ${error.message}`
-      );
+      updateRecentOperationStatus(verifyId, `❌ Verification failed: ${error.message}`);
     }
   };
 
   // Handle provision action
   const handleProvision = () => {
     // Set the target context to the verified Minikube cluster name
-    const targetClusterName = verifiedMinikubeClusterInfo?.name ||
-                              verifiedMinikubeClusterInfo?.cluster_name ||
-                              selectedMinikubeCluster ||
-                              minikubeClusterInput;
+    const targetClusterName =
+      verifiedMinikubeClusterInfo?.name ||
+      verifiedMinikubeClusterInfo?.cluster_name ||
+      selectedMinikubeCluster ||
+      minikubeClusterInput;
 
     dispatch({ type: AppActionTypes.SET_PROVISION_TARGET_CONTEXT, payload: targetClusterName });
     dispatch({ type: AppActionTypes.SHOW_PROVISION_MODAL, payload: true });
@@ -124,7 +127,11 @@ const MinikubeEnvironment = () => {
   };
 
   // Handle CAPI/CAPA configuration
-  const handleComponentConfigure = async (customImage = null, method = null, clusterName = null) => {
+  const handleComponentConfigure = async (
+    customImage = null,
+    method = null,
+    clusterName = null
+  ) => {
     // Prevent multiple simultaneous configurations
     if (isConfiguring) {
       alert('A CAPI configuration is already in progress. Please wait for it to complete.');
@@ -134,11 +141,12 @@ const MinikubeEnvironment = () => {
     const configureId = `configure-capi-${Date.now()}`;
 
     // Get cluster name from parameter first, then fall back to state sources
-    const targetClusterName = clusterName ||
-                              verifiedMinikubeClusterInfo?.name ||
-                              verifiedMinikubeClusterInfo?.cluster_name ||
-                              selectedMinikubeCluster ||
-                              minikubeClusterInput;
+    const targetClusterName =
+      clusterName ||
+      verifiedMinikubeClusterInfo?.name ||
+      verifiedMinikubeClusterInfo?.cluster_name ||
+      selectedMinikubeCluster ||
+      minikubeClusterInput;
 
     if (!targetClusterName) {
       alert('Please verify a Minikube cluster first');
@@ -167,19 +175,19 @@ const MinikubeEnvironment = () => {
         color: 'bg-purple-600',
         status: '⏳ Configuring...',
         environment: 'minikube',
-        output: outputMessage
+        output: outputMessage,
       });
 
       // Build request body
       const requestBody = {
         cluster_name: targetClusterName,
-        install_method: activeMethod
+        install_method: activeMethod,
       };
 
       if (customImage) {
         requestBody.custom_capa_image = {
           repository: customImage.repository,
-          tag: customImage.tag
+          tag: customImage.tag,
         };
       }
 
@@ -228,7 +236,7 @@ const MinikubeEnvironment = () => {
           color: 'bg-purple-600',
           status: `✅ CAPI/CAPI configured at ${completionTime}`,
           environment: 'minikube',
-          output: `CAPI/CAPA Configuration Complete\n\n✅ Cluster API controllers installed\n✅ AWS provider configured\n✅ ROSA CRDs deployed\n✅ Ready for cluster provisioning\n\nCompleted at ${completionTime}`
+          output: `CAPI/CAPA Configuration Complete\n\n✅ Cluster API controllers installed\n✅ AWS provider configured\n✅ ROSA CRDs deployed\n✅ Ready for cluster provisioning\n\nCompleted at ${completionTime}`,
         });
 
         // Refresh both component versions and resources
@@ -253,10 +261,11 @@ const MinikubeEnvironment = () => {
   const fetchComponentVersions = useCallback(async () => {
     try {
       // Get cluster name for the API call
-      const targetClusterName = verifiedMinikubeClusterInfo?.name ||
-                                 verifiedMinikubeClusterInfo?.cluster_name ||
-                                 selectedMinikubeCluster ||
-                                 minikubeClusterInput;
+      const targetClusterName =
+        verifiedMinikubeClusterInfo?.name ||
+        verifiedMinikubeClusterInfo?.cluster_name ||
+        selectedMinikubeCluster ||
+        minikubeClusterInput;
 
       // Build URL with query parameters
       const params = new URLSearchParams({ environment: 'minikube' });
@@ -287,28 +296,31 @@ const MinikubeEnvironment = () => {
   // Use fetched versions or fallback to defaults
   // Show "loading..." only if we have a verified cluster, otherwise show "not installed"
   const hasVerifiedCluster = !!verifiedMinikubeClusterInfo;
-  const capiComponents = componentVersions.length > 0 ? componentVersions : [
-    {
-      name: 'Cert Manager',
-      enabled: hasVerifiedCluster,
-      version: hasVerifiedCluster ? 'loading...' : 'not installed'
-    },
-    {
-      name: 'CAPI Controller',
-      enabled: hasVerifiedCluster,
-      version: hasVerifiedCluster ? 'loading...' : 'not installed'
-    },
-    {
-      name: 'CAPA Controller',
-      enabled: hasVerifiedCluster,
-      version: hasVerifiedCluster ? 'loading...' : 'not installed'
-    },
-    {
-      name: 'ROSA CRD',
-      enabled: hasVerifiedCluster,
-      version: hasVerifiedCluster ? 'loading...' : 'not installed'
-    }
-  ];
+  const capiComponents =
+    componentVersions.length > 0
+      ? componentVersions
+      : [
+          {
+            name: 'Cert Manager',
+            enabled: hasVerifiedCluster,
+            version: hasVerifiedCluster ? 'loading...' : 'not installed',
+          },
+          {
+            name: 'CAPI Controller',
+            enabled: hasVerifiedCluster,
+            version: hasVerifiedCluster ? 'loading...' : 'not installed',
+          },
+          {
+            name: 'CAPA Controller',
+            enabled: hasVerifiedCluster,
+            version: hasVerifiedCluster ? 'loading...' : 'not installed',
+          },
+          {
+            name: 'ROSA CRD',
+            enabled: hasVerifiedCluster,
+            version: hasVerifiedCluster ? 'loading...' : 'not installed',
+          },
+        ];
 
   const minikubeActions = [
     {
@@ -316,14 +328,14 @@ const MinikubeEnvironment = () => {
       icon: '✓',
       onClick: handleMinikubeVerification,
       disabled: minikubeLoading,
-      variant: 'primary'
+      variant: 'primary',
     },
     {
       label: 'Configure',
       icon: '⚙️',
       onClick: () => setShowConfigModal(true),
-      variant: 'primary'
-    }
+      variant: 'primary',
+    },
   ];
 
   // Custom Configure button with method selector
@@ -338,13 +350,16 @@ const MinikubeEnvironment = () => {
   // Handle configure click - always show modal to allow custom image configuration
   const handleConfigureClick = () => {
     // Get cluster name to check if it already has a known method
-    const targetClusterName = verifiedMinikubeClusterInfo?.name ||
-                              verifiedMinikubeClusterInfo?.cluster_name ||
-                              selectedMinikubeCluster ||
-                              minikubeClusterInput;
+    const targetClusterName =
+      verifiedMinikubeClusterInfo?.name ||
+      verifiedMinikubeClusterInfo?.cluster_name ||
+      selectedMinikubeCluster ||
+      minikubeClusterInput;
 
     // Check if this cluster already has a stored installation method
-    const clusterMethod = targetClusterName ? localStorage.getItem(`minikube-cluster-method-${targetClusterName}`) : null;
+    const clusterMethod = targetClusterName
+      ? localStorage.getItem(`minikube-cluster-method-${targetClusterName}`)
+      : null;
 
     if (clusterMethod) {
       // Cluster already has CAPI installed - show modal in reconfiguration mode
@@ -375,20 +390,23 @@ const MinikubeEnvironment = () => {
   };
 
   // Get cluster name to check if already configured
-  const configTargetClusterName = verifiedMinikubeClusterInfo?.name ||
-                                  verifiedMinikubeClusterInfo?.cluster_name ||
-                                  selectedMinikubeCluster ||
-                                  minikubeClusterInput;
-  const configClusterMethod = configTargetClusterName ? localStorage.getItem(`minikube-cluster-method-${configTargetClusterName}`) : null;
+  const configTargetClusterName =
+    verifiedMinikubeClusterInfo?.name ||
+    verifiedMinikubeClusterInfo?.cluster_name ||
+    selectedMinikubeCluster ||
+    minikubeClusterInput;
+  const configClusterMethod = configTargetClusterName
+    ? localStorage.getItem(`minikube-cluster-method-${configTargetClusterName}`)
+    : null;
   const isAlreadyConfigured = !!configClusterMethod;
 
   const componentActions = [
     {
-      label: isConfiguring ? 'Configuring...' : (isAlreadyConfigured ? 'Reconfigure' : 'Configure'),
+      label: isConfiguring ? 'Configuring...' : isAlreadyConfigured ? 'Reconfigure' : 'Configure',
       icon: '⚙️',
       onClick: handleConfigureClick,
       disabled: isConfiguring,
-      variant: 'primary'
+      variant: 'primary',
     },
     {
       label: 'Refresh',
@@ -421,17 +439,18 @@ const MinikubeEnvironment = () => {
           verifiedMinikubeClusterInfo?.namespace
         );
       },
-      variant: 'primary'
-    }
+      variant: 'primary',
+    },
   ];
 
   // Show configuration even if no cluster is verified yet
   const showFullConfig = !!verifiedMinikubeClusterInfo;
 
   // Check if there's a cluster creation in progress
-  const creatingClusterOp = recentOperations?.find(op =>
-    op.title?.startsWith('Create Minikube Cluster:') &&
-    (op.status?.includes('⏳') || op.status?.includes('Creating'))
+  const creatingClusterOp = recentOperations?.find(
+    (op) =>
+      op.title?.startsWith('Create Minikube Cluster:') &&
+      (op.status?.includes('⏳') || op.status?.includes('Creating'))
   );
 
   // Extract cluster name and method from creation operation if in progress
@@ -447,18 +466,25 @@ const MinikubeEnvironment = () => {
   }
 
   // Get cluster name from multiple sources - prioritize creating cluster
-  const clusterName = creatingClusterName ||
-                      verifiedMinikubeClusterInfo?.name ||
-                      verifiedMinikubeClusterInfo?.cluster_name ||
-                      selectedMinikubeCluster ||
-                      minikubeClusterInput;
+  const clusterName =
+    creatingClusterName ||
+    verifiedMinikubeClusterInfo?.name ||
+    verifiedMinikubeClusterInfo?.cluster_name ||
+    selectedMinikubeCluster ||
+    minikubeClusterInput;
 
   // Get stored installation method for this cluster - prioritize creating method
-  const displayClusterMethod = creatingMethod ||
-                               (clusterName ? localStorage.getItem(`minikube-cluster-method-${clusterName}`) : null);
-  const methodDisplay = displayClusterMethod === 'Helm' ? '📦 Helm' :
-                        displayClusterMethod === 'helm' ? '📦 Helm' :
-                        displayClusterMethod === 'clusterctl' ? '⚡ clusterctl' : '';
+  const displayClusterMethod =
+    creatingMethod ||
+    (clusterName ? localStorage.getItem(`minikube-cluster-method-${clusterName}`) : null);
+  const methodDisplay =
+    displayClusterMethod === 'Helm'
+      ? '📦 Helm'
+      : displayClusterMethod === 'helm'
+        ? '📦 Helm'
+        : displayClusterMethod === 'clusterctl'
+          ? '⚡ clusterctl'
+          : '';
 
   return (
     <>
@@ -491,12 +517,7 @@ const MinikubeEnvironment = () => {
               theme="minikube"
               title="Minikube Configuration"
               icon={
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -505,18 +526,25 @@ const MinikubeEnvironment = () => {
                   />
                 </svg>
               }
-              status={clusterName ? `🔷 ${clusterName}${methodDisplay ? ` (${methodDisplay})` : ''}` : 'No cluster selected'}
-              verificationStatus={creatingClusterOp ? 'Creating...' : showFullConfig ? 'Running' : 'Not configured'}
-              lastVerified={showFullConfig && minikubeVerificationResult?.verified_at ?
-                new Date(minikubeVerificationResult.verified_at).toLocaleString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                  hour: 'numeric',
-                  minute: '2-digit',
-                  hour12: true
-                }) :
-                null
+              status={
+                clusterName
+                  ? `🔷 ${clusterName}${methodDisplay ? ` (${methodDisplay})` : ''}`
+                  : 'No cluster selected'
+              }
+              verificationStatus={
+                creatingClusterOp ? 'Creating...' : showFullConfig ? 'Running' : 'Not configured'
+              }
+              lastVerified={
+                showFullConfig && minikubeVerificationResult?.verified_at
+                  ? new Date(minikubeVerificationResult.verified_at).toLocaleString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true,
+                    })
+                  : null
               }
               actions={minikubeActions}
             >
@@ -528,41 +556,55 @@ const MinikubeEnvironment = () => {
                       {verifiedMinikubeClusterInfo.name}
                     </h5>
 
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium text-gray-600">Status:</span>
-                      <div className="flex items-center mt-1">
-                        <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                        <span className="text-green-600">Running</span>
-                      </div>
-                    </div>
-
-                    {minikubeVerificationResult?.verified_at && (
+                    <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="font-medium text-gray-600">Last Verified:</span>
-                        <div className="mt-1 text-gray-700">
-                          {new Date(minikubeVerificationResult.verified_at).toLocaleString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: 'numeric',
-                            minute: '2-digit',
-                            hour12: true
-                          })}
+                        <span className="font-medium text-gray-600">Status:</span>
+                        <div className="flex items-center mt-1">
+                          <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                          <span className="text-green-600">Running</span>
                         </div>
                       </div>
-                    )}
-                  </div>
 
+                      {minikubeVerificationResult?.verified_at && (
+                        <div>
+                          <span className="font-medium text-gray-600">Last Verified:</span>
+                          <div className="mt-1 text-gray-700">
+                            {new Date(minikubeVerificationResult.verified_at).toLocaleString(
+                              'en-US',
+                              {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true,
+                              }
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
               ) : (
                 <div className="text-center py-8 bg-purple-50 rounded-lg border-2 border-dashed border-purple-200">
-                  <svg className="h-12 w-12 mx-auto mb-3 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  <svg
+                    className="h-12 w-12 mx-auto mb-3 text-purple-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                    />
                   </svg>
                   <p className="text-gray-700 font-medium mb-2">No Minikube Cluster Configured</p>
-                  <p className="text-sm text-gray-500 mb-4">Click "Configure" to select or create a Minikube cluster</p>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Click "Configure" to select or create a Minikube cluster
+                  </p>
                   <button
                     onClick={() => setShowConfigModal(true)}
                     className="px-4 py-2 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-lg hover:from-purple-700 hover:to-violet-700 transition-all font-medium text-sm shadow-md"
@@ -577,7 +619,7 @@ const MinikubeEnvironment = () => {
             <ComponentStatusCard
               theme="minikube"
               title="Components"
-              status={`${capiComponents.filter(c => c.enabled).length} configured`}
+              status={`${capiComponents.filter((c) => c.enabled).length} configured`}
               components={capiComponents}
               actions={componentActions}
             />
@@ -593,13 +635,13 @@ const MinikubeEnvironment = () => {
                   label: 'Provision',
                   icon: '❄️',
                   onClick: handleProvision,
-                  variant: 'primary'
+                  variant: 'primary',
                 },
                 {
                   label: 'Export',
                   icon: '📤',
                   onClick: () => console.log('Export clicked'),
-                  variant: 'primary'
+                  variant: 'primary',
                 },
                 {
                   label: 'Refresh',
@@ -631,8 +673,8 @@ const MinikubeEnvironment = () => {
                       verifiedMinikubeClusterInfo?.namespace
                     );
                   },
-                  variant: 'primary'
-                }
+                  variant: 'primary',
+                },
               ]}
             >
               {minikubeResourcesLoading ? (
@@ -648,21 +690,30 @@ const MinikubeEnvironment = () => {
               ) : (
                 <div className="space-y-2">
                   {minikubeActiveResources.slice(0, 5).map((resource, index) => (
-                    <div key={index} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
+                    <div
+                      key={index}
+                      className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0"
+                    >
                       <div>
                         <span className="font-medium">{resource.name || 'Unknown'}</span>
-                        <div className="text-sm text-gray-600">{resource.type || 'Unknown Type'}</div>
+                        <div className="text-sm text-gray-600">
+                          {resource.type || 'Unknown Type'}
+                        </div>
                       </div>
                       <div className="text-right text-sm">
-                        <div className={`inline-block px-2 py-1 rounded-full text-xs ${
-                          resource.status === 'Running' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                        }`}>
+                        <div
+                          className={`inline-block px-2 py-1 rounded-full text-xs ${
+                            resource.status === 'Running'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
                           {resource.status || 'Unknown'}
                         </div>
                       </div>
                     </div>
                   ))}
-                  
+
                   {minikubeActiveResources.length > 5 && (
                     <div className="text-center py-2 text-sm text-purple-600">
                       +{minikubeActiveResources.length - 5} more resources

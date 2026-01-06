@@ -9,14 +9,9 @@ const DraggableSection = ({ id, children }) => {
   const app = useApp();
   const theme = app.selectedEnvironment || 'mce';
 
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -51,7 +46,9 @@ const DraggableSection = ({ id, children }) => {
       ref={setNodeRef}
       style={style}
       className={`relative transition-all duration-300 group ml-2 ${
-        isDragging ? 'z-50 scale-105 shadow-2xl opacity-80' : 'z-0 hover:-translate-y-1 hover:shadow-xl'
+        isDragging
+          ? 'z-50 scale-105 shadow-2xl opacity-80'
+          : 'z-0 hover:-translate-y-1 hover:shadow-xl'
       }`}
     >
       {/* Drag Handle - Positioned to left of section */}
@@ -71,14 +68,10 @@ const DraggableSection = ({ id, children }) => {
       </div>
 
       {/* Section Content */}
-      <div className={isDragging ? 'pointer-events-none' : ''}>
-        {children}
-      </div>
+      <div className={isDragging ? 'pointer-events-none' : ''}>{children}</div>
 
       {/* Drop Shadow Overlay When Dragging */}
-      {isDragging && (
-        <div className={getOverlayClasses()} />
-      )}
+      {isDragging && <div className={getOverlayClasses()} />}
     </div>
   );
 };

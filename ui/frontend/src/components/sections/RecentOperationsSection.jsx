@@ -1,5 +1,11 @@
 import React from 'react';
-import { ClockIcon, ChevronDownIcon, ChevronUpIcon, DocumentTextIcon, TrashIcon } from '@heroicons/react/24/outline';
+import {
+  ClockIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  DocumentTextIcon,
+  TrashIcon,
+} from '@heroicons/react/24/outline';
 import { useRecentOperationsContext, useApp, useAppDispatch } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
 
@@ -12,7 +18,7 @@ const RecentOperationsSection = ({ theme = 'mce', environment }) => {
     recentOperations,
     recentOperationsCollapsed,
     recentOperationsOutputCollapsed,
-    clearRecentOperations
+    clearRecentOperations,
   } = recentOps;
 
   // Get theme colors
@@ -25,7 +31,7 @@ const RecentOperationsSection = ({ theme = 'mce', environment }) => {
           hoverGradient: 'hover:from-purple-700 hover:to-violet-700',
           border: 'border-purple-200',
           text: 'text-purple-900',
-          lightText: 'text-purple-600'
+          lightText: 'text-purple-600',
         };
       case 'mce':
       default:
@@ -35,7 +41,7 @@ const RecentOperationsSection = ({ theme = 'mce', environment }) => {
           hoverGradient: 'hover:from-cyan-700 hover:to-blue-700',
           border: 'border-cyan-200',
           text: 'text-cyan-900',
-          lightText: 'text-cyan-600'
+          lightText: 'text-cyan-600',
         };
     }
   };
@@ -43,8 +49,8 @@ const RecentOperationsSection = ({ theme = 'mce', environment }) => {
   const colors = getThemeColors();
 
   // Filter operations by environment if specified
-  const filteredOperations = environment 
-    ? recentOperations.filter(op => op.environment === environment)
+  const filteredOperations = environment
+    ? recentOperations.filter((op) => op.environment === environment)
     : recentOperations;
 
   const toggleOperationsSection = () => {
@@ -146,23 +152,21 @@ const RecentOperationsSection = ({ theme = 'mce', environment }) => {
                     <div className="flex items-start space-x-3 flex-1">
                       <div className="text-lg">{getStatusIcon(operation.status)}</div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-gray-900 truncate">
-                          {operation.title}
-                        </h4>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {operation.status}
-                        </p>
+                        <h4 className="font-medium text-gray-900 truncate">{operation.title}</h4>
+                        <p className="text-sm text-gray-600 mt-1">{operation.status}</p>
                         <p className="text-xs text-gray-500 mt-1">
                           {formatTimestamp(operation.timestamp)}
                         </p>
                       </div>
                     </div>
                     {operation.color && (
-                      <div className={`w-3 h-3 rounded-full ${operation.color} flex-shrink-0 mt-1`}></div>
+                      <div
+                        className={`w-3 h-3 rounded-full ${operation.color} flex-shrink-0 mt-1`}
+                      ></div>
                     )}
                   </div>
                 ))}
-                
+
                 {filteredOperations.length > 10 && (
                   <div className="text-center py-2 text-sm text-gray-500">
                     +{filteredOperations.length - 10} more operations
@@ -223,9 +227,7 @@ const RecentOperationsSection = ({ theme = 'mce', environment }) => {
                           <div className="text-cyan-400">
                             [{formatTimestamp(operation.timestamp)}] {operation.title}
                           </div>
-                          <div className="text-green-400 pl-4">
-                            {operation.status}
-                          </div>
+                          <div className="text-green-400 pl-4">{operation.status}</div>
                           {index < 4 && <div className="border-b border-gray-800 my-2"></div>}
                         </div>
                       ))}

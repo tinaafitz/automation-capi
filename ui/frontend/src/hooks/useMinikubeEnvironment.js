@@ -31,11 +31,11 @@ export const useMinikubeEnvironment = () => {
   });
   const [minikubeLoading, setMinikubeLoading] = useState(false);
   const [minikubeResourcesLoading, setMinikubeResourcesLoading] = useState(false);
-  
+
   // Sorting states
   const [minikubeSortField, setMinikubeSortField] = useState('type');
   const [minikubeSortDirection, setMinikubeSortDirection] = useState('asc');
-  
+
   // Collapse states
   const [minikubeConfigurationCollapsed, setMinikubeConfigurationCollapsed] = useState(false);
   const [minikubeOperationsOutputCollapsed, setMinikubeOperationsOutputCollapsed] = useState(false);
@@ -49,7 +49,9 @@ export const useMinikubeEnvironment = () => {
     }
 
     setMinikubeResourcesLoading(true);
-    console.log(`🔄 Fetching active resources for cluster: ${clusterName} in namespace: ${namespace}`);
+    console.log(
+      `🔄 Fetching active resources for cluster: ${clusterName} in namespace: ${namespace}`
+    );
 
     try {
       const timestamp = Date.now();
@@ -64,7 +66,7 @@ export const useMinikubeEnvironment = () => {
 
       const data = await response.json();
       console.log('✅ Active resources fetched:', data);
-      
+
       if (data.resources && Array.isArray(data.resources)) {
         setMinikubeActiveResources(data.resources);
       } else {
@@ -98,12 +100,17 @@ export const useMinikubeEnvironment = () => {
 
       const data = await response.json();
       console.log('✅ Minikube verification response:', data);
-      
+
       // Check if verification was successful - either success=true OR (exists=true AND accessible=true)
-      const isSuccessful = data.success === true || (data.exists === true && data.accessible === true);
+      const isSuccessful =
+        data.success === true || (data.exists === true && data.accessible === true);
 
       if (response.ok && isSuccessful) {
-        setMinikubeVerificationResult({ ...data, success: true, verified_at: new Date().toISOString() });
+        setMinikubeVerificationResult({
+          ...data,
+          success: true,
+          verified_at: new Date().toISOString(),
+        });
         setVerifiedMinikubeClusterInfo(data.cluster_info);
         setSelectedMinikubeCluster(clusterName);
 
@@ -133,7 +140,7 @@ export const useMinikubeEnvironment = () => {
       const response = await fetch('http://localhost:8000/api/minikube/list-clusters');
       const data = await response.json();
       console.log('✅ Minikube clusters fetched:', data);
-      
+
       if (data.clusters && Array.isArray(data.clusters)) {
         setMinikubeClusters(data.clusters);
       }
@@ -147,7 +154,7 @@ export const useMinikubeEnvironment = () => {
   const sortedMinikubeResources = [...minikubeActiveResources].sort((a, b) => {
     const aValue = a[minikubeSortField] || '';
     const bValue = b[minikubeSortField] || '';
-    
+
     if (minikubeSortDirection === 'asc') {
       return aValue.localeCompare(bValue);
     } else {
@@ -155,25 +162,35 @@ export const useMinikubeEnvironment = () => {
     }
   });
 
-  const handleMinikubeSort = useCallback((field) => {
-    if (minikubeSortField === field) {
-      setMinikubeSortDirection(minikubeSortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setMinikubeSortField(field);
-      setMinikubeSortDirection('asc');
-    }
-  }, [minikubeSortField, minikubeSortDirection]);
+  const handleMinikubeSort = useCallback(
+    (field) => {
+      if (minikubeSortField === field) {
+        setMinikubeSortDirection(minikubeSortDirection === 'asc' ? 'desc' : 'asc');
+      } else {
+        setMinikubeSortField(field);
+        setMinikubeSortDirection('asc');
+      }
+    },
+    [minikubeSortField, minikubeSortDirection]
+  );
 
   // Auto-fetch resources when cluster info changes
   useEffect(() => {
     if (verifiedMinikubeClusterInfo?.name && verifiedMinikubeClusterInfo?.namespace) {
-      console.log('📡 Auto-fetching active resources for verified cluster:', verifiedMinikubeClusterInfo.name);
+      console.log(
+        '📡 Auto-fetching active resources for verified cluster:',
+        verifiedMinikubeClusterInfo.name
+      );
       fetchMinikubeActiveResources(
         verifiedMinikubeClusterInfo.name,
         verifiedMinikubeClusterInfo.namespace
       ).catch((err) => console.error('Auto-fetch active resources failed:', err));
     }
-  }, [verifiedMinikubeClusterInfo?.name, verifiedMinikubeClusterInfo?.namespace, fetchMinikubeActiveResources]);
+  }, [
+    verifiedMinikubeClusterInfo?.name,
+    verifiedMinikubeClusterInfo?.namespace,
+    fetchMinikubeActiveResources,
+  ]);
 
   // Fetch clusters on mount
   useEffect(() => {
@@ -183,7 +200,10 @@ export const useMinikubeEnvironment = () => {
   // Persist verification state to localStorage
   useEffect(() => {
     if (minikubeVerificationResult) {
-      localStorage.setItem('minikube-verification-result', JSON.stringify(minikubeVerificationResult));
+      localStorage.setItem(
+        'minikube-verification-result',
+        JSON.stringify(minikubeVerificationResult)
+      );
     } else {
       localStorage.removeItem('minikube-verification-result');
     }
@@ -191,7 +211,10 @@ export const useMinikubeEnvironment = () => {
 
   useEffect(() => {
     if (verifiedMinikubeClusterInfo) {
-      localStorage.setItem('minikube-verified-cluster-info', JSON.stringify(verifiedMinikubeClusterInfo));
+      localStorage.setItem(
+        'minikube-verified-cluster-info',
+        JSON.stringify(verifiedMinikubeClusterInfo)
+      );
     } else {
       localStorage.removeItem('minikube-verified-cluster-info');
     }
@@ -214,26 +237,26 @@ export const useMinikubeEnvironment = () => {
     selectedMinikubeCluster,
     minikubeClusterInput,
     minikubeVerificationResult,
-    
+
     // Loading states
     minikubeLoading,
     minikubeResourcesLoading,
-    
+
     // Sorting
     minikubeSortField,
     minikubeSortDirection,
     handleMinikubeSort,
-    
+
     // Collapse states
     minikubeConfigurationCollapsed,
     minikubeOperationsOutputCollapsed,
     minikubeRecentOpsCollapsed,
-    
+
     // Actions
     fetchMinikubeActiveResources,
     verifyMinikubeCluster,
     fetchMinikubeClusters,
-    
+
     // Setters
     setMinikubeClusterInfo,
     setVerifiedMinikubeClusterInfo,
@@ -246,7 +269,7 @@ export const useMinikubeEnvironment = () => {
     setMinikubeOperationsOutputCollapsed,
     setMinikubeRecentOpsCollapsed,
     setMinikubeSortField,
-    setMinikubeSortDirection
+    setMinikubeSortDirection,
   };
 };
 

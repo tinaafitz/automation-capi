@@ -3,7 +3,7 @@ import {
   ChatBubbleLeftRightIcon,
   XMarkIcon,
   PaperAirplaneIcon,
-  SparklesIcon
+  SparklesIcon,
 } from '@heroicons/react/24/outline';
 
 export function AIAssistantChat() {
@@ -11,9 +11,10 @@ export function AIAssistantChat() {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: 'Hi! I\'m your ROSA cluster assistant. I can help you understand cluster status, troubleshoot issues, or explain CAPI concepts. What would you like to know?',
-      timestamp: new Date()
-    }
+      content:
+        "Hi! I'm your ROSA cluster assistant. I can help you understand cluster status, troubleshoot issues, or explain CAPI concepts. What would you like to know?",
+      timestamp: new Date(),
+    },
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -33,10 +34,10 @@ export function AIAssistantChat() {
     const userMessage = {
       role: 'user',
       content: input,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
 
@@ -53,9 +54,9 @@ export function AIAssistantChat() {
           message: input,
           context: {
             clusters: clustersData.clusters || [],
-            history: messages.slice(-5) // Last 5 messages for context
-          }
-        })
+            history: messages.slice(-5), // Last 5 messages for context
+          },
+        }),
       });
 
       const data = await response.json();
@@ -64,18 +65,18 @@ export function AIAssistantChat() {
         role: 'assistant',
         content: data.response,
         timestamp: new Date(),
-        suggestions: data.suggestions // Optional action suggestions
+        suggestions: data.suggestions, // Optional action suggestions
       };
 
-      setMessages(prev => [...prev, assistantMessage]);
+      setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
       const errorMessage = {
         role: 'assistant',
         content: 'Sorry, I encountered an error. Please try again.',
         timestamp: new Date(),
-        isError: true
+        isError: true,
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -107,7 +108,10 @@ export function AIAssistantChat() {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 w-96 h-[600px] bg-white rounded-lg shadow-2xl flex flex-col border border-gray-200" style={{ zIndex: 9999 }}>
+        <div
+          className="fixed bottom-6 right-6 w-96 h-[600px] bg-white rounded-lg shadow-2xl flex flex-col border border-gray-200"
+          style={{ zIndex: 9999 }}
+        >
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-4 py-3 rounded-t-lg flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -134,8 +138,8 @@ export function AIAssistantChat() {
                     message.role === 'user'
                       ? 'bg-blue-600 text-white'
                       : message.isError
-                      ? 'bg-red-50 text-red-900 border border-red-200'
-                      : 'bg-gray-100 text-gray-900'
+                        ? 'bg-red-50 text-red-900 border border-red-200'
+                        : 'bg-gray-100 text-gray-900'
                   }`}
                 >
                   <p className="text-sm whitespace-pre-wrap">{message.content}</p>
@@ -184,7 +188,7 @@ export function AIAssistantChat() {
                 'What clusters are running?',
                 'Troubleshoot failed cluster',
                 'Explain ROSA HCP',
-                'How to provision cluster?'
+                'How to provision cluster?',
               ].map((quick, idx) => (
                 <button
                   key={idx}

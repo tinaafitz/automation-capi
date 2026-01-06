@@ -9,7 +9,7 @@ const EnvironmentCard = ({
   isCollapsed = false,
   onToggle,
   className = '',
-  titleActions = null
+  titleActions = null,
 }) => {
   const themeConfig = themes[theme];
 
@@ -38,16 +38,26 @@ const EnvironmentCard = ({
         <div className="p-2 cursor-pointer" onClick={onToggle}>
           {isCollapsed ? (
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
             </svg>
           ) : (
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 15l7-7 7 7"
+              />
             </svg>
           )}
         </div>
       </div>
-      
+
       {/* Content */}
       {!isCollapsed && (
         <div className={`bg-gradient-to-br ${themeConfig.primary[50]} ${cardStyles.content}`}>

@@ -1,5 +1,10 @@
 import React, { useState } from 'react';
-import { DocumentTextIcon, ChevronDownIcon, ChevronUpIcon, DocumentDuplicateIcon } from '@heroicons/react/24/outline';
+import {
+  DocumentTextIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  DocumentDuplicateIcon,
+} from '@heroicons/react/24/outline';
 import { useApp, useAppDispatch, useRecentOperationsContext } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
 import { useJobHistory } from '../../hooks/useJobHistory';
@@ -12,29 +17,38 @@ const TaskDetailSection = ({ theme = 'mce', environment }) => {
   const [expandedOutputs, setExpandedOutputs] = useState(new Set());
 
   // Map jobs to look like recent operations for display
-  const jobOperations = jobHistory.map(job => ({
+  const jobOperations = jobHistory.map((job) => ({
     id: job.id,
     title: job.description || 'Job',
-    status: job.status === 'completed' ? `✅ ${job.message}` :
-            job.status === 'running' ? `⏳ ${job.message}` :
-            job.status === 'failed' ? `❌ ${job.message}` : job.message,
+    status:
+      job.status === 'completed'
+        ? `✅ ${job.message}`
+        : job.status === 'running'
+          ? `⏳ ${job.message}`
+          : job.status === 'failed'
+            ? `❌ ${job.message}`
+            : job.message,
     timestamp: new Date(job.created_at || job.started_at).getTime(),
-    environment: job.environment || (  // Use job.environment if set
-                 job.description?.toLowerCase().includes('rosa') ||
-                 job.description?.toLowerCase().includes('mce') ? 'mce' : 'minikube'),
+    environment:
+      job.environment || // Use job.environment if set
+      (job.description?.toLowerCase().includes('rosa') ||
+      job.description?.toLowerCase().includes('mce')
+        ? 'mce'
+        : 'minikube'),
     playbook: job.yaml_file,
-    output: job.logs?.join('\n') || ''
+    output: job.logs?.join('\n') || '',
   }));
 
   // Convert recent operations to have consistent timestamp format
-  const frontendOperations = recentOps.recentOperations.map(op => ({
+  const frontendOperations = recentOps.recentOperations.map((op) => ({
     ...op,
-    timestamp: typeof op.timestamp === 'string' ? new Date(op.timestamp).getTime() : op.timestamp
+    timestamp: typeof op.timestamp === 'string' ? new Date(op.timestamp).getTime() : op.timestamp,
   }));
 
   // Combine both sources and sort by timestamp
-  const recentOperations = [...jobOperations, ...frontendOperations]
-    .sort((a, b) => b.timestamp - a.timestamp);
+  const recentOperations = [...jobOperations, ...frontendOperations].sort(
+    (a, b) => b.timestamp - a.timestamp
+  );
 
   // Get theme colors
   const getThemeColors = () => {
@@ -44,7 +58,7 @@ const TaskDetailSection = ({ theme = 'mce', environment }) => {
           headerGradient: 'from-purple-600 to-violet-600',
           hoverGradient: 'hover:from-purple-700 hover:to-violet-700',
           border: 'border-purple-300',
-          accent: 'purple'
+          accent: 'purple',
         };
       case 'mce':
       default:
@@ -52,7 +66,7 @@ const TaskDetailSection = ({ theme = 'mce', environment }) => {
           headerGradient: 'from-cyan-600 to-blue-600',
           hoverGradient: 'hover:from-cyan-700 hover:to-blue-700',
           border: 'border-cyan-300',
-          accent: 'cyan'
+          accent: 'cyan',
         };
     }
   };
@@ -60,8 +74,8 @@ const TaskDetailSection = ({ theme = 'mce', environment }) => {
   const colors = getThemeColors();
 
   // Filter operations by environment if specified
-  const filteredOperations = environment 
-    ? recentOperations.filter(op => op.environment === environment)
+  const filteredOperations = environment
+    ? recentOperations.filter((op) => op.environment === environment)
     : recentOperations;
 
   const toggleSection = () => {
@@ -98,7 +112,7 @@ const TaskDetailSection = ({ theme = 'mce', environment }) => {
         return lines.join('\n');
       })
       .join('\n\n');
-    
+
     navigator.clipboard.writeText(outputText).then(() => {
       // Could add notification here
       console.log('Output copied to clipboard');
@@ -125,7 +139,7 @@ const TaskDetailSection = ({ theme = 'mce', environment }) => {
   };
 
   const toggleOutputDetails = (taskId) => {
-    setExpandedOutputs(prev => {
+    setExpandedOutputs((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(taskId)) {
         newSet.delete(taskId);
@@ -137,7 +151,9 @@ const TaskDetailSection = ({ theme = 'mce', environment }) => {
   };
 
   return (
-    <div className={`bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-xl shadow-2xl border-2 ${colors.border} overflow-hidden`}>
+    <div
+      className={`bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-xl shadow-2xl border-2 ${colors.border} overflow-hidden`}
+    >
       <div
         className={`bg-gradient-to-r ${colors.headerGradient} px-6 py-4 flex items-center justify-between cursor-pointer ${colors.hoverGradient} transition-all`}
         onClick={toggleSection}
@@ -186,76 +202,73 @@ const TaskDetailSection = ({ theme = 'mce', environment }) => {
               const hasOutput = operation.output && operation.output.trim().length > 0;
 
               return (
-            <div
-              key={taskId}
-              className="bg-gray-800/50 rounded-lg border border-gray-700 overflow-hidden"
-            >
-              <div className="p-4 space-y-3">
-                {/* Operation Title */}
-                <div className="flex items-start justify-between">
-                  <h4 className="text-white font-semibold text-lg">
-                    {operation.title}
-                  </h4>
-                  <span className="text-gray-400 text-sm whitespace-nowrap ml-4">
-                    {formatTimestamp(operation.timestamp)}
-                  </span>
-                </div>
+                <div
+                  key={taskId}
+                  className="bg-gray-800/50 rounded-lg border border-gray-700 overflow-hidden"
+                >
+                  <div className="p-4 space-y-3">
+                    {/* Operation Title */}
+                    <div className="flex items-start justify-between">
+                      <h4 className="text-white font-semibold text-lg">{operation.title}</h4>
+                      <span className="text-gray-400 text-sm whitespace-nowrap ml-4">
+                        {formatTimestamp(operation.timestamp)}
+                      </span>
+                    </div>
 
-                {/* Playbook Info */}
-                {operation.playbook && (
-                  <div className="flex items-center space-x-2 text-sm">
-                    <span className="text-gray-400">📋</span>
-                    <span className="text-gray-300 font-mono">{operation.playbook}</span>
+                    {/* Playbook Info */}
+                    {operation.playbook && (
+                      <div className="flex items-center space-x-2 text-sm">
+                        <span className="text-gray-400">📋</span>
+                        <span className="text-gray-300 font-mono">{operation.playbook}</span>
+                      </div>
+                    )}
+
+                    {/* Status and View Details Button */}
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                          operation.status?.includes('✅') ||
+                          operation.status?.toLowerCase().includes('success')
+                            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                            : operation.status?.includes('❌') ||
+                                operation.status?.toLowerCase().includes('failed')
+                              ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                              : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                        }`}
+                      >
+                        {operation.status}
+                      </span>
+
+                      {hasOutput && (
+                        <button
+                          onClick={() => toggleOutputDetails(taskId)}
+                          className={`px-3 py-1.5 rounded-lg transition-colors text-xs font-medium flex items-center space-x-1 ${
+                            isExpanded
+                              ? 'bg-cyan-600 text-white'
+                              : 'bg-cyan-900/30 text-cyan-400 hover:bg-cyan-800/50'
+                          }`}
+                        >
+                          <DocumentTextIcon className="h-4 w-4" />
+                          <span>{isExpanded ? 'Hide Details' : 'View Details'}</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
-                )}
 
-                {/* Status and View Details Button */}
-                <div className="flex items-center justify-between">
-                  <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                      operation.status?.includes('✅') ||
-                      operation.status?.toLowerCase().includes('success')
-                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                        : operation.status?.includes('❌') ||
-                            operation.status?.toLowerCase().includes('failed')
-                          ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                          : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                    }`}
-                  >
-                    {operation.status}
-                  </span>
-
-                  {hasOutput && (
-                    <button
-                      onClick={() => toggleOutputDetails(taskId)}
-                      className={`px-3 py-1.5 rounded-lg transition-colors text-xs font-medium flex items-center space-x-1 ${
-                        isExpanded
-                          ? 'bg-cyan-600 text-white'
-                          : 'bg-cyan-900/30 text-cyan-400 hover:bg-cyan-800/50'
-                      }`}
-                    >
-                      <DocumentTextIcon className="h-4 w-4" />
-                      <span>{isExpanded ? 'Hide Details' : 'View Details'}</span>
-                    </button>
+                  {/* Collapsible Output Details */}
+                  {isExpanded && hasOutput && (
+                    <div className="border-t border-gray-700 bg-gray-900/50 p-4">
+                      <pre className="text-sm text-gray-300 font-mono whitespace-pre-wrap">
+                        {operation.output}
+                      </pre>
+                    </div>
                   )}
                 </div>
-              </div>
-
-              {/* Collapsible Output Details */}
-              {isExpanded && hasOutput && (
-                <div className="border-t border-gray-700 bg-gray-900/50 p-4">
-                  <pre className="text-sm text-gray-300 font-mono whitespace-pre-wrap">
-                    {operation.output}
-                  </pre>
-                </div>
-              )}
-            </div>
               );
             })
           )}
         </div>
       )}
-
     </div>
   );
 };

@@ -336,89 +336,106 @@ export function WhatCanIHelp() {
   const [testSuiteCollapsed, setTestSuiteCollapsed] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState('4.21');
   const [testItems, setTestItems] = useState([
-    { 
-      id: 1, 
-      name: 'Comprehensive Cluster Configuration', 
-      category: 'Infrastructure', 
-      priority: 'P1', 
-      phase: 'Day1', 
-      selected: false, 
-      status: 'pending', 
-      duration: null, 
+    {
+      id: 1,
+      name: 'Comprehensive Cluster Configuration',
+      category: 'Infrastructure',
+      priority: 'P1',
+      phase: 'Day1',
+      selected: false,
+      status: 'pending',
+      duration: null,
       lastRun: null,
       jira: ['ACM-20464', 'ACM-20465', 'ACM-20467', 'ACM-20473', 'ACM-20480', 'ACM-20475'],
       description: 'Private + BYON + STS + Long Name + Availability Zones + Additional Tags',
-      components: ['Private Network', 'BYON', 'STS', 'Long Cluster Name', 'Availability Zones', 'Additional Tags']
+      components: [
+        'Private Network',
+        'BYON',
+        'STS',
+        'Long Cluster Name',
+        'Availability Zones',
+        'Additional Tags',
+      ],
     },
-    { 
-      id: 2, 
-      name: 'Security & Authentication Suite', 
-      category: 'Security', 
-      priority: 'P1', 
-      phase: 'Day1', 
-      selected: false, 
-      status: 'pending', 
-      duration: null, 
+    {
+      id: 2,
+      name: 'Security & Authentication Suite',
+      category: 'Security',
+      priority: 'P1',
+      phase: 'Day1',
+      selected: false,
+      status: 'pending',
+      duration: null,
       lastRun: null,
       jira: ['ACM-20481', 'ACM-20707'],
       description: 'Identity Provider + External OIDC + Security Groups + KMS',
-      components: ['Identity Provider', 'External OIDC', 'Additional Security Groups', 'ETCD KMS Key']
+      components: [
+        'Identity Provider',
+        'External OIDC',
+        'Additional Security Groups',
+        'ETCD KMS Key',
+      ],
     },
-    { 
-      id: 3, 
-      name: 'Machine Pool & Auto-Scaling Suite', 
-      category: 'Scaling', 
-      priority: 'P1', 
-      phase: 'Day1', 
-      selected: false, 
-      status: 'pending', 
-      duration: null, 
+    {
+      id: 3,
+      name: 'Machine Pool & Auto-Scaling Suite',
+      category: 'Scaling',
+      priority: 'P1',
+      phase: 'Day1',
+      selected: false,
+      status: 'pending',
+      duration: null,
       lastRun: null,
       jira: ['ACM-20468', 'ACM-21076', 'ACM-21203'],
       description: 'All auto-scaling features + parallel upgrades',
-      components: ['Default Machinepool Auto Scaling', 'Machine Pool Auto Scaling', 'Parallel Node Upgrade', 'Cluster Autoscaler Expanders']
+      components: [
+        'Default Machinepool Auto Scaling',
+        'Machine Pool Auto Scaling',
+        'Parallel Node Upgrade',
+        'Cluster Autoscaler Expanders',
+      ],
     },
-    { 
-      id: 4, 
-      name: 'Network & Connectivity Suite', 
-      category: 'Networking', 
-      priority: 'P1', 
-      phase: 'Day1', 
-      selected: false, 
-      status: 'pending', 
-      duration: null, 
+    {
+      id: 4,
+      name: 'Network & Connectivity Suite',
+      category: 'Networking',
+      priority: 'P1',
+      phase: 'Day1',
+      selected: false,
+      status: 'pending',
+      duration: null,
       lastRun: null,
       jira: ['ACM-20474'],
       description: 'CNI + Proxy + Audit logging configuration',
-      components: ['No CNI Plugin', 'Proxy Enabled', 'Audit Log Forwarding']
+      components: ['No CNI Plugin', 'Proxy Enabled', 'Audit Log Forwarding'],
     },
-    { 
-      id: 5, 
-      name: 'Storage & Registry Configuration', 
-      category: 'Storage', 
-      priority: 'P1', 
-      phase: 'Day1', 
-      selected: false, 
-      status: 'pending', 
-      duration: null, 
+    {
+      id: 5,
+      name: 'Storage & Registry Configuration',
+      category: 'Storage',
+      priority: 'P1',
+      phase: 'Day1',
+      selected: false,
+      status: 'pending',
+      duration: null,
       lastRun: null,
       jira: ['ACM-21204', 'ACM-21207'],
       description: 'Image registry + disk volume configuration',
-      components: ['Image Registry Config', 'Machinepool Disk Volume Size']
+      components: ['Image Registry Config', 'Machinepool Disk Volume Size'],
     },
-    { 
-      id: 6, 
-      name: 'Domain & User Agent Configuration', 
-      category: 'Configuration', 
-      priority: 'P1', 
-      phase: 'Day1', 
-      selected: false, 
-      status: 'pending', 
-      duration: null, 
+    {
+      id: 6,
+      name: 'Domain & User Agent Configuration',
+      category: 'Configuration',
+      priority: 'P1',
+      phase: 'Day1',
+      selected: false,
+      status: 'pending',
+      duration: null,
       lastRun: null,
       jira: ['ACM-21075', 'ACM-21202'],
       description: 'Domain prefix + ROSA CAPA user agent',
-      components: ['Domain Prefix', 'User Agent for ROSA CAPA']
+      components: ['Domain Prefix', 'User Agent for ROSA CAPA'],
     },
     {
       id: 7,
@@ -432,7 +449,7 @@ export function WhatCanIHelp() {
       lastRun: null,
       jira: [],
       description: 'Comprehensive Day2 operations testing',
-      components: ['Cluster Management', 'Node Operations', 'Application Deployment', 'Monitoring']
+      components: ['Cluster Management', 'Node Operations', 'Application Deployment', 'Monitoring'],
     },
     {
       id: 8,
@@ -446,8 +463,8 @@ export function WhatCanIHelp() {
       lastRun: null,
       jira: ['ACM-21162', 'ACM-21174'],
       description: 'ROSA HCP cluster with automated network and role configuration',
-      components: ['ROSANetwork', 'ROSARoleConfig', 'Availability Zones']
-    }
+      components: ['ROSANetwork', 'ROSARoleConfig', 'Availability Zones'],
+    },
   ]);
   const [testRunning, setTestRunning] = useState(false);
   const [testResults, setTestResults] = useState([]);
@@ -594,7 +611,7 @@ export function WhatCanIHelp() {
   const [showMceCredentialsModal, setShowMceCredentialsModal] = useState(false);
   const [mceCredentials, setMceCredentials] = useState({
     apiServer: '',
-    password: ''
+    password: '',
   });
   const [credentialWarning, setCredentialWarning] = useState(null);
   const [mceFeaturesLoading, setMceFeaturesLoading] = useState(false);
@@ -628,7 +645,6 @@ export function WhatCanIHelp() {
     if (!configStatus?.configured) return 'Configuration incomplete';
     return '';
   };
-
 
   const handleMinikubeClusterSelected = async ({ cluster_name, verificationData }) => {
     try {
@@ -690,7 +706,6 @@ export function WhatCanIHelp() {
     }
   };
 
-
   // Fetch provisioned ROSA clusters from OCP/MCE
   const fetchRosaClusters = async () => {
     setRosaClustersLoading(true);
@@ -719,16 +734,18 @@ export function WhatCanIHelp() {
     if (!confirm(`Are you sure you want to delete cluster "${clusterName}"?`)) {
       return;
     }
-    
+
     try {
       const response = await fetch(`http://localhost:8000/api/clusters/${clusterName}`, {
         method: 'DELETE',
       });
       const data = await response.json();
-      
+
       if (data.job_id) {
         // Show success message that deletion has started
-        alert(`✅ Cluster deletion started successfully!\n\nJob ID: ${data.job_id}\n\nThe cluster will be deleted in the background. You can monitor progress in the cluster list.`);
+        alert(
+          `✅ Cluster deletion started successfully!\n\nJob ID: ${data.job_id}\n\nThe cluster will be deleted in the background. You can monitor progress in the cluster list.`
+        );
         // Refresh clusters list after successful deletion start
         fetchClusters();
       } else {
@@ -1179,7 +1196,6 @@ export function WhatCanIHelp() {
     );
   };
 
-
   // Wrapper function for automation actions that checks prerequisites
   const executeAutomationAction = (action, actionName = 'automation action') => {
     if (isAutomationDisabled()) {
@@ -1213,7 +1229,9 @@ export function WhatCanIHelp() {
       try {
         console.log('🔍 Fetching OCP status on mount...');
         const timestamp = Date.now();
-        const response = await fetch(`http://localhost:8000/api/ocp/connection-status?t=${timestamp}`);
+        const response = await fetch(
+          `http://localhost:8000/api/ocp/connection-status?t=${timestamp}`
+        );
         const data = await response.json();
         console.log('✅ OCP status received:', data);
         setOcpStatus(data);
@@ -1298,7 +1316,6 @@ export function WhatCanIHelp() {
       console.error('❌ Error saving ansibleResults to localStorage:', error);
     }
   }, [ansibleResults]);
-
 
   // Save verifiedMinikubeClusterInfo to localStorage
   useEffect(() => {
@@ -2385,7 +2402,6 @@ export function WhatCanIHelp() {
     if (storedPrefix) {
       setSavedPrefix(storedPrefix);
     }
-
   }, []);
 
   const userFriendlyCategories = [
@@ -3298,51 +3314,51 @@ export function WhatCanIHelp() {
                         try {
                           // Verify MCE environment by refreshing data and validating connectivity
                           const timestamp = Date.now();
-                          
+
                           // Refresh MCE features data
                           const mceResponse = await fetch(
                             `http://localhost:8000/api/mce/features?t=${timestamp}`
                           );
                           const mceData = await mceResponse.json();
-                          
+
                           // Refresh OCP connection status
                           const ocpResponse = await fetch(
                             `http://localhost:8000/api/ocp/connection-status?t=${timestamp}`
                           );
                           const ocpData = await ocpResponse.json();
-                          
+
                           // Update states with fresh data
                           if (mceResponse.ok) {
                             setMceFeatures(mceData.features || []);
                             setMceInfo(mceData.mce_info || null);
                           }
-                          
+
                           if (ocpResponse.ok) {
                             setOcpStatus(ocpData);
                           }
-                          
+
                           // Store verification timestamp in ansible results
                           const verificationTimestamp = new Date().toISOString();
                           const newResult = {
                             timestamp: verificationTimestamp,
                             result: {
                               output: 'MCE Environment verified successfully',
-                              success: true
-                            }
+                              success: true,
+                            },
                           };
-                          
-                          setAnsibleResults(prev => ({
+
+                          setAnsibleResults((prev) => ({
                             ...prev,
-                            'validate-mce-environment': newResult
+                            'validate-mce-environment': newResult,
                           }));
-                          
+
                           // Update localStorage
                           const updatedResults = {
                             ...JSON.parse(localStorage.getItem('ansibleResults') || '{}'),
-                            'validate-mce-environment': newResult
+                            'validate-mce-environment': newResult,
                           };
                           localStorage.setItem('ansibleResults', JSON.stringify(updatedResults));
-                          
+
                           // Get completion time with seconds
                           const completionTime = new Date().toLocaleTimeString('en-US', {
                             hour: 'numeric',
@@ -3355,10 +3371,9 @@ export function WhatCanIHelp() {
                             verifyId,
                             `✅ MCE Environment verified at ${completionTime}`
                           );
-                          
                         } catch (error) {
                           console.error('MCE Environment verification failed:', error);
-                          
+
                           // Get completion time with seconds for error
                           const completionTime = new Date().toLocaleTimeString('en-US', {
                             hour: 'numeric',
@@ -3366,7 +3381,7 @@ export function WhatCanIHelp() {
                             second: '2-digit',
                             hour12: true,
                           });
-                          
+
                           updateRecentOperationStatus(
                             verifyId,
                             `❌ MCE Environment verification failed at ${completionTime}: ${error.message}`
@@ -5032,19 +5047,20 @@ export function WhatCanIHelp() {
                                     } else {
                                       // Handle validation failure with detailed output
                                       console.log('Validation failed with detailed output:', data);
-                                      
+
                                       // Update results with failure info including detailed output
                                       setAnsibleResults((prev) => ({
                                         ...prev,
                                         'check-mce-components': {
                                           loading: false,
-                                          result: { 
-                                            success: false, 
-                                            output: data.output || data.error || 'Validation failed',
+                                          result: {
+                                            success: false,
+                                            output:
+                                              data.output || data.error || 'Validation failed',
                                             error: data.error || 'Validation task failed',
                                             return_code: data.return_code,
                                             stderr: data.stderr,
-                                            stdout_lines: data.stdout_lines
+                                            stdout_lines: data.stdout_lines,
                                           },
                                           timestamp: new Date(),
                                         },
@@ -5056,29 +5072,43 @@ export function WhatCanIHelp() {
                                         if (updated[0]?.title === 'MCE Environment Verification') {
                                           // Extract the actual error message from Ansible output
                                           let errorSummary = 'Validation failed';
-                                          
+
                                           if (data.output) {
                                             // Look for the actual failure message in the output
                                             const lines = data.output.split('\n');
                                             for (const line of lines) {
                                               // Look for the fail task message
-                                              if (line.includes('❌ ENVIRONMENT NEEDS TO BE CONFIGURED') || 
-                                                  line.includes('❌ OCP LOGIN FAILED') ||
-                                                  line.includes('CAPI controller') ||
-                                                  line.includes('CAPA controller')) {
-                                                errorSummary = line.trim().replace(/^.*"msg":\s*"([^"]+)".*$/, '$1') || line.trim();
+                                              if (
+                                                line.includes(
+                                                  '❌ ENVIRONMENT NEEDS TO BE CONFIGURED'
+                                                ) ||
+                                                line.includes('❌ OCP LOGIN FAILED') ||
+                                                line.includes('CAPI controller') ||
+                                                line.includes('CAPA controller')
+                                              ) {
+                                                errorSummary =
+                                                  line
+                                                    .trim()
+                                                    .replace(/^.*"msg":\s*"([^"]+)".*$/, '$1') ||
+                                                  line.trim();
                                                 // Clean up JSON formatting if present
-                                                errorSummary = errorSummary.replace(/^"(.*)"$/, '$1');
+                                                errorSummary = errorSummary.replace(
+                                                  /^"(.*)"$/,
+                                                  '$1'
+                                                );
                                                 // Take just the first line of multi-line messages
                                                 errorSummary = errorSummary.split('\\n')[0];
                                                 break;
                                               }
                                             }
-                                            
+
                                             // If we couldn't find a specific error, look for the "FAILED!" line
                                             if (errorSummary === 'Validation failed') {
                                               for (const line of lines) {
-                                                if (line.includes('FAILED!') && line.includes('"msg":')) {
+                                                if (
+                                                  line.includes('FAILED!') &&
+                                                  line.includes('"msg":')
+                                                ) {
                                                   const msgMatch = line.match(/"msg":\s*"([^"]+)"/);
                                                   if (msgMatch) {
                                                     errorSummary = msgMatch[1].split('\\n')[0];
@@ -5088,29 +5118,39 @@ export function WhatCanIHelp() {
                                               }
                                             }
                                           }
-                                          
+
                                           // Fallback to data.error if we still don't have a good message
                                           if (errorSummary === 'Validation failed' && data.error) {
                                             errorSummary = data.error;
                                           }
-                                          
+
                                           // Use cleaner message for environment configuration issues
                                           let statusMessage;
-                                          if (errorSummary.includes('❌ ENVIRONMENT NEEDS TO BE CONFIGURED') || 
-                                              errorSummary.includes('CAPI controller not found') ||
-                                              errorSummary.includes('CAPA controller not found') ||
-                                              errorSummary.includes('Fail if CAPI controller not found')) {
-                                            statusMessage = '❌ ENVIRONMENT NEEDS TO BE CONFIGURED ❌';
+                                          if (
+                                            errorSummary.includes(
+                                              '❌ ENVIRONMENT NEEDS TO BE CONFIGURED'
+                                            ) ||
+                                            errorSummary.includes('CAPI controller not found') ||
+                                            errorSummary.includes('CAPA controller not found') ||
+                                            errorSummary.includes(
+                                              'Fail if CAPI controller not found'
+                                            )
+                                          ) {
+                                            statusMessage =
+                                              '❌ ENVIRONMENT NEEDS TO BE CONFIGURED ❌';
                                           } else if (errorSummary.includes('❌ OCP LOGIN FAILED')) {
                                             statusMessage = '❌ OCP LOGIN FAILED ❌';
                                           } else {
                                             statusMessage = `❌ Verification failed at ${new Date().toLocaleTimeString()}: ${errorSummary}`;
                                           }
-                                          
+
                                           updated[0] = {
                                             ...updated[0],
                                             status: statusMessage,
-                                            output: data.output || data.error || 'Validation failed - see details below',
+                                            output:
+                                              data.output ||
+                                              data.error ||
+                                              'Validation failed - see details below',
                                             playbook: `📋 Ansible Task: tasks/validate-capa-environment.yml\n\n${data.output || data.error || 'No detailed output available'}`,
                                           };
                                         }
@@ -5122,7 +5162,7 @@ export function WhatCanIHelp() {
                                         'error',
                                         5000
                                       );
-                                      
+
                                       // Don't throw error here since we've handled the failure state properly
                                     }
                                   } catch (error) {
@@ -5168,22 +5208,25 @@ export function WhatCanIHelp() {
                                   // Load existing credentials from backend and localStorage when modal opens
                                   try {
                                     // First try to load from backend/current configuration
-                                    const response = await fetch('http://localhost:8000/api/ocp/connection-status');
+                                    const response = await fetch(
+                                      'http://localhost:8000/api/ocp/connection-status'
+                                    );
                                     const ocpData = await response.json();
-                                    
+
                                     if (ocpData.api_url) {
                                       setMceCredentials({
                                         apiServer: ocpData.api_url || '',
-                                        password: '' // Don't pre-fill password for security
+                                        password: '', // Don't pre-fill password for security
                                       });
                                     } else {
                                       // Fallback to localStorage
-                                      const savedCredentials = localStorage.getItem('mceCredentials');
+                                      const savedCredentials =
+                                        localStorage.getItem('mceCredentials');
                                       if (savedCredentials) {
                                         const parsed = JSON.parse(savedCredentials);
                                         setMceCredentials({
                                           apiServer: parsed.apiServer || '',
-                                          password: '' // Don't pre-fill password for security
+                                          password: '', // Don't pre-fill password for security
                                         });
                                       }
                                     }
@@ -5191,16 +5234,20 @@ export function WhatCanIHelp() {
                                     console.error('Failed to load existing credentials:', error);
                                     // Try localStorage as fallback
                                     try {
-                                      const savedCredentials = localStorage.getItem('mceCredentials');
+                                      const savedCredentials =
+                                        localStorage.getItem('mceCredentials');
                                       if (savedCredentials) {
                                         const parsed = JSON.parse(savedCredentials);
                                         setMceCredentials({
                                           apiServer: parsed.apiServer || '',
-                                          password: ''
+                                          password: '',
                                         });
                                       }
                                     } catch (localError) {
-                                      console.error('Failed to load from localStorage:', localError);
+                                      console.error(
+                                        'Failed to load from localStorage:',
+                                        localError
+                                      );
                                     }
                                   }
                                   setShowMceCredentialsModal(true);
@@ -5262,7 +5309,7 @@ export function WhatCanIHelp() {
                                     );
                                   } catch (error) {
                                     console.error('Error refreshing MCE data:', error);
-                                    
+
                                     // Update recent operation status with error
                                     setRecentOperations((prev) => {
                                       const updated = [...prev];
@@ -5299,30 +5346,35 @@ export function WhatCanIHelp() {
                                 onClick={async () => {
                                   try {
                                     console.log('Fetching MCE YAML...');
-                                    const response = await fetch('http://localhost:8000/api/ocp/execute-command', {
-                                      method: 'POST',
-                                      headers: {
-                                        'Content-Type': 'application/json',
-                                      },
-                                      body: JSON.stringify({
-                                        command: `oc get multiclusterengine ${mceInfo?.name || 'multiclusterengine'} -o yaml`,
-                                        description: 'Get MCE YAML'
-                                      }),
-                                    });
+                                    const response = await fetch(
+                                      'http://localhost:8000/api/ocp/execute-command',
+                                      {
+                                        method: 'POST',
+                                        headers: {
+                                          'Content-Type': 'application/json',
+                                        },
+                                        body: JSON.stringify({
+                                          command: `oc get multiclusterengine ${mceInfo?.name || 'multiclusterengine'} -o yaml`,
+                                          description: 'Get MCE YAML',
+                                        }),
+                                      }
+                                    );
 
                                     const data = await response.json();
-                                    
+
                                     if (response.ok && data.output) {
                                       // Show in modal
                                       setMceYamlData({
                                         type: 'MultiClusterEngine',
                                         name: mceInfo?.name || 'multiclusterengine',
                                         namespace: 'N/A (Cluster-scoped)',
-                                        yaml: data.output
+                                        yaml: data.output,
                                       });
                                       setShowMceYamlModal(true);
                                     } else {
-                                      alert(`Failed to fetch MCE YAML: ${data.error || 'Unknown error'}`);
+                                      alert(
+                                        `Failed to fetch MCE YAML: ${data.error || 'Unknown error'}`
+                                      );
                                     }
                                   } catch (error) {
                                     console.error('Error fetching MCE YAML:', error);
@@ -5343,7 +5395,6 @@ export function WhatCanIHelp() {
                                 </span>
                               </div>
                             </div>
-
 
                             <div className="space-y-2">
                               {/* API Server */}
@@ -5672,9 +5723,7 @@ export function WhatCanIHelp() {
                                 timestamp: timestamp,
                                 playbook: 'Ansible Role: configure-capa-environment',
                               };
-                              setRecentOperations((prev) =>
-                                [newOperation, ...prev].slice(0, 10)
-                              );
+                              setRecentOperations((prev) => [newOperation, ...prev].slice(0, 10));
 
                               try {
                                 console.log('Running configure-capa-environment role...');
@@ -5702,9 +5751,7 @@ export function WhatCanIHelp() {
                                   // Update recent operation status with output
                                   setRecentOperations((prev) => {
                                     const updated = [...prev];
-                                    if (
-                                      updated[0]?.title === 'Configure CAPI/CAPA Environment'
-                                    ) {
+                                    if (updated[0]?.title === 'Configure CAPI/CAPA Environment') {
                                       updated[0] = {
                                         ...updated[0],
                                         status: `✅ Configuration completed successfully at ${new Date().toLocaleTimeString()}`,
@@ -5724,13 +5771,15 @@ export function WhatCanIHelp() {
                                   // Update recent operation status with error and output
                                   setRecentOperations((prev) => {
                                     const updated = [...prev];
-                                    if (
-                                      updated[0]?.title === 'Configure CAPI/CAPA Environment'
-                                    ) {
+                                    if (updated[0]?.title === 'Configure CAPI/CAPA Environment') {
                                       updated[0] = {
                                         ...updated[0],
                                         status: `❌ Configuration failed at ${new Date().toLocaleTimeString()}`,
-                                        output: data.output || data.error || data.stderr || 'No ansible output available',
+                                        output:
+                                          data.output ||
+                                          data.error ||
+                                          data.stderr ||
+                                          'No ansible output available',
                                         playbook: `📋 Ansible Role: configure-capa-environment\n\n${data.output || data.error || data.stderr || 'No detailed output available'}`,
                                       };
                                     }
@@ -5744,10 +5793,7 @@ export function WhatCanIHelp() {
                                   );
                                 }
                               } catch (error) {
-                                console.error(
-                                  'Error configuring CAPI/CAPA environment:',
-                                  error
-                                );
+                                console.error('Error configuring CAPI/CAPA environment:', error);
 
                                 // Update recent operation status with error and output
                                 setRecentOperations((prev) => {
@@ -5780,7 +5826,9 @@ export function WhatCanIHelp() {
                             onClick={async () => {
                               setMceFeaturesLoading(true);
                               try {
-                                const response = await fetch('http://localhost:8000/api/mce/features');
+                                const response = await fetch(
+                                  'http://localhost:8000/api/mce/features'
+                                );
                                 const data = await response.json();
                                 setMceFeatures(data.features || []);
                                 setMceInfo(data.mce_info || null);
@@ -5795,7 +5843,9 @@ export function WhatCanIHelp() {
                             className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors duration-200 font-medium flex items-center gap-1.5 disabled:opacity-50"
                             title="Refresh CAPI/CAPA components"
                           >
-                            <ArrowPathIcon className={`h-3 w-3 ${mceFeaturesLoading ? 'animate-spin' : ''}`} />
+                            <ArrowPathIcon
+                              className={`h-3 w-3 ${mceFeaturesLoading ? 'animate-spin' : ''}`}
+                            />
                             <span>Refresh</span>
                           </button>
                         </div>
@@ -5894,13 +5944,17 @@ export function WhatCanIHelp() {
                                     <span
                                       className={`text-xs font-mono px-2 py-1 rounded ${
                                         component.version
-                                          ? (component.enabled ? 'text-blue-700 bg-blue-100' : 'text-amber-700 bg-amber-100')
+                                          ? component.enabled
+                                            ? 'text-blue-700 bg-blue-100'
+                                            : 'text-amber-700 bg-amber-100'
                                           : 'text-gray-600 bg-gray-100'
                                       }`}
                                     >
-                                      {component.version 
-                                        ? `v${component.version}` 
-                                        : (component.enabled ? 'Enabled' : 'Disabled')}
+                                      {component.version
+                                        ? `v${component.version}`
+                                        : component.enabled
+                                          ? 'Enabled'
+                                          : 'Disabled'}
                                     </span>
                                   </div>
                                 </div>
@@ -5910,77 +5964,95 @@ export function WhatCanIHelp() {
 
                           {/* Additional Components Status Lists */}
                           {(() => {
-                            const capiComponents = (mceFeatures?.filter((f) => 
-                              f.name.startsWith('cluster-api')
-                            ) || []).sort((a, b) => (b.enabled ? 1 : 0) - (a.enabled ? 1 : 0));
-                            const hypershiftComponents = (mceFeatures?.filter((f) => 
-                              f.name.startsWith('hypershift')
-                            ) || []).sort((a, b) => (b.enabled ? 1 : 0) - (a.enabled ? 1 : 0));
-                            
+                            const capiComponents = (
+                              mceFeatures?.filter((f) => f.name.startsWith('cluster-api')) || []
+                            ).sort((a, b) => (b.enabled ? 1 : 0) - (a.enabled ? 1 : 0));
+                            const hypershiftComponents = (
+                              mceFeatures?.filter((f) => f.name.startsWith('hypershift')) || []
+                            ).sort((a, b) => (b.enabled ? 1 : 0) - (a.enabled ? 1 : 0));
+
                             return (
                               <>
                                 {/* CAPI Components Box */}
                                 <div className="bg-white rounded-md p-3 border border-cyan-100">
-                                  <div className="text-sm font-medium text-cyan-700 mb-2">All CAPI Components Status</div>
+                                  <div className="text-sm font-medium text-cyan-700 mb-2">
+                                    All CAPI Components Status
+                                  </div>
                                   <div className="space-y-1">
-                                    {capiComponents.length > 0 ? capiComponents.map((component, index) => (
-                                      <div key={index} className="flex items-center justify-between text-xs">
-                                        <span className="text-gray-700">{component.name}</span>
-                                        <svg
-                                          className={`h-4 w-4 ${component.enabled ? 'text-green-600' : 'text-red-600'}`}
-                                          fill="currentColor"
-                                          viewBox="0 0 20 20"
+                                    {capiComponents.length > 0 ? (
+                                      capiComponents.map((component, index) => (
+                                        <div
+                                          key={index}
+                                          className="flex items-center justify-between text-xs"
                                         >
-                                          {component.enabled ? (
-                                            <path
-                                              fillRule="evenodd"
-                                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                              clipRule="evenodd"
-                                            />
-                                          ) : (
-                                            <path
-                                              fillRule="evenodd"
-                                              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                                              clipRule="evenodd"
-                                            />
-                                          )}
-                                        </svg>
+                                          <span className="text-gray-700">{component.name}</span>
+                                          <svg
+                                            className={`h-4 w-4 ${component.enabled ? 'text-green-600' : 'text-red-600'}`}
+                                            fill="currentColor"
+                                            viewBox="0 0 20 20"
+                                          >
+                                            {component.enabled ? (
+                                              <path
+                                                fillRule="evenodd"
+                                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                                clipRule="evenodd"
+                                              />
+                                            ) : (
+                                              <path
+                                                fillRule="evenodd"
+                                                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                                clipRule="evenodd"
+                                              />
+                                            )}
+                                          </svg>
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <div className="text-xs text-gray-500 text-center py-2">
+                                        No CAPI components found
                                       </div>
-                                    )) : (
-                                      <div className="text-xs text-gray-500 text-center py-2">No CAPI components found</div>
                                     )}
                                   </div>
                                 </div>
-                                
+
                                 {/* Hypershift Components Box */}
                                 <div className="bg-white rounded-md p-3 border border-cyan-100">
-                                  <div className="text-sm font-medium text-cyan-700 mb-2">Hypershift Components Status</div>
+                                  <div className="text-sm font-medium text-cyan-700 mb-2">
+                                    Hypershift Components Status
+                                  </div>
                                   <div className="space-y-1">
-                                    {hypershiftComponents.length > 0 ? hypershiftComponents.map((component, index) => (
-                                      <div key={index} className="flex items-center justify-between text-xs">
-                                        <span className="text-gray-700">{component.name}</span>
-                                        <svg
-                                          className={`h-4 w-4 ${component.enabled ? 'text-green-600' : 'text-red-600'}`}
-                                          fill="currentColor"
-                                          viewBox="0 0 20 20"
+                                    {hypershiftComponents.length > 0 ? (
+                                      hypershiftComponents.map((component, index) => (
+                                        <div
+                                          key={index}
+                                          className="flex items-center justify-between text-xs"
                                         >
-                                          {component.enabled ? (
-                                            <path
-                                              fillRule="evenodd"
-                                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                              clipRule="evenodd"
-                                            />
-                                          ) : (
-                                            <path
-                                              fillRule="evenodd"
-                                              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                                              clipRule="evenodd"
-                                            />
-                                          )}
-                                        </svg>
+                                          <span className="text-gray-700">{component.name}</span>
+                                          <svg
+                                            className={`h-4 w-4 ${component.enabled ? 'text-green-600' : 'text-red-600'}`}
+                                            fill="currentColor"
+                                            viewBox="0 0 20 20"
+                                          >
+                                            {component.enabled ? (
+                                              <path
+                                                fillRule="evenodd"
+                                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                                clipRule="evenodd"
+                                              />
+                                            ) : (
+                                              <path
+                                                fillRule="evenodd"
+                                                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                                clipRule="evenodd"
+                                              />
+                                            )}
+                                          </svg>
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <div className="text-xs text-gray-500 text-center py-2">
+                                        No Hypershift components found
                                       </div>
-                                    )) : (
-                                      <div className="text-xs text-gray-500 text-center py-2">No Hypershift components found</div>
                                     )}
                                   </div>
                                 </div>
@@ -6061,13 +6133,16 @@ export function WhatCanIHelp() {
                                 const yamls = [];
                                 for (const resource of mceActiveResources) {
                                   try {
-                                    const response = await fetch('http://localhost:8000/api/ocp/execute-command', {
-                                      method: 'POST',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({
-                                        command: `oc get ${resource.type} ${resource.name} ${resource.namespace ? `-n ${resource.namespace}` : ''} -o yaml`,
-                                      }),
-                                    });
+                                    const response = await fetch(
+                                      'http://localhost:8000/api/ocp/execute-command',
+                                      {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                          command: `oc get ${resource.type} ${resource.name} ${resource.namespace ? `-n ${resource.namespace}` : ''} -o yaml`,
+                                        }),
+                                      }
+                                    );
 
                                     const result = await response.json();
                                     if (result.success && result.output) {
@@ -6078,11 +6153,14 @@ export function WhatCanIHelp() {
                                       });
                                     }
                                   } catch (error) {
-                                    console.error(`Failed to export ${resource.type} ${resource.name}:`, error);
+                                    console.error(
+                                      `Failed to export ${resource.type} ${resource.name}:`,
+                                      error
+                                    );
                                   }
                                 }
 
-                                let exportContent = 
+                                let exportContent =
                                   '# MCE Active Resources Export (REDACTED)\n' +
                                   '# This export contains redacted versions of MCE active resources\n' +
                                   '# All sensitive data has been removed for security\n' +
@@ -6094,7 +6172,7 @@ export function WhatCanIHelp() {
 
                                 if (includeComponents && mceFeatures && mceFeatures.length > 0) {
                                   exportContent += '# MCE Key Components\n';
-                                  mceFeatures.forEach(feature => {
+                                  mceFeatures.forEach((feature) => {
                                     exportContent += `# ${feature.name}: ${feature.enabled ? 'Enabled' : 'Disabled'}${feature.version ? ` (${feature.version})` : ''}\n`;
                                   });
                                   exportContent += '# \n---\n\n';
@@ -6119,21 +6197,32 @@ export function WhatCanIHelp() {
                                 URL.revokeObjectURL(url);
 
                                 const completionTime = new Date().toLocaleString();
-                                updateRecentOperationStatus(operationId, `✅ Exported ${yamls.length} MCE resources successfully at ${completionTime}`);
+                                updateRecentOperationStatus(
+                                  operationId,
+                                  `✅ Exported ${yamls.length} MCE resources successfully at ${completionTime}`
+                                );
 
                                 setTimeout(() => {
-                                  updateRecentOperationStatus(operationId, `✅ Exported ${yamls.length} MCE resources at ${completionTime}`);
+                                  updateRecentOperationStatus(
+                                    operationId,
+                                    `✅ Exported ${yamls.length} MCE resources at ${completionTime}`
+                                  );
                                 }, 2000);
-
                               } catch (error) {
                                 console.error('MCE Export error:', error);
                                 const completionTime = new Date().toLocaleString();
-                                
+
                                 if (operationId) {
-                                  updateRecentOperationStatus(operationId, `❌ MCE Export failed at ${completionTime}`);
+                                  updateRecentOperationStatus(
+                                    operationId,
+                                    `❌ MCE Export failed at ${completionTime}`
+                                  );
 
                                   setTimeout(() => {
-                                    updateRecentOperationStatus(operationId, `❌ MCE Export failed at ${completionTime}`);
+                                    updateRecentOperationStatus(
+                                      operationId,
+                                      `❌ MCE Export failed at ${completionTime}`
+                                    );
                                   }, 2000);
                                 }
 
@@ -6196,7 +6285,10 @@ export function WhatCanIHelp() {
                                         key={idx}
                                         className="border-b border-cyan-100 last:border-0 hover:bg-cyan-100 transition-colors cursor-pointer"
                                         onClick={() => {
-                                          console.log('🖱️ [RESOURCE-CLICK] Clicked on resource:', resource);
+                                          console.log(
+                                            '🖱️ [RESOURCE-CLICK] Clicked on resource:',
+                                            resource
+                                          );
                                           fetchOcpResourceDetail(
                                             resource.type,
                                             resource.name,
@@ -6260,123 +6352,139 @@ export function WhatCanIHelp() {
           {/* Collapsible Content */}
           {!clusterStatusCollapsed && (
             <div className="bg-white p-6">
+              {clustersError && (
+                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-red-800">{clustersError}</p>
+                </div>
+              )}
 
-            {clustersError && (
-              <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
-                <p className="text-red-800">{clustersError}</p>
-              </div>
-            )}
-
-            {clustersLoading && clusters.length === 0 ? (
-              <div className="text-center py-12">
-                <ArrowPathIcon className="h-12 w-12 text-cyan-400 animate-spin mx-auto mb-4" />
-                <p className="text-gray-600">Loading clusters...</p>
-              </div>
-            ) : clusters.length === 0 ? (
-              <div className="bg-cyan-50 rounded-lg border border-cyan-200 p-12 text-center">
-                <p className="text-gray-600 text-lg">No clusters found</p>
-                <p className="text-gray-500 mt-2">
-                  Provision your first ROSA HCP cluster to get started
-                </p>
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg border border-cyan-200 overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gradient-to-r from-cyan-600 to-blue-600">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
-                        Cluster Name
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
-                        Progress
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
-                        Version
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
-                        Region
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
-                        Created
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {clusters.map((cluster) => (
-                      <tr key={cluster.name} className="hover:bg-cyan-50 transition-colors duration-150">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-semibold text-gray-900">{cluster.name}</div>
-                          <div className="text-xs text-gray-500 font-mono">{cluster.domain_prefix}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              cluster.status === 'ready'
-                                ? 'bg-green-100 text-green-800'
-                                : cluster.status === 'provisioning'
-                                  ? 'bg-yellow-100 text-yellow-800'
-                                  : cluster.status === 'failed'
-                                    ? 'bg-red-100 text-red-800'
-                                    : 'bg-gray-100 text-gray-800'
-                            }`}
-                          >
-                            {cluster.status === 'ready' ? '✅' : cluster.status === 'provisioning' ? '⏳' : cluster.status === 'failed' ? '❌' : '⬜'}{' '}
-                            {cluster.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <div className="w-24 bg-gray-200 rounded-full h-2">
-                              <div
-                                className={`h-2 rounded-full ${
-                                  cluster.status === 'ready'
-                                    ? 'bg-green-600'
-                                    : cluster.status === 'failed'
-                                      ? 'bg-red-600'
-                                      : 'bg-yellow-600'
-                                }`}
-                                style={{ width: `${cluster.progress || 0}%` }}
-                              />
-                            </div>
-                            <span className="text-sm text-gray-600">{cluster.progress || 0}%</span>
-                          </div>
-                          {cluster.error_message && (
-                            <div className="text-xs text-red-600 mt-1 max-w-xs truncate">
-                              {cluster.error_message}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {cluster.version}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {cluster.region}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {cluster.created_at ? new Date(cluster.created_at).toLocaleString() : 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <button
-                            onClick={() => handleDeleteCluster(cluster.name)}
-                            className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-700 bg-red-100 border border-red-300 rounded hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
-                            title={`Delete cluster ${cluster.name}`}
-                          >
-                            <TrashIcon className="h-3 w-3 mr-1" />
-                            Delete
-                          </button>
-                        </td>
+              {clustersLoading && clusters.length === 0 ? (
+                <div className="text-center py-12">
+                  <ArrowPathIcon className="h-12 w-12 text-cyan-400 animate-spin mx-auto mb-4" />
+                  <p className="text-gray-600">Loading clusters...</p>
+                </div>
+              ) : clusters.length === 0 ? (
+                <div className="bg-cyan-50 rounded-lg border border-cyan-200 p-12 text-center">
+                  <p className="text-gray-600 text-lg">No clusters found</p>
+                  <p className="text-gray-500 mt-2">
+                    Provision your first ROSA HCP cluster to get started
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-white rounded-lg border border-cyan-200 overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gradient-to-r from-cyan-600 to-blue-600">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
+                          Cluster Name
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
+                          Progress
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
+                          Version
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
+                          Region
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
+                          Created
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {clusters.map((cluster) => (
+                        <tr
+                          key={cluster.name}
+                          className="hover:bg-cyan-50 transition-colors duration-150"
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-semibold text-gray-900">
+                              {cluster.name}
+                            </div>
+                            <div className="text-xs text-gray-500 font-mono">
+                              {cluster.domain_prefix}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                cluster.status === 'ready'
+                                  ? 'bg-green-100 text-green-800'
+                                  : cluster.status === 'provisioning'
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : cluster.status === 'failed'
+                                      ? 'bg-red-100 text-red-800'
+                                      : 'bg-gray-100 text-gray-800'
+                              }`}
+                            >
+                              {cluster.status === 'ready'
+                                ? '✅'
+                                : cluster.status === 'provisioning'
+                                  ? '⏳'
+                                  : cluster.status === 'failed'
+                                    ? '❌'
+                                    : '⬜'}{' '}
+                              {cluster.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <div className="w-24 bg-gray-200 rounded-full h-2">
+                                <div
+                                  className={`h-2 rounded-full ${
+                                    cluster.status === 'ready'
+                                      ? 'bg-green-600'
+                                      : cluster.status === 'failed'
+                                        ? 'bg-red-600'
+                                        : 'bg-yellow-600'
+                                  }`}
+                                  style={{ width: `${cluster.progress || 0}%` }}
+                                />
+                              </div>
+                              <span className="text-sm text-gray-600">
+                                {cluster.progress || 0}%
+                              </span>
+                            </div>
+                            {cluster.error_message && (
+                              <div className="text-xs text-red-600 mt-1 max-w-xs truncate">
+                                {cluster.error_message}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {cluster.version}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {cluster.region}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {cluster.created_at
+                              ? new Date(cluster.created_at).toLocaleString()
+                              : 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <button
+                              onClick={() => handleDeleteCluster(cluster.name)}
+                              className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-700 bg-red-100 border border-red-300 rounded hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
+                              title={`Delete cluster ${cluster.name}`}
+                            >
+                              <TrashIcon className="h-3 w-3 mr-1" />
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -6562,7 +6670,11 @@ export function WhatCanIHelp() {
                       </div>
                       <div className="space-y-1">
                         <button
-                          onClick={() => setMceTerminalCommand('oc logs -n multicluster-engine $(oc get pod -n multicluster-engine | grep capa | awk \'{print $1}\')')}
+                          onClick={() =>
+                            setMceTerminalCommand(
+                              "oc logs -n multicluster-engine $(oc get pod -n multicluster-engine | grep capa | awk '{print $1}')"
+                            )
+                          }
                           className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
                         >
                           CAPA Pod Log
@@ -6628,7 +6740,9 @@ export function WhatCanIHelp() {
                           Describe Control Planes
                         </button>
                         <button
-                          onClick={() => setMceTerminalCommand('oc get cluster.cluster.x-k8s.io -A')}
+                          onClick={() =>
+                            setMceTerminalCommand('oc get cluster.cluster.x-k8s.io -A')
+                          }
                           className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
                         >
                           CAPI Clusters Status
@@ -6640,7 +6754,9 @@ export function WhatCanIHelp() {
                           ROSA CLI List
                         </button>
                         <button
-                          onClick={() => setMceTerminalCommand('watch "oc get rosacontrolplane -A -o wide"')}
+                          onClick={() =>
+                            setMceTerminalCommand('watch "oc get rosacontrolplane -A -o wide"')
+                          }
                           className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg transition-colors"
                         >
                           Watch Provisioning
@@ -6818,8 +6934,16 @@ export function WhatCanIHelp() {
                 <div className="mb-6 bg-gradient-to-r from-blue-50 to-cyan-50 border-l-4 border-blue-400 p-4 rounded-lg">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      <svg
+                        className="h-5 w-5 text-blue-500"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     </div>
                     <div className="ml-3">
@@ -6837,9 +6961,7 @@ export function WhatCanIHelp() {
               {/* Version Selector and Actions */}
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
                 <div className="flex items-center gap-4">
-                  <label className="text-sm font-medium text-gray-700">
-                    OpenShift Version:
-                  </label>
+                  <label className="text-sm font-medium text-gray-700">OpenShift Version:</label>
                   <select
                     value={selectedVersion}
                     onChange={(e) => setSelectedVersion(e.target.value)}
@@ -6855,49 +6977,61 @@ export function WhatCanIHelp() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => {
-                      const allSelected = testItems.every(item => item.selected);
-                      setTestItems(prev => prev.map(item => ({
-                        ...item,
-                        selected: !allSelected
-                      })));
+                      const allSelected = testItems.every((item) => item.selected);
+                      setTestItems((prev) =>
+                        prev.map((item) => ({
+                          ...item,
+                          selected: !allSelected,
+                        }))
+                      );
                     }}
                     className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors text-sm font-medium"
                   >
-                    {testItems.every(item => item.selected) ? 'Deselect All' : 'Select All'}
+                    {testItems.every((item) => item.selected) ? 'Deselect All' : 'Select All'}
                   </button>
                   <button
                     onClick={() => {
                       // Check prerequisites first
                       if (isAutomationDisabled()) {
-                        const friendlyMessage = !rosaStatus?.authenticated 
-                          ? "🔐 Please sign in to ROSA first before running tests"
-                          : "⚙️ Please complete your configuration setup before running tests";
+                        const friendlyMessage = !rosaStatus?.authenticated
+                          ? '🔐 Please sign in to ROSA first before running tests'
+                          : '⚙️ Please complete your configuration setup before running tests';
+                        addNotification(friendlyMessage, 'warning', 6000);
+                        return;
+                      }
+
+                      const selectedTests = testItems.filter((item) => item.selected);
+                      if (selectedTests.length === 0) {
                         addNotification(
-                          friendlyMessage,
+                          '⚠️ Please select at least one test suite',
                           'warning',
-                          6000
+                          3000
                         );
                         return;
                       }
-                      
-                      const selectedTests = testItems.filter(item => item.selected);
-                      if (selectedTests.length === 0) {
-                        addNotification('⚠️ Please select at least one test suite', 'warning', 3000);
-                        return;
-                      }
-                      
+
                       if (selectedTests.length === 1) {
                         // Single test suite selected - store it and open existing provisioning modal
                         setSelectedTestSuite(selectedTests[0]);
                         setShowProvisionModal(true);
                       } else if (selectedTests.length > 1) {
                         // Multiple test suites - show warning
-                        addNotification('⚠️ Please provision one test suite at a time for proper configuration', 'warning', 5000);
+                        addNotification(
+                          '⚠️ Please provision one test suite at a time for proper configuration',
+                          'warning',
+                          5000
+                        );
                       }
                     }}
-                    disabled={testRunning || testItems.filter(item => item.selected).length === 0 || isAutomationDisabled()}
+                    disabled={
+                      testRunning ||
+                      testItems.filter((item) => item.selected).length === 0 ||
+                      isAutomationDisabled()
+                    }
                     className="px-6 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                    title={isAutomationDisabled() ? `Prerequisites required: ${getDisabledReason()}` : ''}
+                    title={
+                      isAutomationDisabled() ? `Prerequisites required: ${getDisabledReason()}` : ''
+                    }
                   >
                     {testRunning ? '⏳ Provisioning...' : '🚀 Provision & Test Selected'}
                   </button>
@@ -6912,7 +7046,8 @@ export function WhatCanIHelp() {
                     <span className="text-blue-800 font-medium">Test execution in progress...</span>
                   </div>
                   <div className="text-sm text-blue-700">
-                    Running tests for OpenShift {selectedVersion} • {testItems.filter(item => item.status === 'running').length} active
+                    Running tests for OpenShift {selectedVersion} •{' '}
+                    {testItems.filter((item) => item.status === 'running').length} active
                   </div>
                 </div>
               )}
@@ -6923,15 +7058,17 @@ export function WhatCanIHelp() {
                   <div
                     key={test.id}
                     className={`p-4 rounded-lg border transition-all cursor-pointer ${
-                      test.selected 
-                        ? 'border-purple-300 bg-purple-50 shadow-md' 
+                      test.selected
+                        ? 'border-purple-300 bg-purple-50 shadow-md'
                         : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
                     }`}
                     onClick={() => {
                       if (!testRunning) {
-                        setTestItems(prev => prev.map(item =>
-                          item.id === test.id ? { ...item, selected: !item.selected } : item
-                        ));
+                        setTestItems((prev) =>
+                          prev.map((item) =>
+                            item.id === test.id ? { ...item, selected: !item.selected } : item
+                          )
+                        );
                       }
                     }}
                   >
@@ -6943,102 +7080,118 @@ export function WhatCanIHelp() {
                         onChange={() => {}}
                         className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
                       />
-                      <h4 className="font-semibold text-gray-900 text-sm leading-tight flex-1">{test.name}</h4>
+                      <h4 className="font-semibold text-gray-900 text-sm leading-tight flex-1">
+                        {test.name}
+                      </h4>
                     </div>
-                    
+
                     {/* Description */}
                     {test.description && (
-                      <p className="text-xs text-gray-600 mb-3 line-clamp-2">
-                        {test.description}
-                      </p>
+                      <p className="text-xs text-gray-600 mb-3 line-clamp-2">{test.description}</p>
                     )}
-                    
+
                     {/* Card Content */}
                     <div className="space-y-3">
-                        {/* Priority and Phase Badges */}
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                            test.priority === 'P1' 
-                              ? 'bg-red-100 text-red-800' 
+                      {/* Priority and Phase Badges */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full font-medium ${
+                            test.priority === 'P1'
+                              ? 'bg-red-100 text-red-800'
                               : 'bg-gray-100 text-gray-600'
-                          }`}>
-                            {test.priority}
-                          </span>
-                          <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                            test.phase === 'Day1' 
-                              ? 'bg-blue-100 text-blue-800' 
+                          }`}
+                        >
+                          {test.priority}
+                        </span>
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full font-medium ${
+                            test.phase === 'Day1'
+                              ? 'bg-blue-100 text-blue-800'
                               : 'bg-purple-100 text-purple-800'
-                          }`}>
-                            {test.phase}
+                          }`}
+                        >
+                          {test.phase}
+                        </span>
+                      </div>
+
+                      {/* JIRA Tickets (Compact) */}
+                      {test.jira && test.jira.length > 0 && (
+                        <div className="mb-2">
+                          <span className="text-xs text-gray-500 font-medium">JIRA: </span>
+                          <span className="text-xs text-gray-700">
+                            {Array.isArray(test.jira) ? `${test.jira.length} tickets` : test.jira}
                           </span>
                         </div>
+                      )}
 
-                        {/* JIRA Tickets (Compact) */}
-                        {test.jira && test.jira.length > 0 && (
-                          <div className="mb-2">
-                            <span className="text-xs text-gray-500 font-medium">JIRA: </span>
-                            <span className="text-xs text-gray-700">
-                              {Array.isArray(test.jira) ? `${test.jira.length} tickets` : test.jira}
-                            </span>
-                          </div>
-                        )}
-                        
-                        {/* Components */}
-                        {test.components && (
-                          <div className="mb-2">
-                            <div className="text-xs text-gray-500 font-medium mb-1">Components:</div>
-                            <div className="flex flex-wrap gap-1">
-                                  {test.components.map((component, index) => (
-                                    <span key={index} className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs font-medium">
-                                      {component}
-                                    </span>
-                                  ))}
-                                </div>
-                            </div>
-                        )}
-                        
-                        {/* Status and Run Info */}
-                        <div className="mt-auto pt-2 border-t border-gray-100">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              {test.status === 'running' && (
-                                <div className="flex items-center gap-1">
-                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
-                                  <span className="text-xs text-blue-600 font-medium">Running</span>
-                                </div>
-                              )}
-                              {test.status === 'passed' && (
-                                <div className="flex items-center gap-1">
-                                  <div className="text-green-600 text-sm">✅</div>
-                                  <span className="text-xs text-green-600 font-medium">Passed</span>
-                                </div>
-                              )}
-                              {test.status === 'failed' && (
-                                <div className="flex items-center gap-1">
-                                  <div className="text-red-600 text-sm">❌</div>
-                                  <span className="text-xs text-red-600 font-medium">Failed</span>
-                                </div>
-                              )}
-                              {test.status === 'completed' && (
-                                <div className="flex items-center gap-1">
-                                  <div className="text-green-600 text-sm">✅</div>
-                                  <span className="text-xs text-green-600 font-medium">Complete</span>
-                                </div>
-                              )}
-                            </div>
-                            
-                            <div className="text-xs text-gray-500">
-                              {test.lastRun ? (
-                                <div className="text-right">
-                                  <div>{test.duration ? `${Math.floor(test.duration / 60000)}m ${Math.floor((test.duration % 60000) / 1000)}s` : ''}</div>
-                                  <div>{new Date(test.lastRun).toLocaleString('en-US', { month: 'short', day: 'numeric' })}</div>
-                                </div>
-                              ) : (
-                                <span>Never run</span>
-                              )}
-                            </div>
+                      {/* Components */}
+                      {test.components && (
+                        <div className="mb-2">
+                          <div className="text-xs text-gray-500 font-medium mb-1">Components:</div>
+                          <div className="flex flex-wrap gap-1">
+                            {test.components.map((component, index) => (
+                              <span
+                                key={index}
+                                className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs font-medium"
+                              >
+                                {component}
+                              </span>
+                            ))}
                           </div>
                         </div>
+                      )}
+
+                      {/* Status and Run Info */}
+                      <div className="mt-auto pt-2 border-t border-gray-100">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {test.status === 'running' && (
+                              <div className="flex items-center gap-1">
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                                <span className="text-xs text-blue-600 font-medium">Running</span>
+                              </div>
+                            )}
+                            {test.status === 'passed' && (
+                              <div className="flex items-center gap-1">
+                                <div className="text-green-600 text-sm">✅</div>
+                                <span className="text-xs text-green-600 font-medium">Passed</span>
+                              </div>
+                            )}
+                            {test.status === 'failed' && (
+                              <div className="flex items-center gap-1">
+                                <div className="text-red-600 text-sm">❌</div>
+                                <span className="text-xs text-red-600 font-medium">Failed</span>
+                              </div>
+                            )}
+                            {test.status === 'completed' && (
+                              <div className="flex items-center gap-1">
+                                <div className="text-green-600 text-sm">✅</div>
+                                <span className="text-xs text-green-600 font-medium">Complete</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="text-xs text-gray-500">
+                            {test.lastRun ? (
+                              <div className="text-right">
+                                <div>
+                                  {test.duration
+                                    ? `${Math.floor(test.duration / 60000)}m ${Math.floor((test.duration % 60000) / 1000)}s`
+                                    : ''}
+                                </div>
+                                <div>
+                                  {new Date(test.lastRun).toLocaleString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                  })}
+                                </div>
+                              </div>
+                            ) : (
+                              <span>Never run</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -7047,31 +7200,28 @@ export function WhatCanIHelp() {
               {/* Test Results Summary */}
               <div className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white p-4 rounded-lg border border-gray-200">
-                  <div className="text-2xl font-bold text-gray-900">
-                    {testItems.length}
-                  </div>
+                  <div className="text-2xl font-bold text-gray-900">{testItems.length}</div>
                   <div className="text-sm text-gray-600">Total Tests</div>
                 </div>
                 <div className="bg-green-50 p-4 rounded-lg border border-green-200">
                   <div className="text-2xl font-bold text-green-800">
-                    {testItems.filter(item => item.status === 'passed').length}
+                    {testItems.filter((item) => item.status === 'passed').length}
                   </div>
                   <div className="text-sm text-green-600">Passed</div>
                 </div>
                 <div className="bg-red-50 p-4 rounded-lg border border-red-200">
                   <div className="text-2xl font-bold text-red-800">
-                    {testItems.filter(item => item.status === 'failed').length}
+                    {testItems.filter((item) => item.status === 'failed').length}
                   </div>
                   <div className="text-sm text-red-600">Failed</div>
                 </div>
                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                   <div className="text-2xl font-bold text-blue-800">
-                    {testItems.filter(item => item.selected).length}
+                    {testItems.filter((item) => item.selected).length}
                   </div>
                   <div className="text-sm text-blue-600">Selected</div>
                 </div>
               </div>
-
             </div>
           )}
         </div>
@@ -8405,7 +8555,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
         </div>
       )}
 
-
       {/* Minikube Cluster Configuration Modal */}
       <MinikubeClusterModal
         isOpen={showMinikubeConfigModal}
@@ -8437,16 +8586,18 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
         testSuite={selectedTestSuite}
         onSubmit={async (config) => {
           console.log('🚀 [PROVISION] onSubmit handler called with config:', config);
-          
+
           // Update test suite status to running
           if (selectedTestSuite) {
-            setTestItems(prev => prev.map(item => 
-              item.id === selectedTestSuite.id 
-                ? { ...item, status: 'running', selected: false, duration: Date.now() }
-                : item
-            ));
+            setTestItems((prev) =>
+              prev.map((item) =>
+                item.id === selectedTestSuite.id
+                  ? { ...item, status: 'running', selected: false, duration: Date.now() }
+                  : item
+              )
+            );
           }
-          
+
           try {
             // Call generate-yaml API to get YAML preview
             console.log('📤 [GENERATE-YAML] Calling API to generate YAML preview');
@@ -8484,25 +8635,29 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
             console.log('✅ [GENERATE-YAML] Opening YAML editor modal');
           } catch (error) {
             console.error('❌ [PROVISION] Error generating YAML:', error);
-            
+
             // Update test suite status to failed on YAML generation error
             if (selectedTestSuite) {
-              const startTime = testItems.find(item => item.id === selectedTestSuite.id)?.duration;
+              const startTime = testItems.find(
+                (item) => item.id === selectedTestSuite.id
+              )?.duration;
               const duration = startTime ? Date.now() - startTime : null;
-              
-              setTestItems(prev => prev.map(item => 
-                item.id === selectedTestSuite.id 
-                  ? { 
-                      ...item, 
-                      status: 'failed', 
-                      duration: duration,
-                      lastRun: Date.now(),
-                      selected: false
-                    }
-                  : item
-              ));
+
+              setTestItems((prev) =>
+                prev.map((item) =>
+                  item.id === selectedTestSuite.id
+                    ? {
+                        ...item,
+                        status: 'failed',
+                        duration: duration,
+                        lastRun: Date.now(),
+                        selected: false,
+                      }
+                    : item
+                )
+              );
             }
-            
+
             alert(`Error generating YAML: ${error.message}`);
             // Re-open the modal if there was an error
             setShowProvisionModal(true);
@@ -8549,7 +8704,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 yaml_content: editedYaml,
                 cluster_name: yamlEditorData?.cluster_name,
                 feature_type: yamlEditorData?.feature_type,
-                cluster_context: yamlEditorData?.cluster_context,  // Minikube cluster name for kubectl --context
+                cluster_context: yamlEditorData?.cluster_context, // Minikube cluster name for kubectl --context
               }),
             });
 
@@ -8602,20 +8757,24 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                   // Update test suite status based on job result
                   if (yamlEditorData?.config && selectedTestSuite) {
-                    const startTime = testItems.find(item => item.id === selectedTestSuite.id)?.duration;
+                    const startTime = testItems.find(
+                      (item) => item.id === selectedTestSuite.id
+                    )?.duration;
                     const duration = startTime ? Date.now() - startTime : null;
-                    
-                    setTestItems(prev => prev.map(item => 
-                      item.id === selectedTestSuite.id 
-                        ? { 
-                            ...item, 
-                            status: jobData.status === 'completed' ? 'completed' : 'failed', 
-                            duration: duration,
-                            lastRun: Date.now(),
-                            selected: false
-                          }
-                        : item
-                    ));
+
+                    setTestItems((prev) =>
+                      prev.map((item) =>
+                        item.id === selectedTestSuite.id
+                          ? {
+                              ...item,
+                              status: jobData.status === 'completed' ? 'completed' : 'failed',
+                              duration: duration,
+                              lastRun: Date.now(),
+                              selected: false,
+                            }
+                          : item
+                      )
+                    );
                   }
 
                   // Expand CAPI-Managed ROSA HCP Clusters section on successful completion to monitor progress
@@ -8660,25 +8819,29 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
             }, 1800000);
           } catch (error) {
             console.error('❌ [APPLY-YAML] Error applying YAML:', error);
-            
+
             // Update test suite status to failed on error
             if (selectedTestSuite) {
-              const startTime = testItems.find(item => item.id === selectedTestSuite.id)?.duration;
+              const startTime = testItems.find(
+                (item) => item.id === selectedTestSuite.id
+              )?.duration;
               const duration = startTime ? Date.now() - startTime : null;
-              
-              setTestItems(prev => prev.map(item => 
-                item.id === selectedTestSuite.id 
-                  ? { 
-                      ...item, 
-                      status: 'failed', 
-                      duration: duration,
-                      lastRun: Date.now(),
-                      selected: false
-                    }
-                  : item
-              ));
+
+              setTestItems((prev) =>
+                prev.map((item) =>
+                  item.id === selectedTestSuite.id
+                    ? {
+                        ...item,
+                        status: 'failed',
+                        duration: duration,
+                        lastRun: Date.now(),
+                        selected: false,
+                      }
+                    : item
+                )
+              );
             }
-            
+
             setRecentOperations((prev) => {
               return prev.map((op) => {
                 if (op.id === operationId) {
@@ -8820,7 +8983,12 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                     className="text-sm bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
                     </svg>
                     Download
                   </button>
@@ -10123,19 +10291,21 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                   <input
                     type="text"
                     value={mceCredentials.apiServer}
-                    onChange={(e) => setMceCredentials(prev => ({ ...prev, apiServer: e.target.value }))}
+                    onChange={(e) =>
+                      setMceCredentials((prev) => ({ ...prev, apiServer: e.target.value }))
+                    }
                     placeholder="https://api.your-cluster.example.com:6443"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Password
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
                   <input
                     type="password"
                     value={mceCredentials.password}
-                    onChange={(e) => setMceCredentials(prev => ({ ...prev, password: e.target.value }))}
+                    onChange={(e) =>
+                      setMceCredentials((prev) => ({ ...prev, password: e.target.value }))
+                    }
                     placeholder="Enter your cluster password"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-colors"
                   />
@@ -10155,7 +10325,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                 onClick={async () => {
                   try {
                     console.log('Updating MCE credentials:', mceCredentials);
-                    
+
                     // Basic validation
                     if (!mceCredentials.apiServer || !mceCredentials.password) {
                       alert('Please fill in both API Server URL and Password');
@@ -10169,24 +10339,25 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       timestamp: Date.now(),
                       playbook: 'API Update: MCE Connection Credentials',
                     };
-                    setRecentOperations((prev) =>
-                      [newOperation, ...prev].slice(0, 10)
-                    );
+                    setRecentOperations((prev) => [newOperation, ...prev].slice(0, 10));
 
                     // Call the backend API to update credentials in user_vars.yml
-                    const updateResponse = await fetch('http://localhost:8000/api/ocp/credentials', {
-                      method: 'PUT',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        api_server: mceCredentials.apiServer,
-                        password: mceCredentials.password,
-                      }),
-                    });
+                    const updateResponse = await fetch(
+                      'http://localhost:8000/api/ocp/credentials',
+                      {
+                        method: 'PUT',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          api_server: mceCredentials.apiServer,
+                          password: mceCredentials.password,
+                        }),
+                      }
+                    );
 
                     const updateResult = await updateResponse.json();
-                    
+
                     if (!updateResult.success) {
                       alert(`Failed to update credentials: ${updateResult.message}`);
                       return;
@@ -10196,11 +10367,11 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                     const credentialsData = {
                       apiServer: mceCredentials.apiServer,
                       password: mceCredentials.password,
-                      updatedAt: new Date().toISOString()
+                      updatedAt: new Date().toISOString(),
                     };
-                    
+
                     localStorage.setItem('mceCredentials', JSON.stringify(credentialsData));
-                    
+
                     // Update recent operation status
                     setTimeout(() => {
                       setRecentOperations((prev) => {
@@ -10217,14 +10388,13 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
 
                     // Show success notification
                     addNotification('✅ MCE credentials updated successfully', 'success', 3000);
-                    
+
                     // Close modal and reset form
                     setShowMceCredentialsModal(false);
                     setMceCredentials({ apiServer: '', password: '' });
-                    
                   } catch (error) {
                     console.error('Failed to update credentials:', error);
-                    
+
                     // Update recent operation status with error
                     setRecentOperations((prev) => {
                       const updated = [...prev];
@@ -10236,7 +10406,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
                       }
                       return updated;
                     });
-                    
+
                     alert(`Failed to update credentials: ${error.message}`);
                   }
                 }}

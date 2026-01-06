@@ -7,7 +7,9 @@ const MCETerminalSection = ({ theme = 'mce' }) => {
   const app = useApp();
   const dispatch = useAppDispatch();
   const [command, setCommand] = useState('');
-  const [output, setOutput] = useState('Welcome to MCE Terminal! Type commands or select from templates.\n');
+  const [output, setOutput] = useState(
+    'Welcome to MCE Terminal! Type commands or select from templates.\n'
+  );
   const [history, setHistory] = useState(() => {
     try {
       const saved = localStorage.getItem('mce-embedded-terminal-history');
@@ -65,14 +67,14 @@ const MCETerminalSection = ({ theme = 'mce' }) => {
     setExecuting(true);
     const timestamp = new Date().toLocaleTimeString();
 
-    setOutput(prev => `${prev}\n$ ${command}\n`);
+    setOutput((prev) => `${prev}\n$ ${command}\n`);
 
     const newHistoryItem = {
       command: command.trim(),
       timestamp: new Date().toISOString(),
       timestampFormatted: timestamp,
     };
-    setHistory(prev => [newHistoryItem, ...prev].slice(0, 100));
+    setHistory((prev) => [newHistoryItem, ...prev].slice(0, 100));
     setHistoryIndex(-1);
 
     try {
@@ -85,14 +87,14 @@ const MCETerminalSection = ({ theme = 'mce' }) => {
       const data = await response.json();
 
       if (data.success) {
-        setOutput(prev => `${prev}${data.output}\n`);
+        setOutput((prev) => `${prev}${data.output}\n`);
       } else {
         setOutput(
-          prev => `${prev}Error: ${data.error || 'Command failed'}\n${data.output || ''}\n`
+          (prev) => `${prev}Error: ${data.error || 'Command failed'}\n${data.output || ''}\n`
         );
       }
     } catch (err) {
-      setOutput(prev => `${prev}Error: Failed to execute command - ${err.message}\n`);
+      setOutput((prev) => `${prev}Error: Failed to execute command - ${err.message}\n`);
     } finally {
       setExecuting(false);
       setCommand('');
@@ -130,40 +132,63 @@ const MCETerminalSection = ({ theme = 'mce' }) => {
 
   // Command templates
   const commandTemplates = [
-    { category: 'Cluster Info', commands: [
-      { name: 'Cluster Info', cmd: 'oc cluster-info' },
-      { name: 'OpenShift Version', cmd: 'oc version' },
-      { name: 'List Nodes', cmd: 'oc get nodes' },
-    ]},
-    { category: 'CAPI/CAPA', commands: [
-      { name: 'CAPA Pod Log', cmd: 'oc logs -n multicluster-engine $(oc get pod -n multicluster-engine | grep capa | awk \'{print $1}\')' },
-      { name: 'Get MCE', cmd: 'oc get mce -A' },
-      { name: 'CAPI Deployments', cmd: 'oc get deploy -n capi-system' },
-      { name: 'CAPA Deployments', cmd: 'oc get deploy -n capa-system' },
-    ]},
-    { category: 'ROSA Resources', commands: [
-      { name: 'ROSA Clusters', cmd: 'oc get rosacluster -A' },
-      { name: 'Control Planes', cmd: 'oc get rosacontrolplane -A' },
-      { name: 'ROSA Networks', cmd: 'oc get rosanetwork -A' },
-    ]},
-    { category: 'Diagnostics', commands: [
-      { name: 'Describe Control Planes', cmd: 'oc describe rosacontrolplane -A' },
-      { name: 'CAPI Clusters Status', cmd: 'oc get cluster.cluster.x-k8s.io -A' },
-      { name: 'ROSA CLI List', cmd: 'rosa list clusters' },
-      { name: 'Watch Provisioning', cmd: 'watch "oc get rosacontrolplane -A -o wide"' },
-    ]},
-    { category: 'Security & Config', commands: [
-      { name: 'CAPA Secrets', cmd: 'oc get secret -n capa-system' },
-      { name: 'AWS Controller Identity', cmd: 'oc get awsclustercontrolleridentity' },
-    ]},
-    { category: 'Troubleshooting', commands: [
-      { name: 'Recent Events', cmd: 'oc get events -A --sort-by=".lastTimestamp" | tail -20' },
-      { name: 'Non-Running Pods', cmd: 'oc get pods -A | grep -v Running | grep -v Completed' },
-    ]},
+    {
+      category: 'Cluster Info',
+      commands: [
+        { name: 'Cluster Info', cmd: 'oc cluster-info' },
+        { name: 'OpenShift Version', cmd: 'oc version' },
+        { name: 'List Nodes', cmd: 'oc get nodes' },
+      ],
+    },
+    {
+      category: 'CAPI/CAPA',
+      commands: [
+        {
+          name: 'CAPA Pod Log',
+          cmd: "oc logs -n multicluster-engine $(oc get pod -n multicluster-engine | grep capa | awk '{print $1}')",
+        },
+        { name: 'Get MCE', cmd: 'oc get mce -A' },
+        { name: 'CAPI Deployments', cmd: 'oc get deploy -n capi-system' },
+        { name: 'CAPA Deployments', cmd: 'oc get deploy -n capa-system' },
+      ],
+    },
+    {
+      category: 'ROSA Resources',
+      commands: [
+        { name: 'ROSA Clusters', cmd: 'oc get rosacluster -A' },
+        { name: 'Control Planes', cmd: 'oc get rosacontrolplane -A' },
+        { name: 'ROSA Networks', cmd: 'oc get rosanetwork -A' },
+      ],
+    },
+    {
+      category: 'Diagnostics',
+      commands: [
+        { name: 'Describe Control Planes', cmd: 'oc describe rosacontrolplane -A' },
+        { name: 'CAPI Clusters Status', cmd: 'oc get cluster.cluster.x-k8s.io -A' },
+        { name: 'ROSA CLI List', cmd: 'rosa list clusters' },
+        { name: 'Watch Provisioning', cmd: 'watch "oc get rosacontrolplane -A -o wide"' },
+      ],
+    },
+    {
+      category: 'Security & Config',
+      commands: [
+        { name: 'CAPA Secrets', cmd: 'oc get secret -n capa-system' },
+        { name: 'AWS Controller Identity', cmd: 'oc get awsclustercontrolleridentity' },
+      ],
+    },
+    {
+      category: 'Troubleshooting',
+      commands: [
+        { name: 'Recent Events', cmd: 'oc get events -A --sort-by=".lastTimestamp" | tail -20' },
+        { name: 'Non-Running Pods', cmd: 'oc get pods -A | grep -v Running | grep -v Completed' },
+      ],
+    },
   ];
 
   return (
-    <div className={`mt-6 bg-gradient-to-br ${colors.lightBg} rounded-2xl shadow-md border ${colors.border} overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300`}>
+    <div
+      className={`mt-6 bg-gradient-to-br ${colors.lightBg} rounded-2xl shadow-md border ${colors.border} overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300`}
+    >
       {/* Terminal Header - Click anywhere to toggle */}
       <div
         className={`bg-gradient-to-r ${colors.headerGradient} text-white px-6 py-4 flex items-center justify-between cursor-pointer ${colors.hoverGradient} transition-colors`}

@@ -7,7 +7,9 @@ const MinikubeTerminalSection = ({ clusterName }) => {
   const app = useApp();
   const dispatch = useAppDispatch();
   const [command, setCommand] = useState('');
-  const [output, setOutput] = useState(`Welcome to Minikube Terminal for cluster: ${clusterName || 'default'}!\nType commands or select from templates.\n`);
+  const [output, setOutput] = useState(
+    `Welcome to Minikube Terminal for cluster: ${clusterName || 'default'}!\nType commands or select from templates.\n`
+  );
   const [history, setHistory] = useState(() => {
     try {
       const saved = localStorage.getItem('minikube-embedded-terminal-history');
@@ -26,7 +28,9 @@ const MinikubeTerminalSection = ({ clusterName }) => {
   // Update welcome message when cluster changes
   useEffect(() => {
     if (clusterName) {
-      setOutput(`Welcome to Minikube Terminal for cluster: ${clusterName}!\nType commands or select from templates.\n`);
+      setOutput(
+        `Welcome to Minikube Terminal for cluster: ${clusterName}!\nType commands or select from templates.\n`
+      );
     }
   }, [clusterName]);
 
@@ -49,37 +53,37 @@ const MinikubeTerminalSection = ({ clusterName }) => {
     setExecuting(true);
     const timestamp = new Date().toLocaleTimeString();
 
-    setOutput(prev => `${prev}\n$ ${command}\n`);
+    setOutput((prev) => `${prev}\n$ ${command}\n`);
 
     const newHistoryItem = {
       command: command.trim(),
       timestamp: new Date().toISOString(),
       timestampFormatted: timestamp,
     };
-    setHistory(prev => [newHistoryItem, ...prev].slice(0, 100));
+    setHistory((prev) => [newHistoryItem, ...prev].slice(0, 100));
     setHistoryIndex(-1);
 
     try {
       const response = await fetch('http://localhost:8000/api/minikube/execute-command', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           command: command.trim(),
-          cluster_name: clusterName || 'minikube'
+          cluster_name: clusterName || 'minikube',
         }),
       });
 
       const data = await response.json();
 
       if (data.success) {
-        setOutput(prev => `${prev}${data.output}\n`);
+        setOutput((prev) => `${prev}${data.output}\n`);
       } else {
         setOutput(
-          prev => `${prev}Error: ${data.error || 'Command failed'}\n${data.output || ''}\n`
+          (prev) => `${prev}Error: ${data.error || 'Command failed'}\n${data.output || ''}\n`
         );
       }
     } catch (err) {
-      setOutput(prev => `${prev}Error: Failed to execute command - ${err.message}\n`);
+      setOutput((prev) => `${prev}Error: Failed to execute command - ${err.message}\n`);
     } finally {
       setExecuting(false);
       setCommand('');
@@ -117,31 +121,55 @@ const MinikubeTerminalSection = ({ clusterName }) => {
 
   // Command templates for Minikube
   const commandTemplates = [
-    { category: 'Cluster Info', commands: [
-      { name: 'Cluster Status', cmd: 'minikube status' },
-      { name: 'Cluster Info', cmd: 'kubectl cluster-info' },
-      { name: 'List Nodes', cmd: 'kubectl get nodes' },
-    ]},
-    { category: 'CAPI/CAPA', commands: [
-      { name: 'CAPI Controllers', cmd: 'kubectl get deploy -n capi-system' },
-      { name: 'CAPA Controllers', cmd: 'kubectl get deploy -n capa-system' },
-      { name: 'Provider Status', cmd: 'kubectl get providers -A' },
-    ]},
-    { category: 'ROSA Resources', commands: [
-      { name: 'ROSA Clusters', cmd: 'kubectl get rosacluster -A' },
-      { name: 'Control Planes', cmd: 'kubectl get rosacontrolplane -A' },
-      { name: 'ROSA Networks', cmd: 'kubectl get rosanetwork -A' },
-    ]},
-    { category: 'Cluster API', commands: [
-      { name: 'All Clusters', cmd: 'kubectl get cluster -A' },
-      { name: 'Machines', cmd: 'kubectl get machine -A' },
-      { name: 'MachineSets', cmd: 'kubectl get machineset -A' },
-    ]},
-    { category: 'Troubleshooting', commands: [
-      { name: 'Recent Events', cmd: 'kubectl get events -A --sort-by=".lastTimestamp" | tail -20' },
-      { name: 'Non-Running Pods', cmd: 'kubectl get pods -A | grep -v Running | grep -v Completed' },
-      { name: 'CAPI Controller Logs', cmd: 'kubectl logs -n capi-system -l control-plane=controller-manager' },
-    ]},
+    {
+      category: 'Cluster Info',
+      commands: [
+        { name: 'Cluster Status', cmd: 'minikube status' },
+        { name: 'Cluster Info', cmd: 'kubectl cluster-info' },
+        { name: 'List Nodes', cmd: 'kubectl get nodes' },
+      ],
+    },
+    {
+      category: 'CAPI/CAPA',
+      commands: [
+        { name: 'CAPI Controllers', cmd: 'kubectl get deploy -n capi-system' },
+        { name: 'CAPA Controllers', cmd: 'kubectl get deploy -n capa-system' },
+        { name: 'Provider Status', cmd: 'kubectl get providers -A' },
+      ],
+    },
+    {
+      category: 'ROSA Resources',
+      commands: [
+        { name: 'ROSA Clusters', cmd: 'kubectl get rosacluster -A' },
+        { name: 'Control Planes', cmd: 'kubectl get rosacontrolplane -A' },
+        { name: 'ROSA Networks', cmd: 'kubectl get rosanetwork -A' },
+      ],
+    },
+    {
+      category: 'Cluster API',
+      commands: [
+        { name: 'All Clusters', cmd: 'kubectl get cluster -A' },
+        { name: 'Machines', cmd: 'kubectl get machine -A' },
+        { name: 'MachineSets', cmd: 'kubectl get machineset -A' },
+      ],
+    },
+    {
+      category: 'Troubleshooting',
+      commands: [
+        {
+          name: 'Recent Events',
+          cmd: 'kubectl get events -A --sort-by=".lastTimestamp" | tail -20',
+        },
+        {
+          name: 'Non-Running Pods',
+          cmd: 'kubectl get pods -A | grep -v Running | grep -v Completed',
+        },
+        {
+          name: 'CAPI Controller Logs',
+          cmd: 'kubectl logs -n capi-system -l control-plane=controller-manager',
+        },
+      ],
+    },
   ];
 
   return (
@@ -233,7 +261,9 @@ const MinikubeTerminalSection = ({ clusterName }) => {
                 </button>
                 <button
                   onClick={() => {
-                    setOutput(`Terminal cleared.\nWelcome to Minikube Terminal for cluster: ${clusterName || 'default'}!\n`);
+                    setOutput(
+                      `Terminal cleared.\nWelcome to Minikube Terminal for cluster: ${clusterName || 'default'}!\n`
+                    );
                     setCommand('');
                   }}
                   className="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"

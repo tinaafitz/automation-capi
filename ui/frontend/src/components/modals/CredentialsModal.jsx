@@ -9,7 +9,7 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave }) => {
   const [showPasswords, setShowPasswords] = useState({
     ocpPassword: false,
     awsSecretKey: false,
-    ocmSecret: false
+    ocmSecret: false,
   });
 
   const [credentials, setCredentials] = useState({
@@ -20,7 +20,7 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave }) => {
     AWS_ACCESS_KEY_ID: '',
     AWS_SECRET_ACCESS_KEY: '',
     OCM_CLIENT_ID: '',
-    OCM_CLIENT_SECRET: ''
+    OCM_CLIENT_SECRET: '',
   });
 
   // Fetch current credentials when modal opens
@@ -55,7 +55,7 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ credentials })
+        body: JSON.stringify({ credentials }),
       });
 
       if (response.ok) {
@@ -79,50 +79,50 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave }) => {
   };
 
   const handleInputChange = (field, value) => {
-    setCredentials(prev => ({
+    setCredentials((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
   const togglePasswordVisibility = (field) => {
-    setShowPasswords(prev => ({
+    setShowPasswords((prev) => ({
       ...prev,
-      [field]: !prev[field]
+      [field]: !prev[field],
     }));
   };
 
   if (!isOpen) return null;
 
-  const themeColors = theme === 'mce'
-    ? {
-        gradient: 'from-cyan-600 to-blue-600',
-        hoverGradient: 'hover:from-cyan-700 hover:to-blue-700',
-        border: 'border-cyan-200',
-        focusRing: 'focus:ring-cyan-500',
-        button: 'bg-cyan-600 hover:bg-cyan-700'
-      }
-    : {
-        gradient: 'from-purple-600 to-violet-600',
-        hoverGradient: 'hover:from-purple-700 hover:to-violet-700',
-        border: 'border-purple-200',
-        focusRing: 'focus:ring-purple-500',
-        button: 'bg-purple-600 hover:bg-purple-700'
-      };
+  const themeColors =
+    theme === 'mce'
+      ? {
+          gradient: 'from-cyan-600 to-blue-600',
+          hoverGradient: 'hover:from-cyan-700 hover:to-blue-700',
+          border: 'border-cyan-200',
+          focusRing: 'focus:ring-cyan-500',
+          button: 'bg-cyan-600 hover:bg-cyan-700',
+        }
+      : {
+          gradient: 'from-purple-600 to-violet-600',
+          hoverGradient: 'hover:from-purple-700 hover:to-violet-700',
+          border: 'border-purple-200',
+          focusRing: 'focus:ring-purple-500',
+          button: 'bg-purple-600 hover:bg-purple-700',
+        };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={onClose} />
 
       {/* Modal */}
       <div className="flex min-h-full items-center justify-center p-4">
         <div className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
           {/* Header */}
-          <div className={`bg-gradient-to-r ${themeColors.gradient} px-6 py-4 flex items-center justify-between`}>
+          <div
+            className={`bg-gradient-to-r ${themeColors.gradient} px-6 py-4 flex items-center justify-between`}
+          >
             <div className="flex items-center gap-3">
               <span className="text-2xl">🔑</span>
               <h2 className="text-xl font-bold text-white">Manage Credentials</h2>
@@ -174,7 +174,9 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave }) => {
                           <input
                             type="text"
                             value={credentials.OCP_HUB_CLUSTER_USER}
-                            onChange={(e) => handleInputChange('OCP_HUB_CLUSTER_USER', e.target.value)}
+                            onChange={(e) =>
+                              handleInputChange('OCP_HUB_CLUSTER_USER', e.target.value)
+                            }
                             placeholder="kubeadmin"
                             className={`w-full px-3 py-2 border ${themeColors.border} rounded-lg focus:outline-none focus:ring-2 ${themeColors.focusRing}`}
                           />
@@ -188,7 +190,9 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave }) => {
                             <input
                               type={showPasswords.ocpPassword ? 'text' : 'password'}
                               value={credentials.OCP_HUB_CLUSTER_PASSWORD}
-                              onChange={(e) => handleInputChange('OCP_HUB_CLUSTER_PASSWORD', e.target.value)}
+                              onChange={(e) =>
+                                handleInputChange('OCP_HUB_CLUSTER_PASSWORD', e.target.value)
+                              }
                               placeholder="••••••••"
                               className={`w-full px-3 py-2 pr-10 border ${themeColors.border} rounded-lg focus:outline-none focus:ring-2 ${themeColors.focusRing}`}
                             />
@@ -253,7 +257,9 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave }) => {
                           <input
                             type={showPasswords.awsSecretKey ? 'text' : 'password'}
                             value={credentials.AWS_SECRET_ACCESS_KEY}
-                            onChange={(e) => handleInputChange('AWS_SECRET_ACCESS_KEY', e.target.value)}
+                            onChange={(e) =>
+                              handleInputChange('AWS_SECRET_ACCESS_KEY', e.target.value)
+                            }
                             placeholder="••••••••••••••••••••••••••••••••••••••••"
                             className={`w-full px-3 py-2 pr-10 border ${themeColors.border} rounded-lg focus:outline-none focus:ring-2 ${themeColors.focusRing} font-mono text-sm`}
                           />
@@ -328,8 +334,9 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave }) => {
                 {/* Info box - Always shown */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <p className="text-sm text-blue-800">
-                    <strong>Note:</strong> Credentials are stored in <code className="bg-blue-100 px-1 rounded">vars/user_vars.yml</code>.
-                    Make sure this file is properly secured and not committed to version control.
+                    <strong>Note:</strong> Credentials are stored in{' '}
+                    <code className="bg-blue-100 px-1 rounded">vars/user_vars.yml</code>. Make sure
+                    this file is properly secured and not committed to version control.
                   </p>
                 </div>
               </div>
@@ -370,7 +377,7 @@ CredentialsModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   theme: PropTypes.string,
-  onSave: PropTypes.func
+  onSave: PropTypes.func,
 };
 
 export default CredentialsModal;

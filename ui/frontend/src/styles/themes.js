@@ -6,20 +6,21 @@ export const themes = {
       50: 'from-cyan-50 to-blue-50',
       100: 'from-cyan-100 to-blue-100',
       600: 'from-cyan-600 to-blue-600',
-      700: 'from-cyan-700 to-blue-700'
+      700: 'from-cyan-700 to-blue-700',
     },
     colors: {
       border: 'border-cyan-200',
       text: {
         primary: 'text-cyan-900',
-        secondary: 'text-cyan-600'
+        secondary: 'text-cyan-600',
       },
       button: {
         primary: 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700',
-        secondary: 'bg-cyan-100 text-cyan-700 hover:text-cyan-900 border-2 border-cyan-300 hover:border-cyan-400 hover:bg-cyan-200'
-      }
+        secondary:
+          'bg-cyan-100 text-cyan-700 hover:text-cyan-900 border-2 border-cyan-300 hover:border-cyan-400 hover:bg-cyan-200',
+      },
     },
-    icon: '🎯'
+    icon: '🎯',
   },
   minikube: {
     name: 'Minikube',
@@ -27,21 +28,23 @@ export const themes = {
       50: 'from-purple-50 to-violet-50',
       100: 'from-purple-100 to-violet-100',
       600: 'from-purple-600 to-violet-600',
-      700: 'from-purple-700 to-violet-700'
+      700: 'from-purple-700 to-violet-700',
     },
     colors: {
       border: 'border-purple-200',
       text: {
         primary: 'text-purple-900',
-        secondary: 'text-purple-600'
+        secondary: 'text-purple-600',
       },
       button: {
-        primary: 'bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700',
-        secondary: 'bg-purple-100 text-purple-700 hover:text-purple-900 border-2 border-purple-300 hover:border-purple-400 hover:bg-purple-200'
-      }
+        primary:
+          'bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700',
+        secondary:
+          'bg-purple-100 text-purple-700 hover:text-purple-900 border-2 border-purple-300 hover:border-purple-400 hover:bg-purple-200',
+      },
     },
-    icon: '⚡'
-  }
+    icon: '⚡',
+  },
 };
 
 // Shared component styles
@@ -49,19 +52,21 @@ export const cardStyles = {
   base: 'bg-white rounded-2xl shadow-md border overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300',
   header: 'px-6 py-4 flex items-center justify-between cursor-pointer transition-colors',
   content: 'px-6 py-4',
-  grid: 'grid grid-cols-1 lg:grid-cols-3 gap-6'
+  grid: 'grid grid-cols-1 lg:grid-cols-3 gap-6',
 };
 
 export const buttonStyles = {
-  primary: 'px-4 py-2.5 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md min-w-[90px] text-sm',
-  secondary: 'px-4 py-2.5 rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md min-w-[90px] text-sm',
+  primary:
+    'px-4 py-2.5 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md min-w-[90px] text-sm',
+  secondary:
+    'px-4 py-2.5 rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md min-w-[90px] text-sm',
   compact: 'px-3 py-1.5 rounded-md font-medium transition-all duration-200 text-xs min-w-[70px]',
-  icon: 'p-2.5 rounded-lg transition-all duration-200 transform hover:scale-110 shadow-sm hover:shadow-md'
+  icon: 'p-2.5 rounded-lg transition-all duration-200 transform hover:scale-110 shadow-sm hover:shadow-md',
 };
 
 export const statusIndicators = {
   success: 'text-green-600 bg-green-50 border-green-200',
   error: 'text-red-600 bg-red-50 border-red-200',
   warning: 'text-yellow-600 bg-yellow-50 border-yellow-200',
-  info: 'text-blue-600 bg-blue-50 border-blue-200'
+  info: 'text-blue-600 bg-blue-50 border-blue-200',
 };
