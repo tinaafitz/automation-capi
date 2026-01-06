@@ -596,6 +596,7 @@ export function WhatCanIHelp() {
     apiServer: '',
     password: ''
   });
+  const [credentialWarning, setCredentialWarning] = useState(null);
   const [mceFeaturesLoading, setMceFeaturesLoading] = useState(false);
 
   // Last used ROSA YAML path for ROSA HCP provisioning
@@ -1384,7 +1385,6 @@ export function WhatCanIHelp() {
         setShowHelp(false);
         setShowFeedback(false);
         setShowConfirmDialog(null);
-        setShowKindClusterModal(false);
         setShowOidcModal(false);
         setShowSubnetModal(false);
         setShowCreateSubnetModal(false);
