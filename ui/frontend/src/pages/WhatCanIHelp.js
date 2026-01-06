@@ -627,121 +627,6 @@ export function WhatCanIHelp() {
     return '';
   };
 
-  // Kind cluster verification functions
-  const handleKindClusterCheck = async () => {
-    setShowKindClusterModal(true);
-    setKindLoading(true);
-
-    try {
-      const response = await fetch('http://localhost:8000/api/kind/list-clusters');
-      const data = await response.json();
-      setKindClusters(data.clusters || []);
-
-      if (data.clusters.length === 0) {
-        addNotification(data.message, 'info');
-      }
-    } catch (error) {
-      console.error('Failed to list Kind clusters:', error);
-      addNotification('Failed to check Kind clusters', 'error');
-    } finally {
-      setKindLoading(false);
-    }
-  };
-
-  const createOCMSecret = async () => {
-    if (!verifiedKindClusterInfo?.name) {
-      addNotification('❌ No Kind cluster verified', 'error');
-      return;
-    }
-
-    try {
-      addNotification('🔧 Creating OCM client secret...', 'info');
-
-      const response = await fetch('http://localhost:8000/api/kind/create-ocm-secret', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          cluster_name: verifiedKindClusterInfo.name,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        addNotification('✅ OCM client secret created successfully!', 'success');
-        // Re-verify the cluster to update component status
-        if (verifiedKindClusterInfo.name) {
-          verifyKindCluster(verifiedKindClusterInfo.name).catch(() => {
-            // Silently handle verification errors after secret creation
-          });
-        }
-      } else {
-        addNotification(`❌ Failed to create secret: ${data.message}`, 'error');
-      }
-    } catch (error) {
-      console.error('Failed to create OCM secret:', error);
-      addNotification('❌ Failed to create OCM secret', 'error');
-    }
-  };
-
-  const handleKindClusterSelected = async ({ cluster_name, verificationData }) => {
-    try {
-      const operationId = `configure-kind-${Date.now()}`;
-
-      // Add to recent operations immediately
-      addToRecent({
-        id: operationId,
-        title: 'Minikube Configure Cluster',
-        color: 'bg-cyan-600',
-        status: `⏳ Configuring ${cluster_name}...`,
-      });
-
-      // Small delay to show the "Configuring..." status
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Store the verified cluster information with time
-      const clusterInfo = {
-        name: cluster_name,
-        apiUrl: verificationData.cluster_info?.api_url || 'https://127.0.0.1:6443',
-        contextName: verificationData.context_name,
-        verifiedDate: new Date().toLocaleString('en-US', {
-          weekday: 'short',
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit',
-        }),
-        namespace: 'ns-rosa-hcp',
-        status: verificationData.cluster_info?.status || 'ready',
-        components: verificationData.cluster_info?.components || {},
-      };
-      setVerifiedKindClusterInfo(clusterInfo);
-
-      // Store in localStorage for persistence
-      localStorage.setItem('verified-kind-cluster', JSON.stringify(clusterInfo));
-
-      // Fetch active resources
-      await fetchActiveResources(cluster_name, clusterInfo.namespace);
-
-      // Update operation status with success and timestamp
-      const completionTime = new Date().toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true,
-      });
-      updateRecentOperationStatus(operationId, `✅ Configured at ${completionTime}`);
-
-      // Add success notification
-      addNotification('🎉 Kind cluster configured successfully!', 'success', 3000);
-    } catch (error) {
-      console.error('Error handling cluster selection:', error);
-      addNotification('Failed to configure cluster', 'error');
-    }
-  };
 
   const handleMinikubeClusterSelected = async ({ cluster_name, verificationData }) => {
     try {
@@ -803,32 +688,6 @@ export function WhatCanIHelp() {
     }
   };
 
-  // Fetch active resources from the Kind cluster
-  const fetchActiveResources = async (clusterName, namespace = 'ns-rosa-hcp') => {
-    try {
-      const response = await fetch('http://localhost:8000/api/kind/get-active-resources', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          cluster_name: clusterName,
-          namespace: namespace,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setActiveResources(data.resources);
-      } else {
-        setActiveResources([]);
-      }
-    } catch (error) {
-      console.error('Failed to fetch active resources:', error);
-      setActiveResources([]);
-    }
-  };
 
   // Fetch provisioned ROSA clusters from OCP/MCE
   const fetchRosaClusters = async () => {
@@ -1303,10 +1162,7 @@ export function WhatCanIHelp() {
 
   // Handle resource click to show details
   const handleResourceClick = async (resource, clusterType = 'minikube') => {
-    const clusterName =
-      clusterType === 'minikube'
-        ? verifiedMinikubeClusterInfo?.name
-        : verifiedKindClusterInfo?.name;
+    const clusterName = verifiedMinikubeClusterInfo?.name;
 
     if (!clusterName) {
       addNotification('No cluster selected', 'error');
@@ -1321,62 +1177,6 @@ export function WhatCanIHelp() {
     );
   };
 
-  const verifyKindCluster = async (clusterName) => {
-    if (!clusterName.trim()) {
-      addNotification('Please enter a cluster name', 'error');
-      return;
-    }
-
-    setKindLoading(true);
-    setKindVerificationResult(null);
-
-    try {
-      const response = await fetch('http://localhost:8000/api/kind/verify-cluster', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ cluster_name: clusterName.trim() }),
-      });
-
-      const data = await response.json();
-      setKindVerificationResult(data);
-
-      if (data.exists && data.accessible) {
-        // Store the verified cluster information with time
-        const clusterInfo = {
-          name: clusterName,
-          apiUrl: data.cluster_info?.api_url || 'https://127.0.0.1:6443',
-          contextName: data.context_name,
-          verifiedDate: new Date().toLocaleString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-          }),
-          namespace: 'ns-rosa-hcp', // Default namespace
-          status: data.cluster_info?.status || 'ready',
-          components: data.cluster_info?.components || {},
-        };
-        setVerifiedKindClusterInfo(clusterInfo);
-
-        // Store in localStorage for persistence
-        localStorage.setItem('verified-kind-cluster', JSON.stringify(clusterInfo));
-
-        // Fetch active resources
-        await fetchActiveResources(clusterName, clusterInfo.namespace);
-      } else {
-        throw new Error(data.message);
-      }
-    } catch (error) {
-      console.error('Failed to verify Kind cluster:', error);
-      throw error; // Re-throw to be caught by the button handler
-    } finally {
-      setKindLoading(false);
-    }
-  };
 
   // Wrapper function for automation actions that checks prerequisites
   const executeAutomationAction = (action, actionName = 'automation action') => {
@@ -1497,12 +1297,6 @@ export function WhatCanIHelp() {
     }
   }, [ansibleResults]);
 
-  // Save verifiedKindClusterInfo to localStorage
-  useEffect(() => {
-    if (verifiedKindClusterInfo) {
-      localStorage.setItem('verifiedKindClusterInfo', JSON.stringify(verifiedKindClusterInfo));
-    }
-  }, [verifiedKindClusterInfo]);
 
   // Save verifiedMinikubeClusterInfo to localStorage
   useEffect(() => {
@@ -2591,20 +2385,6 @@ export function WhatCanIHelp() {
       setSavedPrefix(storedPrefix);
     }
 
-    // Load verified Kind cluster information
-    const storedKindCluster = localStorage.getItem('verified-kind-cluster');
-    if (storedKindCluster) {
-      try {
-        const clusterInfo = JSON.parse(storedKindCluster);
-        setVerifiedKindClusterInfo(clusterInfo);
-        // Fetch active resources for the stored cluster
-        if (clusterInfo.name) {
-          fetchActiveResources(clusterInfo.name, clusterInfo.namespace || 'ns-rosa-hcp');
-        }
-      } catch (error) {
-        console.error('Failed to parse stored Kind cluster info:', error);
-      }
-    }
   }, []);
 
   const userFriendlyCategories = [
@@ -7728,7 +7508,7 @@ export function WhatCanIHelp() {
                                 <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
                                 <span className="text-blue-700">
                                   {hasAllRequiredFields && !hasAnyOcpField
-                                    ? 'Great! You have all the required fields configured. You just need to set up a cluster connection - either use a local Kind cluster or provide OCP Hub credentials.'
+                                    ? 'Great! You have all the required fields configured. You just need to set up a cluster connection - either use a local Minikube cluster or provide OCP Hub credentials.'
                                     : (configStatus?.total_configured || 0) === 0
                                       ? "We see you haven't set up your configuration yet. We can help you with that!"
                                       : 'Configuration file needs additional setup'}
@@ -7832,7 +7612,7 @@ export function WhatCanIHelp() {
                                 </h4>
                                 <p className="text-blue-700 mb-3 text-xs">
                                   {ocpStatus.message === 'Invalid username or password'
-                                    ? "There's a problem with the OCM username and/or password specified. We can help you fix it or you can use a Kind cluster."
+                                    ? "There's a problem with the OCM username and/or password specified. We can help you fix it or you can use a Minikube cluster."
                                     : `Connection failed: ${ocpStatus.message}. Choose an option below:`}
                                 </p>
 
@@ -8624,143 +8404,6 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
         </div>
       )}
 
-      {/* Kind Cluster Modal */}
-      {showKindClusterModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowKindClusterModal(false)}
-          />
-          <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-md animate-in zoom-in-95 duration-200">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  🐳 Kind Cluster Verification
-                </h3>
-                <button
-                  onClick={() => setShowKindClusterModal(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Do you already have a Kind cluster set up? Let's verify it's accessible for
-                  testing.
-                </p>
-
-                {kindClusters.length > 0 && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Select existing cluster:
-                    </label>
-                    <select
-                      value={selectedKindCluster}
-                      onChange={(e) => setSelectedKindCluster(e.target.value)}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Choose a cluster...</option>
-                      {kindClusters.map((cluster) => (
-                        <option key={cluster} value={cluster}>
-                          {cluster}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Or enter cluster name manually:
-                  </label>
-                  <input
-                    type="text"
-                    value={kindClusterInput}
-                    onChange={(e) => setKindClusterInput(e.target.value)}
-                    placeholder="e.g., rosa-automation-test"
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                {kindVerificationResult && (
-                  <div
-                    className={`p-3 rounded-lg border ${
-                      kindVerificationResult.exists && kindVerificationResult.accessible
-                        ? 'bg-green-50 border-green-200 text-green-700'
-                        : 'bg-red-50 border-red-200 text-red-700'
-                    }`}
-                  >
-                    <p className="text-sm font-medium">{kindVerificationResult.message}</p>
-                    {kindVerificationResult.suggestion && (
-                      <p className="text-xs mt-1">{kindVerificationResult.suggestion}</p>
-                    )}
-                    {kindVerificationResult.available_clusters &&
-                      kindVerificationResult.available_clusters.length > 0 && (
-                        <div className="mt-2">
-                          <p className="text-xs font-medium">Available clusters:</p>
-                          <ul className="text-xs list-disc list-inside">
-                            {kindVerificationResult.available_clusters.map((cluster) => (
-                              <li key={cluster}>{cluster}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                  </div>
-                )}
-
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
-                    onClick={() => setShowKindClusterModal(false)}
-                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={async () => {
-                      const clusterName = selectedKindCluster || kindClusterInput;
-                      try {
-                        await verifyKindCluster(clusterName);
-                        // Notification removed - cluster verified
-                      } catch (error) {
-                        addNotification('❌ Failed to verify Kind cluster', 'error');
-                      }
-                    }}
-                    disabled={kindLoading || (!selectedKindCluster && !kindClusterInput.trim())}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {kindLoading ? 'Verifying...' : 'Verify Cluster'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Kind Cluster Configuration Modal */}
-      <KindClusterModal
-        isOpen={showKindConfigModal}
-        onClose={() => setShowKindConfigModal(false)}
-        onClusterSelected={handleKindClusterSelected}
-        currentCluster={verifiedKindClusterInfo?.name}
-      />
-
-      {/* Kind Terminal Modal */}
-      <KindTerminalModal
-        isOpen={showKindTerminalModal}
-        onClose={() => setShowKindTerminalModal(false)}
-        clusterName={verifiedKindClusterInfo?.cluster_name || verifiedKindClusterInfo?.name}
-        namespace={verifiedKindClusterInfo?.namespace}
-      />
 
       {/* Minikube Cluster Configuration Modal */}
       <MinikubeClusterModal
