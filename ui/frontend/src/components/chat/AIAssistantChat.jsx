@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  ChatBubbleLeftRightIcon,
+
   XMarkIcon,
   PaperAirplaneIcon,
   SparklesIcon,

@@ -1,5 +1,6 @@
 import React from 'react';
-import { themes, cardStyles, buttonStyles, statusIndicators } from '../../styles/themes';
+import { themes, buttonStyles, statusIndicators } from '../../styles/themes';
+import PropTypes from 'prop-types';
 
 const StatusCard = ({
   theme = 'mce',
@@ -101,6 +102,26 @@ const StatusCard = ({
       {children}
     </div>
   );
+};
+
+StatusCard.propTypes = {
+  theme: PropTypes.string,
+  title: PropTypes.string.isRequired,
+  icon: PropTypes.node,
+  status: PropTypes.string,
+  verificationStatus: PropTypes.string,
+  lastVerified: PropTypes.string,
+  actions: PropTypes.arrayOf(
+    PropTypes.shape({
+      label: PropTypes.string.isRequired,
+      onClick: PropTypes.func.isRequired,
+      icon: PropTypes.node,
+      variant: PropTypes.string,
+      disabled: PropTypes.bool,
+    })
+  ),
+  children: PropTypes.node,
+  className: PropTypes.string,
 };
 
 export default StatusCard;

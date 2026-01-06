@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { themes, buttonStyles } from '../../styles/themes';
 
 const ComponentStatusCard = ({
@@ -172,6 +173,23 @@ const ComponentStatusCard = ({
       </div>
     </div>
   );
+};
+
+ComponentStatusCard.propTypes = {
+  theme: PropTypes.string,
+  title: PropTypes.string.isRequired,
+  status: PropTypes.string,
+  lastVerified: PropTypes.string,
+  components: PropTypes.arrayOf(
+    PropTypes.shape({
+      name: PropTypes.string.isRequired,
+      enabled: PropTypes.bool,
+      version: PropTypes.string,
+    })
+  ),
+  actions: PropTypes.array,
+  className: PropTypes.string,
+  customHeaderContent: PropTypes.node,
 };
 
 export default ComponentStatusCard;

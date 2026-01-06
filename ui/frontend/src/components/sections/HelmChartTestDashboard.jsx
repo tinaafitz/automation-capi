@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   ChevronDownIcon,
   ChevronUpIcon,
-  BeakerIcon,
+
   CheckCircleIcon,
   XCircleIcon,
   ClockIcon,
