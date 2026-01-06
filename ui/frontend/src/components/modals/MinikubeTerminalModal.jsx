@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
 const MinikubeTerminalModal = ({ isOpen, onClose, clusterName }) => {
@@ -296,3 +297,9 @@ const MinikubeTerminalModal = ({ isOpen, onClose, clusterName }) => {
 };
 
 export default MinikubeTerminalModal;
+
+MinikubeTerminalModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  clusterName: PropTypes.string,
+};

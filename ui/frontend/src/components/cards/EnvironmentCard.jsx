@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { themes, cardStyles } from '../../styles/themes';
 
 const EnvironmentCard = ({
@@ -69,3 +70,14 @@ const EnvironmentCard = ({
 };
 
 export default EnvironmentCard;
+
+EnvironmentCard.propTypes = {
+  theme: PropTypes.string,
+  title: PropTypes.string.isRequired,
+  icon: PropTypes.node,
+  children: PropTypes.node,
+  isCollapsed: PropTypes.bool,
+  onToggle: PropTypes.func,
+  className: PropTypes.string,
+  titleActions: PropTypes.node,
+};
