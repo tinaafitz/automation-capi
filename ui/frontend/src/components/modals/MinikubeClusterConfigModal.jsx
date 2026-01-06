@@ -10,12 +10,8 @@ const MinikubeClusterConfigModal = ({ isOpen, onClose, onClusterCreated }) => {
   const [newClusterName, setNewClusterName] = useState('');
   const [installMethod, setInstallMethod] = useState('clusterctl');
 
-  const {
-    minikubeClusters,
-    minikubeLoading,
-    verifyMinikubeCluster,
-    fetchMinikubeClusters
-  } = minikube;
+  const { minikubeClusters, minikubeLoading, verifyMinikubeCluster, fetchMinikubeClusters } =
+    minikube;
 
   const { addToRecent, updateRecentOperationStatus } = recentOps;
 
@@ -35,7 +31,7 @@ const MinikubeClusterConfigModal = ({ isOpen, onClose, onClusterCreated }) => {
         title: `Verify Minikube Cluster: ${clusterName}`,
         color: 'bg-purple-600',
         status: '⏳ Verifying...',
-        environment: 'minikube'
+        environment: 'minikube',
       });
 
       await verifyMinikubeCluster(clusterName);
@@ -54,10 +50,7 @@ const MinikubeClusterConfigModal = ({ isOpen, onClose, onClusterCreated }) => {
 
       onClose();
     } catch (error) {
-      updateRecentOperationStatus(
-        verifyId,
-        `❌ Verification failed: ${error.message}`
-      );
+      updateRecentOperationStatus(verifyId, `❌ Verification failed: ${error.message}`);
     }
   };
 
@@ -85,7 +78,7 @@ This may take several minutes:
 - Starting Minikube VM
 - Downloading Kubernetes components
 - Configuring cluster networking
-- Starting cluster services`
+- Starting cluster services`,
     });
 
     // Close modal immediately
@@ -222,8 +215,18 @@ Please check:
                 </div>
               ) : minikubeClusters.length === 0 ? (
                 <div className="text-center py-12 bg-purple-50 rounded-lg border-2 border-dashed border-purple-200">
-                  <svg className="h-12 w-12 mx-auto mb-3 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  <svg
+                    className="h-12 w-12 mx-auto mb-3 text-purple-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                    />
                   </svg>
                   <p className="text-gray-600 font-medium">No Minikube clusters found</p>
                   <p className="text-sm text-gray-500 mt-2">Create a new cluster to get started</p>
@@ -239,8 +242,18 @@ Please check:
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className="bg-purple-100 rounded-lg p-2 group-hover:bg-purple-200 transition-colors">
-                            <svg className="h-5 w-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            <svg
+                              className="h-5 w-5 text-purple-600"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M13 10V3L4 14h7v7l9-11h-7z"
+                              />
                             </svg>
                           </div>
                           <div>
@@ -275,9 +288,7 @@ Please check:
                   </ul>
                 </div>
 
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cluster Name
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Cluster Name</label>
                 <input
                   type="text"
                   value={newClusterName}
@@ -286,9 +297,7 @@ Please check:
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
                   disabled={minikubeLoading}
                 />
-                <p className="text-xs text-gray-500 mt-2">
-                  Choose a unique name for your cluster
-                </p>
+                <p className="text-xs text-gray-500 mt-2">Choose a unique name for your cluster</p>
               </div>
 
               {/* Installation Method Selection */}

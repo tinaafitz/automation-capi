@@ -50,7 +50,9 @@ export const useApiStatus = () => {
 
     try {
       // Check OCP Hub connection
-      const ocpResponse = await fetch(`http://localhost:8000/api/ocp/connection-status?t=${timestamp}`);
+      const ocpResponse = await fetch(
+        `http://localhost:8000/api/ocp/connection-status?t=${timestamp}`
+      );
       const ocpData = await ocpResponse.json();
       console.log('OCP status response:', ocpData);
       setOcpStatus(ocpData);
@@ -95,20 +97,20 @@ export const useApiStatus = () => {
     mceFeatures,
     mceInfo,
     mceLastVerified,
-    
+
     // Loading state
     loading,
-    
+
     // Actions
     refreshAllStatus,
-    
+
     // Individual setters (for external updates)
     setRosaStatus,
     setConfigStatus,
     setOcpStatus,
     setMceFeatures,
     setMceInfo,
-    setMceLastVerified
+    setMceLastVerified,
   };
 };
 

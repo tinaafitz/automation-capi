@@ -16,13 +16,13 @@ const fetchJobHistoryShared = async () => {
   const now = Date.now();
 
   // Check if previous fetch is stale (timeout exceeded)
-  if (sharedLoading && (now - lastFetchTime) < FETCH_TIMEOUT) {
+  if (sharedLoading && now - lastFetchTime < FETCH_TIMEOUT) {
     console.log('⏭️ [useJobHistory] Skipping fetch - already in progress');
     return;
   }
 
   // Reset stale fetch
-  if (sharedLoading && (now - lastFetchTime) >= FETCH_TIMEOUT) {
+  if (sharedLoading && now - lastFetchTime >= FETCH_TIMEOUT) {
     console.warn('⚠️ [useJobHistory] Previous fetch timed out, resetting...');
     sharedLoading = false;
   }
@@ -35,14 +35,14 @@ const fetchJobHistoryShared = async () => {
     sharedError = null;
 
     // Notify all subscribers loading started
-    subscribers.forEach(cb => cb({ loading: true, error: null }));
+    subscribers.forEach((cb) => cb({ loading: true, error: null }));
 
     // Create an AbortController for timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
 
     const response = await fetch(url, {
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     clearTimeout(timeoutId);
@@ -62,11 +62,13 @@ const fetchJobHistoryShared = async () => {
       sharedLoading = false;
 
       // Notify all subscribers with new data
-      subscribers.forEach(cb => cb({
-        jobHistory: sharedJobHistory,
-        loading: false,
-        error: null
-      }));
+      subscribers.forEach((cb) =>
+        cb({
+          jobHistory: sharedJobHistory,
+          loading: false,
+          error: null,
+        })
+      );
     } else {
       throw new Error(data.error || 'Failed to fetch job history');
     }
@@ -77,10 +79,12 @@ const fetchJobHistoryShared = async () => {
     sharedLoading = false;
 
     // Notify all subscribers of error
-    subscribers.forEach(cb => cb({
-      loading: false,
-      error: sharedError
-    }));
+    subscribers.forEach((cb) =>
+      cb({
+        loading: false,
+        error: sharedError,
+      })
+    );
   }
 };
 
@@ -134,7 +138,10 @@ export const useJobHistory = () => {
     // Cleanup on unmount
     return () => {
       subscribers.delete(subscriberRef.current);
-      console.log('📴 [useJobHistory] Component unsubscribed, remaining subscribers:', subscribers.size);
+      console.log(
+        '📴 [useJobHistory] Component unsubscribed, remaining subscribers:',
+        subscribers.size
+      );
       stopPolling();
     };
   }, []); // Empty dependency array - only run on mount/unmount
@@ -145,29 +152,33 @@ export const useJobHistory = () => {
   }, []);
 
   // Get jobs by environment/type
-  const getJobsByEnvironment = useCallback((environment) => {
-    return jobHistory.filter(job => {
-      // Match based on task_file or description containing environment keywords
-      const taskFile = job.task_file || '';
-      const description = job.description || '';
-      
-      if (environment === 'mce') {
-        return taskFile.includes('validate-capa-environment') || 
-               taskFile.includes('validate-mce') ||
-               description.toLowerCase().includes('mce') ||
-               description.toLowerCase().includes('capi') ||
-               description.toLowerCase().includes('capa') ||
-               description.toLowerCase().includes('rosa provisioning');
-      } else if (environment === 'minikube') {
-        return taskFile.includes('minikube') || 
-               description.toLowerCase().includes('minikube');
-      } else if (environment === 'all') {
-        return true;
-      }
-      
-      return false;
-    });
-  }, [jobHistory]);
+  const getJobsByEnvironment = useCallback(
+    (environment) => {
+      return jobHistory.filter((job) => {
+        // Match based on task_file or description containing environment keywords
+        const taskFile = job.task_file || '';
+        const description = job.description || '';
+
+        if (environment === 'mce') {
+          return (
+            taskFile.includes('validate-capa-environment') ||
+            taskFile.includes('validate-mce') ||
+            description.toLowerCase().includes('mce') ||
+            description.toLowerCase().includes('capi') ||
+            description.toLowerCase().includes('capa') ||
+            description.toLowerCase().includes('rosa provisioning')
+          );
+        } else if (environment === 'minikube') {
+          return taskFile.includes('minikube') || description.toLowerCase().includes('minikube');
+        } else if (environment === 'all') {
+          return true;
+        }
+
+        return false;
+      });
+    },
+    [jobHistory]
+  );
 
   // Get jobs with time grouping
   const getGroupedJobs = useCallback(() => {
@@ -176,10 +187,10 @@ export const useJobHistory = () => {
       today: [],
       yesterday: [],
       thisWeek: [],
-      older: []
+      older: [],
     };
 
-    jobHistory.forEach(job => {
+    jobHistory.forEach((job) => {
       const jobDate = new Date(job.created_at);
       const diffDays = Math.floor((now - jobDate) / (1000 * 60 * 60 * 24));
 

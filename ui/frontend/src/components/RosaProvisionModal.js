@@ -68,7 +68,7 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
   const loadLogForwardingConfig = () => {
     if (!logForwardingConfigAvailable) return;
 
-    setConfig(prev => ({
+    setConfig((prev) => ({
       ...prev,
       enableLogForwarding: true,
       logForwardCloudWatchRoleArn: logForwardingConfigAvailable.cloudwatch_log_role_arn || '',
@@ -96,7 +96,9 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
         channelGroup: 'stable',
         awsRegion: 'us-west-2',
         privateNetwork: testSuite.components?.includes('Private Network') || false,
-        additionalTags: testSuite.components?.includes('Additional Tags') ? 'Environment=Test,Team=CAPI' : '',
+        additionalTags: testSuite.components?.includes('Additional Tags')
+          ? 'Environment=Test,Team=CAPI'
+          : '',
       });
     }
   }, [testSuite]);
@@ -107,9 +109,9 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
       // Generate nodepool name: max 15 chars total
       const maxLength = 6; // Leave 9 chars for '-nodepool'
       const truncatedName = config.clusterName.slice(0, maxLength);
-      setConfig(prev => ({
+      setConfig((prev) => ({
         ...prev,
-        nodePoolName: `${truncatedName}-np`
+        nodePoolName: `${truncatedName}-np`,
       }));
     }
   }, [config.clusterName]);
@@ -161,8 +163,7 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
                 </div>
                 {testSuite.jira && testSuite.jira.length > 0 && (
                   <div className="text-sm text-blue-800">
-                    <strong>JIRA Tickets:</strong>{' '}
-                    {testSuite.jira.join(', ')}
+                    <strong>JIRA Tickets:</strong> {testSuite.jira.join(', ')}
                   </div>
                 )}
               </div>
@@ -210,9 +211,7 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
 
           {/* Cluster Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Description
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
             <textarea
               value={config.clusterDescription}
               onChange={(e) => handleChange('clusterDescription', e.target.value)}
@@ -334,7 +333,8 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
                         <span className="text-sm font-medium text-gray-900">Private Network</span>
                       </div>
                       <p className="text-xs text-gray-600 mt-1">
-                        Configure cluster to use private subnets and disable public API endpoint access
+                        Configure cluster to use private subnets and disable public API endpoint
+                        access
                       </p>
                     </div>
                   </label>
@@ -355,7 +355,8 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
                     placeholder="Environment=Test,Owner=TestTeam"
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    Comma-separated key=value pairs for AWS resource tagging (e.g., Environment=Test,Owner=TestTeam)
+                    Comma-separated key=value pairs for AWS resource tagging (e.g.,
+                    Environment=Test,Owner=TestTeam)
                   </p>
                 </div>
               )}
@@ -469,7 +470,9 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
 
           {/* Log Forwarding Configuration */}
           <div className="border-t pt-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Log Forwarding Configuration</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">
+              Log Forwarding Configuration
+            </h3>
 
             {/* Enable Log Forwarding Toggle */}
             <label className="flex items-start gap-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200 cursor-pointer hover:bg-yellow-100 transition-colors mb-4">
@@ -482,7 +485,9 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-900">Enable Log Forwarding</span>
-                  <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded-full font-semibold">NEW</span>
+                  <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded-full font-semibold">
+                    NEW
+                  </span>
                 </div>
                 <p className="text-xs text-gray-600 mt-1">
                   Forward cluster audit logs to AWS CloudWatch and optionally to S3
@@ -496,7 +501,9 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
                 <div className="flex items-start gap-2">
                   <span className="text-green-600 text-sm">✓</span>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-green-900">Log Forwarding Configuration Found!</p>
+                    <p className="text-sm font-medium text-green-900">
+                      Log Forwarding Configuration Found!
+                    </p>
                     <p className="text-xs text-green-700 mt-1">
                       Pre-configured log forwarding setup detected for this cluster name.
                     </p>
@@ -516,7 +523,9 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
             {loadingLogForwardingConfig && (
               <div className="text-center py-2 mb-4">
                 <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
-                <span className="ml-2 text-sm text-gray-600">Checking for log forwarding config...</span>
+                <span className="ml-2 text-sm text-gray-600">
+                  Checking for log forwarding config...
+                </span>
               </div>
             )}
 
@@ -537,7 +546,8 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
                     placeholder="arn:aws:iam::123456789012:role/cluster-log-forward-role"
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    IAM role ARN with permissions to write to CloudWatch Logs. Created by setup task.
+                    IAM role ARN with permissions to write to CloudWatch Logs. Created by setup
+                    task.
                   </p>
                 </div>
 
@@ -548,7 +558,10 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
                   </label>
                   <div className="space-y-2">
                     {['application', 'infrastructure', 'audit-webhook'].map((app) => (
-                      <label key={app} className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-200 hover:bg-gray-100 cursor-pointer">
+                      <label
+                        key={app}
+                        className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-200 hover:bg-gray-100 cursor-pointer"
+                      >
                         <input
                           type="checkbox"
                           checked={config.logForwardApplications.includes(app)}
@@ -630,7 +643,8 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
                     <div className="flex-1">
                       <p className="text-xs text-blue-800 font-medium mb-1">Setup Prerequisites</p>
                       <p className="text-xs text-blue-700">
-                        Run the log forwarding setup first to create the IAM role and CloudWatch log group:
+                        Run the log forwarding setup first to create the IAM role and CloudWatch log
+                        group:
                       </p>
                       <code className="text-xs bg-blue-100 text-blue-900 px-2 py-1 rounded mt-1 block">
                         ansible-playbook test-rosa-log-forwarding.yml -e setup_only=true

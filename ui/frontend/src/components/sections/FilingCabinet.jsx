@@ -17,7 +17,7 @@ const FilingCabinet = ({
   onToggle,
   onClose,
   isMinimized,
-  onMinimize
+  onMinimize,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: 'filing-cabinet-dropzone',
@@ -101,63 +101,71 @@ const FilingCabinet = ({
         >
           {/* Drop zone wrapper - always rendered for ref */}
           <div ref={setNodeRef} className="w-full h-full">
-          {/* Simple header when empty, full header when has sections */}
-          {hiddenSections.length > 0 ? (
-            <div className={`bg-gradient-to-br ${colors.gradient} p-3 group`}>
-              <div className="flex items-center gap-2">
-                <div className="bg-white/30 rounded-lg p-1.5 backdrop-blur-sm">
-                  <ArchiveBoxIcon className="h-5 w-5 text-white drop-shadow-lg" />
+            {/* Simple header when empty, full header when has sections */}
+            {hiddenSections.length > 0 ? (
+              <div className={`bg-gradient-to-br ${colors.gradient} p-3 group`}>
+                <div className="flex items-center gap-2">
+                  <div className="bg-white/30 rounded-lg p-1.5 backdrop-blur-sm">
+                    <ArchiveBoxIcon className="h-5 w-5 text-white drop-shadow-lg" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-bold text-white drop-shadow-md truncate">
+                      Storage
+                    </h3>
+                    <p className="text-[10px] text-white/90 font-medium">
+                      {hiddenSections.length} widget{hiddenSections.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  <div className="bg-white/30 backdrop-blur-sm rounded-full px-2 py-0.5">
+                    <span className="text-white text-xs font-bold">{hiddenSections.length}</span>
+                  </div>
+                  {onMinimize && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMinimize();
+                      }}
+                      className="p-1 bg-white/20 backdrop-blur-sm rounded hover:bg-white/30 transition-all duration-200 opacity-0 group-hover:opacity-100"
+                      title="Minimize widget"
+                    >
+                      <XMarkIcon className="h-4 w-4 text-white" />
+                    </button>
+                  )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-bold text-white drop-shadow-md truncate">Storage</h3>
-                  <p className="text-[10px] text-white/90 font-medium">
-                    {hiddenSections.length} widget{hiddenSections.length !== 1 ? 's' : ''}
-                  </p>
-                </div>
-                <div className="bg-white/30 backdrop-blur-sm rounded-full px-2 py-0.5">
-                  <span className="text-white text-xs font-bold">{hiddenSections.length}</span>
-                </div>
-                {onMinimize && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onMinimize();
-                    }}
-                    className="p-1 bg-white/20 backdrop-blur-sm rounded hover:bg-white/30 transition-all duration-200 opacity-0 group-hover:opacity-100"
-                    title="Minimize widget"
-                  >
-                    <XMarkIcon className="h-4 w-4 text-white" />
-                  </button>
-                )}
               </div>
-            </div>
-          ) : (
-            <div className={`p-2 bg-gradient-to-br ${colors.gradient} group`}>
-              <div className="flex items-center gap-2">
-                <ArchiveBoxIcon className="h-4 w-4 text-white" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-white">Storage</p>
+            ) : (
+              <div className={`p-2 bg-gradient-to-br ${colors.gradient} group`}>
+                <div className="flex items-center gap-2">
+                  <ArchiveBoxIcon className="h-4 w-4 text-white" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-white">Storage</p>
+                  </div>
+                  {onMinimize && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMinimize();
+                      }}
+                      className="p-0.5 bg-white/20 backdrop-blur-sm rounded hover:bg-white/30 transition-all duration-200 opacity-0 group-hover:opacity-100"
+                      title="Minimize widget"
+                    >
+                      <XMarkIcon className="h-3 w-3 text-white" />
+                    </button>
+                  )}
                 </div>
-                {onMinimize && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onMinimize();
-                    }}
-                    className="p-0.5 bg-white/20 backdrop-blur-sm rounded hover:bg-white/30 transition-all duration-200 opacity-0 group-hover:opacity-100"
-                    title="Minimize widget"
-                  >
-                    <XMarkIcon className="h-3 w-3 text-white" />
-                  </button>
-                )}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Drop Zone Area / Drawers - Always rendered for drop functionality */}
-          <div className={`transition-all duration-300 ${
-            isOver ? 'p-3 bg-gradient-to-br from-yellow-100 to-orange-100' : hiddenSections.length > 0 ? 'p-3 bg-white' : ''
-          }`}>
+            {/* Drop Zone Area / Drawers - Always rendered for drop functionality */}
+            <div
+              className={`transition-all duration-300 ${
+                isOver
+                  ? 'p-3 bg-gradient-to-br from-yellow-100 to-orange-100'
+                  : hiddenSections.length > 0
+                    ? 'p-3 bg-white'
+                    : ''
+              }`}
+            >
               {/* Drop Zone When Dragging */}
               {isOver && (
                 <div className="border-2 border-dashed border-orange-400 bg-white shadow-lg scale-105 rounded-xl p-4 transition-all duration-300">
@@ -175,9 +183,8 @@ const FilingCabinet = ({
                   {hiddenSections.map((sectionId, index) => {
                     const metadata = sectionMetadata[sectionId] || { name: sectionId, icon: '📦' };
                     // Alternate drawer colors for visual interest
-                    const drawerGradient = index % 2 === 0
-                      ? `${colors.gradient}`
-                      : 'from-indigo-500 to-purple-600';
+                    const drawerGradient =
+                      index % 2 === 0 ? `${colors.gradient}` : 'from-indigo-500 to-purple-600';
 
                     return (
                       <div
@@ -200,7 +207,9 @@ const FilingCabinet = ({
                             <div className="flex items-center gap-1.5 flex-1 min-w-0">
                               <span className="text-base flex-shrink-0">{metadata.icon}</span>
                               <div className="min-w-0 flex-1">
-                                <p className="text-[10px] font-bold text-white truncate drop-shadow-md leading-tight">{metadata.name}</p>
+                                <p className="text-[10px] font-bold text-white truncate drop-shadow-md leading-tight">
+                                  {metadata.name}
+                                </p>
                               </div>
                             </div>
                           </div>
@@ -221,7 +230,7 @@ const FilingCabinet = ({
                   })}
                 </div>
               )}
-          </div>
+            </div>
           </div>
         </div>
       )}
@@ -243,7 +252,9 @@ const FilingCabinet = ({
             }`}
           >
             {/* Drawer Header */}
-            <div className={`bg-gradient-to-r ${colors.gradient} p-6 flex items-center justify-between`}>
+            <div
+              className={`bg-gradient-to-r ${colors.gradient} p-6 flex items-center justify-between`}
+            >
               <div className="flex items-center gap-3">
                 <ArchiveBoxIcon className="h-8 w-8 text-white" />
                 <div>
@@ -263,7 +274,9 @@ const FilingCabinet = ({
 
             {/* Drop Zone Indicator */}
             {isOver && (
-              <div className={`mx-6 mt-4 p-4 border-2 border-dashed ${colors.border} ${colors.lightBg} rounded-lg animate-pulse`}>
+              <div
+                className={`mx-6 mt-4 p-4 border-2 border-dashed ${colors.border} ${colors.lightBg} rounded-lg animate-pulse`}
+              >
                 <div className="text-center">
                   <ArchiveBoxIcon className={`h-8 w-8 mx-auto mb-2 ${colors.text}`} />
                   <p className={`text-sm font-medium ${colors.text}`}>Drop here to store section</p>
@@ -272,7 +285,10 @@ const FilingCabinet = ({
             )}
 
             {/* Stored Sections */}
-            <div className="p-6 space-y-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 180px)' }}>
+            <div
+              className="p-6 space-y-4 overflow-y-auto"
+              style={{ maxHeight: 'calc(100vh - 180px)' }}
+            >
               {hiddenSections.length === 0 ? (
                 <div className="text-center py-12">
                   <ArchiveBoxIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />

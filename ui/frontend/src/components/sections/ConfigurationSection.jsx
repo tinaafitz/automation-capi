@@ -2,13 +2,32 @@ import React, { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import StatusCard from '../cards/StatusCard';
 import { YamlEditorModal } from '../YamlEditorModal';
-import { useApiStatusContext, useApp, useAppDispatch, useMCEContext, useRecentOperationsContext } from '../../store/AppContext';
+import {
+  useApiStatusContext,
+  useApp,
+  useAppDispatch,
+  useMCEContext,
+  useRecentOperationsContext,
+} from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
-import { Cog6ToothIcon, BellIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
+import {
+  Cog6ToothIcon,
+  BellIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+} from '@heroicons/react/24/outline';
 import { cardStyles } from '../../styles/themes';
 import { buildApiUrl, API_ENDPOINTS } from '../../config/api';
 
-const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConfigure, onRefresh, onProvision, onExport, onDisableCapi }) => {
+const ConfigurationSection = ({
+  onVerifyEnvironment,
+  onOpenNotifications,
+  onConfigure,
+  onRefresh,
+  onProvision,
+  onExport,
+  onDisableCapi,
+}) => {
   const app = useApp();
   const dispatch = useAppDispatch();
   const apiStatus = useApiStatusContext();
@@ -28,22 +47,24 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
     'cluster-api-provider-aws': 'v2.10.0',
     'cluster-api-provider-metal3': 'v1.7.1',
     'cluster-api-provider-openshift-assisted': 'v1.0.9',
-    'hypershift': 'v4.17.0',
-    'hypershift-local-hosting': 'v4.17.0'
+    hypershift: 'v4.17.0',
+    'hypershift-local-hosting': 'v4.17.0',
   };
 
   // Filter mceFeatures to get CAPI and Hypershift components (using 'name' field not 'component')
   const capiComponentsArray = (mceFeatures?.filter((f) => f.name?.startsWith('cluster-api')) || [])
     .sort((a, b) => a.name.localeCompare(b.name))
-    .map(component => ({
+    .map((component) => ({
       ...component,
-      version: componentVersions[component.name] || null
+      version: componentVersions[component.name] || null,
     }));
-  const hypershiftComponentsArray = (mceFeatures?.filter((f) => f.name?.startsWith('hypershift')) || [])
+  const hypershiftComponentsArray = (
+    mceFeatures?.filter((f) => f.name?.startsWith('hypershift')) || []
+  )
     .sort((a, b) => a.name.localeCompare(b.name))
-    .map(component => ({
+    .map((component) => ({
       ...component,
-      version: componentVersions[component.name] || null
+      version: componentVersions[component.name] || null,
     }));
   const allCAPIComponents = [...capiComponentsArray, ...hypershiftComponentsArray];
 
@@ -116,7 +137,7 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
         color: 'bg-cyan-600',
         status: '⏳ Refreshing...',
         environment: 'mce',
-        output: 'Refreshing MCE component status...'
+        output: 'Refreshing MCE component status...',
       });
 
       // Refresh all status (parent component's refresh function)
@@ -137,7 +158,6 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
         `✅ Component refresh completed at ${completionTime}`,
         `MCE Component Status Refresh Complete\n\n✅ Updated component enabled/disabled status\n\nRefresh completed at ${completionTime}`
       );
-
     } catch (error) {
       console.error('❌ ConfigurationSection: Component refresh failed:', error);
 
@@ -163,7 +183,7 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
         color: 'bg-cyan-600',
         status: '⏳ Refreshing...',
         environment: 'mce',
-        output: 'Refreshing MCE resources...'
+        output: 'Refreshing MCE resources...',
       });
 
       // Set loading state immediately for visual feedback
@@ -187,7 +207,6 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
         `✅ Resource refresh completed at ${completionTime}`,
         `MCE Resources Refresh Complete\n\n✅ Refreshed ${resources.length} resources\n\nRefresh completed at ${completionTime}`
       );
-
     } catch (error) {
       console.error('❌ ConfigurationSection: Resource refresh failed:', error);
 
@@ -204,7 +223,7 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
   };
 
   const toggleNamespace = (namespace) => {
-    setExpandedNamespaces(prev => {
+    setExpandedNamespaces((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(namespace)) {
         newSet.delete(namespace);
@@ -262,7 +281,7 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
           setYamlEditorData({
             yaml_content: result.yaml,
             resource_name: resource.name,
-            resource_type: resource.type
+            resource_type: resource.type,
           });
 
           setShowYamlEditorModal(true);
@@ -275,7 +294,8 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
       // For other resources, use kubectl/oc command via the OCP execute command endpoint
       // Build oc command - handle cluster-scoped resources (no namespace)
       const namespaceFlag = resource.namespace ? `-n ${resource.namespace}` : '';
-      const ocCommand = `oc get ${resource.type.toLowerCase()} ${resource.name} ${namespaceFlag} -o yaml`.trim();
+      const ocCommand =
+        `oc get ${resource.type.toLowerCase()} ${resource.name} ${namespaceFlag} -o yaml`.trim();
       console.log('🔧 [OC-COMMAND]', ocCommand);
 
       const response = await fetch(buildApiUrl('/api/ocp/execute-command'), {
@@ -284,8 +304,8 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          command: ocCommand
-        })
+          command: ocCommand,
+        }),
       });
 
       if (!response.ok) {
@@ -304,7 +324,7 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
       setYamlEditorData({
         yaml_content: yamlContent,
         resource_name: resource.name,
-        resource_type: resource.type
+        resource_type: resource.type,
       });
 
       setShowYamlEditorModal(true);
@@ -319,8 +339,8 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            command: `oc get ${resource.name} -o yaml`
-          })
+            command: `oc get ${resource.name} -o yaml`,
+          }),
         });
 
         if (altResponse.ok) {
@@ -329,7 +349,7 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
             setYamlEditorData({
               yaml_content: altResult.output,
               resource_name: resource.name,
-              resource_type: resource.type
+              resource_type: resource.type,
             });
             setShowYamlEditorModal(true);
             return;
@@ -354,7 +374,7 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
 # Type: ${resource.type}
 # Namespace: ${resource.namespace || 'cluster-scoped'}`,
         resource_name: resource.name,
-        resource_type: resource.type
+        resource_type: resource.type,
       });
 
       setShowYamlEditorModal(true);
@@ -409,7 +429,12 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
               title="MCE Environment"
               icon={
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
                 </svg>
               }
               status={ocpStatus?.connected ? 'Connected' : 'Not Connected'}
@@ -431,7 +456,9 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
                 <div className="bg-white p-4 rounded-lg border border-cyan-100">
                   <h5 className="font-semibold text-cyan-900 mb-2 flex items-center gap-2">
                     <span>{mceInfo?.name || 'multiclusterengine'}</span>
-                    <span className="text-sm font-normal text-cyan-600">{mceInfo?.version || '2.10.0'}</span>
+                    <span className="text-sm font-normal text-cyan-600">
+                      {mceInfo?.version || '2.10.0'}
+                    </span>
                   </h5>
 
                   <div className="space-y-2 text-sm">
@@ -451,7 +478,7 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
               theme="mce"
               title="Components"
               icon="🔧"
-              status={`${allCAPIComponents.filter(c => c.enabled).length} configured`}
+              status={`${allCAPIComponents.filter((c) => c.enabled).length} configured`}
               actions={[
                 {
                   label: 'Configure',
@@ -470,12 +497,14 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
 
                 {/* CAPI Components - Already filtered for cluster-api* */}
                 <div className="space-y-2">
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">CAPI Providers</div>
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    CAPI Providers
+                  </div>
                   <div className="space-y-1">
                     {capiComponentsArray.map((feature, index) => {
                       // Map component names to their actual deployment names
                       const getDeploymentInfo = (componentName) => {
-                        switch(componentName) {
+                        switch (componentName) {
                           case 'cluster-api':
                             return { name: 'capi-controller-manager', namespace: 'capi-system' };
                           case 'cluster-api-provider-aws':
@@ -483,7 +512,10 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
                           case 'cluster-api-provider-metal3':
                             return { name: 'capm3-controller-manager', namespace: 'capm3-system' };
                           case 'cluster-api-provider-openshift-assisted':
-                            return { name: 'capi-provider-controller-manager', namespace: 'capi-provider-system' };
+                            return {
+                              name: 'capi-provider-controller-manager',
+                              namespace: 'capi-provider-system',
+                            };
                           default:
                             return { name: componentName, namespace: 'default' };
                         }
@@ -495,17 +527,24 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
                         <div
                           key={index}
                           className="flex items-center justify-between text-sm cursor-pointer hover:bg-cyan-50 rounded p-2 transition-colors"
-                          onClick={() => feature.enabled && handleResourceClick({
-                            name: deploymentInfo.name,
-                            type: 'Deployment',
-                            namespace: deploymentInfo.namespace
-                          })}
-                          title={feature.enabled ? "Click to view YAML" : "Component not enabled"}
+                          onClick={() =>
+                            feature.enabled &&
+                            handleResourceClick({
+                              name: deploymentInfo.name,
+                              type: 'Deployment',
+                              namespace: deploymentInfo.namespace,
+                            })
+                          }
+                          title={feature.enabled ? 'Click to view YAML' : 'Component not enabled'}
                         >
                           <div className="flex items-baseline gap-2">
-                            <span className={feature.enabled ? 'hover:text-cyan-700' : ''}>{feature.name}</span>
+                            <span className={feature.enabled ? 'hover:text-cyan-700' : ''}>
+                              {feature.name}
+                            </span>
                             {feature.version && (
-                              <span className="text-xs text-gray-500 font-mono">{feature.version}</span>
+                              <span className="text-xs text-gray-500 font-mono">
+                                {feature.version}
+                              </span>
                             )}
                           </div>
                           <span className={feature.enabled ? 'text-green-600' : 'text-red-600'}>
@@ -519,12 +558,14 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
 
                 {/* Hypershift Components - Already filtered for hypershift* */}
                 <div className="space-y-2">
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Hypershift</div>
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Hypershift
+                  </div>
                   <div className="space-y-1">
                     {hypershiftComponentsArray.map((feature, index) => {
                       // Map component names to their actual deployment names
                       const getHypershiftDeploymentInfo = (componentName) => {
-                        switch(componentName) {
+                        switch (componentName) {
                           case 'hypershift':
                             return { name: 'operator', namespace: 'hypershift' };
                           case 'hypershift-local-hosting':
@@ -540,17 +581,24 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
                         <div
                           key={index}
                           className="flex items-center justify-between text-sm cursor-pointer hover:bg-cyan-50 rounded p-2 transition-colors"
-                          onClick={() => feature.enabled && handleResourceClick({
-                            name: deploymentInfo.name,
-                            type: 'Deployment',
-                            namespace: deploymentInfo.namespace
-                          })}
-                          title={feature.enabled ? "Click to view YAML" : "Component not enabled"}
+                          onClick={() =>
+                            feature.enabled &&
+                            handleResourceClick({
+                              name: deploymentInfo.name,
+                              type: 'Deployment',
+                              namespace: deploymentInfo.namespace,
+                            })
+                          }
+                          title={feature.enabled ? 'Click to view YAML' : 'Component not enabled'}
                         >
                           <div className="flex items-baseline gap-2">
-                            <span className={feature.enabled ? 'hover:text-cyan-700' : ''}>{feature.name}</span>
+                            <span className={feature.enabled ? 'hover:text-cyan-700' : ''}>
+                              {feature.name}
+                            </span>
                             {feature.version && (
-                              <span className="text-xs text-gray-500 font-mono">{feature.version}</span>
+                              <span className="text-xs text-gray-500 font-mono">
+                                {feature.version}
+                              </span>
                             )}
                           </div>
                           <span className={feature.enabled ? 'text-green-600' : 'text-red-600'}>
@@ -563,7 +611,7 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
                 </div>
 
                 {/* Disable CAPI Button - Only show when CAPI is enabled */}
-                {capiComponentsArray.some(c => c.name === 'cluster-api' && c.enabled) && (
+                {capiComponentsArray.some((c) => c.name === 'cluster-api' && c.enabled) && (
                   <div className="pt-4 border-t border-gray-200">
                     <button
                       onClick={onDisableCapi}
@@ -610,25 +658,26 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
                 ) : mceResources.length === 0 ? (
                   <div className="text-center py-4 text-gray-500">
                     <p>No resources found.</p>
-                    <p className="text-sm mt-1">Resources will appear here when environment is configured.</p>
+                    <p className="text-sm mt-1">
+                      Resources will appear here when environment is configured.
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-2 pr-2">
                     {Object.entries(groupedResources).map(([namespace, resources]) => {
                       const isExpanded = expandedNamespaces.has(namespace);
                       return (
-                        <div key={namespace} className="border-b border-gray-200 pb-2 last:border-b-0">
+                        <div
+                          key={namespace}
+                          className="border-b border-gray-200 pb-2 last:border-b-0"
+                        >
                           <div
                             className="flex items-center justify-between cursor-pointer py-2 px-2 hover:bg-cyan-50 rounded transition-colors"
                             onClick={() => toggleNamespace(namespace)}
                           >
                             <div className="flex items-center gap-2">
-                              <span className="text-gray-400">
-                                {isExpanded ? '▼' : '▶'}
-                              </span>
-                              <h4 className="font-semibold text-gray-800 text-base">
-                                {namespace}
-                              </h4>
+                              <span className="text-gray-400">{isExpanded ? '▼' : '▶'}</span>
+                              <h4 className="font-semibold text-gray-800 text-base">{namespace}</h4>
                             </div>
                             <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                               {resources.length}
@@ -647,7 +696,9 @@ const ConfigurationSection = ({ onVerifyEnvironment, onOpenNotifications, onConf
                                     {resource.name}
                                   </h5>
                                   <div className="mt-1">
-                                    <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${getResourceTypeColor(resource.type)}`}>
+                                    <span
+                                      className={`inline-block px-2 py-1 rounded text-xs font-medium ${getResourceTypeColor(resource.type)}`}
+                                    >
                                       {resource.type}
                                     </span>
                                   </div>

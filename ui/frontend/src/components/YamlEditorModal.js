@@ -296,7 +296,9 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
                 onChange={handleYamlChange}
                 readOnly={readOnly}
                 className={`w-full flex-1 p-4 font-mono text-sm bg-gray-900 text-gray-100 border-2 border-gray-700 rounded-xl resize-none shadow-inner ${
-                  readOnly ? 'cursor-default' : 'focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500'
+                  readOnly
+                    ? 'cursor-default'
+                    : 'focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500'
                 }`}
                 spellCheck="false"
                 style={{

@@ -8,6 +8,7 @@ import sqlite3
 import os
 import sys
 
+
 def migrate_database():
     """Add new columns to existing helm_test_results table"""
 
@@ -31,13 +32,13 @@ def migrate_database():
 
         migrations_needed = []
 
-        if 'chart_source' not in columns:
+        if "chart_source" not in columns:
             migrations_needed.append("chart_source")
 
-        if 'git_branch' not in columns:
+        if "git_branch" not in columns:
             migrations_needed.append("git_branch")
 
-        if 'install_method' not in columns:
+        if "install_method" not in columns:
             migrations_needed.append("install_method")
 
         if not migrations_needed:
@@ -48,25 +49,31 @@ def migrate_database():
         print(f"🔧 Adding columns: {migrations_needed}")
 
         # Add missing columns
-        if 'chart_source' in migrations_needed:
-            cursor.execute("""
+        if "chart_source" in migrations_needed:
+            cursor.execute(
+                """
                 ALTER TABLE helm_test_results
                 ADD COLUMN chart_source TEXT DEFAULT 'helm_repo'
-            """)
+            """
+            )
             print("  ✓ Added chart_source column")
 
-        if 'git_branch' in migrations_needed:
-            cursor.execute("""
+        if "git_branch" in migrations_needed:
+            cursor.execute(
+                """
                 ALTER TABLE helm_test_results
                 ADD COLUMN git_branch TEXT
-            """)
+            """
+            )
             print("  ✓ Added git_branch column")
 
-        if 'install_method' in migrations_needed:
-            cursor.execute("""
+        if "install_method" in migrations_needed:
+            cursor.execute(
+                """
                 ALTER TABLE helm_test_results
                 ADD COLUMN install_method TEXT DEFAULT 'helm_repo'
-            """)
+            """
+            )
             print("  ✓ Added install_method column")
 
         conn.commit()
@@ -84,8 +91,10 @@ def migrate_database():
     except Exception as e:
         print(f"❌ Migration failed: {str(e)}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     success = migrate_database()

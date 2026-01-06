@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { themes, buttonStyles } from '../../styles/themes';
 
 const ComponentStatusCard = ({
@@ -9,29 +10,16 @@ const ComponentStatusCard = ({
   components = [],
   actions = [],
   className = '',
-  customHeaderContent
+  customHeaderContent,
 }) => {
   const themeConfig = themes[theme];
 
-  const getStatusIcon = (enabled) => {
-    return enabled ? (
-      <span className="text-green-600">✓</span>
-    ) : (
-      <span className="text-red-600">✕</span>
-    );
-  };
-
-  const getVersionBadge = (version) => {
-    if (!version) return null;
-    return (
-      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-        {version}
-      </span>
-    );
-  };
-
   const getStatusStyle = (status) => {
-    if (status?.includes('Running') || status?.includes('Enabled') || status?.includes('Connected')) {
+    if (
+      status?.includes('Running') ||
+      status?.includes('Enabled') ||
+      status?.includes('Connected')
+    ) {
       return 'text-green-600 bg-green-50 border-green-200';
     }
     if (status?.includes('Error') || status?.includes('Failed')) {
@@ -44,25 +32,31 @@ const ComponentStatusCard = ({
   };
 
   return (
-    <div className={`bg-white rounded-lg border-2 ${themeConfig.colors.border} p-6 shadow-lg ${className}`}>
+    <div
+      className={`bg-white rounded-lg border-2 ${themeConfig.colors.border} p-6 shadow-lg ${className}`}
+    >
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div className="flex-1 mr-4 space-y-2">
-          <h4 className={`text-base font-semibold ${themeConfig.colors.text.primary} flex items-center`}>
+          <h4
+            className={`text-base font-semibold ${themeConfig.colors.text.primary} flex items-center`}
+          >
             <span className={`h-5 w-5 ${themeConfig.colors.text.secondary} mr-2`}>🔧</span>
             {title}
           </h4>
-          
+
           {/* Last Verified under title */}
           {lastVerified && (
             <div className="text-sm text-gray-500">
               <span className="font-medium">Last Verified:</span> {lastVerified}
             </div>
           )}
-          
+
           {/* Status Badge under last verified */}
           {status && (
-            <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${getStatusStyle(status)} border`}>
+            <div
+              className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${getStatusStyle(status)} border`}
+            >
               <div className="w-2 h-2 rounded-full bg-current mr-2 opacity-80"></div>
               {status}
             </div>
@@ -87,10 +81,10 @@ const ComponentStatusCard = ({
             {actions.map((action, index) => {
               const isPrimary = action.variant === 'primary' || index === 0;
               const buttonStyle = isPrimary ? buttonStyles.primary : buttonStyles.secondary;
-              const colorClasses = isPrimary 
-                ? `${themeConfig.colors.button.primary} text-white` 
+              const colorClasses = isPrimary
+                ? `${themeConfig.colors.button.primary} text-white`
                 : `${themeConfig.colors.button.secondary}`;
-              
+
               return (
                 <button
                   key={index}
@@ -111,12 +105,18 @@ const ComponentStatusCard = ({
       <div className="space-y-4">
         {/* All CAPI Components Status */}
         <div>
-          <h6 className={`font-medium ${theme === 'minikube' ? 'text-purple-900' : 'text-cyan-900'} mb-2`}>All CAPI Components Status</h6>
+          <h6
+            className={`font-medium ${theme === 'minikube' ? 'text-purple-900' : 'text-cyan-900'} mb-2`}
+          >
+            All CAPI Components Status
+          </h6>
           <div className="space-y-2">
             {components.slice(0, 4).map((component, index) => (
               <div key={index} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium">{component.name.toLowerCase().replace(/\s+/g, '-')}</span>
+                  <span className="font-medium">
+                    {component.name.toLowerCase().replace(/\s+/g, '-')}
+                  </span>
                   {component.version && (
                     <span className="text-xs text-gray-500 font-mono">{component.version}</span>
                   )}
@@ -132,7 +132,11 @@ const ComponentStatusCard = ({
         {/* Hypershift Components Status */}
         {components.length > 4 && (
           <div>
-            <h6 className={`font-medium ${theme === 'minikube' ? 'text-purple-900' : 'text-cyan-900'} mb-2`}>Hypershift Components Status</h6>
+            <h6
+              className={`font-medium ${theme === 'minikube' ? 'text-purple-900' : 'text-cyan-900'} mb-2`}
+            >
+              Hypershift Components Status
+            </h6>
             <div className="space-y-1">
               {components.slice(4).map((component, index) => (
                 <div key={index} className="flex items-center justify-between text-sm">
@@ -145,15 +149,30 @@ const ComponentStatusCard = ({
             </div>
           </div>
         )}
-        
+
         {components.length === 0 && (
-          <div className="text-center py-4 text-gray-500">
-            No components found
-          </div>
+          <div className="text-center py-4 text-gray-500">No components found</div>
         )}
       </div>
     </div>
   );
+};
+
+ComponentStatusCard.propTypes = {
+  theme: PropTypes.string,
+  title: PropTypes.string.isRequired,
+  status: PropTypes.string,
+  lastVerified: PropTypes.string,
+  components: PropTypes.arrayOf(
+    PropTypes.shape({
+      name: PropTypes.string.isRequired,
+      enabled: PropTypes.bool,
+      version: PropTypes.string,
+    })
+  ),
+  actions: PropTypes.array,
+  className: PropTypes.string,
+  customHeaderContent: PropTypes.node,
 };
 
 export default ComponentStatusCard;

@@ -18,7 +18,7 @@ const MinikubeSetupSection = () => {
     verifyMinikubeCluster,
     fetchMinikubeClusters,
     setSelectedMinikubeCluster,
-    setMinikubeClusterInput
+    setMinikubeClusterInput,
   } = minikube;
 
   const { addToRecent, updateRecentOperationStatus } = recentOps;
@@ -31,34 +31,31 @@ const MinikubeSetupSection = () => {
     }
 
     const verifyId = `verify-minikube-${Date.now()}`;
-    
+
     try {
       addToRecent({
         id: verifyId,
         title: 'Verify Minikube Cluster',
         color: 'bg-purple-600',
         status: '⏳ Verifying...',
-        environment: 'minikube'
+        environment: 'minikube',
       });
 
       await verifyMinikubeCluster(clusterName);
-      
+
       const completionTime = new Date().toLocaleTimeString('en-US', {
         hour: 'numeric',
         minute: '2-digit',
         second: '2-digit',
         hour12: true,
       });
-      
+
       updateRecentOperationStatus(
         verifyId,
         `✅ Cluster ${clusterName} verified at ${completionTime}`
       );
     } catch (error) {
-      updateRecentOperationStatus(
-        verifyId,
-        `❌ Verification failed: ${error.message}`
-      );
+      updateRecentOperationStatus(verifyId, `❌ Verification failed: ${error.message}`);
     }
   };
 
@@ -86,7 +83,7 @@ const MinikubeSetupSection = () => {
         title: `Create Minikube Cluster: ${clusterNameToCreate}`,
         color: 'bg-purple-600',
         status: '⏳ Creating...',
-        environment: 'minikube'
+        environment: 'minikube',
       });
 
       const response = await fetch('http://localhost:8000/api/minikube/create-cluster', {
@@ -117,10 +114,7 @@ const MinikubeSetupSection = () => {
         throw new Error(data.message || 'Cluster creation failed');
       }
     } catch (error) {
-      updateRecentOperationStatus(
-        createId,
-        `❌ Creation failed: ${error.message}`
-      );
+      updateRecentOperationStatus(createId, `❌ Creation failed: ${error.message}`);
     }
   };
 
@@ -131,7 +125,10 @@ const MinikubeSetupSection = () => {
   // Don't show setup section if a cluster is already selected
   // Simple approach: if user has selected a cluster from the dropdown, assume they're using it
   if (selectedMinikubeCluster && selectedMinikubeCluster !== '') {
-    console.log('✅ [MinikubeSetupSection] Hiding setup section - cluster selected:', selectedMinikubeCluster);
+    console.log(
+      '✅ [MinikubeSetupSection] Hiding setup section - cluster selected:',
+      selectedMinikubeCluster
+    );
     return null;
   }
 
@@ -195,7 +192,7 @@ const MinikubeSetupSection = () => {
         >
           {minikubeLoading ? '⏳ Verifying...' : '✓ Verify Cluster'}
         </button>
-        
+
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
           className="px-4 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg font-medium transition-colors"
@@ -235,17 +232,17 @@ const MinikubeSetupSection = () => {
 
       {/* Verification Result */}
       {minikubeVerificationResult && (
-        <div className={`p-4 rounded-lg border ${
-          minikubeVerificationResult.success
-            ? 'bg-green-50 border-green-200 text-green-800' 
-            : 'bg-red-50 border-red-200 text-red-800'
-        }`}>
+        <div
+          className={`p-4 rounded-lg border ${
+            minikubeVerificationResult.success
+              ? 'bg-green-50 border-green-200 text-green-800'
+              : 'bg-red-50 border-red-200 text-red-800'
+          }`}
+        >
           <div className="font-medium">
             {minikubeVerificationResult.success ? '✅ Success!' : '❌ Error'}
           </div>
-          <div className="text-sm mt-1">
-            {minikubeVerificationResult.message}
-          </div>
+          <div className="text-sm mt-1">{minikubeVerificationResult.message}</div>
           {minikubeVerificationResult.cluster_info && (
             <div className="mt-2 text-xs">
               <div>Cluster: {minikubeVerificationResult.cluster_info.name}</div>

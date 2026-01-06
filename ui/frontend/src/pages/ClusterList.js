@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowPathIcon, EyeIcon, TrashIcon, ArrowLeftIcon, HomeIcon } from '@heroicons/react/24/outline';
+import {
+  ArrowPathIcon,
+  EyeIcon,
+  TrashIcon,
+  ArrowLeftIcon,
+  HomeIcon,
+} from '@heroicons/react/24/outline';
 
 export function ClusterList() {
   const navigate = useNavigate();
@@ -113,9 +119,7 @@ export function ClusterList() {
         <div className="mb-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl shadow-xl p-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold text-white mb-2">
-                ROSA HCP Clusters
-              </h1>
+              <h1 className="text-4xl font-bold text-white mb-2">ROSA HCP Clusters</h1>
               <p className="text-purple-100 text-lg">
                 Real-time cluster monitoring and management dashboard
               </p>
@@ -195,12 +199,17 @@ export function ClusterList() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {clusters.map((cluster) => (
-                  <tr key={cluster.name} className="hover:bg-purple-50 transition-colors duration-150">
+                  <tr
+                    key={cluster.name}
+                    className="hover:bg-purple-50 transition-colors duration-150"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div>
                           <div className="text-sm font-semibold text-gray-900">{cluster.name}</div>
-                          <div className="text-xs text-gray-500 font-mono">{cluster.domain_prefix}</div>
+                          <div className="text-xs text-gray-500 font-mono">
+                            {cluster.domain_prefix}
+                          </div>
                         </div>
                       </div>
                     </td>

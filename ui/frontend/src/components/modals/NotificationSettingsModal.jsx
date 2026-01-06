@@ -11,13 +11,16 @@ const NotificationSettingsModal = ({ isOpen, onClose, theme = 'mce' }) => {
   const [activeTab, setActiveTab] = useState('email'); // 'slack' or 'email'
 
   // Theme colors
-  const themeColors = theme === 'minikube' ? {
-    gradient: 'from-purple-600 to-violet-600',
-    hoverGradient: 'hover:from-purple-700 hover:to-violet-700'
-  } : {
-    gradient: 'from-cyan-600 to-blue-600',
-    hoverGradient: 'hover:from-cyan-700 hover:to-blue-700'
-  };
+  const themeColors =
+    theme === 'minikube'
+      ? {
+          gradient: 'from-purple-600 to-violet-600',
+          hoverGradient: 'hover:from-purple-700 hover:to-violet-700',
+        }
+      : {
+          gradient: 'from-cyan-600 to-blue-600',
+          hoverGradient: 'hover:from-cyan-700 hover:to-blue-700',
+        };
 
   const [settings, setSettings] = useState({
     // Slack settings
@@ -36,7 +39,7 @@ const NotificationSettingsModal = ({ isOpen, onClose, theme = 'mce' }) => {
     app_url: 'http://localhost:3000',
     notify_on_start: false,
     notify_on_complete: true,
-    notify_on_failure: true
+    notify_on_failure: true,
   });
 
   // Fetch current settings when modal opens
@@ -72,7 +75,7 @@ const NotificationSettingsModal = ({ isOpen, onClose, theme = 'mce' }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(settings)
+        body: JSON.stringify(settings),
       });
 
       if (response.ok) {
@@ -97,18 +100,18 @@ const NotificationSettingsModal = ({ isOpen, onClose, theme = 'mce' }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        }
+        },
       });
 
       const data = await response.json();
       setTestResult({
         success: data.success,
-        message: data.message
+        message: data.message,
       });
     } catch (error) {
       setTestResult({
         success: false,
-        message: `Failed to test connection: ${error.message}`
+        message: `Failed to test connection: ${error.message}`,
       });
     } finally {
       setTesting(false);
@@ -116,15 +119,18 @@ const NotificationSettingsModal = ({ isOpen, onClose, theme = 'mce' }) => {
   };
 
   const handleInputChange = (field, value) => {
-    setSettings(prev => ({
+    setSettings((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
   const handleEmailsChange = (emailsString) => {
     // Split by comma and trim whitespace
-    const emails = emailsString.split(',').map(e => e.trim()).filter(e => e);
+    const emails = emailsString
+      .split(',')
+      .map((e) => e.trim())
+      .filter((e) => e);
     handleInputChange('to_emails', emails);
   };
 
@@ -134,12 +140,16 @@ const NotificationSettingsModal = ({ isOpen, onClose, theme = 'mce' }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className={`sticky top-0 bg-gradient-to-r ${themeColors.gradient} text-white p-6 rounded-t-xl flex items-center justify-between`}>
+        <div
+          className={`sticky top-0 bg-gradient-to-r ${themeColors.gradient} text-white p-6 rounded-t-xl flex items-center justify-between`}
+        >
           <div className="flex items-center gap-3">
             <BellIcon className="h-8 w-8" />
             <div>
               <h2 className="text-2xl font-bold">Notification Settings</h2>
-              <p className="text-cyan-100 text-sm">Configure email and Slack notifications for provisioning jobs</p>
+              <p className="text-cyan-100 text-sm">
+                Configure email and Slack notifications for provisioning jobs
+              </p>
             </div>
           </div>
           <button
@@ -192,7 +202,9 @@ const NotificationSettingsModal = ({ isOpen, onClose, theme = 'mce' }) => {
                   <div className="flex items-center justify-between p-4 bg-cyan-50 rounded-lg border border-cyan-200">
                     <div>
                       <h3 className="font-semibold text-gray-900">Enable Email Notifications</h3>
-                      <p className="text-sm text-gray-600">Send notifications via email for provisioning jobs</p>
+                      <p className="text-sm text-gray-600">
+                        Send notifications via email for provisioning jobs
+                      </p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
@@ -218,7 +230,8 @@ const NotificationSettingsModal = ({ isOpen, onClose, theme = 'mce' }) => {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                     />
                     <p className="mt-1 text-xs text-gray-500">
-                      Common: smtp.gmail.com (Gmail), smtp-mail.outlook.com (Outlook), smtp.sendgrid.net (SendGrid)
+                      Common: smtp.gmail.com (Gmail), smtp-mail.outlook.com (Outlook),
+                      smtp.sendgrid.net (SendGrid)
                     </p>
                   </div>
 
@@ -234,9 +247,7 @@ const NotificationSettingsModal = ({ isOpen, onClose, theme = 'mce' }) => {
                         onChange={(e) => handleInputChange('smtp_port', parseInt(e.target.value))}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                       />
-                      <p className="mt-1 text-xs text-gray-500">
-                        Common: 587 (TLS), 465 (SSL)
-                      </p>
+                      <p className="mt-1 text-xs text-gray-500">Common: 587 (TLS), 465 (SSL)</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -325,7 +336,9 @@ const NotificationSettingsModal = ({ isOpen, onClose, theme = 'mce' }) => {
                   <div className="flex items-center justify-between p-4 bg-cyan-50 rounded-lg border border-cyan-200">
                     <div>
                       <h3 className="font-semibold text-gray-900">Enable Slack Notifications</h3>
-                      <p className="text-sm text-gray-600">Send notifications to Slack for provisioning jobs</p>
+                      <p className="text-sm text-gray-600">
+                        Send notifications to Slack for provisioning jobs
+                      </p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
@@ -395,7 +408,9 @@ const NotificationSettingsModal = ({ isOpen, onClose, theme = 'mce' }) => {
                     />
                     <div>
                       <div className="font-medium text-gray-900">Job Started</div>
-                      <div className="text-sm text-gray-600">Send notification when provisioning job begins</div>
+                      <div className="text-sm text-gray-600">
+                        Send notification when provisioning job begins
+                      </div>
                     </div>
                   </label>
 
@@ -408,7 +423,9 @@ const NotificationSettingsModal = ({ isOpen, onClose, theme = 'mce' }) => {
                     />
                     <div>
                       <div className="font-medium text-gray-900">Job Completed</div>
-                      <div className="text-sm text-gray-600">Send notification when cluster is provisioned successfully</div>
+                      <div className="text-sm text-gray-600">
+                        Send notification when cluster is provisioned successfully
+                      </div>
                     </div>
                   </label>
 
@@ -421,7 +438,9 @@ const NotificationSettingsModal = ({ isOpen, onClose, theme = 'mce' }) => {
                     />
                     <div>
                       <div className="font-medium text-gray-900">Job Failed</div>
-                      <div className="text-sm text-gray-600">Send notification when provisioning job fails</div>
+                      <div className="text-sm text-gray-600">
+                        Send notification when provisioning job fails
+                      </div>
                     </div>
                   </label>
                 </div>
@@ -445,18 +464,24 @@ const NotificationSettingsModal = ({ isOpen, onClose, theme = 'mce' }) => {
                         </>
                       ) : (
                         <>
-                          {activeTab === 'email' ? <EnvelopeIcon className="h-4 w-4" /> : <BellIcon className="h-4 w-4" />}
+                          {activeTab === 'email' ? (
+                            <EnvelopeIcon className="h-4 w-4" />
+                          ) : (
+                            <BellIcon className="h-4 w-4" />
+                          )}
                           Send Test Message
                         </>
                       )}
                     </button>
                   </div>
                   {testResult && (
-                    <div className={`mt-3 p-4 rounded-lg border ${
-                      testResult.success
-                        ? 'bg-green-50 border-green-200 text-green-800'
-                        : 'bg-red-50 border-red-200 text-red-800'
-                    }`}>
+                    <div
+                      className={`mt-3 p-4 rounded-lg border ${
+                        testResult.success
+                          ? 'bg-green-50 border-green-200 text-green-800'
+                          : 'bg-red-50 border-red-200 text-red-800'
+                      }`}
+                    >
                       <div className="flex items-start gap-2">
                         {testResult.success ? (
                           <CheckCircleIcon className="h-5 w-5 flex-shrink-0 mt-0.5" />
@@ -464,7 +489,9 @@ const NotificationSettingsModal = ({ isOpen, onClose, theme = 'mce' }) => {
                           <XMarkIcon className="h-5 w-5 flex-shrink-0 mt-0.5" />
                         )}
                         <div>
-                          <p className="font-medium">{testResult.success ? 'Success!' : 'Failed'}</p>
+                          <p className="font-medium">
+                            {testResult.success ? 'Success!' : 'Failed'}
+                          </p>
                           <p className="text-sm">{testResult.message}</p>
                         </div>
                       </div>
@@ -507,7 +534,7 @@ const NotificationSettingsModal = ({ isOpen, onClose, theme = 'mce' }) => {
 NotificationSettingsModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
-  theme: PropTypes.oneOf(['mce', 'minikube'])
+  theme: PropTypes.oneOf(['mce', 'minikube']),
 };
 
 export default NotificationSettingsModal;

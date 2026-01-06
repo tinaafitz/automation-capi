@@ -34,17 +34,17 @@ export const useRecentOperations = () => {
   // Add operation to recent list
   const addToRecent = useCallback((operation) => {
     console.log('📝 Adding to recent operations:', operation);
-    
+
     const newOperation = {
       ...operation,
       timestamp: operation.timestamp || new Date().toISOString(),
       id: operation.id || `op-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      status: operation.status || '⏳ Starting...'
+      status: operation.status || '⏳ Starting...',
     };
 
-    setRecentOperations(prev => {
+    setRecentOperations((prev) => {
       // Remove existing operation with same ID if it exists
-      const filtered = prev.filter(op => op.id !== newOperation.id);
+      const filtered = prev.filter((op) => op.id !== newOperation.id);
       // Add to beginning of array
       const updated = [newOperation, ...filtered];
       // Keep only last 50 operations
@@ -56,22 +56,24 @@ export const useRecentOperations = () => {
   const updateRecentOperationStatus = useCallback((operationId, newStatus, newOutput) => {
     console.log(`📝 Updating operation ${operationId} status:`, newStatus);
 
-    setRecentOperations(prev => prev.map(op =>
-      op.id === operationId
-        ? {
-            ...op,
-            status: newStatus,
-            output: newOutput !== undefined ? newOutput : op.output,
-            completedAt: new Date().toISOString()
-          }
-        : op
-    ));
+    setRecentOperations((prev) =>
+      prev.map((op) =>
+        op.id === operationId
+          ? {
+              ...op,
+              status: newStatus,
+              output: newOutput !== undefined ? newOutput : op.output,
+              completedAt: new Date().toISOString(),
+            }
+          : op
+      )
+    );
   }, []);
 
   // Remove operation
   const removeRecentOperation = useCallback((operationId) => {
     console.log(`🗑️ Removing operation:`, operationId);
-    setRecentOperations(prev => prev.filter(op => op.id !== operationId));
+    setRecentOperations((prev) => prev.filter((op) => op.id !== operationId));
   }, []);
 
   // Clear all operations
@@ -83,7 +85,7 @@ export const useRecentOperations = () => {
 
   // Loading state management
   const setOperationLoading = useCallback((operationId, isLoading) => {
-    setLoadingStates(prev => {
+    setLoadingStates((prev) => {
       const newSet = new Set(prev);
       if (isLoading) {
         newSet.add(operationId);
@@ -94,17 +96,22 @@ export const useRecentOperations = () => {
     });
   }, []);
 
-  const isOperationLoading = useCallback((operationId) => {
-    return loadingStates.has(operationId);
-  }, [loadingStates]);
+  const isOperationLoading = useCallback(
+    (operationId) => {
+      return loadingStates.has(operationId);
+    },
+    [loadingStates]
+  );
 
   // Get operations by environment
-  const getOperationsByEnvironment = useCallback((environment) => {
-    return recentOperations.filter(op => 
-      op.environment === environment || 
-      (!op.environment && environment === 'all')
-    );
-  }, [recentOperations]);
+  const getOperationsByEnvironment = useCallback(
+    (environment) => {
+      return recentOperations.filter(
+        (op) => op.environment === environment || (!op.environment && environment === 'all')
+      );
+    },
+    [recentOperations]
+  );
 
   // Get recent operations with time grouping
   const getGroupedOperations = useCallback(() => {
@@ -113,10 +120,10 @@ export const useRecentOperations = () => {
       today: [],
       yesterday: [],
       thisWeek: [],
-      older: []
+      older: [],
     };
 
-    recentOperations.forEach(op => {
+    recentOperations.forEach((op) => {
       const opDate = new Date(op.timestamp);
       const diffDays = Math.floor((now - opDate) / (1000 * 60 * 60 * 24));
 
@@ -155,7 +162,7 @@ export const useRecentOperations = () => {
     setRecentOperations,
     setRecentOperationsCollapsed,
     setRecentOperationsOutputCollapsed,
-    setLoadingStates
+    setLoadingStates,
   };
 };
 

@@ -1,8 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useApp, useAppDispatch, useApiStatusContext, useRecentOperationsContext } from '../../store/AppContext';
+import PropTypes from 'prop-types';
+import {
+  useApp,
+  useAppDispatch,
+  useApiStatusContext,
+  useRecentOperationsContext,
+} from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
-import { ChartBarIcon, ChevronDownIcon, ChevronUpIcon, ArrowPathIcon, TrashIcon } from '@heroicons/react/24/outline';
-import { buildApiUrl, API_ENDPOINTS, validateApiResponse, extractSafeErrorMessage } from '../../config/api';
+import {
+  ChartBarIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  ArrowPathIcon,
+  TrashIcon,
+} from '@heroicons/react/24/outline';
+import {
+  buildApiUrl,
+  API_ENDPOINTS,
+  validateApiResponse,
+  extractSafeErrorMessage,
+} from '../../config/api';
 
 const RosaHcpClustersSection = ({ theme = 'mce' }) => {
   const app = useApp();
@@ -86,7 +103,11 @@ const RosaHcpClustersSection = ({ theme = 'mce' }) => {
     const deleteId = `delete-cluster-${Date.now()}`;
 
     // Confirm deletion
-    if (!window.confirm(`Are you sure you want to delete cluster "${clusterName}"?\n\nThis will delete:\n- ROSAControlPlane\n- ROSANetwork (if exists)\n- ROSARoleConfig (if exists)\n- Namespace resources\n\nThis action cannot be undone.`)) {
+    if (
+      !window.confirm(
+        `Are you sure you want to delete cluster "${clusterName}"?\n\nThis will delete:\n- ROSAControlPlane\n- ROSANetwork (if exists)\n- ROSARoleConfig (if exists)\n- Namespace resources\n\nThis action cannot be undone.`
+      )
+    ) {
       return;
     }
 
@@ -100,7 +121,7 @@ const RosaHcpClustersSection = ({ theme = 'mce' }) => {
         color: 'bg-red-600',
         status: '🚀 Starting deletion...',
         environment: 'mce',
-        output: `Initiating deletion of ROSA HCP cluster "${clusterName}" from namespace "${namespace}"...\n\nSubmitting delete request to backend...\n\nThis will remove:\n- ROSAControlPlane\n- ROSANetwork\n- ROSARoleConfig\n- AWS resources`
+        output: `Initiating deletion of ROSA HCP cluster "${clusterName}" from namespace "${namespace}"...\n\nSubmitting delete request to backend...\n\nThis will remove:\n- ROSAControlPlane\n- ROSANetwork\n- ROSARoleConfig\n- AWS resources`,
       });
 
       const apiUrl = buildApiUrl(`/api/rosa/clusters/${clusterName}`);
@@ -114,7 +135,7 @@ const RosaHcpClustersSection = ({ theme = 'mce' }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ namespace })
+        body: JSON.stringify({ namespace }),
       });
 
       console.log(`✅ Fetch completed, status: ${response.status}`);
@@ -246,9 +267,7 @@ const RosaHcpClustersSection = ({ theme = 'mce' }) => {
                         }`}
                       ></div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-cyan-900 truncate">
-                          {cluster.name}
-                        </div>
+                        <div className="font-semibold text-cyan-900 truncate">{cluster.name}</div>
                         <div className="text-sm text-cyan-700 mt-1">
                           State: {cluster.status || 'Unknown'}
                           {cluster.status === 'provisioning' && cluster.progress !== undefined && (
@@ -266,9 +285,7 @@ const RosaHcpClustersSection = ({ theme = 'mce' }) => {
                             <div className="font-semibold text-red-800 mb-1">
                               ❌ {cluster.error_reason || 'Error'}
                             </div>
-                            <div className="text-red-700">
-                              {cluster.error_message}
-                            </div>
+                            <div className="text-red-700">{cluster.error_message}</div>
                           </div>
                         )}
                         {/* Progress bar for provisioning clusters */}
@@ -283,9 +300,7 @@ const RosaHcpClustersSection = ({ theme = 'mce' }) => {
                       </div>
                     </div>
                     <div className="flex items-center space-x-3 flex-shrink-0">
-                      <div className="text-xs text-cyan-600">
-                        {cluster.region || 'N/A'}
-                      </div>
+                      <div className="text-xs text-cyan-600">{cluster.region || 'N/A'}</div>
                       <button
                         onClick={() => handleDeleteCluster(cluster.name, cluster.namespace)}
                         className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
@@ -303,6 +318,10 @@ const RosaHcpClustersSection = ({ theme = 'mce' }) => {
       </div>
     </div>
   );
+};
+
+RosaHcpClustersSection.propTypes = {
+  theme: PropTypes.string,
 };
 
 export default RosaHcpClustersSection;

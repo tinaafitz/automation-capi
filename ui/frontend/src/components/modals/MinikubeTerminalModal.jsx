@@ -1,9 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
 const MinikubeTerminalModal = ({ isOpen, onClose, clusterName }) => {
   const [command, setCommand] = useState('');
-  const [output, setOutput] = useState(`Welcome to Minikube Terminal for cluster: ${clusterName || 'default'}!\nType commands or select from templates.\n`);
+  const [output, setOutput] = useState(
+    `Welcome to Minikube Terminal for cluster: ${clusterName || 'default'}!\nType commands or select from templates.\n`
+  );
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [executing, setExecuting] = useState(false);
@@ -12,7 +15,9 @@ const MinikubeTerminalModal = ({ isOpen, onClose, clusterName }) => {
   // Update welcome message when cluster changes
   useEffect(() => {
     if (clusterName && isOpen) {
-      setOutput(`Welcome to Minikube Terminal for cluster: ${clusterName}!\nType commands or select from templates.\n`);
+      setOutput(
+        `Welcome to Minikube Terminal for cluster: ${clusterName}!\nType commands or select from templates.\n`
+      );
     }
   }, [clusterName, isOpen]);
 
@@ -30,37 +35,37 @@ const MinikubeTerminalModal = ({ isOpen, onClose, clusterName }) => {
     setExecuting(true);
     const timestamp = new Date().toLocaleTimeString();
 
-    setOutput(prev => `${prev}\n$ ${command}\n`);
+    setOutput((prev) => `${prev}\n$ ${command}\n`);
 
     const newHistoryItem = {
       command: command.trim(),
       timestamp: new Date().toISOString(),
       timestampFormatted: timestamp,
     };
-    setHistory(prev => [newHistoryItem, ...prev].slice(0, 100));
+    setHistory((prev) => [newHistoryItem, ...prev].slice(0, 100));
     setHistoryIndex(-1);
 
     try {
       const response = await fetch('http://localhost:8000/api/minikube/execute-command', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           command: command.trim(),
-          cluster_name: clusterName || 'minikube'
+          cluster_name: clusterName || 'minikube',
         }),
       });
 
       const data = await response.json();
 
       if (data.success) {
-        setOutput(prev => `${prev}${data.output}\n`);
+        setOutput((prev) => `${prev}${data.output}\n`);
       } else {
         setOutput(
-          prev => `${prev}Error: ${data.error || 'Command failed'}\n${data.output || ''}\n`
+          (prev) => `${prev}Error: ${data.error || 'Command failed'}\n${data.output || ''}\n`
         );
       }
     } catch (err) {
-      setOutput(prev => `${prev}Error: Failed to execute command - ${err.message}\n`);
+      setOutput((prev) => `${prev}Error: Failed to execute command - ${err.message}\n`);
     } finally {
       setExecuting(false);
       setCommand('');
@@ -94,42 +99,72 @@ const MinikubeTerminalModal = ({ isOpen, onClose, clusterName }) => {
 
   // Command templates for Minikube
   const commandTemplates = [
-    { category: 'Cluster Info', commands: [
-      { name: 'Cluster Status', cmd: 'minikube status' },
-      { name: 'Cluster Info', cmd: 'kubectl cluster-info' },
-      { name: 'Kubernetes Version', cmd: 'kubectl version' },
-      { name: 'List Nodes', cmd: 'kubectl get nodes' },
-    ]},
-    { category: 'CAPI/CAPA', commands: [
-      { name: 'CAPI Controllers', cmd: 'kubectl get deploy -n capi-system' },
-      { name: 'CAPA Controllers', cmd: 'kubectl get deploy -n capa-system' },
-      { name: 'CAPI Providers', cmd: 'clusterctl get kubeconfig' },
-      { name: 'Provider Status', cmd: 'kubectl get providers -A' },
-    ]},
-    { category: 'ROSA Resources', commands: [
-      { name: 'ROSA Clusters', cmd: 'kubectl get rosacluster -A' },
-      { name: 'Control Planes', cmd: 'kubectl get rosacontrolplane -A' },
-      { name: 'Machine Pools', cmd: 'kubectl get rosamachinepool -A' },
-      { name: 'ROSA Networks', cmd: 'kubectl get rosanetwork -A' },
-    ]},
-    { category: 'Cluster API', commands: [
-      { name: 'All Clusters', cmd: 'kubectl get cluster -A' },
-      { name: 'Machines', cmd: 'kubectl get machine -A' },
-      { name: 'MachineSets', cmd: 'kubectl get machineset -A' },
-      { name: 'KubeadmControlPlane', cmd: 'kubectl get kubeadmcontrolplane -A' },
-    ]},
-    { category: 'Minikube Management', commands: [
-      { name: 'Dashboard', cmd: 'minikube dashboard' },
-      { name: 'Service List', cmd: 'minikube service list' },
-      { name: 'Addons List', cmd: 'minikube addons list' },
-      { name: 'IP Address', cmd: 'minikube ip' },
-    ]},
-    { category: 'Troubleshooting', commands: [
-      { name: 'Recent Events', cmd: 'kubectl get events -A --sort-by=".lastTimestamp" | tail -20' },
-      { name: 'Non-Running Pods', cmd: 'kubectl get pods -A | grep -v Running | grep -v Completed' },
-      { name: 'Logs - CAPI Controller', cmd: 'kubectl logs -n capi-system -l control-plane=controller-manager' },
-      { name: 'Logs - CAPA Controller', cmd: 'kubectl logs -n capa-system -l control-plane=capa-controller-manager' },
-    ]},
+    {
+      category: 'Cluster Info',
+      commands: [
+        { name: 'Cluster Status', cmd: 'minikube status' },
+        { name: 'Cluster Info', cmd: 'kubectl cluster-info' },
+        { name: 'Kubernetes Version', cmd: 'kubectl version' },
+        { name: 'List Nodes', cmd: 'kubectl get nodes' },
+      ],
+    },
+    {
+      category: 'CAPI/CAPA',
+      commands: [
+        { name: 'CAPI Controllers', cmd: 'kubectl get deploy -n capi-system' },
+        { name: 'CAPA Controllers', cmd: 'kubectl get deploy -n capa-system' },
+        { name: 'CAPI Providers', cmd: 'clusterctl get kubeconfig' },
+        { name: 'Provider Status', cmd: 'kubectl get providers -A' },
+      ],
+    },
+    {
+      category: 'ROSA Resources',
+      commands: [
+        { name: 'ROSA Clusters', cmd: 'kubectl get rosacluster -A' },
+        { name: 'Control Planes', cmd: 'kubectl get rosacontrolplane -A' },
+        { name: 'Machine Pools', cmd: 'kubectl get rosamachinepool -A' },
+        { name: 'ROSA Networks', cmd: 'kubectl get rosanetwork -A' },
+      ],
+    },
+    {
+      category: 'Cluster API',
+      commands: [
+        { name: 'All Clusters', cmd: 'kubectl get cluster -A' },
+        { name: 'Machines', cmd: 'kubectl get machine -A' },
+        { name: 'MachineSets', cmd: 'kubectl get machineset -A' },
+        { name: 'KubeadmControlPlane', cmd: 'kubectl get kubeadmcontrolplane -A' },
+      ],
+    },
+    {
+      category: 'Minikube Management',
+      commands: [
+        { name: 'Dashboard', cmd: 'minikube dashboard' },
+        { name: 'Service List', cmd: 'minikube service list' },
+        { name: 'Addons List', cmd: 'minikube addons list' },
+        { name: 'IP Address', cmd: 'minikube ip' },
+      ],
+    },
+    {
+      category: 'Troubleshooting',
+      commands: [
+        {
+          name: 'Recent Events',
+          cmd: 'kubectl get events -A --sort-by=".lastTimestamp" | tail -20',
+        },
+        {
+          name: 'Non-Running Pods',
+          cmd: 'kubectl get pods -A | grep -v Running | grep -v Completed',
+        },
+        {
+          name: 'Logs - CAPI Controller',
+          cmd: 'kubectl logs -n capi-system -l control-plane=controller-manager',
+        },
+        {
+          name: 'Logs - CAPA Controller',
+          cmd: 'kubectl logs -n capa-system -l control-plane=capa-controller-manager',
+        },
+      ],
+    },
   ];
 
   if (!isOpen) return null;
@@ -216,7 +251,9 @@ const MinikubeTerminalModal = ({ isOpen, onClose, clusterName }) => {
               </button>
               <button
                 onClick={() => {
-                  setOutput(`Terminal cleared.\nWelcome to Minikube Terminal for cluster: ${clusterName || 'default'}!\n`);
+                  setOutput(
+                    `Terminal cleared.\nWelcome to Minikube Terminal for cluster: ${clusterName || 'default'}!\n`
+                  );
                   setCommand('');
                 }}
                 className="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
@@ -260,3 +297,9 @@ const MinikubeTerminalModal = ({ isOpen, onClose, clusterName }) => {
 };
 
 export default MinikubeTerminalModal;
+
+MinikubeTerminalModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  clusterName: PropTypes.string,
+};

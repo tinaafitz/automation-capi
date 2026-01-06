@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import {
   PlayIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   BeakerIcon,
-  Cog6ToothIcon
+  Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 import axios from 'axios';
 import { useRecentOperationsContext } from '../../store/AppContext';
@@ -51,17 +52,16 @@ const TestSuiteSection = ({ theme = 'mce' }) => {
 
   // Check if a playbook is currently running
   const isPlaybookRunning = (suiteName) => {
-    return jobHistory.some(job =>
-      job.yaml_file === suiteName &&
-      job.status === 'running'
-    );
+    return jobHistory.some((job) => job.yaml_file === suiteName && job.status === 'running');
   };
 
   // Check if suite needs provisioning options
   const needsProvisioningOptions = (suite) => {
-    return suite.config.tags?.includes('provisioning') ||
-           suite.config.tags?.includes('rosa-provisioning') ||
-           suite.id.includes('provision');
+    return (
+      suite.config.tags?.includes('provisioning') ||
+      suite.config.tags?.includes('rosa-provisioning') ||
+      suite.id.includes('provision')
+    );
   };
 
   useEffect(() => {
@@ -108,13 +108,13 @@ const TestSuiteSection = ({ theme = 'mce' }) => {
         status: `🧪 Starting automated playbook...`,
         environment: 'mce',
         timestamp: Date.now(),
-        playbook: suiteName
+        playbook: suiteName,
       });
 
       // Start the test suite (async execution on backend)
       const response = await axios.post('http://localhost:8000/api/test-suites/run', {
         suite_name: suiteName,
-        extra_vars: extraVars
+        extra_vars: extraVars,
       });
 
       if (response.data.success) {
@@ -128,7 +128,7 @@ const TestSuiteSection = ({ theme = 'mce' }) => {
         status: `❌ Failed to start: ${error.message}`,
         environment: 'mce',
         timestamp: Date.now(),
-        playbook: suiteName
+        playbook: suiteName,
       });
     }
   };
@@ -147,7 +147,9 @@ const TestSuiteSection = ({ theme = 'mce' }) => {
             </div>
             <div>
               <h3 className="text-lg font-bold text-white">Test Automation</h3>
-              <p className="text-sm text-white/80">Run automated playbooks for CAPI/CAPA testing and configuration</p>
+              <p className="text-sm text-white/80">
+                Run automated playbooks for CAPI/CAPA testing and configuration
+              </p>
             </div>
           </div>
           <div>
@@ -170,7 +172,9 @@ const TestSuiteSection = ({ theme = 'mce' }) => {
             ) : (
               <div>
                 <p className="text-sm text-gray-600 mb-4">
-                  🧪 Run automated playbooks to configure and test CAPI/CAPA functionality. Progress and logs will appear in <strong>Task Summary</strong> and <strong>Task Detail</strong> sections below.
+                  🧪 Run automated playbooks to configure and test CAPI/CAPA functionality. Progress
+                  and logs will appear in <strong>Task Summary</strong> and{' '}
+                  <strong>Task Detail</strong> sections below.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {suites.map((suite) => {
@@ -231,13 +235,17 @@ const TestSuiteSection = ({ theme = 'mce' }) => {
           setShowProvisionModal(false);
           setSelectedSuite(null);
         }}
-        testSuite={selectedSuite ? {
-          id: selectedSuite.id,
-          name: selectedSuite.config.name,
-          category: selectedSuite.config.tags?.[0] || 'provisioning',
-          components: selectedSuite.config.tags || [],
-          jira: []
-        } : null}
+        testSuite={
+          selectedSuite
+            ? {
+                id: selectedSuite.id,
+                name: selectedSuite.config.name,
+                category: selectedSuite.config.tags?.[0] || 'provisioning',
+                components: selectedSuite.config.tags || [],
+                jira: [],
+              }
+            : null
+        }
         onSubmit={async (config) => {
           console.log('🚀 [PROVISION] Provisioning with config:', config);
 
@@ -254,7 +262,7 @@ const TestSuiteSection = ({ theme = 'mce' }) => {
             aws_region: config.awsRegion,
             channel_group: config.channelGroup,
             private_network: config.privateNetwork,
-            additional_tags: config.additionalTags
+            additional_tags: config.additionalTags,
           };
 
           // Close modal
@@ -271,6 +279,10 @@ const TestSuiteSection = ({ theme = 'mce' }) => {
       />
     </div>
   );
+};
+
+TestSuiteSection.propTypes = {
+  theme: PropTypes.string,
 };
 
 export default TestSuiteSection;

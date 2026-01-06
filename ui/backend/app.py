@@ -130,13 +130,21 @@ class NotificationSettings(BaseModel):
 
 
 # Helper functions
-async def run_minikube_init_playbook(playbook_path: str, cluster_name: str, job_id: str, install_method: str = "clusterctl", custom_capa_image: dict = None):
+async def run_minikube_init_playbook(
+    playbook_path: str,
+    cluster_name: str,
+    job_id: str,
+    install_method: str = "clusterctl",
+    custom_capa_image: dict = None,
+):
     """Run Minikube CAPI initialization playbook asynchronously with real-time log streaming"""
     try:
         jobs[job_id]["status"] = "running"
         jobs[job_id]["progress"] = 10
         method_name = "Helm Charts" if install_method == "helm" else "clusterctl"
-        jobs[job_id]["message"] = f"Configuring CAPI/CAPA on Minikube cluster '{cluster_name}' using {method_name}"
+        jobs[job_id][
+            "message"
+        ] = f"Configuring CAPI/CAPA on Minikube cluster '{cluster_name}' using {method_name}"
 
         # Get project root
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -174,7 +182,9 @@ async def run_minikube_init_playbook(playbook_path: str, cluster_name: str, job_
             env["CUSTOM_CAPA_IMAGE_REPO"] = custom_capa_image.get("repository", "")
             env["CUSTOM_CAPA_IMAGE_TAG"] = custom_capa_image.get("tag", "")
             env["CUSTOM_CAPA_SOURCE_PATH"] = custom_capa_image.get("sourcePath", "")
-            jobs[job_id]["message"] = f"Configuring CAPI/CAPA on Minikube cluster '{cluster_name}' using {method_name} with custom image {custom_capa_image['repository']}:{custom_capa_image['tag']}"
+            jobs[job_id][
+                "message"
+            ] = f"Configuring CAPI/CAPA on Minikube cluster '{cluster_name}' using {method_name} with custom image {custom_capa_image['repository']}:{custom_capa_image['tag']}"
 
         # Build ansible-playbook command with AWS credentials as extra vars
         cmd = ["ansible-playbook", playbook_path, "-vv"]
@@ -202,7 +212,7 @@ async def run_minikube_init_playbook(playbook_path: str, cluster_name: str, job_
                 line = await stream.readline()
                 if not line:
                     break
-                line_text = line.decode('utf-8').rstrip()
+                line_text = line.decode("utf-8").rstrip()
                 if is_stderr:
                     jobs[job_id]["logs"].append(f"[STDERR] {line_text}")
                 else:
@@ -215,10 +225,7 @@ async def run_minikube_init_playbook(playbook_path: str, cluster_name: str, job_
                         jobs[job_id]["progress"] = min(current_progress + 5, 90)
 
         # Read both streams concurrently
-        await asyncio.gather(
-            read_stream(process.stdout, False),
-            read_stream(process.stderr, True)
-        )
+        await asyncio.gather(read_stream(process.stdout, False), read_stream(process.stderr, True))
 
         # Wait for process to complete
         returncode = await process.wait()
@@ -229,11 +236,15 @@ async def run_minikube_init_playbook(playbook_path: str, cluster_name: str, job_
 
         if returncode == 0:
             jobs[job_id]["status"] = "completed"
-            jobs[job_id]["message"] = f"✅ CAPI/CAPA initialized successfully on cluster '{cluster_name}'"
+            jobs[job_id][
+                "message"
+            ] = f"✅ CAPI/CAPA initialized successfully on cluster '{cluster_name}'"
             jobs[job_id]["completed_at"] = datetime.now()
         else:
             jobs[job_id]["status"] = "failed"
-            jobs[job_id]["message"] = f"❌ Failed to initialize CAPI/CAPA on cluster '{cluster_name}'"
+            jobs[job_id][
+                "message"
+            ] = f"❌ Failed to initialize CAPI/CAPA on cluster '{cluster_name}'"
             jobs[job_id]["completed_at"] = datetime.now()
 
     except asyncio.TimeoutError:
@@ -647,7 +658,7 @@ def normalize_timestamp(value):
             return datetime.min
         try:
             # Try parsing ISO format
-            return datetime.fromisoformat(value.replace('Z', '+00:00'))
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
         except (ValueError, AttributeError):
             return datetime.min
 
@@ -668,32 +679,22 @@ async def list_jobs():
         # Use normalize_timestamp to handle different timestamp formats
         job_list.sort(key=lambda x: normalize_timestamp(x.get("created_at")), reverse=True)
 
-        return {
-            "success": True,
-            "jobs": job_list,
-            "count": len(job_list)
-        }
+        return {"success": True, "jobs": job_list, "count": len(job_list)}
     except Exception as e:
         print(f"❌ Error in list_jobs: {str(e)}")
         import traceback
+
         traceback.print_exc()
-        return {
-            "success": False,
-            "error": str(e),
-            "jobs": [],
-            "count": 0
-        }
+        return {"success": False, "error": str(e), "jobs": [], "count": 0}
+
 
 @app.delete("/api/jobs")
 async def clear_all_jobs():
     """Clear all jobs from history"""
     global jobs
     jobs.clear()
-    return {
-        "success": True,
-        "message": "All jobs cleared",
-        "count": 0
-    }
+    return {"success": True, "message": "All jobs cleared", "count": 0}
+
 
 @app.get("/api/jobs/{job_id}")
 async def get_job_status(job_id: str):
@@ -785,14 +786,16 @@ async def get_notification_settings():
                 "notify_on_start": config.get("notify_on_start", False),
                 "notify_on_complete": config.get("notify_on_complete", True),
                 "notify_on_failure": config.get("notify_on_failure", True),
-            }
+            },
         }
     except Exception as e:
         import traceback
 
         print(f"❌ [GET-NOTIFICATION-SETTINGS] Error: {str(e)}")
         print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Error getting notification settings: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error getting notification settings: {str(e)}"
+        )
 
 
 @app.post("/api/notification-settings")
@@ -804,8 +807,8 @@ async def update_notification_settings(settings: NotificationSettings):
         # Get path to notification config file (go up to automation-capi root)
         config_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-            'vars',
-            'notification_config.yml'
+            "vars",
+            "notification_config.yml",
         )
 
         # Update configuration file
@@ -829,7 +832,7 @@ async def update_notification_settings(settings: NotificationSettings):
             "notify_on_failure": settings.notify_on_failure,
         }
 
-        with open(config_path, 'w') as f:
+        with open(config_path, "w") as f:
             yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
 
         # Reload service configurations
@@ -839,14 +842,16 @@ async def update_notification_settings(settings: NotificationSettings):
         return {
             "success": True,
             "message": "Notification settings updated successfully",
-            "settings": config_data
+            "settings": config_data,
         }
     except Exception as e:
         import traceback
 
         print(f"❌ [UPDATE-NOTIFICATION-SETTINGS] Error: {str(e)}")
         print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Error updating notification settings: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error updating notification settings: {str(e)}"
+        )
 
 
 @app.post("/api/notification-settings/test")
@@ -868,33 +873,35 @@ async def test_notification_settings(request: Request):
             overall_success = True
 
             # Test Slack if enabled in form
-            if test_settings.get('slack_enabled', False):
+            if test_settings.get("slack_enabled", False):
                 # Temporarily create slack service with test settings
                 from slack_notification_service import SlackNotificationService
+
                 test_slack = SlackNotificationService()
-                test_slack.webhook_url = test_settings.get('slack_webhook_url', '')
+                test_slack.webhook_url = test_settings.get("slack_webhook_url", "")
                 test_slack.config = test_settings
                 slack_result = test_slack.test_connection()
                 results.append(f"Slack: {slack_result['message']}")
-                if not slack_result['success']:
+                if not slack_result["success"]:
                     overall_success = False
 
             # Test Email if enabled in form
-            if test_settings.get('email_enabled', False):
+            if test_settings.get("email_enabled", False):
                 # Temporarily create email service with test settings
                 from email_notification_service import EmailNotificationService
+
                 test_email = EmailNotificationService()
-                test_email.smtp_server = test_settings.get('smtp_server', '')
-                test_email.smtp_port = test_settings.get('smtp_port', 587)
-                test_email.smtp_username = test_settings.get('smtp_username', '')
-                test_email.smtp_password = test_settings.get('smtp_password', '')
-                test_email.from_email = test_settings.get('from_email', '')
-                test_email.to_emails = test_settings.get('to_emails', [])
-                test_email.use_tls = test_settings.get('use_tls', True)
+                test_email.smtp_server = test_settings.get("smtp_server", "")
+                test_email.smtp_port = test_settings.get("smtp_port", 587)
+                test_email.smtp_username = test_settings.get("smtp_username", "")
+                test_email.smtp_password = test_settings.get("smtp_password", "")
+                test_email.from_email = test_settings.get("from_email", "")
+                test_email.to_emails = test_settings.get("to_emails", [])
+                test_email.use_tls = test_settings.get("use_tls", True)
                 test_email.config = test_settings
                 email_result = test_email.test_connection()
                 results.append(f"Email: {email_result['message']}")
-                if not email_result['success']:
+                if not email_result["success"]:
                     overall_success = False
         else:
             # Test with saved configuration
@@ -905,37 +912,33 @@ async def test_notification_settings(request: Request):
             overall_success = True
 
             # Test Slack if enabled
-            if slack_service.config.get('slack_enabled', False):
+            if slack_service.config.get("slack_enabled", False):
                 slack_result = slack_service.test_connection()
                 results.append(f"Slack: {slack_result['message']}")
-                if not slack_result['success']:
+                if not slack_result["success"]:
                     overall_success = False
 
             # Test Email if enabled
-            if email_service.config.get('email_enabled', False):
+            if email_service.config.get("email_enabled", False):
                 email_result = email_service.test_connection()
                 results.append(f"Email: {email_result['message']}")
-                if not email_result['success']:
+                if not email_result["success"]:
                     overall_success = False
 
         # If neither is enabled
         if not results:
-            return {
-                "success": False,
-                "message": "No notification services are enabled"
-            }
+            return {"success": False, "message": "No notification services are enabled"}
 
         # Return combined results
-        return {
-            "success": overall_success,
-            "message": " | ".join(results)
-        }
+        return {"success": overall_success, "message": " | ".join(results)}
     except Exception as e:
         import traceback
 
         print(f"❌ [TEST-NOTIFICATION-SETTINGS] Error: {str(e)}")
         print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Error testing notification settings: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error testing notification settings: {str(e)}"
+        )
 
 
 # User Journey APIs
@@ -1351,7 +1354,7 @@ async def get_credentials():
             return {
                 "success": False,
                 "message": "vars/user_vars.yml file not found",
-                "credentials": {}
+                "credentials": {},
             }
 
         # Read and parse the YAML file
@@ -1367,19 +1370,16 @@ async def get_credentials():
             "AWS_ACCESS_KEY_ID": config.get("AWS_ACCESS_KEY_ID", ""),
             "AWS_SECRET_ACCESS_KEY": config.get("AWS_SECRET_ACCESS_KEY", ""),
             "OCM_CLIENT_ID": config.get("OCM_CLIENT_ID", ""),
-            "OCM_CLIENT_SECRET": config.get("OCM_CLIENT_SECRET", "")
+            "OCM_CLIENT_SECRET": config.get("OCM_CLIENT_SECRET", ""),
         }
 
-        return {
-            "success": True,
-            "credentials": credentials
-        }
+        return {"success": True, "credentials": credentials}
 
     except Exception as e:
         return {
             "success": False,
             "message": f"Error reading credentials: {str(e)}",
-            "credentials": {}
+            "credentials": {},
         }
 
 
@@ -1410,10 +1410,7 @@ async def save_credentials(update: CredentialsUpdate):
         with open(config_path, "w") as file:
             yaml.dump(config, file, default_flow_style=False, sort_keys=False)
 
-        return {
-            "success": True,
-            "message": "Credentials saved successfully"
-        }
+        return {"success": True, "message": "Credentials saved successfully"}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving credentials: {str(e)}")
@@ -3059,7 +3056,9 @@ async def validate_config(config: ClusterConfig):
     return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings}
 
 
-def run_ansible_task_background(job_id, task_file, playbook_file, description, kube_context, extra_vars, cluster_type):
+def run_ansible_task_background(
+    job_id, task_file, playbook_file, description, kube_context, extra_vars, cluster_type
+):
     """Background task to run ansible playbook or task"""
     import tempfile
 
@@ -3123,7 +3122,7 @@ def run_ansible_task_background(job_id, task_file, playbook_file, description, k
                     # Extract the message and unescape it
                     detailed_error = fail_match.group(1).strip()
                     # Unescape newlines
-                    detailed_error = detailed_error.replace('\\n', '\n')
+                    detailed_error = detailed_error.replace("\\n", "\n")
 
             error_message = (
                 detailed_error
@@ -3137,7 +3136,9 @@ def run_ansible_task_background(job_id, task_file, playbook_file, description, k
             if result.returncode == 0:
                 jobs[job_id]["status"] = "completed"
                 jobs[job_id]["progress"] = 100
-                jobs[job_id]["message"] = f"{description} completed and refreshed at {completed_time}"
+                jobs[job_id][
+                    "message"
+                ] = f"{description} completed and refreshed at {completed_time}"
                 jobs[job_id]["completed_at"] = datetime.now().isoformat()
             else:
                 jobs[job_id]["status"] = "failed"
@@ -3245,6 +3246,7 @@ def run_ansible_task_background(job_id, task_file, playbook_file, description, k
 
             # Set environment variables
             import os as os_module
+
             env = os_module.environ.copy()
             env["ANSIBLE_PLAYBOOK_DIR"] = project_root
 
@@ -3300,15 +3302,19 @@ def run_ansible_task_background(job_id, task_file, playbook_file, description, k
                     # Extract the message and unescape it
                     detailed_error = fail_match.group(1).strip()
                     # Unescape newlines
-                    detailed_error = detailed_error.replace('\\n', '\n')
+                    detailed_error = detailed_error.replace("\\n", "\n")
                 else:
                     # Fall back to [ERROR] pattern
                     error_match = re.search(
-                        r"\[ERROR\]:\s*Task failed:\s*(.+?)(?=\nOrigin:|$)", result.stdout, re.DOTALL
+                        r"\[ERROR\]:\s*Task failed:\s*(.+?)(?=\nOrigin:|$)",
+                        result.stdout,
+                        re.DOTALL,
                     )
                     if error_match:
                         detailed_error = error_match.group(1).strip()
-                        action_match = re.search(r"Action failed:\s*(.+)", detailed_error, re.DOTALL)
+                        action_match = re.search(
+                            r"Action failed:\s*(.+)", detailed_error, re.DOTALL
+                        )
                         if action_match:
                             detailed_error = action_match.group(1).strip()
 
@@ -3324,7 +3330,9 @@ def run_ansible_task_background(job_id, task_file, playbook_file, description, k
             if result.returncode == 0:
                 jobs[job_id]["status"] = "completed"
                 jobs[job_id]["progress"] = 100
-                jobs[job_id]["message"] = f"{description} completed and refreshed at {completed_time}"
+                jobs[job_id][
+                    "message"
+                ] = f"{description} completed and refreshed at {completed_time}"
                 jobs[job_id]["completed_at"] = datetime.now().isoformat()
             else:
                 jobs[job_id]["status"] = "failed"
@@ -3343,6 +3351,7 @@ def run_ansible_task_background(job_id, task_file, playbook_file, description, k
 
     except Exception as e:
         import traceback
+
         error_msg = str(e)
         print(f"❌ Error running task: {error_msg}")
         print(traceback.format_exc())
@@ -3367,7 +3376,9 @@ async def run_ansible_task(request: dict, background_tasks: BackgroundTasks):
         cluster_type = request.get("cluster_type", "mce")  # mce or minikube
 
         if not task_file and not playbook_file:
-            raise HTTPException(status_code=400, detail="Either task_file or playbook_file is required")
+            raise HTTPException(
+                status_code=400, detail="Either task_file or playbook_file is required"
+            )
 
         # Create a job entry for tracking
         job_id = str(uuid.uuid4())
@@ -3393,17 +3404,18 @@ async def run_ansible_task(request: dict, background_tasks: BackgroundTasks):
             description,
             kube_context,
             extra_vars,
-            cluster_type
+            cluster_type,
         )
 
         return {
             "success": True,
             "job_id": job_id,
             "message": f"{description} started",
-            "status": "running"
+            "status": "running",
         }
     except Exception as e:
         import traceback
+
         error_msg = f"Error starting task: {str(e)}"
         print(error_msg)
         print(f"Full traceback: {traceback.format_exc()}")
@@ -3518,6 +3530,7 @@ async def get_mce_yaml():
         }
     except Exception as e:
         import traceback
+
         print(f"❌ [MCE-YAML] Error: {str(e)}")
         print(traceback.format_exc())
         return {
@@ -3570,19 +3583,34 @@ async def get_rosa_clusters():
 
             # Check conditions for uninstalling or error state
             for condition in conditions:
-                if condition.get("type") in ["Ready", "ROSAControlPlaneReady", "RosaControlPlaneReady"]:
+                if condition.get("type") in [
+                    "Ready",
+                    "ROSAControlPlaneReady",
+                    "RosaControlPlaneReady",
+                ]:
                     reason = condition.get("reason", "").lower()
                     message = condition.get("message", "")
 
                     # Check if uninstalling
-                    if reason == "uninstalling" or "uninstalling" in message.lower() or "deleting" in message.lower():
+                    if (
+                        reason == "uninstalling"
+                        or "uninstalling" in message.lower()
+                        or "deleting" in message.lower()
+                    ):
                         is_uninstalling = True
                         break
 
                     # Check for actual errors (but not during deletion or normal provisioning)
                     if condition.get("status") == "False" and not is_deleting:
                         # These reasons indicate normal provisioning states, not errors
-                        provisioning_reasons = ["installing", "validating", "provisioning", "waiting", "creating", "notpaused"]
+                        provisioning_reasons = [
+                            "installing",
+                            "validating",
+                            "provisioning",
+                            "waiting",
+                            "creating",
+                            "notpaused",
+                        ]
                         # Only mark as error if reason is NOT a normal provisioning state
                         if reason not in provisioning_reasons:
                             has_error = True
@@ -3625,10 +3653,13 @@ async def get_rosa_clusters():
                 # If no conditions are set yet, estimate based on creation time
                 if progress == 0:
                     from datetime import datetime, timezone
+
                     try:
                         created_str = metadata.get("creationTimestamp", "")
                         if created_str:
-                            created_time = datetime.fromisoformat(created_str.replace('Z', '+00:00'))
+                            created_time = datetime.fromisoformat(
+                                created_str.replace("Z", "+00:00")
+                            )
                             elapsed = (datetime.now(timezone.utc) - created_time).total_seconds()
                             # Estimate 5-10 minutes for initial provisioning, cap at 15%
                             progress = min(15, int((elapsed / 60) * 2.5))
@@ -3672,6 +3703,7 @@ async def get_rosa_clusters():
         }
     except Exception as e:
         import traceback
+
         print(f"❌ [ROSA-CLUSTERS] Error: {str(e)}")
         print(traceback.format_exc())
         return {
@@ -3693,7 +3725,15 @@ async def perform_cluster_deletion(job_id: str, cluster_name: str, namespace: st
         try:
             print(f"🗑️ [DELETE-CLUSTER] Initiating deletion of rosacontrolplane/{cluster_name}")
             result = subprocess.run(
-                ["oc", "delete", "rosacontrolplane", cluster_name, "-n", namespace, "--ignore-not-found=true"],
+                [
+                    "oc",
+                    "delete",
+                    "rosacontrolplane",
+                    cluster_name,
+                    "-n",
+                    namespace,
+                    "--ignore-not-found=true",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=30,
@@ -3703,12 +3743,16 @@ async def perform_cluster_deletion(job_id: str, cluster_name: str, namespace: st
                 deleted_resources.append(f"rosacontrolplane/{cluster_name}")
                 print(f"✅ [DELETE-CLUSTER] Deletion initiated for rosacontrolplane/{cluster_name}")
 
-                jobs[job_id]["stdout"] += f"✅ Deletion initiated for rosacontrolplane/{cluster_name}\n"
+                jobs[job_id][
+                    "stdout"
+                ] += f"✅ Deletion initiated for rosacontrolplane/{cluster_name}\n"
 
                 # Step 2: Wait for the rosacontrolplane to be fully deleted (max 5 minutes)
-                print(f"⏳ [DELETE-CLUSTER] Waiting for rosacontrolplane/{cluster_name} to be deleted...")
+                print(
+                    f"⏳ [DELETE-CLUSTER] Waiting for rosacontrolplane/{cluster_name} to be deleted..."
+                )
                 max_wait_time = 300  # 5 minutes
-                check_interval = 5   # Check every 5 seconds
+                check_interval = 5  # Check every 5 seconds
                 elapsed_time = 0
 
                 while elapsed_time < max_wait_time:
@@ -3724,30 +3768,50 @@ async def perform_cluster_deletion(job_id: str, cluster_name: str, namespace: st
                     )
 
                     if check_result.returncode != 0 and "not found" in check_result.stderr.lower():
-                        print(f"✅ [DELETE-CLUSTER] rosacontrolplane/{cluster_name} successfully deleted after {elapsed_time}s")
-                        jobs[job_id]["stdout"] += f"✅ rosacontrolplane/{cluster_name} successfully deleted after {elapsed_time}s\n"
+                        print(
+                            f"✅ [DELETE-CLUSTER] rosacontrolplane/{cluster_name} successfully deleted after {elapsed_time}s"
+                        )
+                        jobs[job_id][
+                            "stdout"
+                        ] += f"✅ rosacontrolplane/{cluster_name} successfully deleted after {elapsed_time}s\n"
                         break
                     else:
                         print(f"⏳ [DELETE-CLUSTER] Still waiting... ({elapsed_time}s elapsed)")
                         if elapsed_time % 30 == 0:  # Update job every 30 seconds
-                            jobs[job_id]["stdout"] += f"⏳ Still waiting for deletion... ({elapsed_time}s elapsed)\n"
+                            jobs[job_id][
+                                "stdout"
+                            ] += f"⏳ Still waiting for deletion... ({elapsed_time}s elapsed)\n"
 
                 if elapsed_time >= max_wait_time:
-                    errors.append(f"Timeout waiting for rosacontrolplane/{cluster_name} to delete after {max_wait_time}s")
-                    print(f"⚠️ [DELETE-CLUSTER] Timeout waiting for rosacontrolplane deletion, but it may still complete in the background")
-                    jobs[job_id]["stdout"] += f"⚠️ Timeout waiting for deletion after {max_wait_time}s, but it may still complete in the background\n"
+                    errors.append(
+                        f"Timeout waiting for rosacontrolplane/{cluster_name} to delete after {max_wait_time}s"
+                    )
+                    print(
+                        f"⚠️ [DELETE-CLUSTER] Timeout waiting for rosacontrolplane deletion, but it may still complete in the background"
+                    )
+                    jobs[job_id][
+                        "stdout"
+                    ] += f"⚠️ Timeout waiting for deletion after {max_wait_time}s, but it may still complete in the background\n"
             else:
                 if "not found" not in result.stderr.lower():
-                    errors.append(f"Failed to delete rosacontrolplane/{cluster_name}: {result.stderr}")
-                    print(f"❌ [DELETE-CLUSTER] Error deleting rosacontrolplane/{cluster_name}: {result.stderr}")
-                    jobs[job_id]["stderr"] += f"❌ Error deleting rosacontrolplane/{cluster_name}: {result.stderr}\n"
+                    errors.append(
+                        f"Failed to delete rosacontrolplane/{cluster_name}: {result.stderr}"
+                    )
+                    print(
+                        f"❌ [DELETE-CLUSTER] Error deleting rosacontrolplane/{cluster_name}: {result.stderr}"
+                    )
+                    jobs[job_id][
+                        "stderr"
+                    ] += f"❌ Error deleting rosacontrolplane/{cluster_name}: {result.stderr}\n"
 
         except subprocess.TimeoutExpired:
             errors.append(f"Timeout deleting rosacontrolplane/{cluster_name}")
             jobs[job_id]["stderr"] += f"❌ Timeout deleting rosacontrolplane/{cluster_name}\n"
         except Exception as e:
             errors.append(f"Error deleting rosacontrolplane/{cluster_name}: {str(e)}")
-            jobs[job_id]["stderr"] += f"❌ Error deleting rosacontrolplane/{cluster_name}: {str(e)}\n"
+            jobs[job_id][
+                "stderr"
+            ] += f"❌ Error deleting rosacontrolplane/{cluster_name}: {str(e)}\n"
 
         # Step 3: Clean up network and roles if they still exist (they should cascade delete, but just in case)
         cleanup_resources = [
@@ -3766,9 +3830,20 @@ async def perform_cluster_deletion(job_id: str, cluster_name: str, namespace: st
                 )
 
                 if check_result.returncode == 0:
-                    print(f"🧹 [DELETE-CLUSTER] Cleaning up remaining {resource_type}/{resource_name}")
+                    print(
+                        f"🧹 [DELETE-CLUSTER] Cleaning up remaining {resource_type}/{resource_name}"
+                    )
                     result = subprocess.run(
-                        ["oc", "delete", resource_type, resource_name, "-n", namespace, "--ignore-not-found=true", "--wait=false"],
+                        [
+                            "oc",
+                            "delete",
+                            resource_type,
+                            resource_name,
+                            "-n",
+                            namespace,
+                            "--ignore-not-found=true",
+                            "--wait=false",
+                        ],
                         capture_output=True,
                         text=True,
                         timeout=30,
@@ -3779,14 +3854,21 @@ async def perform_cluster_deletion(job_id: str, cluster_name: str, namespace: st
                         print(f"✅ [DELETE-CLUSTER] Cleaned up {resource_type}/{resource_name}")
                         jobs[job_id]["stdout"] += f"🧹 Cleaned up {resource_type}/{resource_name}\n"
                 else:
-                    print(f"✅ [DELETE-CLUSTER] {resource_type}/{resource_name} already deleted (cascade)")
+                    print(
+                        f"✅ [DELETE-CLUSTER] {resource_type}/{resource_name} already deleted (cascade)"
+                    )
 
             except Exception as e:
-                print(f"⚠️ [DELETE-CLUSTER] Error checking/cleaning up {resource_type}/{resource_name}: {str(e)}")
+                print(
+                    f"⚠️ [DELETE-CLUSTER] Error checking/cleaning up {resource_type}/{resource_name}: {str(e)}"
+                )
 
         # Update job with final status
         if deleted_resources:
-            message = f"✅ Successfully deleted cluster {cluster_name}\n\nDeleted resources:\n" + "\n".join(f"  - {r}" for r in deleted_resources)
+            message = (
+                f"✅ Successfully deleted cluster {cluster_name}\n\nDeleted resources:\n"
+                + "\n".join(f"  - {r}" for r in deleted_resources)
+            )
             if errors:
                 message += f"\n\n⚠️ Warnings:\n" + "\n".join(f"  - {e}" for e in errors)
 
@@ -3804,6 +3886,7 @@ async def perform_cluster_deletion(job_id: str, cluster_name: str, namespace: st
 
     except Exception as e:
         import traceback
+
         print(f"❌ [DELETE-CLUSTER] Error: {str(e)}")
         print(traceback.format_exc())
         jobs[job_id]["status"] = "failed"
@@ -3812,7 +3895,9 @@ async def perform_cluster_deletion(job_id: str, cluster_name: str, namespace: st
 
 
 @app.delete("/api/rosa/clusters/{cluster_name}")
-async def delete_rosa_cluster(cluster_name: str, request: Request, background_tasks: BackgroundTasks):
+async def delete_rosa_cluster(
+    cluster_name: str, request: Request, background_tasks: BackgroundTasks
+):
     """Delete a ROSA HCP cluster and all its resources"""
     import time
     import asyncio
@@ -3852,6 +3937,7 @@ async def delete_rosa_cluster(cluster_name: str, request: Request, background_ta
 
     except Exception as e:
         import traceback
+
         print(f"❌ [DELETE-CLUSTER] Error: {str(e)}")
         print(traceback.format_exc())
         return {
@@ -3868,7 +3954,10 @@ async def get_mce_resources():
 
         # Define resource types to fetch
         resource_types = [
-            {"type": "Deployment", "namespaces": ["capi-system", "capa-system", "multicluster-engine"]},
+            {
+                "type": "Deployment",
+                "namespaces": ["capi-system", "capa-system", "multicluster-engine"],
+            },
             {"type": "AWSClusterControllerIdentity", "namespaces": ["capa-system"]},
             {"type": "ROSACluster", "namespaces": None},  # All namespaces
             {"type": "ROSANetwork", "namespaces": None},  # All namespaces
@@ -3901,21 +3990,34 @@ async def get_mce_resources():
 
                                 # Get YAML for this resource
                                 yaml_result = subprocess.run(
-                                    ["oc", "get", resource_type.lower(), resource_name, "-n", namespace, "-o", "yaml"],
+                                    [
+                                        "oc",
+                                        "get",
+                                        resource_type.lower(),
+                                        resource_name,
+                                        "-n",
+                                        namespace,
+                                        "-o",
+                                        "yaml",
+                                    ],
                                     capture_output=True,
                                     text=True,
                                     timeout=10,
                                 )
 
-                                yaml_content = yaml_result.stdout if yaml_result.returncode == 0 else None
+                                yaml_content = (
+                                    yaml_result.stdout if yaml_result.returncode == 0 else None
+                                )
 
-                                resources.append({
-                                    "name": resource_name,
-                                    "type": resource_type,
-                                    "namespace": metadata.get("namespace", namespace),
-                                    "status": "Active",
-                                    "yaml": yaml_content,
-                                })
+                                resources.append(
+                                    {
+                                        "name": resource_name,
+                                        "type": resource_type,
+                                        "namespace": metadata.get("namespace", namespace),
+                                        "status": "Active",
+                                        "yaml": yaml_content,
+                                    }
+                                )
                 else:
                     # Fetch from all namespaces
                     result = subprocess.run(
@@ -3936,21 +4038,34 @@ async def get_mce_resources():
 
                             # Get YAML for this resource
                             yaml_result = subprocess.run(
-                                ["oc", "get", resource_type.lower(), resource_name, "-n", resource_namespace, "-o", "yaml"],
+                                [
+                                    "oc",
+                                    "get",
+                                    resource_type.lower(),
+                                    resource_name,
+                                    "-n",
+                                    resource_namespace,
+                                    "-o",
+                                    "yaml",
+                                ],
                                 capture_output=True,
                                 text=True,
                                 timeout=10,
                             )
 
-                            yaml_content = yaml_result.stdout if yaml_result.returncode == 0 else None
+                            yaml_content = (
+                                yaml_result.stdout if yaml_result.returncode == 0 else None
+                            )
 
-                            resources.append({
-                                "name": resource_name,
-                                "type": resource_type,
-                                "namespace": resource_namespace,
-                                "status": "Active",
-                                "yaml": yaml_content,
-                            })
+                            resources.append(
+                                {
+                                    "name": resource_name,
+                                    "type": resource_type,
+                                    "namespace": resource_namespace,
+                                    "status": "Active",
+                                    "yaml": yaml_content,
+                                }
+                            )
 
             except Exception as e:
                 # Log but don't fail if one resource type fails
@@ -3960,7 +4075,11 @@ async def get_mce_resources():
         return {"success": True, "resources": resources, "count": len(resources)}
 
     except Exception as e:
-        return {"success": False, "message": f"Error fetching MCE resources: {str(e)}", "resources": []}
+        return {
+            "success": False,
+            "message": f"Error fetching MCE resources: {str(e)}",
+            "resources": [],
+        }
 
 
 @app.post("/api/ansible/run-role")
@@ -4124,8 +4243,8 @@ async def run_ansible_role(request: dict):
         error_msg = f"Role {role_name} timed out after 10 minutes"
         print(error_msg)
         # Try to get partial output from timeout exception
-        partial_output = getattr(e, 'stdout', '') or ''
-        partial_error = getattr(e, 'stderr', '') or ''
+        partial_output = getattr(e, "stdout", "") or ""
+        partial_error = getattr(e, "stderr", "") or ""
         return {
             "success": False,
             "error": error_msg,
@@ -4294,9 +4413,19 @@ async def get_capi_component_versions(cluster_name: str = None, environment: str
         # Get cert-manager version
         try:
             cert_manager_result = subprocess.run(
-                cli_cmd + ["get", "deployment", "cert-manager", "-n", "cert-manager",
-                          "-o", "jsonpath={.spec.template.spec.containers[0].image}"],
-                capture_output=True, text=True, timeout=10
+                cli_cmd
+                + [
+                    "get",
+                    "deployment",
+                    "cert-manager",
+                    "-n",
+                    "cert-manager",
+                    "-o",
+                    "jsonpath={.spec.template.spec.containers[0].image}",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             if cert_manager_result.returncode == 0:
                 image = cert_manager_result.stdout.strip()
@@ -4309,9 +4438,19 @@ async def get_capi_component_versions(cluster_name: str = None, environment: str
         # Get CAPI controller version
         try:
             capi_result = subprocess.run(
-                cli_cmd + ["get", "deployment", "capi-controller-manager", "-n", "capi-system",
-                          "-o", "jsonpath={.spec.template.spec.containers[?(@.name=='manager')].image}"],
-                capture_output=True, text=True, timeout=10
+                cli_cmd
+                + [
+                    "get",
+                    "deployment",
+                    "capi-controller-manager",
+                    "-n",
+                    "capi-system",
+                    "-o",
+                    "jsonpath={.spec.template.spec.containers[?(@.name=='manager')].image}",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             if capi_result.returncode == 0:
                 image = capi_result.stdout.strip()
@@ -4324,9 +4463,19 @@ async def get_capi_component_versions(cluster_name: str = None, environment: str
         # Get CAPA controller version
         try:
             capa_result = subprocess.run(
-                cli_cmd + ["get", "deployment", "capa-controller-manager", "-n", "capa-system",
-                          "-o", "jsonpath={.spec.template.spec.containers[?(@.name=='manager')].image}"],
-                capture_output=True, text=True, timeout=10
+                cli_cmd
+                + [
+                    "get",
+                    "deployment",
+                    "capa-controller-manager",
+                    "-n",
+                    "capa-system",
+                    "-o",
+                    "jsonpath={.spec.template.spec.containers[?(@.name=='manager')].image}",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             if capa_result.returncode == 0:
                 image = capa_result.stdout.strip()
@@ -4351,9 +4500,17 @@ async def get_capi_component_versions(cluster_name: str = None, environment: str
         # Get ROSA CRD version
         try:
             rosa_crd_result = subprocess.run(
-                cli_cmd + ["get", "crd", "rosacontrolplanes.controlplane.cluster.x-k8s.io",
-                          "-o", "jsonpath={.metadata.annotations.controller-gen\\.kubebuilder\\.io/version}"],
-                capture_output=True, text=True, timeout=10
+                cli_cmd
+                + [
+                    "get",
+                    "crd",
+                    "rosacontrolplanes.controlplane.cluster.x-k8s.io",
+                    "-o",
+                    "jsonpath={.metadata.annotations.controller-gen\\.kubebuilder\\.io/version}",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             if rosa_crd_result.returncode == 0:
                 version = rosa_crd_result.stdout.strip() or "unknown"
@@ -4760,16 +4917,30 @@ async def verify_minikube_cluster(request: dict):
                 try:
                     # Check for Helm releases related to CAPI
                     helm_check = subprocess.run(
-                        ["helm", "list", "-A", "-o", "json", "--kubeconfig", os.path.expanduser("~/.kube/config")],
+                        [
+                            "helm",
+                            "list",
+                            "-A",
+                            "-o",
+                            "json",
+                            "--kubeconfig",
+                            os.path.expanduser("~/.kube/config"),
+                        ],
                         capture_output=True,
                         text=True,
                         timeout=10,
                     )
                     if helm_check.returncode == 0:
                         import json
+
                         helm_releases = json.loads(helm_check.stdout)
                         # Look for CAPI-related Helm releases
-                        capi_helm_releases = [r for r in helm_releases if "cluster-api" in r.get("name", "").lower() or "capi" in r.get("chart", "").lower()]
+                        capi_helm_releases = [
+                            r
+                            for r in helm_releases
+                            if "cluster-api" in r.get("name", "").lower()
+                            or "capi" in r.get("chart", "").lower()
+                        ]
                         if capi_helm_releases:
                             install_method = "helm"
                 except:
@@ -4881,7 +5052,9 @@ async def initialize_minikube_capi(request: Request, background_tasks: Backgroun
         action = "Reconfigure" if custom_capa_image else "Configure"
         description = f"{action} CAPI/CAPA on Minikube: {cluster_name} ({method_name})"
         if custom_capa_image:
-            description += f" [Custom Image: {custom_capa_image['repository']}:{custom_capa_image['tag']}]"
+            description += (
+                f" [Custom Image: {custom_capa_image['repository']}:{custom_capa_image['tag']}]"
+            )
 
         # Create job entry
         jobs[job_id] = {
@@ -4897,7 +5070,14 @@ async def initialize_minikube_capi(request: Request, background_tasks: Backgroun
         }
 
         # Run configuration in background
-        background_tasks.add_task(run_minikube_init_playbook, playbook_path, cluster_name, job_id, install_method, custom_capa_image)
+        background_tasks.add_task(
+            run_minikube_init_playbook,
+            playbook_path,
+            cluster_name,
+            job_id,
+            install_method,
+            custom_capa_image,
+        )
 
         return {
             "success": True,
@@ -5959,12 +6139,13 @@ async def get_log_forwarding_config(cluster_name: str):
             return {
                 "success": False,
                 "found": False,
-                "message": f"No log forwarding config found for {cluster_name}"
+                "message": f"No log forwarding config found for {cluster_name}",
             }
 
         # Read and parse the config file
         import yaml
-        with open(config_file, 'r') as f:
+
+        with open(config_file, "r") as f:
             config_data = yaml.safe_load(f)
 
         # Extract values
@@ -5976,14 +6157,10 @@ async def get_log_forwarding_config(cluster_name: str):
             "cloudwatch_log_role_arn": config_data.get("cloudwatch_log_role_arn", ""),
             "s3_log_bucket_name": config_data.get("s3_log_bucket_name", ""),
             "s3_log_bucket_prefix": config_data.get("s3_log_bucket_prefix", ""),
-            "message": f"Found log forwarding config for {cluster_name}"
+            "message": f"Found log forwarding config for {cluster_name}",
         }
     except Exception as e:
-        return {
-            "success": False,
-            "found": False,
-            "message": f"Error reading config: {str(e)}"
-        }
+        return {"success": False, "found": False, "message": f"Error reading config: {str(e)}"}
 
 
 @app.post("/api/provisioning/generate-yaml")
@@ -6010,7 +6187,9 @@ async def generate_provisioning_yaml(request: Request):
 
         # Extract log forwarding configuration
         enable_log_forwarding = config.get("enableLogForwarding", False)
-        log_forward_applications = config.get("logForwardApplications", ["application", "infrastructure"])
+        log_forward_applications = config.get(
+            "logForwardApplications", ["application", "infrastructure"]
+        )
         log_forward_cloudwatch_role_arn = config.get("logForwardCloudWatchRoleArn", "")
         log_forward_cloudwatch_log_group = config.get("logForwardCloudWatchLogGroup", "")
         log_forward_s3_bucket = config.get("logForwardS3Bucket", "")
@@ -6283,7 +6462,9 @@ async def apply_provisioning_yaml(request: Request, background_tasks: Background
         yaml_content = body.get("yaml_content")
         cluster_name = body.get("cluster_name")
         feature_type = body.get("feature_type", "manual")
-        cluster_context = body.get("cluster_context")  # Optional: Minikube cluster name or kubeconfig context
+        cluster_context = body.get(
+            "cluster_context"
+        )  # Optional: Minikube cluster name or kubeconfig context
 
         if not yaml_content or not cluster_name:
             raise HTTPException(
@@ -6377,7 +6558,14 @@ async def apply_provisioning_yaml(request: Request, background_tasks: Background
                         # Build kubectl/oc command with optional context
                         if cluster_context:
                             # Use kubectl with --context for Minikube or other non-OpenShift clusters
-                            apply_cmd = ["kubectl", "--context", cluster_context, "apply", "-f", temp_path]
+                            apply_cmd = [
+                                "kubectl",
+                                "--context",
+                                cluster_context,
+                                "apply",
+                                "-f",
+                                temp_path,
+                            ]
                         else:
                             # Default to oc for OpenShift clusters
                             apply_cmd = ["oc", "apply", "-f", temp_path]
@@ -6397,7 +6585,9 @@ async def apply_provisioning_yaml(request: Request, background_tasks: Background
                             # ManagedCluster is often the first resource and triggers namespace creation
                             if kind in ["Namespace", "ManagedCluster"]:
                                 # Get the namespace name from the resource
-                                namespace_name = doc.get("metadata", {}).get("namespace", name if kind == "Namespace" else None)
+                                namespace_name = doc.get("metadata", {}).get(
+                                    "namespace", name if kind == "Namespace" else None
+                                )
 
                                 if namespace_name:
                                     jobs[job_id]["logs"].append(
@@ -6413,7 +6603,15 @@ async def apply_provisioning_yaml(request: Request, background_tasks: Background
 
                                         # Check if rosa-creds-secret exists in multicluster-engine namespace
                                         check_secret = subprocess.run(
-                                            [kubectl_cmd.split()[0]] + (kubectl_cmd.split()[1:] if cluster_context else []) + ["get", "secret", "rosa-creds-secret", "-n", "multicluster-engine"],
+                                            [kubectl_cmd.split()[0]]
+                                            + (kubectl_cmd.split()[1:] if cluster_context else [])
+                                            + [
+                                                "get",
+                                                "secret",
+                                                "rosa-creds-secret",
+                                                "-n",
+                                                "multicluster-engine",
+                                            ],
                                             capture_output=True,
                                             text=True,
                                             timeout=10,
@@ -6527,7 +6725,7 @@ async def list_clusters():
             # Determine overall status
             ready = status.get("ready", False)
             conditions = status.get("conditions", [])
-            
+
             # Check if resource is being deleted
             is_deleting = metadata.get("deletionTimestamp") is not None
 
@@ -6575,7 +6773,11 @@ async def list_clusters():
                 "region": region,
                 "ready": ready,
                 "progress": progress,
-                "status": "deleting" if is_deleting else ("ready" if ready else ("failed" if error_message else "provisioning")),
+                "status": (
+                    "deleting"
+                    if is_deleting
+                    else ("ready" if ready else ("failed" if error_message else "provisioning"))
+                ),
                 "error_message": error_message,
                 "console_url": status.get("consoleURL"),
                 "api_url": (
@@ -6695,6 +6897,7 @@ async def ai_assistant_chat(request: Request):
         clusters_data = context.get("clusters", [])
 
         import logging
+
         logger = logging.getLogger("uvicorn")
         logger.info(f"🔍 [AI ASSISTANT] Message: {message}")
         logger.info(f"🔍 [AI ASSISTANT] Clusters data received: {clusters_data}")
@@ -6704,14 +6907,14 @@ async def ai_assistant_chat(request: Request):
             clusters_data = []
 
         # Enrich context with actual job logs for failed/error clusters
-        enriched_context = {
-            "clusters": clusters_data,
-            "job_logs": [],
-            "resource_status": {}
-        }
+        enriched_context = {"clusters": clusters_data, "job_logs": [], "resource_status": {}}
 
         # Find failed or error clusters and get their job logs
-        failed_clusters = [c for c in clusters_data if c.get("status") in ["failed", "error", "provisioning-failed"]]
+        failed_clusters = [
+            c
+            for c in clusters_data
+            if c.get("status") in ["failed", "error", "provisioning-failed"]
+        ]
 
         for cluster in failed_clusters:
             cluster_name = cluster.get("name", "unknown")
@@ -6722,17 +6925,22 @@ async def ai_assistant_chat(request: Request):
                 description = job_data.get("description", "")
 
                 # Check if this job is for the failed cluster
-                if cluster_name.lower() in yaml_file.lower() or cluster_name.lower() in description.lower():
+                if (
+                    cluster_name.lower() in yaml_file.lower()
+                    or cluster_name.lower() in description.lower()
+                ):
                     log_content = "\n".join(job_data.get("logs", []))
 
-                    enriched_context["job_logs"].append({
-                        "job_id": job_id,
-                        "cluster_name": cluster_name,
-                        "status": job_data.get("status", "unknown"),
-                        "logs": log_content,
-                        "yaml_file": yaml_file,
-                        "created_at": job_data.get("created_at", "")
-                    })
+                    enriched_context["job_logs"].append(
+                        {
+                            "job_id": job_id,
+                            "cluster_name": cluster_name,
+                            "status": job_data.get("status", "unknown"),
+                            "logs": log_content,
+                            "yaml_file": yaml_file,
+                            "created_at": job_data.get("created_at", ""),
+                        }
+                    )
 
         # Use AI service if ANTHROPIC_API_KEY is set
         if os.environ.get("ANTHROPIC_API_KEY"):
@@ -6743,27 +6951,41 @@ async def ai_assistant_chat(request: Request):
                 logger.info(f"🤖 [AI-ASSISTANT] AI Response: {response_text[:200]}...")
 
                 # Post-process: If user asked about clusters and AI didn't include names, fix it
-                if ("what clusters" in message.lower() or "clusters are running" in message.lower()):
-                    logger.info(f"🔍 [AI-ASSISTANT] Cluster query detected. Clusters data: {[c.get('name') for c in clusters_data]}")
-                    has_cluster_names = any(c.get("name", "") in response_text for c in clusters_data)
-                    logger.info(f"🔍 [AI-ASSISTANT] Response contains cluster names: {has_cluster_names}")
+                if "what clusters" in message.lower() or "clusters are running" in message.lower():
+                    logger.info(
+                        f"🔍 [AI-ASSISTANT] Cluster query detected. Clusters data: {[c.get('name') for c in clusters_data]}"
+                    )
+                    has_cluster_names = any(
+                        c.get("name", "") in response_text for c in clusters_data
+                    )
+                    logger.info(
+                        f"🔍 [AI-ASSISTANT] Response contains cluster names: {has_cluster_names}"
+                    )
 
                     if clusters_data and not has_cluster_names:
                         # AI didn't include cluster names, build proper response
-                        logger.info("🔧 [AI-ASSISTANT] AI response missing cluster names, fixing...")
-                        cluster_list = "\n".join([
-                            f"  - {c.get('name', 'unknown')} (namespace: {c.get('namespace', 'unknown')}, status: {c.get('status', 'unknown')})"
-                            for c in clusters_data
-                        ])
-                        response_text = f"You have {len(clusters_data)} cluster(s):\n\n{cluster_list}"
+                        logger.info(
+                            "🔧 [AI-ASSISTANT] AI response missing cluster names, fixing..."
+                        )
+                        cluster_list = "\n".join(
+                            [
+                                f"  - {c.get('name', 'unknown')} (namespace: {c.get('namespace', 'unknown')}, status: {c.get('status', 'unknown')})"
+                                for c in clusters_data
+                            ]
+                        )
+                        response_text = (
+                            f"You have {len(clusters_data)} cluster(s):\n\n{cluster_list}"
+                        )
                         logger.info(f"✅ [AI-ASSISTANT] Fixed response: {response_text}")
 
                 return {
                     "response": response_text,
-                    "suggestions": ai_response.get("suggestions", [])
+                    "suggestions": ai_response.get("suggestions", []),
                 }
             except Exception as ai_error:
-                logger.error(f"⚠️ [AI-ASSISTANT] Claude API error: {str(ai_error)}, falling back to simple responses")
+                logger.error(
+                    f"⚠️ [AI-ASSISTANT] Claude API error: {str(ai_error)}, falling back to simple responses"
+                )
                 logger.error(f"⚠️ [AI-ASSISTANT] Error traceback: ", exc_info=True)
                 # Fall through to simple responses below
 
@@ -6773,16 +6995,40 @@ async def ai_assistant_chat(request: Request):
         message_lower = message.lower()
 
         # Handle cluster-related questions
-        if "what clusters" in message_lower or "list clusters" in message_lower or "show clusters" in message_lower:
+        if (
+            "what clusters" in message_lower
+            or "list clusters" in message_lower
+            or "show clusters" in message_lower
+        ):
             if clusters_data:
                 response = f"Currently, you have {len(clusters_data)} cluster(s):\n\n"
 
                 # Categorize clusters by status
                 ready_clusters = [c for c in clusters_data if c.get("status") == "ready"]
-                provisioning_clusters = [c for c in clusters_data if c.get("status") == "provisioning"]
-                failed_clusters = [c for c in clusters_data if c.get("status") in ["failed", "error", "provisioning-failed"]]
-                uninstalling_clusters = [c for c in clusters_data if c.get("status") == "uninstalling"]
-                other_clusters = [c for c in clusters_data if c.get("status") not in ["ready", "provisioning", "failed", "error", "provisioning-failed", "uninstalling"]]
+                provisioning_clusters = [
+                    c for c in clusters_data if c.get("status") == "provisioning"
+                ]
+                failed_clusters = [
+                    c
+                    for c in clusters_data
+                    if c.get("status") in ["failed", "error", "provisioning-failed"]
+                ]
+                uninstalling_clusters = [
+                    c for c in clusters_data if c.get("status") == "uninstalling"
+                ]
+                other_clusters = [
+                    c
+                    for c in clusters_data
+                    if c.get("status")
+                    not in [
+                        "ready",
+                        "provisioning",
+                        "failed",
+                        "error",
+                        "provisioning-failed",
+                        "uninstalling",
+                    ]
+                ]
 
                 if ready_clusters:
                     response += f"**✅ Ready ({len(ready_clusters)}):**\n"
@@ -6835,7 +7081,10 @@ async def ai_assistant_chat(request: Request):
                 elif provisioning_clusters:
                     # Add suggestion to check on the provisioning cluster
                     first_cluster_name = provisioning_clusters[0].get("name", "unknown")
-                    suggestions = [f"Tell me about {first_cluster_name}", "Check environment status"]
+                    suggestions = [
+                        f"Tell me about {first_cluster_name}",
+                        "Check environment status",
+                    ]
                 else:
                     suggestions = ["Provision new cluster", "What is ROSA HCP?"]
             else:
@@ -6843,7 +7092,9 @@ async def ai_assistant_chat(request: Request):
                 suggestions = ["How to provision cluster?", "What is ROSA HCP?"]
 
         # Handle "tell me more about" or "tell me about" cluster requests
-        elif ("tell me" in message_lower or "about" in message_lower) and any(c.get("name", "").lower() in message_lower for c in clusters_data):
+        elif ("tell me" in message_lower or "about" in message_lower) and any(
+            c.get("name", "").lower() in message_lower for c in clusters_data
+        ):
             # Find the cluster being asked about
             target_cluster = None
             for cluster in clusters_data:
@@ -6974,7 +7225,11 @@ oc get events -n {namespace} --sort-by='.lastTimestamp'
         elif "show" in message_lower and "log" in message_lower:
             # Find the most recent job related to any cluster
             recent_jobs = []
-            for job_id, job_data in sorted(jobs.items(), key=lambda x: normalize_timestamp(x[1].get("created_at")), reverse=True)[:10]:
+            for job_id, job_data in sorted(
+                jobs.items(),
+                key=lambda x: normalize_timestamp(x[1].get("created_at")),
+                reverse=True,
+            )[:10]:
                 yaml_file = job_data.get("yaml_file", "")
                 description = job_data.get("description", "")
                 log_lines = job_data.get("logs", [])
@@ -6982,15 +7237,22 @@ oc get events -n {namespace} --sort-by='.lastTimestamp'
                 # Check if this job is related to the user's clusters
                 for cluster in clusters_data:
                     cluster_name = cluster.get("name", "")
-                    if cluster_name and (cluster_name.lower() in yaml_file.lower() or cluster_name.lower() in description.lower()):
-                        recent_jobs.append({
-                            "job_id": job_id,
-                            "cluster_name": cluster_name,
-                            "description": description,
-                            "status": job_data.get("status", "unknown"),
-                            "logs": "\n".join(log_lines[-20:]) if log_lines else "No logs available",
-                            "created_at": job_data.get("created_at", "")
-                        })
+                    if cluster_name and (
+                        cluster_name.lower() in yaml_file.lower()
+                        or cluster_name.lower() in description.lower()
+                    ):
+                        recent_jobs.append(
+                            {
+                                "job_id": job_id,
+                                "cluster_name": cluster_name,
+                                "description": description,
+                                "status": job_data.get("status", "unknown"),
+                                "logs": (
+                                    "\n".join(log_lines[-20:]) if log_lines else "No logs available"
+                                ),
+                                "created_at": job_data.get("created_at", ""),
+                            }
+                        )
                         break
 
             if recent_jobs:
@@ -7008,13 +7270,20 @@ oc get events -n {namespace} --sort-by='.lastTimestamp'
 ```
 
 You can view more details in the Task Detail section below."""
-                suggestions = [f"Tell me more about {latest_job['cluster_name']}", "What clusters are running?"]
+                suggestions = [
+                    f"Tell me more about {latest_job['cluster_name']}",
+                    "What clusters are running?",
+                ]
             else:
                 response = "I couldn't find any recent logs for your clusters. Logs will appear here when cluster operations (provisioning, deletion, etc.) are running."
                 suggestions = ["What clusters are running?", "Provision new cluster"]
 
         # Handle provisioning questions
-        elif "provision" in message_lower or "create cluster" in message_lower or "how to" in message_lower:
+        elif (
+            "provision" in message_lower
+            or "create cluster" in message_lower
+            or "how to" in message_lower
+        ):
             response = """To provision a ROSA HCP cluster:
 
 1. Click the "Provision" button in the Configuration section
@@ -7034,9 +7303,18 @@ The cluster will be provisioned automatically!"""
             suggestions = ["What is network automation?", "What clusters are running?"]
 
         # Handle troubleshooting
-        elif "troubleshoot" in message_lower or "failed" in message_lower or "error" in message_lower or "problem" in message_lower:
+        elif (
+            "troubleshoot" in message_lower
+            or "failed" in message_lower
+            or "error" in message_lower
+            or "problem" in message_lower
+        ):
             # Check for failed clusters in the context
-            failed_clusters = [c for c in clusters_data if c.get("status") in ["failed", "error", "provisioning-failed"]]
+            failed_clusters = [
+                c
+                for c in clusters_data
+                if c.get("status") in ["failed", "error", "provisioning-failed"]
+            ]
             provisioning_clusters = [c for c in clusters_data if c.get("status") == "provisioning"]
 
             if failed_clusters:
@@ -7050,21 +7328,29 @@ The cluster will be provisioned automatically!"""
                     response += "**Troubleshooting steps for this cluster:**\n"
                     response += f"1. Check rosa-creds-secret in namespace '{namespace}'\n"
                     response += f"2. View ROSANetwork status: `oc get rosanetwork -n {namespace}`\n"
-                    response += f"3. View ROSARoleConfig status: `oc get rosaroleconfig -n {namespace}`\n"
+                    response += (
+                        f"3. View ROSARoleConfig status: `oc get rosaroleconfig -n {namespace}`\n"
+                    )
                     response += f"4. Check ROSAControlPlane events: `oc describe rosacontrolplane -n {namespace}`\n"
                     response += f"5. View detailed logs in Recent Operations section\n\n"
 
                 suggestions = ["What clusters are running?", "How to provision cluster?"]
             elif provisioning_clusters:
-                response = f"I see {len(provisioning_clusters)} cluster(s) currently provisioning:\n\n"
+                response = (
+                    f"I see {len(provisioning_clusters)} cluster(s) currently provisioning:\n\n"
+                )
                 for cluster in provisioning_clusters:
                     name = cluster.get("name", "unknown")
                     progress = cluster.get("progress", 0)
                     response += f"**{name}** - {progress}% complete\n\n"
                 response += "Provisioning clusters are still in progress. If a cluster has been stuck for a long time:\n\n"
                 response += "1. Check Recent Operations for detailed progress logs\n"
-                response += "2. Verify ROSANetwork is Ready (network creation can take 5-10 minutes)\n"
-                response += "3. Verify ROSARoleConfig is Ready (role creation can take 2-3 minutes)\n"
+                response += (
+                    "2. Verify ROSANetwork is Ready (network creation can take 5-10 minutes)\n"
+                )
+                response += (
+                    "3. Verify ROSARoleConfig is Ready (role creation can take 2-3 minutes)\n"
+                )
                 response += "4. Check that rosa-creds-secret exists in the cluster namespace\n"
                 suggestions = ["What clusters are running?", "Provision new cluster"]
             else:
@@ -7147,21 +7433,35 @@ Enable it during provisioning by checking "Role Automation (ROSARoleConfig)"."""
             suggestions = ["What is network automation?", "How to provision cluster?"]
 
         # Handle environment status questions
-        elif "environment status" in message_lower or "check environment" in message_lower or "environment ready" in message_lower:
+        elif (
+            "environment status" in message_lower
+            or "check environment" in message_lower
+            or "environment ready" in message_lower
+        ):
             # Check MCE/CAPI status
             response = "**Environment Status:**\n\n"
             response += "I can help you check:\n"
-            response += "• **CAPI/CAPA Configuration** - Click 'Verify' in the Configuration section\n"
-            response += "• **Cluster Resources** - View ROSA HCP Clusters table for all cluster statuses\n"
+            response += (
+                "• **CAPI/CAPA Configuration** - Click 'Verify' in the Configuration section\n"
+            )
+            response += (
+                "• **Cluster Resources** - View ROSA HCP Clusters table for all cluster statuses\n"
+            )
             response += "• **Recent Operations** - Check Task Summary for recent activity\n\n"
             response += "**Quick Actions:**\n"
             response += "• Verify environment is configured\n"
             response += "• View cluster status details\n"
             response += "• Check provisioning progress\n"
-            suggestions = ["What clusters are running?", "Verify environment", "Provision new cluster"]
+            suggestions = [
+                "What clusters are running?",
+                "Verify environment",
+                "Provision new cluster",
+            ]
 
         # Handle status/monitoring questions
-        elif "status" in message_lower or "monitoring" in message_lower or "how is" in message_lower:
+        elif (
+            "status" in message_lower or "monitoring" in message_lower or "how is" in message_lower
+        ):
             if clusters_data:
                 response = "Here's the current status of your clusters:\n\n"
                 for cluster in clusters_data:
@@ -7172,7 +7472,9 @@ Enable it during provisioning by checking "Role Automation (ROSARoleConfig)"."""
                     if progress:
                         response += f" ({progress}% complete)"
                     response += "\n"
-                response += "\nYou can see detailed status in the CAPI-Managed ROSA HCP Clusters table."
+                response += (
+                    "\nYou can see detailed status in the CAPI-Managed ROSA HCP Clusters table."
+                )
                 suggestions = ["Troubleshoot failed cluster", "Provision new cluster"]
             else:
                 response = "You don't have any clusters to monitor yet. Provision a cluster to get started!"
@@ -7247,21 +7549,19 @@ What would you like to know?"""
                     "What clusters are running?",
                     "How to provision cluster?",
                     "What is ROSA HCP?",
-                    "Troubleshoot failed cluster"
+                    "Troubleshoot failed cluster",
                 ]
 
-        return {
-            "response": response,
-            "suggestions": suggestions
-        }
+        return {"response": response, "suggestions": suggestions}
 
     except Exception as e:
         import traceback
+
         print(f"❌ [AI-ASSISTANT] Error: {str(e)}")
         print(traceback.format_exc())
         return {
             "response": "Sorry, I encountered an error processing your request. Please try again.",
-            "suggestions": []
+            "suggestions": [],
         }
 
 
@@ -7298,36 +7598,21 @@ async def list_test_suites():
         test_suites_dir = os.path.join(project_root, "test-suites")
 
         if not os.path.exists(test_suites_dir):
-            return {
-                "success": True,
-                "suites": [],
-                "message": "No test suites directory found"
-            }
+            return {"success": True, "suites": [], "message": "No test suites directory found"}
 
         suites = []
         # Sort filenames to maintain numbered order (01-, 02-, 03-, etc.)
         for filename in sorted(os.listdir(test_suites_dir)):
-            if filename.endswith('.json'):
+            if filename.endswith(".json"):
                 filepath = os.path.join(test_suites_dir, filename)
-                with open(filepath, 'r') as f:
+                with open(filepath, "r") as f:
                     suite_config = json.load(f)
-                    suites.append({
-                        "id": filename.replace('.json', ''),
-                        "config": suite_config
-                    })
+                    suites.append({"id": filename.replace(".json", ""), "config": suite_config})
 
-        return {
-            "success": True,
-            "suites": suites,
-            "count": len(suites)
-        }
+        return {"success": True, "suites": suites, "count": len(suites)}
 
     except Exception as e:
-        return {
-            "success": False,
-            "message": f"Error listing test suites: {str(e)}",
-            "suites": []
-        }
+        return {"success": False, "message": f"Error listing test suites: {str(e)}", "suites": []}
 
 
 @app.post("/api/test-suites/run")
@@ -7342,9 +7627,11 @@ async def run_test_suite(run_config: TestSuiteRun, background_tasks: BackgroundT
         suite_file = os.path.join(project_root, "test-suites", f"{run_config.suite_name}.json")
 
         if not os.path.exists(suite_file):
-            raise HTTPException(status_code=404, detail=f"Test suite '{run_config.suite_name}' not found")
+            raise HTTPException(
+                status_code=404, detail=f"Test suite '{run_config.suite_name}' not found"
+            )
 
-        with open(suite_file, 'r') as f:
+        with open(suite_file, "r") as f:
             suite_config = json.load(f)
 
         # Generate job ID (use jobs system for Task Summary integration)
@@ -7367,7 +7654,7 @@ async def run_test_suite(run_config: TestSuiteRun, background_tasks: BackgroundT
             "completed_playbooks": 0,
             "failed_playbooks": 0,
             "logs": [],
-            "environment": "mce"
+            "environment": "mce",
         }
 
         # Run test suite in background
@@ -7391,8 +7678,12 @@ async def run_test_suite(run_config: TestSuiteRun, background_tasks: BackgroundT
                     required = playbook_config.get("required", True)
 
                     job_data["progress"] = int((idx - 1) / len(playbooks) * 100)
-                    job_data["message"] = f"Running playbook {idx}/{len(playbooks)}: {playbook_display_name}"
-                    job_data["logs"].append(f"\n[{idx}/{len(playbooks)}] Running: {playbook_display_name}")
+                    job_data["message"] = (
+                        f"Running playbook {idx}/{len(playbooks)}: {playbook_display_name}"
+                    )
+                    job_data["logs"].append(
+                        f"\n[{idx}/{len(playbooks)}] Running: {playbook_display_name}"
+                    )
                     job_data["logs"].append(f"📄 {playbook_config.get('description', '')}")
                     job_data["logs"].append(f"📁 File: {playbook_file}")
                     job_data["logs"].append(f"⏱️  Timeout: {timeout}s")
@@ -7407,7 +7698,7 @@ async def run_test_suite(run_config: TestSuiteRun, background_tasks: BackgroundT
                         "duration": None,
                         "exit_code": None,
                         "output": "",
-                        "error": ""
+                        "error": "",
                     }
 
                     try:
@@ -7421,36 +7712,56 @@ async def run_test_suite(run_config: TestSuiteRun, background_tasks: BackgroundT
                         env = os.environ.copy()
 
                         # Set AUTOMATION_PATH to project root
-                        env['AUTOMATION_PATH'] = project_root
+                        env["AUTOMATION_PATH"] = project_root
 
                         # Try to read credentials from vars/user_vars.yml if not in environment
                         try:
                             import yaml
-                            user_vars_path = os.path.join(project_root, 'vars', 'user_vars.yml')
+
+                            user_vars_path = os.path.join(project_root, "vars", "user_vars.yml")
                             if os.path.exists(user_vars_path):
-                                with open(user_vars_path, 'r') as f:
+                                with open(user_vars_path, "r") as f:
                                     user_vars = yaml.safe_load(f) or {}
-                                    if 'OCP_HUB_CLUSTER_USER' not in env or not env.get('OCP_HUB_CLUSTER_USER'):
-                                        env['OCP_HUB_CLUSTER_USER'] = user_vars.get('OCP_HUB_CLUSTER_USER', '')
-                                    if 'OCP_HUB_CLUSTER_PASSWORD' not in env or not env.get('OCP_HUB_CLUSTER_PASSWORD'):
-                                        env['OCP_HUB_CLUSTER_PASSWORD'] = user_vars.get('OCP_HUB_CLUSTER_PASSWORD', '')
-                                    if 'OCP_HUB_API_URL' not in env or not env.get('OCP_HUB_API_URL'):
-                                        env['OCP_HUB_API_URL'] = user_vars.get('OCP_HUB_API_URL', '')
+                                    if "OCP_HUB_CLUSTER_USER" not in env or not env.get(
+                                        "OCP_HUB_CLUSTER_USER"
+                                    ):
+                                        env["OCP_HUB_CLUSTER_USER"] = user_vars.get(
+                                            "OCP_HUB_CLUSTER_USER", ""
+                                        )
+                                    if "OCP_HUB_CLUSTER_PASSWORD" not in env or not env.get(
+                                        "OCP_HUB_CLUSTER_PASSWORD"
+                                    ):
+                                        env["OCP_HUB_CLUSTER_PASSWORD"] = user_vars.get(
+                                            "OCP_HUB_CLUSTER_PASSWORD", ""
+                                        )
+                                    if "OCP_HUB_API_URL" not in env or not env.get(
+                                        "OCP_HUB_API_URL"
+                                    ):
+                                        env["OCP_HUB_API_URL"] = user_vars.get(
+                                            "OCP_HUB_API_URL", ""
+                                        )
                         except Exception as e:
                             print(f"Warning: Could not read user_vars.yml: {e}")
 
                         # Build ansible-playbook command
                         cmd = [
                             "ansible-playbook",
-                            "-i", "localhost,",
+                            "-i",
+                            "localhost,",
                             "--connection=local",
                             playbook_file,
-                            "-e", "skip_ansible_runner=true",
-                            "-e", f"ocp_user={env.get('OCP_HUB_CLUSTER_USER', '')}",
-                            "-e", f"ocp_password={env.get('OCP_HUB_CLUSTER_PASSWORD', '')}",
-                            "-e", f"api_url={env.get('OCP_HUB_API_URL', '')}",
-                            "-e", f"mce_namespace=multicluster-engine",
-                            "-e", f"AUTOMATION_PATH={project_root}"
+                            "-e",
+                            "skip_ansible_runner=true",
+                            "-e",
+                            f"ocp_user={env.get('OCP_HUB_CLUSTER_USER', '')}",
+                            "-e",
+                            f"ocp_password={env.get('OCP_HUB_CLUSTER_PASSWORD', '')}",
+                            "-e",
+                            f"api_url={env.get('OCP_HUB_API_URL', '')}",
+                            "-e",
+                            f"mce_namespace=multicluster-engine",
+                            "-e",
+                            f"AUTOMATION_PATH={project_root}",
                         ]
 
                         # Add extra vars from provisioning modal if provided
@@ -7467,20 +7778,22 @@ async def run_test_suite(run_config: TestSuiteRun, background_tasks: BackgroundT
                             capture_output=True,
                             text=True,
                             timeout=timeout,
-                            env=env
+                            env=env,
                         )
 
                         playbook_end = datetime.now()
                         duration = (playbook_end - playbook_start).total_seconds()
 
-                        playbook_result.update({
-                            "status": "passed" if result.returncode == 0 else "failed",
-                            "completed_at": playbook_end,
-                            "duration": duration,
-                            "exit_code": result.returncode,
-                            "output": result.stdout,
-                            "error": result.stderr
-                        })
+                        playbook_result.update(
+                            {
+                                "status": "passed" if result.returncode == 0 else "failed",
+                                "completed_at": playbook_end,
+                                "duration": duration,
+                                "exit_code": result.returncode,
+                                "output": result.stdout,
+                                "error": result.stderr,
+                            }
+                        )
 
                         if result.returncode == 0:
                             job_data["logs"].append(f"✅ PASSED ({duration:.1f}s)")
@@ -7491,17 +7804,21 @@ async def run_test_suite(run_config: TestSuiteRun, background_tasks: BackgroundT
                             job_data["failed_playbooks"] += 1
 
                             if required and stop_on_failure:
-                                job_data["logs"].append(f"\n⚠️  Stopping test suite due to required playbook failure")
+                                job_data["logs"].append(
+                                    f"\n⚠️  Stopping test suite due to required playbook failure"
+                                )
                                 job_data["playbook_results"].append(playbook_result)
                                 break
 
                     except subprocess.TimeoutExpired:
-                        playbook_result.update({
-                            "status": "timeout",
-                            "completed_at": datetime.now(),
-                            "duration": timeout,
-                            "error": f"Playbook timed out after {timeout}s"
-                        })
+                        playbook_result.update(
+                            {
+                                "status": "timeout",
+                                "completed_at": datetime.now(),
+                                "duration": timeout,
+                                "error": f"Playbook timed out after {timeout}s",
+                            }
+                        )
                         job_data["logs"].append(f"⏱️  TIMEOUT after {timeout}s")
                         job_data["failed_playbooks"] += 1
 
@@ -7511,11 +7828,9 @@ async def run_test_suite(run_config: TestSuiteRun, background_tasks: BackgroundT
                             break
 
                     except Exception as e:
-                        playbook_result.update({
-                            "status": "error",
-                            "completed_at": datetime.now(),
-                            "error": str(e)
-                        })
+                        playbook_result.update(
+                            {"status": "error", "completed_at": datetime.now(), "error": str(e)}
+                        )
                         job_data["logs"].append(f"💥 ERROR: {str(e)}")
                         job_data["failed_playbooks"] += 1
 
@@ -7534,11 +7849,15 @@ async def run_test_suite(run_config: TestSuiteRun, background_tasks: BackgroundT
 
                 if job_data["failed_playbooks"] == 0:
                     job_data["status"] = "completed"
-                    job_data["message"] = f"⚡ PLAYBOOK TESTING: Playbook passed! ({total_duration:.1f}s)"
+                    job_data["message"] = (
+                        f"⚡ PLAYBOOK TESTING: Playbook passed! ({total_duration:.1f}s)"
+                    )
                     job_data["logs"].append(f"\n✅ ⚡ PLAYBOOK TESTING COMPLETE: Playbook passed!")
                 else:
                     job_data["status"] = "failed"
-                    job_data["message"] = f"⚡ PLAYBOOK TESTING: Playbook failed ({total_duration:.1f}s)"
+                    job_data["message"] = (
+                        f"⚡ PLAYBOOK TESTING: Playbook failed ({total_duration:.1f}s)"
+                    )
                     job_data["logs"].append(f"\n❌ ⚡ PLAYBOOK TESTING COMPLETE: Playbook failed")
 
                 job_data["logs"].append(f"\n📊 Summary:")
@@ -7549,6 +7868,7 @@ async def run_test_suite(run_config: TestSuiteRun, background_tasks: BackgroundT
 
             except Exception as e:
                 import traceback
+
                 job_data["status"] = "error"
                 job_data["message"] = f"Test suite error: {str(e)}"
                 job_data["logs"].append(f"\n💥 Fatal error: {str(e)}")
@@ -7563,13 +7883,14 @@ async def run_test_suite(run_config: TestSuiteRun, background_tasks: BackgroundT
             "job_id": job_id,
             "run_id": job_id,  # Keep for backwards compatibility
             "message": f"⚡ PLAYBOOK TESTING: {suite_config['name']} started",
-            "suite_name": suite_config['name']
+            "suite_name": suite_config["name"],
         }
 
     except HTTPException:
         raise
     except Exception as e:
         import traceback
+
         print(f"❌ Error starting test suite: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Error starting test suite: {str(e)}")
@@ -7584,10 +7905,7 @@ async def get_test_suite_status(run_id: str):
 
         run_data = test_suite_runs[run_id]
 
-        return {
-            "success": True,
-            "run": run_data
-        }
+        return {"success": True, "run": run_data}
 
     except HTTPException:
         raise
@@ -7601,22 +7919,16 @@ async def get_test_suite_history():
     try:
         # Sort by started_at descending (newest first)
         sorted_runs = sorted(
-            test_suite_runs.values(),
-            key=lambda x: x.get("started_at", datetime.min),
-            reverse=True
+            test_suite_runs.values(), key=lambda x: x.get("started_at", datetime.min), reverse=True
         )
 
-        return {
-            "success": True,
-            "runs": sorted_runs,
-            "count": len(sorted_runs)
-        }
+        return {"success": True, "runs": sorted_runs, "count": len(sorted_runs)}
 
     except Exception as e:
         return {
             "success": False,
             "message": f"Error getting test suite history: {str(e)}",
-            "runs": []
+            "runs": [],
         }
 
 
@@ -7624,8 +7936,16 @@ async def get_test_suite_history():
 # Helm Chart Test Endpoints
 # ==============================================================================
 
-async def run_helm_test_playbook(job_id: str, provider: str, environment: str, test_type: str,
-                                  chart_source: str = "helm_repo", git_repo: str = None, git_branch: str = "main"):
+
+async def run_helm_test_playbook(
+    job_id: str,
+    provider: str,
+    environment: str,
+    test_type: str,
+    chart_source: str = "helm_repo",
+    git_repo: str = None,
+    git_branch: str = "main",
+):
     """
     Background task to run Helm chart test playbook
     Supports both Helm repository and Git-sourced charts
@@ -7639,40 +7959,41 @@ async def run_helm_test_playbook(job_id: str, provider: str, environment: str, t
 
         task_file = os.path.join(project_root, "tasks", "helm-chart-test.yml")
 
-        print(f"🧪 Running Helm test playbook: {provider}/{environment}/{test_type} (source: {chart_source})")
+        print(
+            f"🧪 Running Helm test playbook: {provider}/{environment}/{test_type} (source: {chart_source})"
+        )
 
         # Update job status
         if job_id in jobs:
             jobs[job_id]["status"] = "running"
             jobs[job_id]["progress"] = 10
             source_info = f" from {git_branch} branch" if chart_source == "git" else ""
-            jobs[job_id]["message"] = f"🧪 Executing {test_type} test for {provider}{source_info}..."
+            jobs[job_id][
+                "message"
+            ] = f"🧪 Executing {test_type} test for {provider}{source_info}..."
 
         # Build ansible-playbook command with verbose output
         cmd = [
             "ansible-playbook",
             task_file,
-            "-e", f"provider={provider}",
-            "-e", f"environment={environment}",
-            "-e", f"test_type={test_type}",
-            "-e", f"chart_source={chart_source}",
-            "-vv"  # Verbose output for detailed logging
+            "-e",
+            f"provider={provider}",
+            "-e",
+            f"environment={environment}",
+            "-e",
+            f"test_type={test_type}",
+            "-e",
+            f"chart_source={chart_source}",
+            "-vv",  # Verbose output for detailed logging
         ]
 
         # Add Git source parameters if using Git charts
         if chart_source == "git" and git_repo:
-            cmd.extend([
-                "-e", f"git_repo={git_repo}",
-                "-e", f"git_branch={git_branch}"
-            ])
+            cmd.extend(["-e", f"git_repo={git_repo}", "-e", f"git_branch={git_branch}"])
 
         # Execute playbook
         process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            cwd=project_root
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=project_root
         )
 
         stdout, stderr = process.communicate()
@@ -7692,14 +8013,14 @@ async def run_helm_test_playbook(job_id: str, provider: str, environment: str, t
 
         # Update job with formatted output as logs array
         if job_id in jobs:
-            jobs[job_id]["logs"] = full_output.split('\n')
+            jobs[job_id]["logs"] = full_output.split("\n")
             jobs[job_id]["output"] = full_output
             jobs[job_id]["progress"] = 90
 
         # Determine test result
         # Check for actual test result in Ansible output (not just playbook success)
         # The playbook can succeed (returncode=0, failed=0) but the test itself can fail
-        result_match = re.search(r'Result:\s+(pass|fail)', output_text, re.IGNORECASE)
+        result_match = re.search(r"Result:\s+(pass|fail)", output_text, re.IGNORECASE)
         if result_match:
             test_status = result_match.group(1).lower()
             test_passed = test_status == "pass"
@@ -7713,14 +8034,14 @@ async def run_helm_test_playbook(job_id: str, provider: str, environment: str, t
         pass_rate = None
 
         # Try to extract duration from output
-        duration_match = re.search(r'Duration:\s+(\d+)', output_text)
+        duration_match = re.search(r"Duration:\s+(\d+)", output_text)
         if duration_match:
             duration = int(duration_match.group(1))
         else:
             duration = 60 + (hash(f"{provider}{test_type}") % 240)  # 60-300s range
 
         # Try to extract pass rate from output
-        pass_rate_match = re.search(r'Pass Rate:\s+(\d+)%', output_text)
+        pass_rate_match = re.search(r"Pass Rate:\s+(\d+)%", output_text)
         if pass_rate_match:
             pass_rate = int(pass_rate_match.group(1))
         else:
@@ -7731,15 +8052,28 @@ async def run_helm_test_playbook(job_id: str, provider: str, environment: str, t
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT OR REPLACE INTO helm_test_results
             (provider, environment, test_type, status, duration, pass_rate, error_message, logs, timestamp,
              chart_source, git_branch, install_method)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (provider, environment, test_type, test_status, duration, pass_rate,
-              None if test_passed else stderr[:500], output_text, datetime.now().isoformat(),
-              chart_source, git_branch if chart_source == "git" else None,
-              "git" if chart_source == "git" else "helm_repo"))
+        """,
+            (
+                provider,
+                environment,
+                test_type,
+                test_status,
+                duration,
+                pass_rate,
+                None if test_passed else stderr[:500],
+                output_text,
+                datetime.now().isoformat(),
+                chart_source,
+                git_branch if chart_source == "git" else None,
+                "git" if chart_source == "git" else "helm_repo",
+            ),
+        )
 
         conn.commit()
         conn.close()
@@ -7748,7 +8082,11 @@ async def run_helm_test_playbook(job_id: str, provider: str, environment: str, t
         if job_id in jobs:
             jobs[job_id]["status"] = "completed" if test_passed else "failed"
             jobs[job_id]["progress"] = 100
-            jobs[job_id]["message"] = f"✅ Test completed: {test_status}" if test_passed else f"❌ Test completed: {test_status}"
+            jobs[job_id]["message"] = (
+                f"✅ Test completed: {test_status}"
+                if test_passed
+                else f"❌ Test completed: {test_status}"
+            )
             jobs[job_id]["completed_at"] = datetime.now().isoformat()
 
         print(f"✅ Helm test completed: {provider}/{environment}/{test_type} = {test_status}")
@@ -7756,6 +8094,7 @@ async def run_helm_test_playbook(job_id: str, provider: str, environment: str, t
     except Exception as e:
         print(f"❌ Error in Helm test playbook: {str(e)}")
         import traceback
+
         traceback.print_exc()
 
         # Format error output
@@ -7768,7 +8107,7 @@ async def run_helm_test_playbook(job_id: str, provider: str, environment: str, t
             jobs[job_id]["status"] = "failed"
             jobs[job_id]["progress"] = 100
             jobs[job_id]["message"] = f"❌ Test failed: {str(e)}"
-            jobs[job_id]["logs"] = error_output.split('\n')
+            jobs[job_id]["logs"] = error_output.split("\n")
             jobs[job_id]["output"] = error_output
             jobs[job_id]["completed_at"] = datetime.now().isoformat()
 
@@ -7777,14 +8116,28 @@ async def run_helm_test_playbook(job_id: str, provider: str, environment: str, t
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT OR REPLACE INTO helm_test_results
             (provider, environment, test_type, status, duration, pass_rate, error_message, logs, timestamp,
              chart_source, git_branch, install_method)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (provider, environment, test_type, 'fail', None, None, str(e)[:500], str(e), datetime.now().isoformat(),
-              chart_source, git_branch if chart_source == "git" else None,
-              "git" if chart_source == "git" else "helm_repo"))
+        """,
+            (
+                provider,
+                environment,
+                test_type,
+                "fail",
+                None,
+                None,
+                str(e)[:500],
+                str(e),
+                datetime.now().isoformat(),
+                chart_source,
+                git_branch if chart_source == "git" else None,
+                "git" if chart_source == "git" else "helm_repo",
+            ),
+        )
 
         conn.commit()
         conn.close()
@@ -7803,7 +8156,8 @@ async def get_helm_test_status():
         cursor = conn.cursor()
 
         # Create table if it doesn't exist
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS helm_test_results (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 provider TEXT NOT NULL,
@@ -7820,24 +8174,27 @@ async def get_helm_test_status():
                 install_method TEXT,
                 UNIQUE(provider, environment, test_type)
             )
-        """)
+        """
+        )
         conn.commit()
 
         # Fetch all test results including Git source information
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT provider, environment, test_type, status, duration, pass_rate, timestamp,
                    chart_source, git_branch, install_method
             FROM helm_test_results
             ORDER BY timestamp DESC
-        """)
+        """
+        )
 
         results = cursor.fetchall()
         conn.close()
 
         # Build matrix structure
-        providers = ['capi', 'capa', 'capz', 'cap-metal3', 'capoa']
-        environments = ['OpenShift', 'Kubernetes']
-        test_types = ['install', 'compliance', 'upgrade', 'functionality']
+        providers = ["capi", "capa", "capz", "cap-metal3", "capoa"]
+        environments = ["OpenShift", "Kubernetes"]
+        test_types = ["install", "compliance", "upgrade", "functionality"]
 
         matrix = {}
         for provider in providers:
@@ -7854,38 +8211,35 @@ async def get_helm_test_status():
 
                     if matching_result:
                         matrix[provider][env][test_type] = {
-                            'status': matching_result[3],
-                            'duration': matching_result[4],
-                            'passRate': matching_result[5],
-                            'timestamp': matching_result[6],
-                            'chartSource': matching_result[7] if len(matching_result) > 7 else 'helm_repo',
-                            'gitBranch': matching_result[8] if len(matching_result) > 8 else None,
-                            'installMethod': matching_result[9] if len(matching_result) > 9 else 'helm_repo'
+                            "status": matching_result[3],
+                            "duration": matching_result[4],
+                            "passRate": matching_result[5],
+                            "timestamp": matching_result[6],
+                            "chartSource": (
+                                matching_result[7] if len(matching_result) > 7 else "helm_repo"
+                            ),
+                            "gitBranch": matching_result[8] if len(matching_result) > 8 else None,
+                            "installMethod": (
+                                matching_result[9] if len(matching_result) > 9 else "helm_repo"
+                            ),
                         }
                     else:
                         # Default to pending status
                         matrix[provider][env][test_type] = {
-                            'status': 'pending',
-                            'duration': None,
-                            'passRate': None,
-                            'timestamp': None,
-                            'chartSource': 'helm_repo',
-                            'gitBranch': None,
-                            'installMethod': 'helm_repo'
+                            "status": "pending",
+                            "duration": None,
+                            "passRate": None,
+                            "timestamp": None,
+                            "chartSource": "helm_repo",
+                            "gitBranch": None,
+                            "installMethod": "helm_repo",
                         }
 
-        return {
-            "success": True,
-            "matrix": matrix
-        }
+        return {"success": True, "matrix": matrix}
 
     except Exception as e:
         print(f"❌ Error getting Helm test status: {str(e)}")
-        return {
-            "success": False,
-            "message": f"Error getting test status: {str(e)}",
-            "matrix": None
-        }
+        return {"success": False, "message": f"Error getting test status: {str(e)}", "matrix": None}
 
 
 @app.post("/api/helm-tests/run")
@@ -7908,14 +8262,28 @@ async def run_helm_test(request: HelmTestRun, background_tasks: BackgroundTasks)
 
         timestamp = datetime.now().isoformat()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT OR REPLACE INTO helm_test_results
             (provider, environment, test_type, status, duration, pass_rate, error_message, logs, timestamp,
              chart_source, git_branch, install_method)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (provider, environment, test_type, 'running', None, None, None, None, timestamp,
-              request.chart_source, request.git_branch if request.chart_source == "git" else None,
-              "git" if request.chart_source == "git" else "helm_repo"))
+        """,
+            (
+                provider,
+                environment,
+                test_type,
+                "running",
+                None,
+                None,
+                None,
+                None,
+                timestamp,
+                request.chart_source,
+                request.git_branch if request.chart_source == "git" else None,
+                "git" if request.chart_source == "git" else "helm_repo",
+            ),
+        )
 
         conn.commit()
         conn.close()
@@ -7938,7 +8306,7 @@ async def run_helm_test(request: HelmTestRun, background_tasks: BackgroundTasks)
             "message": f"🧪 Running {test_type} test...",
             "output": "",
             "created_at": datetime.now().isoformat(),
-            "started_at": datetime.now().isoformat()
+            "started_at": datetime.now().isoformat(),
         }
 
         # Run Ansible playbook in background
@@ -7950,24 +8318,25 @@ async def run_helm_test(request: HelmTestRun, background_tasks: BackgroundTasks)
             test_type,
             request.chart_source,
             request.git_repo,
-            request.git_branch
+            request.git_branch,
         )
 
-        source_info = f" (Git: {request.git_branch})" if request.chart_source == "git" else " (Helm repo)"
-        print(f"✅ Started Helm test job {job_id}: {provider}/{environment}/{test_type}{source_info}")
+        source_info = (
+            f" (Git: {request.git_branch})" if request.chart_source == "git" else " (Helm repo)"
+        )
+        print(
+            f"✅ Started Helm test job {job_id}: {provider}/{environment}/{test_type}{source_info}"
+        )
 
         return {
             "success": True,
             "message": f"Started {test_type} test for {provider} on {environment}",
-            "job_id": job_id
+            "job_id": job_id,
         }
 
     except Exception as e:
         print(f"❌ Error running Helm test: {str(e)}")
-        return {
-            "success": False,
-            "message": f"Error starting test: {str(e)}"
-        }
+        return {"success": False, "message": f"Error starting test: {str(e)}"}
 
 
 @app.post("/api/helm-tests/run-all")
@@ -7978,8 +8347,8 @@ async def run_all_helm_tests(request: HelmTestRunAll, background_tasks: Backgrou
     try:
         provider = request.provider
 
-        environments = ['OpenShift', 'Kubernetes']
-        test_types = ['install', 'compliance', 'upgrade', 'functionality']
+        environments = ["OpenShift", "Kubernetes"]
+        test_types = ["install", "compliance", "upgrade", "functionality"]
 
         # Update all tests to 'running' status
         db_path = os.path.join(os.path.dirname(__file__), "helm_tests.db")
@@ -7997,13 +8366,28 @@ async def run_all_helm_tests(request: HelmTestRunAll, background_tasks: Backgrou
                 job_ids.append(job_id)
 
                 # Update database status to running (defaults to helm_repo for backward compatibility)
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT OR REPLACE INTO helm_test_results
                     (provider, environment, test_type, status, duration, pass_rate, error_message, logs, timestamp,
                      chart_source, git_branch, install_method)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (provider, env, test_type, 'running', None, None, None, None, timestamp,
-                      "helm_repo", None, "helm_repo"))
+                """,
+                    (
+                        provider,
+                        env,
+                        test_type,
+                        "running",
+                        None,
+                        None,
+                        None,
+                        None,
+                        timestamp,
+                        "helm_repo",
+                        None,
+                        "helm_repo",
+                    ),
+                )
 
                 # Map Helm test environment to UI environment
                 ui_environment = "mce" if env == "OpenShift" else "minikube"
@@ -8023,7 +8407,7 @@ async def run_all_helm_tests(request: HelmTestRunAll, background_tasks: Backgrou
                     "message": f"🧪 Running {test_type} test...",
                     "output": "",
                     "created_at": datetime.now().isoformat(),
-                    "started_at": datetime.now().isoformat()
+                    "started_at": datetime.now().isoformat(),
                 }
 
                 # Queue background task (defaults to helm_repo)
@@ -8035,7 +8419,7 @@ async def run_all_helm_tests(request: HelmTestRunAll, background_tasks: Backgrou
                     test_type,
                     "helm_repo",  # chart_source
                     None,  # git_repo
-                    "main"  # git_branch
+                    "main",  # git_branch
                 )
 
         conn.commit()
@@ -8047,15 +8431,12 @@ async def run_all_helm_tests(request: HelmTestRunAll, background_tasks: Backgrou
             "success": True,
             "message": f"Started all tests for {provider}",
             "test_count": len(job_ids),
-            "job_ids": job_ids
+            "job_ids": job_ids,
         }
 
     except Exception as e:
         print(f"❌ Error running all Helm tests: {str(e)}")
-        return {
-            "success": False,
-            "message": f"Error starting tests: {str(e)}"
-        }
+        return {"success": False, "message": f"Error starting tests: {str(e)}"}
 
 
 @app.get("/api/helm-tests/logs/{provider}/{environment}/{test_type}")
@@ -8068,11 +8449,14 @@ async def get_helm_test_logs(provider: str, environment: str, test_type: str):
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT status, duration, pass_rate, error_message, logs, timestamp
             FROM helm_test_results
             WHERE provider = ? AND environment = ? AND test_type = ?
-        """, (provider, environment, test_type))
+        """,
+            (provider, environment, test_type),
+        )
 
         result = cursor.fetchone()
         conn.close()
@@ -8085,20 +8469,14 @@ async def get_helm_test_logs(provider: str, environment: str, test_type: str):
                 "passRate": result[2],
                 "errorMessage": result[3],
                 "logs": result[4],
-                "timestamp": result[5]
+                "timestamp": result[5],
             }
         else:
-            return {
-                "success": False,
-                "message": "Test result not found"
-            }
+            return {"success": False, "message": "Test result not found"}
 
     except Exception as e:
         print(f"❌ Error getting Helm test logs: {str(e)}")
-        return {
-            "success": False,
-            "message": f"Error getting logs: {str(e)}"
-        }
+        return {"success": False, "message": f"Error getting logs: {str(e)}"}
 
 
 if __name__ == "__main__":

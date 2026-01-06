@@ -20,12 +20,36 @@ import { RosaProvisionModal } from '../components/RosaProvisionModal';
 import { YamlEditorModal } from '../components/YamlEditorModal';
 import { AIAssistantChat } from '../components/chat/AIAssistantChat';
 import CredentialsModal from '../components/modals/CredentialsModal';
-import { AppProvider, useApp, useAppDispatch, useMinikubeContext, useMCEContext, useRecentOperationsContext, useApiStatusContext } from '../store/AppContext';
+import {
+  AppProvider,
+  useApp,
+  useAppDispatch,
+  useMinikubeContext,
+  useMCEContext,
+  useRecentOperationsContext,
+  useApiStatusContext,
+} from '../store/AppContext';
 import { AppActionTypes } from '../store/AppContext';
-import { buildApiUrl, API_ENDPOINTS, validateApiResponse, extractSafeErrorMessage } from '../config/api';
+import {
+  buildApiUrl,
+  API_ENDPOINTS,
+  validateApiResponse,
+  extractSafeErrorMessage,
+} from '../config/api';
 import { useJobHistory } from '../hooks/useJobHistory';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 
 // Environment selector dropdown component
 const EnvironmentSelector = ({ onResetLayout }) => {
@@ -37,17 +61,17 @@ const EnvironmentSelector = ({ onResetLayout }) => {
       id: 'mce',
       name: 'MCE',
       icon: '🎯',
-      description: 'Downstream environment with full MCE features'
+      description: 'Downstream environment with full MCE features',
     },
     {
       id: 'minikube',
       name: 'Minikube',
       icon: '⚡',
-      description: 'Upstream environment for development and testing'
-    }
+      description: 'Upstream environment for development and testing',
+    },
   ];
 
-  const selectedEnv = environments.find(e => e.id === app.selectedEnvironment);
+  const selectedEnv = environments.find((e) => e.id === app.selectedEnvironment);
 
   // Get theme colors for header
   const getHeaderTheme = () => {
@@ -67,7 +91,9 @@ const EnvironmentSelector = ({ onResetLayout }) => {
   return (
     <div className="sticky top-0 z-30 bg-white border-b-2 border-gray-200 shadow-sm mb-6 -mx-6 px-6 py-4">
       <div className="flex items-center justify-between">
-        <h1 className={`text-3xl font-bold bg-gradient-to-r ${theme.textGradient} bg-clip-text text-transparent`}>
+        <h1
+          className={`text-3xl font-bold bg-gradient-to-r ${theme.textGradient} bg-clip-text text-transparent`}
+        >
           {app.selectedEnvironment === 'mce'
             ? 'MCE Test Environment (Downstream)'
             : 'Minikube Test Environment (Upstream)'}
@@ -75,70 +101,71 @@ const EnvironmentSelector = ({ onResetLayout }) => {
 
         {/* Right side buttons */}
         <div className="flex items-center gap-3">
-        {/* Reset Layout Button */}
-        <button
-          onClick={onResetLayout}
-          className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-gray-300 rounded-lg hover:border-gray-500 transition-all duration-200 shadow-sm hover:shadow-md text-sm font-medium text-gray-700"
-          title="Reset section order to default"
-        >
-          <ArrowPathIcon className="h-4 w-4" />
-          <span>Reset Layout</span>
-        </button>
+          {/* Reset Layout Button */}
+          <button
+            onClick={onResetLayout}
+            className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-gray-300 rounded-lg hover:border-gray-500 transition-all duration-200 shadow-sm hover:shadow-md text-sm font-medium text-gray-700"
+            title="Reset section order to default"
+          >
+            <ArrowPathIcon className="h-4 w-4" />
+            <span>Reset Layout</span>
+          </button>
 
-        {/* Dropdown Selector */}
-        <div className="relative">
-        <button
-          onClick={() => dispatch({ type: AppActionTypes.TOGGLE_ENVIRONMENT_DROPDOWN })}
-          className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-purple-300 rounded-lg hover:border-purple-500 transition-all duration-200 shadow-sm hover:shadow-md"
-        >
-          <span className="text-lg">{selectedEnv?.icon}</span>
-          <span className="font-semibold text-gray-900">{selectedEnv?.name}</span>
-          <ChevronDownIcon
-            className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
-              app.showEnvironmentDropdown ? 'rotate-180' : ''
-            }`}
-          />
-        </button>
+          {/* Dropdown Selector */}
+          <div className="relative">
+            <button
+              onClick={() => dispatch({ type: AppActionTypes.TOGGLE_ENVIRONMENT_DROPDOWN })}
+              className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-purple-300 rounded-lg hover:border-purple-500 transition-all duration-200 shadow-sm hover:shadow-md"
+            >
+              <span className="text-lg">{selectedEnv?.icon}</span>
+              <span className="font-semibold text-gray-900">{selectedEnv?.name}</span>
+              <ChevronDownIcon
+                className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
+                  app.showEnvironmentDropdown ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
 
-        {/* Dropdown Menu */}
-        {app.showEnvironmentDropdown && (
-          <div className="absolute right-0 mt-2 w-80 bg-white border-2 border-purple-200 rounded-lg shadow-xl z-50">
-            <div className="p-2">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-3 py-2">
-                Select Environment
-              </div>
-              {environments.map((env) => (
-                <button
-                  key={env.id}
-                  onClick={() => {
-                    dispatch({ type: AppActionTypes.SET_SELECTED_ENVIRONMENT, payload: env.id });
-                    dispatch({ type: AppActionTypes.TOGGLE_ENVIRONMENT_DROPDOWN });
-                  }}
-                  className={`w-full text-left px-3 py-3 rounded-lg transition-colors duration-150 hover:bg-purple-50 ${
-                    app.selectedEnvironment === env.id 
-                      ? 'bg-purple-100 text-purple-900' 
-                      : 'text-gray-700'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <span className="text-lg">{env.icon}</span>
-                    <div className="flex-1">
-                      <div className="font-medium">{env.name}</div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {env.description}
-                      </div>
-                    </div>
-                    {app.selectedEnvironment === env.id && (
-                      <span className="text-purple-600">✓</span>
-                    )}
+            {/* Dropdown Menu */}
+            {app.showEnvironmentDropdown && (
+              <div className="absolute right-0 mt-2 w-80 bg-white border-2 border-purple-200 rounded-lg shadow-xl z-50">
+                <div className="p-2">
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-3 py-2">
+                    Select Environment
                   </div>
-                </button>
-              ))}
-            </div>
+                  {environments.map((env) => (
+                    <button
+                      key={env.id}
+                      onClick={() => {
+                        dispatch({
+                          type: AppActionTypes.SET_SELECTED_ENVIRONMENT,
+                          payload: env.id,
+                        });
+                        dispatch({ type: AppActionTypes.TOGGLE_ENVIRONMENT_DROPDOWN });
+                      }}
+                      className={`w-full text-left px-3 py-3 rounded-lg transition-colors duration-150 hover:bg-purple-50 ${
+                        app.selectedEnvironment === env.id
+                          ? 'bg-purple-100 text-purple-900'
+                          : 'text-gray-700'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <span className="text-lg">{env.icon}</span>
+                        <div className="flex-1">
+                          <div className="font-medium">{env.name}</div>
+                          <div className="text-xs text-gray-500 mt-1">{env.description}</div>
+                        </div>
+                        {app.selectedEnvironment === env.id && (
+                          <span className="text-purple-600">✓</span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        )}
         </div>
-      </div>
       </div>
     </div>
   );
@@ -205,9 +232,27 @@ const EnvironmentContent = () => {
 
   // Reset section order to default
   const resetSectionOrder = () => {
-    const defaultOrder = app.selectedEnvironment === 'minikube'
-      ? ['minikube-environment', 'task-summary', 'task-detail', 'rosa-hcp-clusters', 'test-suite-dashboard', 'test-suite-runner', 'minikube-terminal', 'helm-chart-tests']
-      : ['mce-configuration', 'task-summary', 'task-detail', 'rosa-hcp-clusters', 'test-suite-dashboard', 'test-suite-runner', 'mce-terminal'];
+    const defaultOrder =
+      app.selectedEnvironment === 'minikube'
+        ? [
+            'minikube-environment',
+            'task-summary',
+            'task-detail',
+            'rosa-hcp-clusters',
+            'test-suite-dashboard',
+            'test-suite-runner',
+            'minikube-terminal',
+            'helm-chart-tests',
+          ]
+        : [
+            'mce-configuration',
+            'task-summary',
+            'task-detail',
+            'rosa-hcp-clusters',
+            'test-suite-dashboard',
+            'test-suite-runner',
+            'mce-terminal',
+          ];
     dispatch({ type: AppActionTypes.SET_SECTION_ORDER, payload: defaultOrder });
   };
 
@@ -228,7 +273,7 @@ const EnvironmentContent = () => {
         status: '🚀 Starting verification...',
         environment: 'mce',
         playbook: 'tasks/validate-capa-environment.yml',
-        output: `Initializing MCE environment verification...\nConnecting to OpenShift cluster...\nValidating MCE components...`
+        output: `Initializing MCE environment verification...\nConnecting to OpenShift cluster...\nValidating MCE components...`,
       });
 
       // Fetch credentials from backend to get the actual API URL and update the UI FIRST
@@ -253,8 +298,8 @@ const EnvironmentContent = () => {
         body: JSON.stringify({
           task_file: 'tasks/validate-capa-environment.yml',
           description: 'Verify MCE Environment',
-          cluster_type: 'mce'
-        })
+          cluster_type: 'mce',
+        }),
       });
 
       if (!response.ok) {
@@ -316,7 +361,7 @@ const EnvironmentContent = () => {
         status: '⏳ Configuring...',
         environment: 'mce',
         playbook: 'configure_capi_environment.yaml',
-        output: 'Configuring MCE CAPI/CAPA environment...'
+        output: 'Configuring MCE CAPI/CAPA environment...',
       });
 
       const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_TASK), {
@@ -327,8 +372,8 @@ const EnvironmentContent = () => {
         body: JSON.stringify({
           playbook_file: 'configure_capi_environment.yaml',
           description: 'Configure MCE CAPI/CAPA Environment',
-          cluster_type: 'mce'
-        })
+          cluster_type: 'mce',
+        }),
       });
 
       if (!response.ok) {
@@ -358,11 +403,7 @@ const EnvironmentContent = () => {
         );
       }
     } catch (error) {
-      updateRecentOperationStatus(
-        configureId,
-        `❌ Configuration failed`,
-        error.message
-      );
+      updateRecentOperationStatus(configureId, `❌ Configuration failed`, error.message);
     }
   };
 
@@ -388,7 +429,7 @@ const EnvironmentContent = () => {
         status: '⏳ Disabling CAPI...',
         environment: 'mce',
         playbook: 'tasks/disable_capi.yml',
-        output: 'Disabling CAPI and enabling Hypershift...'
+        output: 'Disabling CAPI and enabling Hypershift...',
       });
 
       const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_TASK), {
@@ -399,8 +440,8 @@ const EnvironmentContent = () => {
         body: JSON.stringify({
           task_file: 'tasks/disable_capi.yml',
           description: 'Disable CAPI Components',
-          cluster_type: 'mce'
-        })
+          cluster_type: 'mce',
+        }),
       });
 
       if (!response.ok) {
@@ -430,11 +471,7 @@ const EnvironmentContent = () => {
         );
       }
     } catch (error) {
-      updateRecentOperationStatus(
-        disableId,
-        `❌ Disable CAPI failed`,
-        error.message
-      );
+      updateRecentOperationStatus(disableId, `❌ Disable CAPI failed`, error.message);
     }
   };
 
@@ -457,19 +494,19 @@ const EnvironmentContent = () => {
       color: 'bg-cyan-600',
       status: '⏳ Exporting...',
       environment: 'mce',
-      output: `Exporting ${mceResources.length} resources to ${fileName}...`
+      output: `Exporting ${mceResources.length} resources to ${fileName}...`,
     });
 
     // Create export data
     const exportData = {
       exported_at: new Date().toISOString(),
       total_resources: mceResources.length,
-      resources: mceResources.map(resource => ({
+      resources: mceResources.map((resource) => ({
         name: resource.name,
         type: resource.type,
         namespace: resource.namespace,
-        status: resource.status
-      }))
+        status: resource.status,
+      })),
     };
 
     // Convert to JSON
@@ -529,9 +566,7 @@ const EnvironmentContent = () => {
         ) : null;
 
       case 'minikube-terminal':
-        return shouldShowMinikube ? (
-          <MinikubeTerminalSection key="minikube-terminal" />
-        ) : null;
+        return shouldShowMinikube ? <MinikubeTerminalSection key="minikube-terminal" /> : null;
 
       case 'test-suite-dashboard':
         return shouldShowSections ? (
@@ -556,9 +591,7 @@ const EnvironmentContent = () => {
         ) : null;
 
       case 'minikube-environment':
-        return shouldShowMinikube ? (
-          <MinikubeEnvironment key="minikube-environment" />
-        ) : null;
+        return shouldShowMinikube ? <MinikubeEnvironment key="minikube-environment" /> : null;
 
       case 'task-summary':
         return shouldShowSections ? (
@@ -589,7 +622,9 @@ const EnvironmentContent = () => {
       <EnvironmentSelector onResetLayout={resetSectionOrder} />
 
       {/* Show Minikube setup section when Minikube is selected BUT not yet verified */}
-      {app.selectedEnvironment === 'minikube' && !minikube.verifiedMinikubeClusterInfo && <MinikubeSetupSection />}
+      {app.selectedEnvironment === 'minikube' && !minikube.verifiedMinikubeClusterInfo && (
+        <MinikubeSetupSection />
+      )}
 
       {/* Show connection message for MCE if not connected */}
       {app.selectedEnvironment === 'mce' && !shouldShowMCE && (
@@ -620,10 +655,7 @@ const EnvironmentContent = () => {
             onDragEnd={handleDragEnd}
           >
             {/* Main Sections Area */}
-            <SortableContext
-              items={app.sectionOrder}
-              strategy={verticalListSortingStrategy}
-            >
+            <SortableContext items={app.sectionOrder} strategy={verticalListSortingStrategy}>
               <div className="space-y-6">
                 {app.sectionOrder.map((sectionId) => {
                   const component = getSectionComponent(sectionId);
@@ -657,7 +689,6 @@ const EnvironmentContent = () => {
                 }}
               />
             </div>
-
           </DndContext>
         </div>
       )}
@@ -703,7 +734,7 @@ const ModalProvider = () => {
       color: 'bg-cyan-600',
       status: '⏳ Saving...',
       environment: app.selectedEnvironment,
-      output: 'Saving credentials to vars/user_vars.yml...'
+      output: 'Saving credentials to vars/user_vars.yml...',
     });
 
     // Update as complete
@@ -734,7 +765,6 @@ Update completed at ${completionTime}`
         isOpen={app.showProvisionModal}
         onClose={() => dispatch({ type: AppActionTypes.SHOW_PROVISION_MODAL, payload: false })}
         onSubmit={async (config) => {
-          
           try {
             // Call generate-yaml API to get YAML preview
             const generateResponse = await fetch(
@@ -759,15 +789,15 @@ Update completed at ${completionTime}`
             dispatch({ type: AppActionTypes.SHOW_PROVISION_MODAL, payload: false });
 
             // Open YAML editor modal with generated YAML
-            dispatch({ 
-              type: AppActionTypes.SET_YAML_EDITOR_DATA, 
+            dispatch({
+              type: AppActionTypes.SET_YAML_EDITOR_DATA,
               payload: {
                 yaml_content: validatedData.yaml_content,
                 cluster_name: validatedData.cluster_name,
                 feature_type: validatedData.feature_type,
                 file_paths: validatedData.file_paths,
                 config: config, // Store original config for later use
-              }
+              },
             });
             dispatch({ type: AppActionTypes.SHOW_YAML_EDITOR_MODAL, payload: true });
           } catch (error) {
@@ -803,7 +833,7 @@ Update completed at ${completionTime}`
               color: envColor,
               environment: currentEnvironment,
               timestamp: new Date().toISOString(),
-              output: `Starting provisioning for cluster "${clusterName}"...\n\nSubmitting YAML configuration to backend...\n\nThis will appear in the Task Summary and Task Detail sections.`
+              output: `Starting provisioning for cluster "${clusterName}"...\n\nSubmitting YAML configuration to backend...\n\nThis will appear in the Task Summary and Task Detail sections.`,
             });
 
             // Close YAML editor modal first
@@ -848,7 +878,9 @@ Update completed at ${completionTime}`
 
               // Scroll to the cluster section after a small delay to allow for expansion
               setTimeout(() => {
-                const element = document.querySelector('[data-section-id="capi-rosa-hcp-clusters"]');
+                const element = document.querySelector(
+                  '[data-section-id="capi-rosa-hcp-clusters"]'
+                );
                 if (element) {
                   element.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
@@ -857,7 +889,6 @@ Update completed at ${completionTime}`
 
             // The job will now be tracked by the job history system and will show up
             // in the Task Summary and Task Detail sections automatically
-
           } catch (error) {
             const safeErrorMessage = extractSafeErrorMessage(error);
 

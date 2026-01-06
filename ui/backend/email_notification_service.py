@@ -6,30 +6,31 @@ import yaml
 import os
 from datetime import datetime
 
+
 class EmailNotificationService:
     """Service for sending email notifications for provisioning jobs"""
 
     def __init__(self):
         self.config = self._load_config()
-        self.smtp_server = self.config.get('smtp_server', '')
-        self.smtp_port = self.config.get('smtp_port', 587)
-        self.smtp_username = self.config.get('smtp_username', '')
-        self.smtp_password = self.config.get('smtp_password', '')
-        self.from_email = self.config.get('from_email', '')
-        self.to_emails = self.config.get('to_emails', [])
-        self.use_tls = self.config.get('use_tls', True)
+        self.smtp_server = self.config.get("smtp_server", "")
+        self.smtp_port = self.config.get("smtp_port", 587)
+        self.smtp_username = self.config.get("smtp_username", "")
+        self.smtp_password = self.config.get("smtp_password", "")
+        self.from_email = self.config.get("from_email", "")
+        self.to_emails = self.config.get("to_emails", [])
+        self.use_tls = self.config.get("use_tls", True)
 
     def _load_config(self) -> Dict[str, Any]:
         """Load notification config from vars/notification_config.yml"""
         config_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-            'vars',
-            'notification_config.yml'
+            "vars",
+            "notification_config.yml",
         )
 
         try:
             if os.path.exists(config_path):
-                with open(config_path, 'r') as f:
+                with open(config_path, "r") as f:
                     return yaml.safe_load(f) or {}
             else:
                 return self._default_config()
@@ -40,26 +41,26 @@ class EmailNotificationService:
     def _default_config(self) -> Dict[str, Any]:
         """Return default email configuration"""
         return {
-            'email_enabled': False,
-            'smtp_server': '',
-            'smtp_port': 587,
-            'smtp_username': '',
-            'smtp_password': '',
-            'from_email': '',
-            'to_emails': [],
-            'use_tls': True
+            "email_enabled": False,
+            "smtp_server": "",
+            "smtp_port": 587,
+            "smtp_username": "",
+            "smtp_password": "",
+            "from_email": "",
+            "to_emails": [],
+            "use_tls": True,
         }
 
     def reload_config(self):
         """Reload configuration from file"""
         self.config = self._load_config()
-        self.smtp_server = self.config.get('smtp_server', '')
-        self.smtp_port = self.config.get('smtp_port', 587)
-        self.smtp_username = self.config.get('smtp_username', '')
-        self.smtp_password = self.config.get('smtp_password', '')
-        self.from_email = self.config.get('from_email', '')
-        self.to_emails = self.config.get('to_emails', [])
-        self.use_tls = self.config.get('use_tls', True)
+        self.smtp_server = self.config.get("smtp_server", "")
+        self.smtp_port = self.config.get("smtp_port", 587)
+        self.smtp_username = self.config.get("smtp_username", "")
+        self.smtp_password = self.config.get("smtp_password", "")
+        self.from_email = self.config.get("from_email", "")
+        self.to_emails = self.config.get("to_emails", [])
+        self.use_tls = self.config.get("use_tls", True)
 
     def send_provisioning_notification(self, job_data: dict, status: str) -> bool:
         """
@@ -72,7 +73,7 @@ class EmailNotificationService:
         Returns:
             bool: True if notification sent successfully, False otherwise
         """
-        if not self.config.get('email_enabled') or not self.smtp_server:
+        if not self.config.get("email_enabled") or not self.smtp_server:
             print("Email notifications disabled or SMTP not configured")
             return False
 
@@ -85,21 +86,23 @@ class EmailNotificationService:
 
     def _build_email_content(self, job_data: dict, status: str) -> tuple:
         """Build email subject and body content"""
-        cluster_name = job_data.get('cluster_name', 'Unknown')
-        region = job_data.get('region', 'N/A')
-        version = job_data.get('version', 'N/A')
-        job_id = job_data.get('job_id', 'N/A')
+        cluster_name = job_data.get("cluster_name", "Unknown")
+        region = job_data.get("region", "N/A")
+        version = job_data.get("version", "N/A")
+        job_id = job_data.get("job_id", "N/A")
 
-        if status == 'completed':
+        if status == "completed":
             return self._build_success_email(cluster_name, region, version, job_id)
-        elif status == 'failed':
+        elif status == "failed":
             return self._build_failure_email(cluster_name, region, job_data, job_id)
-        elif status == 'started':
+        elif status == "started":
             return self._build_started_email(cluster_name, region, version, job_id)
         else:
             return self._build_generic_email(cluster_name, status, job_data)
 
-    def _build_success_email(self, cluster_name: str, region: str, version: str, job_id: str) -> tuple:
+    def _build_success_email(
+        self, cluster_name: str, region: str, version: str, job_id: str
+    ) -> tuple:
         """Build success notification email"""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -169,9 +172,11 @@ Job ID: {job_id} | Completed: {timestamp}
 
         return subject, html_body, text_body
 
-    def _build_failure_email(self, cluster_name: str, region: str, job_data: dict, job_id: str) -> tuple:
+    def _build_failure_email(
+        self, cluster_name: str, region: str, job_data: dict, job_id: str
+    ) -> tuple:
         """Build failure notification email"""
-        error = job_data.get('error', 'Unknown error')
+        error = job_data.get("error", "Unknown error")
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         # Truncate error if too long
@@ -244,7 +249,9 @@ Job ID: {job_id} | Failed: {timestamp}
 
         return subject, html_body, text_body
 
-    def _build_started_email(self, cluster_name: str, region: str, version: str, job_id: str) -> tuple:
+    def _build_started_email(
+        self, cluster_name: str, region: str, version: str, job_id: str
+    ) -> tuple:
         """Build started notification email"""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -333,14 +340,14 @@ Job ID: {job_id} | Started: {timestamp}
         """
         try:
             # Create message
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = subject
-            msg['From'] = self.from_email
-            msg['To'] = ', '.join(self.to_emails)
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = self.from_email
+            msg["To"] = ", ".join(self.to_emails)
 
             # Attach both plain text and HTML versions
-            part1 = MIMEText(text_body, 'plain')
-            part2 = MIMEText(html_body, 'html')
+            part1 = MIMEText(text_body, "plain")
+            part2 = MIMEText(html_body, "html")
             msg.attach(part1)
             msg.attach(part2)
 
@@ -372,16 +379,10 @@ Job ID: {job_id} | Started: {timestamp}
             dict: Result with success status and message
         """
         if not self.smtp_server:
-            return {
-                'success': False,
-                'message': 'SMTP server not configured'
-            }
+            return {"success": False, "message": "SMTP server not configured"}
 
         if not self.to_emails:
-            return {
-                'success': False,
-                'message': 'No recipient email addresses configured'
-            }
+            return {"success": False, "message": "No recipient email addresses configured"}
 
         try:
             # Test connection
@@ -408,23 +409,17 @@ Job ID: {job_id} | Started: {timestamp}
             """
             text_body = "✅ Email Notification Test\n\nYour email integration is working correctly!"
 
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = subject
-            msg['From'] = self.from_email
-            msg['To'] = ', '.join(self.to_emails)
-            msg.attach(MIMEText(text_body, 'plain'))
-            msg.attach(MIMEText(html_body, 'html'))
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = self.from_email
+            msg["To"] = ", ".join(self.to_emails)
+            msg.attach(MIMEText(text_body, "plain"))
+            msg.attach(MIMEText(html_body, "html"))
 
             server.sendmail(self.from_email, self.to_emails, msg.as_string())
             server.quit()
 
-            return {
-                'success': True,
-                'message': 'Test email sent successfully'
-            }
+            return {"success": True, "message": "Test email sent successfully"}
 
         except Exception as e:
-            return {
-                'success': False,
-                'message': f'Failed to send test email: {str(e)}'
-            }
+            return {"success": False, "message": f"Failed to send test email: {str(e)}"}
