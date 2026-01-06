@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import {
   DocumentTextIcon,
   ChevronDownIcon,
@@ -271,6 +272,11 @@ const TaskDetailSection = ({ theme = 'mce', environment }) => {
       )}
     </div>
   );
+};
+
+TaskDetailSection.propTypes = {
+  theme: PropTypes.string,
+  environment: PropTypes.string,
 };
 
 export default TaskDetailSection;

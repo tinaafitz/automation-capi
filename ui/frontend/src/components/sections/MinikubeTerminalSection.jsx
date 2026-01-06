@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 import { useApp, useAppDispatch } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
@@ -305,6 +306,10 @@ const MinikubeTerminalSection = ({ clusterName }) => {
       )}
     </div>
   );
+};
+
+MinikubeTerminalSection.propTypes = {
+  clusterName: PropTypes.string,
 };
 
 export default MinikubeTerminalSection;

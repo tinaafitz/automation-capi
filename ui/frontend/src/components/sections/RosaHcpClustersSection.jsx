@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import {
   useApp,
   useAppDispatch,
@@ -317,6 +318,10 @@ const RosaHcpClustersSection = ({ theme = 'mce' }) => {
       </div>
     </div>
   );
+};
+
+RosaHcpClustersSection.propTypes = {
+  theme: PropTypes.string,
 };
 
 export default RosaHcpClustersSection;

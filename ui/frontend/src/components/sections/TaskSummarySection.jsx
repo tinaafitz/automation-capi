@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import {
   ClockIcon,
   ChevronDownIcon,
@@ -287,6 +288,11 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
       )}
     </div>
   );
+};
+
+TaskSummarySection.propTypes = {
+  theme: PropTypes.string,
+  environment: PropTypes.string,
 };
 
 export default TaskSummarySection;

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import {
   PlayIcon,
   ChevronDownIcon,
@@ -278,6 +279,10 @@ const TestSuiteSection = ({ theme = 'mce' }) => {
       />
     </div>
   );
+};
+
+TestSuiteSection.propTypes = {
+  theme: PropTypes.string,
 };
 
 export default TestSuiteSection;

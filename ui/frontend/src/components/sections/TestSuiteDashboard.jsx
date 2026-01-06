@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import { BeakerIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 
 const TestSuiteDashboard = ({ theme = 'mce', onSelectTestSuite }) => {
@@ -444,6 +445,11 @@ const TestSuiteDashboard = ({ theme = 'mce', onSelectTestSuite }) => {
       )}
     </div>
   );
+};
+
+TestSuiteDashboard.propTypes = {
+  theme: PropTypes.string,
+  onSelectTestSuite: PropTypes.func,
 };
 
 export default TestSuiteDashboard;
