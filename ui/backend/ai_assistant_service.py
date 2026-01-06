@@ -2,6 +2,7 @@
 AI Assistant Service for ROSA Cluster Management
 Integrates with Claude API to provide intelligent assistance
 """
+
 import os
 import anthropic
 from typing import List, Dict, Any
@@ -10,9 +11,7 @@ from typing import List, Dict, Any
 class AIAssistantService:
     def __init__(self):
         # Use Anthropic API key from environment
-        self.client = anthropic.Anthropic(
-            api_key=os.environ.get("ANTHROPIC_API_KEY")
-        )
+        self.client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
         self.system_prompt = """You are an AI assistant specialized in Red Hat OpenShift Service on AWS (ROSA) and Cluster API (CAPI) operations.
 
@@ -67,10 +66,7 @@ Common error patterns to look for:
 Be specific, cite the actual error from logs, and give the exact fix. Avoid generic troubleshooting steps unless no logs are available."""
 
     async def chat(
-        self,
-        message: str,
-        context: Dict[str, Any],
-        history: List[Dict[str, str]] = None
+        self, message: str, context: Dict[str, Any], history: List[Dict[str, str]] = None
     ) -> Dict[str, Any]:
         """
         Process a chat message with cluster context
@@ -92,18 +88,12 @@ Be specific, cite the actual error from logs, and give the exact fix. Avoid gene
         messages = []
         if history:
             for msg in history[-5:]:  # Last 5 messages
-                messages.append({
-                    "role": msg.get("role"),
-                    "content": msg.get("content")
-                })
+                messages.append({"role": msg.get("role"), "content": msg.get("content")})
 
         user_prompt = f"{context_summary}\n\nUser question: {message}"
         print(f"💬 [FULL PROMPT TO CLAUDE]:\n{user_prompt}\n")
 
-        messages.append({
-            "role": "user",
-            "content": user_prompt
-        })
+        messages.append({"role": "user", "content": user_prompt})
 
         try:
             # Call Claude API
@@ -111,7 +101,7 @@ Be specific, cite the actual error from logs, and give the exact fix. Avoid gene
                 model="claude-3-5-sonnet-20241022",
                 max_tokens=1024,
                 system=self.system_prompt,
-                messages=messages
+                messages=messages,
             )
 
             assistant_message = response.content[0].text
@@ -119,15 +109,12 @@ Be specific, cite the actual error from logs, and give the exact fix. Avoid gene
             # Extract suggestions (if any)
             suggestions = self._extract_suggestions(assistant_message, context)
 
-            return {
-                "response": assistant_message,
-                "suggestions": suggestions
-            }
+            return {"response": assistant_message, "suggestions": suggestions}
 
         except Exception as e:
             return {
                 "response": f"I encountered an error: {str(e)}. Please try again or contact support.",
-                "suggestions": []
+                "suggestions": [],
             }
 
     def _build_context_summary(self, context: Dict[str, Any]) -> str:
@@ -142,7 +129,9 @@ Be specific, cite the actual error from logs, and give the exact fix. Avoid gene
                 status = cluster.get("status", "unknown")
                 name = cluster.get("name", "unnamed")
                 namespace = cluster.get("namespace", "unknown")
-                print(f"🔍 DEBUG: Processing cluster - name: {name}, namespace: {namespace}, status: {status}")  # DEBUG
+                print(
+                    f"🔍 DEBUG: Processing cluster - name: {name}, namespace: {namespace}, status: {status}"
+                )  # DEBUG
                 summary_parts.append(f"  - {name} (namespace: {namespace}): {status}")
         else:
             summary_parts.append("\nNo active clusters")
@@ -158,12 +147,14 @@ Be specific, cite the actual error from logs, and give the exact fix. Avoid gene
                 cluster_name = log_entry.get("cluster_name", "unknown")
                 logs = log_entry.get("logs", "")
 
-                summary_parts.append(f"\nJob {job_id} for cluster '{cluster_name}' - Status: {status}")
+                summary_parts.append(
+                    f"\nJob {job_id} for cluster '{cluster_name}' - Status: {status}"
+                )
                 if logs:
                     # Include last 20 lines of logs for context
-                    log_lines = logs.split('\n')[-20:]
+                    log_lines = logs.split("\n")[-20:]
                     summary_parts.append("Log excerpt:")
-                    summary_parts.append('\n'.join(log_lines))
+                    summary_parts.append("\n".join(log_lines))
 
         # Add resource status if available
         resource_status = context.get("resource_status", {})
@@ -175,11 +166,7 @@ Be specific, cite the actual error from logs, and give the exact fix. Avoid gene
 
         return "\n".join(summary_parts)
 
-    def _extract_suggestions(
-        self,
-        message: str,
-        context: Dict[str, Any]
-    ) -> List[str]:
+    def _extract_suggestions(self, message: str, context: Dict[str, Any]) -> List[str]:
         """Extract actionable suggestions from the response"""
         suggestions = []
 
