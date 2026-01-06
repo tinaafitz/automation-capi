@@ -3,13 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
-
-
   ClockIcon,
   CommandLineIcon,
   DocumentTextIcon,
   CloudIcon,
-
   ServerIcon,
   RocketLaunchIcon,
 } from '@heroicons/react/24/outline';

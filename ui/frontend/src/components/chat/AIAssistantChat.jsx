@@ -1,10 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import {
-
-  XMarkIcon,
-  PaperAirplaneIcon,
-  SparklesIcon,
-} from '@heroicons/react/24/outline';
+import { XMarkIcon, PaperAirplaneIcon, SparklesIcon } from '@heroicons/react/24/outline';
 
 export function AIAssistantChat() {
   const [isOpen, setIsOpen] = useState(false);
