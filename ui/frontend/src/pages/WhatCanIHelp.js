@@ -39,6 +39,7 @@ import TestEnvironmentCard from '../components/TestEnvironmentCard';
 import TestActivityFeed from '../components/TestActivityFeed';
 import { RosaProvisionModal } from '../components/RosaProvisionModal';
 import { YamlEditorModal } from '../components/YamlEditorModal';
+import CredentialsModal from '../components/modals/CredentialsModal';
 import { useApp } from '../store/AppContext';
 
 // Helper function to calculate age from ISO timestamp
