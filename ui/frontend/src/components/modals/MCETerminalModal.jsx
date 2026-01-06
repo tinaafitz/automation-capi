@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
 const MCETerminalModal = ({ isOpen, onClose }) => {
@@ -262,6 +263,11 @@ const MCETerminalModal = ({ isOpen, onClose }) => {
       </div>
     </div>
   );
+};
+
+MCETerminalModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
 };
 
 export default MCETerminalModal;

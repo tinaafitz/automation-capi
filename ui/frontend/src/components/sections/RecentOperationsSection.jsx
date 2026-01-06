@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import {
   ClockIcon,
   ChevronDownIcon,
@@ -241,6 +242,11 @@ const RecentOperationsSection = ({ theme = 'mce', environment }) => {
       )}
     </div>
   );
+};
+
+RecentOperationsSection.propTypes = {
+  theme: PropTypes.string,
+  environment: PropTypes.string,
 };
 
 export default RecentOperationsSection;

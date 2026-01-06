@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import {
   ChevronDownIcon,
   ChevronUpIcon,
@@ -643,6 +644,10 @@ ${selectedCell.data.status === 'pass' ? '✅ All checks passed\n\nTest Summary:\
       )}
     </div>
   );
+};
+
+HelmChartTestDashboard.propTypes = {
+  theme: PropTypes.string,
 };
 
 export default HelmChartTestDashboard;
