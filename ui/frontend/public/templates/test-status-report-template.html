@@ -210,163 +210,73 @@
         <!-- CONTENT -->
         <div class="content">
 
-            <!-- CLI VERSIONS SECTION -->
-            <div class="section">
-                <h2>CLI Versions</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Tool</th>
-                            <th>Version</th>
-                            <th>Notes</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {{CLI_VERSIONS_ROWS}}
-                        <!-- Example:
-                        <tr>
-                            <td>rosa CLI</td>
-                            <td>1.2.59</td>
-                            <td>Source: Red Hat Console</td>
-                        </tr>
-                        -->
-                    </tbody>
-                </table>
-            </div>
-
-            <hr class="section-divider">
-
             <!-- TEST ENVIRONMENT CONFIGURATION -->
             <div class="section">
                 <h2>Test Environment Configuration</h2>
 
                 <h3>{{CLUSTER_TYPE}} Configuration</h3>
-                <ul>
-                    {{CLUSTER_CONFIG_ITEMS}}
-                    <!-- Example:
-                    <li><strong>Cluster:</strong> new-minikube-cluster-clusterctl</li>
-                    <li><strong>Method:</strong> ⚡ clusterctl</li>
-                    <li><strong>Status:</strong> ● Running</li>
-                    -->
-                </ul>
+                <div class="code-block">{{CLUSTER_CONFIG_DETAILS}}
+<!-- Example:
+Cluster:      multiclusterengine
+Version:      2.10.0
+API Server:   https://api.ci-vb-tr35-arm.dev09.red-chesterfield.com:6443
+Status:       Connected
+--></div>
 
                 <h3>Components</h3>
-                <p><strong>Status:</strong> {{COMPONENTS_COUNT}} configured CAPI/CAPA: ● Enabled</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Component</th>
-                            <th>Version</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {{COMPONENT_ROWS}}
-                        <!-- Example:
-                        <tr>
-                            <td>cert-manager</td>
-                            <td>v1.19.1</td>
-                            <td>✓</td>
-                        </tr>
-                        -->
-                    </tbody>
-                </table>
-                {{CUSTOM_IMAGE_NOTE}}
-                <!-- Example: <p class="italic-note">Custom CAPA Image: quay.io/melseram/cluster-api-aws-controller-amd64:dev</p> -->
-            </div>
+                <div class="code-block">{{COMPONENT_CONFIG_DETAILS}}
+<!-- Example:
+CAPI Components Enabled: 2/6
 
-            <hr class="section-divider">
+Configured Components:
+  • cluster-api (v2.10.0)
+  • cluster-api-provider-aws (v2.10.0)
+--></div>
+            </div>
 
             <!-- RESOURCES SECTION -->
             <div class="section">
                 <h2>Resources</h2>
                 <p><strong>Total:</strong> {{RESOURCE_COUNT}} resources</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Resource Name</th>
-                            <th>Type</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {{RESOURCE_ROWS}}
-                        <!-- Example:
-                        <tr>
-                            <td>tsx-test-logforwarding-rosa</td>
-                            <td>ROSAControlPlane</td>
-                            <td>Ready</td>
-                        </tr>
-                        -->
-                    </tbody>
-                </table>
+
+                {{RESOURCE_DETAILS}}
+                <!-- Example:
+                <h3>ns-rosa-hcp (3 resources)</h3>
+                <div class="code-block">• trn-rosa-hcp-test (ROSAControlPlane)
+• trn-rosa-hcp-test-network (ROSANetwork)
+• trn-rosa-hcp-test-roles (ROSARoleConfig)</div>
+                -->
             </div>
 
-            <hr class="section-divider">
-
-            <!-- CLUSTER CONFIGURATION -->
+            <!-- ROSA HCP CLUSTERS -->
             <div class="section">
-                <h2>ROSA Cluster Configuration</h2>
+                <h2>CAPI-Managed ROSA HCP Clusters</h2>
 
-                <h3>Cluster Details</h3>
-                <div class="code-block">{{CLUSTER_DETAILS}}
-<!-- Example:
-Cluster Name: tsx-test-logforwarding-rosa
-Cluster ID:   2nm41bvmjic2qqtrm30g59meft3it8bs
-State:        ready
-Region:       us-west-2
-Version:      4.20.0
-Type:         Hosted Control Plane (HCP)
-Namespace:    ns-rosa-hcp
---></div>
-
-                <h3>{{FEATURE_CONFIG_TITLE}}</h3>
-                <div class="code-block">{{FEATURE_CONFIG}}
-<!-- Example:
-Log Forwarder ID:   2nm816ufqk5mo41e36e3ajl36pv5752m
-Type:               CloudWatch
-Status:             ready
-Status Message:     "Log forwarding configuration has been applied successfully"
-
-Applications:
-  - audit-webhook
-  - kube-apiserver
-
-CloudWatch Settings:
-  Log Group Name:    /aws/rosa/rh-managed-1767800436/logs
-  Role ARN:          arn:aws:iam::471112697682:role/CustomerLogDistribution-RH
---></div>
-            </div>
-
-            <hr class="section-divider">
-
-            <!-- TEST VERIFICATION -->
-            <div class="section">
-                <h2>{{VERIFICATION_TITLE}}</h2>
-                <p>{{VERIFICATION_DESCRIPTION}}</p>
-
-                {{TEST_ITEMS}}
+                {{ROSA_CLUSTER_DETAILS}}
                 <!-- Example:
                 <div class="test-item">
-                    <h4>1. List Log Forwarders</h4>
-                    <div class="code-block">$ /tmp/rosa list log-forwarders -c 2nm41bvmjic2qqtrm30g59meft3it8bs
-
-ID                              TYPE         STATUS
-2nm816ufqk5mo41e36e3ajl36pv5752m  CloudWatch   ready</div>
-                    <p class="status-ready">✅ READY - rosa CLI reports log forwarder is ready</p>
+                    <h4>Cluster: trn-rosa-hcp-test</h4>
+                    <div class="code-block">Status:    provisioning
+Progress:  14% complete
+Region:    us-west-2
+Version:   4.20.0
+Namespace: ns-rosa-hcp
+Created:   2026-01-10 at 17:51:48 UTC
+Errors:    None</div>
                 </div>
+                -->
+            </div>
 
-                <div class="test-item">
-                    <h4>3. Check CloudWatch Logs (AWS CLI)</h4>
-                    <div class="code-block">$ aws logs describe-log-streams \
-  --log-group-name "/aws/rosa/rh-managed-1767800436/logs" \
-  --region us-west-2
+            <!-- RECENT TASKS SECTION -->
+            <div class="section">
+                <h2>Recent Tasks (Last 10)</h2>
 
-{
-  "logStreams": []
-}</div>
-                    <p class="status-failed">❌ FAILED - No log streams created after 30+ minutes</p>
-                </div>
+                {{RECENT_TASKS_DETAILS}}
+                <!-- Example:
+                <div class="code-block">✅ Verify MCE Environment
+✅ Apply ROSA provisioning YAML for trn-rosa-hcp-test
+❌ Apply ROSA provisioning YAML for trn-rosa-hcp -test
+⏳ Configure MCE CAPI/CAPA Environment</div>
                 -->
             </div>
 
