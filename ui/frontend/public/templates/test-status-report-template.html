@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Status Report</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 980px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 40px;
+            border-bottom: 4px solid #5a67d8;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .header .meta {
+            font-size: 14px;
+            opacity: 0.95;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section-divider {
+            border: 0;
+            border-top: 2px dashed #e2e8f0;
+            margin: 30px 0;
+        }
+
+        h2 {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #2d3748;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 8px;
+        }
+
+        h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 25px 0 15px 0;
+            color: #2d3748;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+
+        th {
+            background: #f7fafc;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border: 1px solid #e2e8f0;
+            color: #2d3748;
+        }
+
+        td {
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        tr:hover {
+            background: #f7fafc;
+        }
+
+        .code-block {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 16px;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            overflow-x: auto;
+            margin: 15px 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .status-ready {
+            color: #22c55e;
+            font-weight: 600;
+        }
+
+        .status-failed {
+            color: #ef4444;
+            font-weight: 600;
+        }
+
+        .status-pending {
+            color: #f59e0b;
+            font-weight: 600;
+        }
+
+        .test-item {
+            margin: 25px 0;
+        }
+
+        .test-item h4 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #2d3748;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .badge-pass {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-fail {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        ul {
+            margin: 10px 0 10px 20px;
+        }
+
+        li {
+            margin: 6px 0;
+        }
+
+        .highlight {
+            background: #fef3c7;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .italic-note {
+            font-style: italic;
+            color: #64748b;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .container {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <div class="header">
+            <h1>{{TEST_TITLE}}</h1>
+            <div class="meta">
+                <strong>Date:</strong> {{TEST_DATE}} |
+                <strong>Test Environment:</strong> {{TEST_ENVIRONMENT}} |
+                <strong>Feature:</strong> {{FEATURE_NAME}}
+            </div>
+        </div>
+
+        <!-- CONTENT -->
+        <div class="content">
+
+            <!-- CLI VERSIONS SECTION -->
+            <div class="section">
+                <h2>CLI Versions</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tool</th>
+                            <th>Version</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{CLI_VERSIONS_ROWS}}
+                        <!-- Example:
+                        <tr>
+                            <td>rosa CLI</td>
+                            <td>1.2.59</td>
+                            <td>Source: Red Hat Console</td>
+                        </tr>
+                        -->
+                    </tbody>
+                </table>
+            </div>
+
+            <hr class="section-divider">
+
+            <!-- TEST ENVIRONMENT CONFIGURATION -->
+            <div class="section">
+                <h2>Test Environment Configuration</h2>
+
+                <h3>{{CLUSTER_TYPE}} Configuration</h3>
+                <ul>
+                    {{CLUSTER_CONFIG_ITEMS}}
+                    <!-- Example:
+                    <li><strong>Cluster:</strong> new-minikube-cluster-clusterctl</li>
+                    <li><strong>Method:</strong> ⚡ clusterctl</li>
+                    <li><strong>Status:</strong> ● Running</li>
+                    -->
+                </ul>
+
+                <h3>Components</h3>
+                <p><strong>Status:</strong> {{COMPONENTS_COUNT}} configured CAPI/CAPA: ● Enabled</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Component</th>
+                            <th>Version</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{COMPONENT_ROWS}}
+                        <!-- Example:
+                        <tr>
+                            <td>cert-manager</td>
+                            <td>v1.19.1</td>
+                            <td>✓</td>
+                        </tr>
+                        -->
+                    </tbody>
+                </table>
+                {{CUSTOM_IMAGE_NOTE}}
+                <!-- Example: <p class="italic-note">Custom CAPA Image: quay.io/melseram/cluster-api-aws-controller-amd64:dev</p> -->
+            </div>
+
+            <hr class="section-divider">
+
+            <!-- RESOURCES SECTION -->
+            <div class="section">
+                <h2>Resources</h2>
+                <p><strong>Total:</strong> {{RESOURCE_COUNT}} resources</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Resource Name</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{RESOURCE_ROWS}}
+                        <!-- Example:
+                        <tr>
+                            <td>tsx-test-logforwarding-rosa</td>
+                            <td>ROSAControlPlane</td>
+                            <td>Ready</td>
+                        </tr>
+                        -->
+                    </tbody>
+                </table>
+            </div>
+
+            <hr class="section-divider">
+
+            <!-- CLUSTER CONFIGURATION -->
+            <div class="section">
+                <h2>ROSA Cluster Configuration</h2>
+
+                <h3>Cluster Details</h3>
+                <div class="code-block">{{CLUSTER_DETAILS}}
+<!-- Example:
+Cluster Name: tsx-test-logforwarding-rosa
+Cluster ID:   2nm41bvmjic2qqtrm30g59meft3it8bs
+State:        ready
+Region:       us-west-2
+Version:      4.20.0
+Type:         Hosted Control Plane (HCP)
+Namespace:    ns-rosa-hcp
+--></div>
+
+                <h3>{{FEATURE_CONFIG_TITLE}}</h3>
+                <div class="code-block">{{FEATURE_CONFIG}}
+<!-- Example:
+Log Forwarder ID:   2nm816ufqk5mo41e36e3ajl36pv5752m
+Type:               CloudWatch
+Status:             ready
+Status Message:     "Log forwarding configuration has been applied successfully"
+
+Applications:
+  - audit-webhook
+  - kube-apiserver
+
+CloudWatch Settings:
+  Log Group Name:    /aws/rosa/rh-managed-1767800436/logs
+  Role ARN:          arn:aws:iam::471112697682:role/CustomerLogDistribution-RH
+--></div>
+            </div>
+
+            <hr class="section-divider">
+
+            <!-- TEST VERIFICATION -->
+            <div class="section">
+                <h2>{{VERIFICATION_TITLE}}</h2>
+                <p>{{VERIFICATION_DESCRIPTION}}</p>
+
+                {{TEST_ITEMS}}
+                <!-- Example:
+                <div class="test-item">
+                    <h4>1. List Log Forwarders</h4>
+                    <div class="code-block">$ /tmp/rosa list log-forwarders -c 2nm41bvmjic2qqtrm30g59meft3it8bs
+
+ID                              TYPE         STATUS
+2nm816ufqk5mo41e36e3ajl36pv5752m  CloudWatch   ready</div>
+                    <p class="status-ready">✅ READY - rosa CLI reports log forwarder is ready</p>
+                </div>
+
+                <div class="test-item">
+                    <h4>3. Check CloudWatch Logs (AWS CLI)</h4>
+                    <div class="code-block">$ aws logs describe-log-streams \
+  --log-group-name "/aws/rosa/rh-managed-1767800436/logs" \
+  --region us-west-2
+
+{
+  "logStreams": []
+}</div>
+                    <p class="status-failed">❌ FAILED - No log streams created after 30+ minutes</p>
+                </div>
+                -->
+            </div>
+
+        </div>
+    </div>
+</body>
+</html>

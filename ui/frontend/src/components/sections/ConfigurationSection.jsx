@@ -222,6 +222,156 @@ const ConfigurationSection = ({
     }
   };
 
+  const handleCreateStatusReport = async () => {
+    const reportId = `create-status-report-${Date.now()}`;
+    const fileName = `mce-status-report-${new Date().toISOString().split('T')[0]}.html`;
+
+    try {
+      console.log('📊 ConfigurationSection: Create status report clicked');
+
+      // Add to recent operations
+      addToRecent({
+        id: reportId,
+        title: '📊 CREATE STATUS REPORT',
+        color: 'bg-cyan-600',
+        status: '⏳ Generating report...',
+        environment: 'mce',
+        output: `Generating HTML status report...\nGathering component data...\nFormatting resources...`,
+      });
+
+      // Fetch the HTML template
+      const templateResponse = await fetch('/templates/test-status-report-template.html');
+      if (!templateResponse.ok) {
+        throw new Error('Failed to load report template');
+      }
+      let htmlTemplate = await templateResponse.text();
+
+      // Prepare data for the report
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+
+      // CLI Versions
+      const cliVersionsRows = `
+        <tr>
+          <td>oc CLI</td>
+          <td>Latest</td>
+          <td>OpenShift CLI</td>
+        </tr>
+        <tr>
+          <td>kubectl</td>
+          <td>Latest</td>
+          <td>Kubernetes CLI</td>
+        </tr>`;
+
+      // Cluster configuration items
+      const clusterConfigItems = `
+        <li><strong>Cluster:</strong> ${mceInfo?.name || 'multiclusterengine'}</li>
+        <li><strong>Version:</strong> ${mceInfo?.version || '2.10.0'}</li>
+        <li><strong>API Server:</strong> ${ocpStatus?.api_url || 'Not configured'}</li>
+        <li><strong>Status:</strong> ${ocpStatus?.connected ? 'Connected' : 'Not Connected'}</li>`;
+
+      // Component rows
+      const componentRows = allCAPIComponents
+        .map(
+          (comp) => `
+        <tr>
+          <td>${comp.name}</td>
+          <td>${comp.version || 'N/A'}</td>
+          <td>${comp.enabled ? '✓' : '✕'}</td>
+        </tr>`
+        )
+        .join('');
+
+      // Resource rows
+      const resourceRows = mceResources
+        .map(
+          (resource) => `
+        <tr>
+          <td>${resource.name}</td>
+          <td>${resource.type}</td>
+          <td>${resource.status || 'Unknown'}</td>
+        </tr>`
+        )
+        .join('');
+
+      // Cluster details
+      const clusterDetails = `MCE Instance: ${mceInfo?.name || 'multiclusterengine'}
+Version:      ${mceInfo?.version || '2.10.0'}
+API Server:   ${ocpStatus?.api_url || 'Not configured'}
+Status:       ${ocpStatus?.connected ? 'Connected' : 'Not Connected'}`;
+
+      // Feature configuration
+      const featureConfig = `CAPI Components Enabled: ${allCAPIComponents.filter((c) => c.enabled).length}/${allCAPIComponents.length}
+
+Configured Components:
+${allCAPIComponents
+  .filter((c) => c.enabled)
+  .map((c) => `  • ${c.name}${c.version ? ` (${c.version})` : ''}`)
+  .join('\n')}`;
+
+      // Replace placeholders in template
+      htmlTemplate = htmlTemplate
+        .replace(/\{\{TEST_TITLE\}\}/g, 'MCE Environment Status Report')
+        .replace(/\{\{TEST_DATE\}\}/g, dateStr)
+        .replace(/\{\{TEST_ENVIRONMENT\}\}/g, 'MCE (OpenShift Hub)')
+        .replace(/\{\{FEATURE_NAME\}\}/g, 'CAPI/CAPA')
+        .replace(/\{\{CLI_VERSIONS_ROWS\}\}/g, cliVersionsRows)
+        .replace(/\{\{CLUSTER_TYPE\}\}/g, 'MCE')
+        .replace(/\{\{CLUSTER_CONFIG_ITEMS\}\}/g, clusterConfigItems)
+        .replace(/\{\{COMPONENTS_COUNT\}\}/g, allCAPIComponents.filter((c) => c.enabled).length)
+        .replace(/\{\{COMPONENT_ROWS\}\}/g, componentRows)
+        .replace(/\{\{CUSTOM_IMAGE_NOTE\}\}/g, '')
+        .replace(/\{\{RESOURCE_COUNT\}\}/g, mceResources.length)
+        .replace(/\{\{RESOURCE_ROWS\}\}/g, resourceRows)
+        .replace(/\{\{CLUSTER_DETAILS\}\}/g, clusterDetails)
+        .replace(/\{\{FEATURE_CONFIG_TITLE\}\}/g, 'Component Configuration')
+        .replace(/\{\{FEATURE_CONFIG\}\}/g, featureConfig)
+        .replace(/\{\{VERIFICATION_TITLE\}\}/g, 'Environment Verification')
+        .replace(
+          /\{\{VERIFICATION_DESCRIPTION\}\}/g,
+          'The following checks verify the MCE environment is properly configured for ROSA HCP cluster provisioning.'
+        )
+        .replace(/\{\{TEST_ITEMS\}\}/g, '<!-- No test items for MCE environment report -->');
+
+      // Create blob and download
+      const blob = new Blob([htmlTemplate], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      // Update operation as complete
+      const completionTime = new Date().toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      });
+
+      updateRecentOperationStatus(
+        reportId,
+        `✅ Report created at ${completionTime}`,
+        `MCE Status Report Generated\n\n✅ File: ${fileName}\n✅ Downloaded successfully\n✅ Includes ${mceResources.length} resources\n✅ Includes ${allCAPIComponents.filter((c) => c.enabled).length} configured components\n\nReport created at ${completionTime}`
+      );
+    } catch (error) {
+      console.error('❌ ConfigurationSection: Create status report failed:', error);
+
+      updateRecentOperationStatus(
+        reportId,
+        `❌ Failed to create report`,
+        `Error: ${error.message}`
+      );
+    }
+  };
+
   const toggleNamespace = (namespace) => {
     setExpandedNamespaces((prev) => {
       const newSet = new Set(prev);
@@ -426,7 +576,21 @@ const ConfigurationSection = ({
             {/* MCE Environment Card */}
             <StatusCard
               theme="mce"
-              title="MCE Environment"
+              title={
+                <div className="flex items-center gap-2">
+                  <span>MCE Environment</span>
+                  <span
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${
+                      ocpStatus?.connected
+                        ? 'text-green-600 bg-green-50 border-green-200'
+                        : 'text-red-600 bg-red-50 border-red-200'
+                    }`}
+                  >
+                    <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
+                    {ocpStatus?.connected ? 'Connected' : 'Not Connected'}
+                  </span>
+                </div>
+              }
               icon={
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -437,8 +601,6 @@ const ConfigurationSection = ({
                   />
                 </svg>
               }
-              status={ocpStatus?.connected ? 'Connected' : 'Not Connected'}
-              statusColor={ocpStatus?.connected ? 'green' : 'red'}
               actions={[
                 {
                   label: 'Configure Credentials',
@@ -476,9 +638,16 @@ const ConfigurationSection = ({
             {/* Components Card */}
             <StatusCard
               theme="mce"
-              title="Components"
+              title={
+                <div className="flex items-center gap-2">
+                  <span>Components</span>
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200">
+                    <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
+                    {allCAPIComponents.filter((c) => c.enabled).length} configured
+                  </span>
+                </div>
+              }
               icon="🔧"
-              status={`${allCAPIComponents.filter((c) => c.enabled).length} configured`}
               actions={[
                 {
                   label: 'Configure',
@@ -628,18 +797,20 @@ const ConfigurationSection = ({
             {/* Resources Card */}
             <StatusCard
               theme="mce"
-              title="Resources"
+              title={
+                <div className="flex items-center gap-2">
+                  <span>Resources</span>
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200">
+                    <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
+                    {mceResources.length} total
+                  </span>
+                </div>
+              }
               icon="📦"
-              status={`${mceResources.length} total`}
               actions={[
                 {
                   label: 'Provision',
                   onClick: onProvision,
-                  variant: 'primary',
-                },
-                {
-                  label: 'Export',
-                  onClick: onExport,
                   variant: 'primary',
                 },
                 {
@@ -649,6 +820,24 @@ const ConfigurationSection = ({
                 },
               ]}
             >
+              {/* Export and Create Report Buttons */}
+              <div className="flex items-center space-x-2 mb-3 -mt-2">
+                <button
+                  onClick={onExport}
+                  className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white text-sm font-medium rounded-lg transition-all"
+                >
+                  <span>📤</span>
+                  <span>Export</span>
+                </button>
+                <button
+                  onClick={handleCreateStatusReport}
+                  className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white text-sm font-medium rounded-lg transition-all"
+                >
+                  <span>📊</span>
+                  <span>Create Report</span>
+                </button>
+              </div>
+
               <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 {mceResourcesLoading ? (
                   <div className="text-center py-4">
