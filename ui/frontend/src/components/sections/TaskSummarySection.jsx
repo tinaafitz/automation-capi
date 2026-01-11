@@ -6,6 +6,10 @@ import {
   ChevronUpIcon,
   TrashIcon,
   DocumentTextIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  ArrowPathIcon,
+  DocumentDuplicateIcon,
 } from '@heroicons/react/24/outline';
 import { useApp, useAppDispatch, useRecentOperationsContext } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
@@ -163,6 +167,70 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
     });
   };
 
+  // Get status icon and color
+  const getStatusDisplay = (status) => {
+    if (status?.includes('✅') || status?.toLowerCase().includes('success') || status?.toLowerCase().includes('completed')) {
+      return {
+        icon: <CheckCircleIcon className="h-5 w-5" />,
+        bgColor: 'bg-green-500/20',
+        textColor: 'text-green-400',
+        borderColor: 'border-green-500/30',
+        dotColor: 'bg-green-500',
+      };
+    }
+    if (status?.includes('❌') || status?.toLowerCase().includes('failed') || status?.toLowerCase().includes('error')) {
+      return {
+        icon: <XCircleIcon className="h-5 w-5" />,
+        bgColor: 'bg-red-500/20',
+        textColor: 'text-red-400',
+        borderColor: 'border-red-500/30',
+        dotColor: 'bg-red-500',
+      };
+    }
+    if (status?.includes('⏳') || status?.toLowerCase().includes('running') || status?.toLowerCase().includes('pending')) {
+      return {
+        icon: <ArrowPathIcon className="h-5 w-5 animate-spin" />,
+        bgColor: 'bg-blue-500/20',
+        textColor: 'text-blue-400',
+        borderColor: 'border-blue-500/30',
+        dotColor: 'bg-blue-500 animate-pulse',
+      };
+    }
+    return {
+      icon: <ClockIcon className="h-5 w-5" />,
+      bgColor: 'bg-gray-500/20',
+      textColor: 'text-gray-400',
+      borderColor: 'border-gray-500/30',
+      dotColor: 'bg-gray-500',
+    };
+  };
+
+  // Copy individual task output
+  const copyTaskOutput = (e, operation) => {
+    e.stopPropagation();
+    const lines = [operation.title];
+    if (operation.playbook) lines.push(`📋 ${operation.playbook}`);
+    lines.push(operation.status);
+    lines.push(formatTimestamp(operation.timestamp));
+    if (operation.detailedOutput || operation.output) {
+      lines.push('\n' + (operation.detailedOutput || operation.output));
+    }
+
+    const text = lines.join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+      console.log('Task output copied to clipboard');
+    });
+  };
+
+  // Parse ANSI color codes and convert to HTML
+  const parseAnsiColors = (text) => {
+    if (!text) return '';
+
+    // Remove ANSI escape codes and return plain text for now
+    // In a production app, you'd want to use a library like ansi-to-html
+    return text.replace(/\x1B\[[0-9;]*m/g, '');
+  };
+
   return (
     <div className={`bg-white rounded-xl shadow-lg border-2 ${colors.border} overflow-hidden`}>
       <div
@@ -217,66 +285,89 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
                 const taskId = operation.id || idx;
                 const isExpanded = expandedTasks.has(taskId);
                 const hasDetails = operation.output || operation.detailedOutput;
+                const statusDisplay = getStatusDisplay(operation.status);
 
                 return (
                   <div
                     key={taskId}
-                    className={`bg-gradient-to-r from-${colors.accent}-50 to-${colors.accent === 'purple' ? 'violet' : 'teal'}-50 rounded-lg border border-${colors.accent}-200 transition-all duration-200`}
+                    className={`bg-white rounded-lg border-2 ${statusDisplay.borderColor} overflow-hidden hover:border-opacity-60 transition-all shadow-sm`}
                   >
                     {/* Task Summary Row */}
-                    <div className="flex items-center justify-between p-4">
-                      <div className="flex items-center space-x-3 flex-1 min-w-0">
-                        <div
-                          className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                            operation.status?.includes('✅') ||
-                            operation.status?.toLowerCase().includes('success')
-                              ? 'bg-green-500'
-                              : operation.status?.includes('❌') ||
-                                  operation.status?.toLowerCase().includes('failed')
-                                ? 'bg-red-500'
-                                : 'bg-blue-500 animate-pulse'
-                          }`}
-                        ></div>
-                        <div className="flex-1 min-w-0">
-                          <div className={`font-semibold ${colors.text} truncate`}>
+                    <div className="p-4 space-y-3">
+                      {/* Title and Timestamp */}
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3 flex-1">
+                          <div className={`w-2 h-2 rounded-full ${statusDisplay.dotColor} flex-shrink-0 mt-2`}></div>
+                          <h4 className={`font-semibold text-base flex-1 ${colors.text}`}>
                             {operation.title}
-                          </div>
-                          <div className={`text-sm text-${colors.accent}-700 mt-1`}>
-                            {operation.status}
-                          </div>
-                          {operation.playbook && (
-                            <div className="text-xs text-gray-600 mt-1">
-                              📋 {operation.playbook}
-                            </div>
+                          </h4>
+                        </div>
+                        <span className="text-xs text-gray-500 whitespace-nowrap ml-4">
+                          {formatTimestamp(operation.timestamp)}
+                        </span>
+                      </div>
+
+                      {/* Playbook Info */}
+                      {operation.playbook && (
+                        <div className="flex items-center space-x-2 text-sm pl-5">
+                          <span className="text-gray-400">📋</span>
+                          <span className="text-gray-600 font-mono text-xs">{operation.playbook}</span>
+                        </div>
+                      )}
+
+                      {/* Status Badge and Actions */}
+                      <div className="flex items-center justify-between pl-5">
+                        <div
+                          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${statusDisplay.bgColor} ${statusDisplay.textColor} border ${statusDisplay.borderColor}`}
+                        >
+                          {statusDisplay.icon}
+                          <span>{operation.status}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {/* Copy Button */}
+                          <button
+                            onClick={(e) => copyTaskOutput(e, operation)}
+                            className={`px-2 py-1.5 rounded-lg transition-all text-xs font-medium flex items-center space-x-1 bg-${colors.accent}-100 text-${colors.accent}-700 hover:bg-${colors.accent}-200`}
+                            title="Copy task output"
+                          >
+                            <DocumentDuplicateIcon className="h-4 w-4" />
+                          </button>
+
+                          {/* View Details Button */}
+                          {hasDetails && (
+                            <button
+                              onClick={() => toggleTaskDetails(taskId)}
+                              className={`px-3 py-1.5 rounded-lg transition-all text-xs font-medium flex items-center space-x-1 ${
+                                isExpanded
+                                  ? `bg-${colors.accent}-600 text-white hover:bg-${colors.accent}-700`
+                                  : `bg-${colors.accent}-100 text-${colors.accent}-700 hover:bg-${colors.accent}-200`
+                              }`}
+                            >
+                              <DocumentTextIcon className="h-4 w-4" />
+                              <span>{isExpanded ? 'Hide Details' : 'View Details'}</span>
+                            </button>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center space-x-3 ml-4 flex-shrink-0">
-                        <div className={`text-xs text-${colors.accent}-600`}>
-                          {formatTimestamp(operation.timestamp)}
-                        </div>
-                        {hasDetails && (
-                          <button
-                            onClick={() => toggleTaskDetails(taskId)}
-                            className={`px-3 py-1.5 rounded-lg transition-colors text-xs font-medium flex items-center space-x-1 ${
-                              isExpanded
-                                ? `bg-${colors.accent}-600 text-white`
-                                : `bg-${colors.accent}-100 text-${colors.accent}-700 hover:bg-${colors.accent}-200`
-                            }`}
-                          >
-                            <DocumentTextIcon className="h-4 w-4" />
-                            <span>{isExpanded ? 'Hide Details' : 'View Details'}</span>
-                          </button>
-                        )}
-                      </div>
                     </div>
 
-                    {/* Collapsible Details Section */}
+                    {/* Collapsible Details Section with Terminal Style */}
                     {isExpanded && hasDetails && (
-                      <div className="border-t border-gray-200 bg-white/50 p-4">
-                        <pre className="text-xs bg-gray-900 text-green-400 p-4 rounded-lg overflow-x-auto max-h-96 overflow-y-auto font-mono">
-                          {operation.detailedOutput || operation.output}
-                        </pre>
+                      <div className="border-t-2 border-gray-200 bg-gray-50">
+                        <div className="bg-gray-800 px-4 py-2 border-b border-gray-700/50 flex items-center justify-between">
+                          <span className="text-green-400 text-xs font-mono font-semibold">OUTPUT</span>
+                          <div className="flex space-x-1">
+                            <div className="w-2 h-2 rounded-full bg-red-500/50"></div>
+                            <div className="w-2 h-2 rounded-full bg-yellow-500/50"></div>
+                            <div className="w-2 h-2 rounded-full bg-green-500/50"></div>
+                          </div>
+                        </div>
+                        <div className="p-4 max-h-96 overflow-y-auto bg-gray-900">
+                          <pre className="text-sm text-green-400 font-mono whitespace-pre-wrap leading-relaxed">
+                            {parseAnsiColors(operation.detailedOutput || operation.output)}
+                          </pre>
+                        </div>
                       </div>
                     )}
                   </div>

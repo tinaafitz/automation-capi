@@ -9,7 +9,6 @@ import ConfigurationSection from '../components/sections/ConfigurationSection';
 import RosaHcpClustersSection from '../components/sections/RosaHcpClustersSection';
 import MCETerminalSection from '../components/sections/MCETerminalSection';
 import TaskSummarySection from '../components/sections/TaskSummarySection';
-import TaskDetailSection from '../components/sections/TaskDetailSection';
 import TestSuiteDashboard from '../components/sections/TestSuiteDashboard';
 import TestSuiteSection from '../components/sections/TestSuiteSection';
 import HelmChartTestDashboard from '../components/sections/HelmChartTestDashboard';
@@ -237,7 +236,6 @@ const EnvironmentContent = () => {
         ? [
             'minikube-environment',
             'task-summary',
-            'task-detail',
             'rosa-hcp-clusters',
             'test-suite-dashboard',
             'test-suite-runner',
@@ -247,7 +245,6 @@ const EnvironmentContent = () => {
         : [
             'mce-configuration',
             'task-summary',
-            'task-detail',
             'rosa-hcp-clusters',
             'test-suite-dashboard',
             'test-suite-runner',
@@ -597,15 +594,6 @@ const EnvironmentContent = () => {
         return shouldShowSections ? (
           <TaskSummarySection
             key="task-summary"
-            theme={app.selectedEnvironment}
-            environment={app.selectedEnvironment}
-          />
-        ) : null;
-
-      case 'task-detail':
-        return shouldShowSections ? (
-          <TaskDetailSection
-            key="task-detail"
             theme={app.selectedEnvironment}
             environment={app.selectedEnvironment}
           />

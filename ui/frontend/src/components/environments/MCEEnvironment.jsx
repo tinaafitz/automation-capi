@@ -10,7 +10,6 @@ import { AIAssistantChat } from '../chat/AIAssistantChat';
 import { CommandChat } from '../chat/CommandChat';
 import MCETerminalSection from '../sections/MCETerminalSection';
 import TaskSummarySection from '../sections/TaskSummarySection';
-import TaskDetailSection from '../sections/TaskDetailSection';
 import RosaHcpClustersSection from '../sections/RosaHcpClustersSection';
 import {
   useApiStatusContext,
@@ -1662,9 +1661,6 @@ Report created at ${completionTime}`
 
       {/* Task Summary Section */}
       <TaskSummarySection theme="mce" environment="mce" />
-
-      {/* Task Detail Section - Shows playbook logs */}
-      <TaskDetailSection theme="mce" environment="mce" />
 
       {/* MCE Terminal Section */}
       <MCETerminalSection />

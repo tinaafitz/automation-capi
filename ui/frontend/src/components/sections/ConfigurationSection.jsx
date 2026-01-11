@@ -812,10 +812,10 @@ ${freshCAPIComponents
               handleOpenCredentialsModal();
             }}
             className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition-all duration-200 flex items-center space-x-2 text-sm font-medium hover:scale-105 active:scale-100"
-            title="Configure Credentials (Ctrl+1)"
+            title="Authenticate (Ctrl+1)"
           >
             <KeyIcon className="h-4 w-4" />
-            <span>Credentials</span>
+            <span>Authenticate</span>
           </button>
           <button
             onClick={(e) => {
@@ -838,13 +838,8 @@ ${freshCAPIComponents
               e.stopPropagation();
               onVerifyEnvironment();
             }}
-            disabled={!ocpStatus?.connected}
-            className={`px-3 py-1.5 rounded-lg transition-all duration-200 flex items-center space-x-2 text-sm font-medium ${
-              ocpStatus?.connected
-                ? 'bg-white/20 hover:bg-white/30 text-white hover:scale-105 active:scale-100'
-                : 'bg-white/10 text-white/50 cursor-not-allowed'
-            }`}
-            title={ocpStatus?.connected ? "Verify Environment (Ctrl+3)" : "Configure credentials first"}
+            className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition-all duration-200 flex items-center space-x-2 text-sm font-medium hover:scale-105 active:scale-100"
+            title="Verify Environment (Ctrl+3)"
           >
             <CheckCircleIcon className="h-4 w-4" />
             <span>Verify</span>
