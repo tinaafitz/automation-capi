@@ -46,8 +46,11 @@ const CapiInstallMethodModal = ({
   if (!isOpen) return null;
 
   // Debug logging
+  // eslint-disable-next-line no-console
   console.log('CapiInstallMethodModal - selectedMethod:', selectedMethod);
+  // eslint-disable-next-line no-console
   console.log('CapiInstallMethodModal - isReconfiguration:', isReconfiguration);
+  // eslint-disable-next-line no-console
   console.log('CapiInstallMethodModal - currentMethod:', currentMethod);
 
   const methods = [

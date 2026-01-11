@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars, no-console */
 import React, { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import StatusCard from '../cards/StatusCard';
@@ -18,6 +19,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { cardStyles } from '../../styles/themes';
 import { buildApiUrl, API_ENDPOINTS } from '../../config/api';
+import { useJobHistory } from '../../hooks/useJobHistory';
 
 const ConfigurationSection = ({
   onVerifyEnvironment,
@@ -32,6 +34,7 @@ const ConfigurationSection = ({
   const dispatch = useAppDispatch();
   const apiStatus = useApiStatusContext();
   const recentOps = useRecentOperationsContext();
+  const jobHistory = useJobHistory();
   const { ocpStatus, mceFeatures, mceInfo } = apiStatus;
   const { addToRecent, updateRecentOperationStatus } = recentOps;
 
@@ -122,6 +125,32 @@ const ConfigurationSection = ({
 
   const handleOpenCredentialsModal = () => {
     dispatch({ type: AppActionTypes.SHOW_CREDENTIALS_MODAL, payload: true });
+  };
+
+  // Get last verified timestamp from job history
+  const getLastVerifiedText = () => {
+    // Check job history for MCE verification jobs
+    const mceJobs = jobHistory.getJobsByEnvironment('mce');
+
+    // Find the most recent completed verification job
+    const recentValidationJob = mceJobs
+      ?.filter(
+        (job) => job.task_file?.includes('validate-capa-environment') && job.status === 'completed'
+      )
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+
+    if (recentValidationJob) {
+      return new Date(recentValidationJob.created_at).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+    }
+
+    return null;
   };
 
   const handleComponentRefresh = async () => {
@@ -219,6 +248,330 @@ const ConfigurationSection = ({
     } finally {
       // Always clear loading state
       setMceResourcesLoading(false);
+    }
+  };
+
+  const handleCreateStatusReport = async () => {
+    const reportId = `create-status-report-${Date.now()}`;
+    const fileName = `mce-status-report-${new Date().toISOString().split('T')[0]}.html`;
+
+    try {
+      console.log('📊 ConfigurationSection: Create status report clicked');
+
+      // Add to recent operations
+      addToRecent({
+        id: reportId,
+        title: 'Create Status Report',
+        color: 'bg-cyan-600',
+        status: '⏳ Generating report...',
+        environment: 'mce',
+        output: `Generating HTML status report...\nGathering component data...\nFormatting resources...`,
+      });
+
+      // Fetch fresh resources data first
+      console.log('📊 Fetching fresh MCE resources...');
+      const freshResources = await fetchMCEResources();
+      console.log(`📊 Fetched ${freshResources.length} resources`);
+
+      // Use existing MCE features from context (already loaded in UI)
+      console.log('📊 Using MCE features from context:', mceFeatures.length, 'features');
+
+      // ROSA HCP clusters
+      console.log('📊 Fetching ROSA HCP clusters...');
+      const rosaClustersResponse = await fetch(buildApiUrl('/api/rosa/clusters'));
+      const rosaClustersData = await rosaClustersResponse.json();
+      const rosaClusters = rosaClustersData.success ? rosaClustersData.clusters : [];
+      console.log(`📊 Fetched ${rosaClusters.length} ROSA clusters`);
+
+      // Fetch recent tasks/jobs
+      console.log('📊 Fetching recent tasks...');
+      const jobsResponse = await fetch(buildApiUrl('/api/jobs'));
+      const jobsData = await jobsResponse.json();
+      const allJobs = jobsData.success ? jobsData.jobs : [];
+      const recentJobs = allJobs.slice(0, 10); // Get 10 most recent
+      console.log(`📊 Fetched ${recentJobs.length} recent tasks`);
+
+      // Fetch the HTML template
+      const templateResponse = await fetch('/templates/test-status-report-template.html');
+      if (!templateResponse.ok) {
+        throw new Error('Failed to load report template');
+      }
+      let htmlTemplate = await templateResponse.text();
+
+      // Prepare data for the report
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+      const timeStr = now.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      });
+      const dateTimeStr = `${dateStr} at ${timeStr}`;
+
+      // Get the actual last verified date from job history
+      const lastVerifiedDate = getLastVerifiedText() || 'Not verified yet';
+
+      // AI Assessment - analyze environment state (using UI context values)
+      const generateAssessment = () => {
+        // Step 1: Check if CAPI/CAPA are enabled (from UI context)
+        const capiEnabled = mceFeatures.some((f) => f.name === 'cluster-api' && f.enabled);
+        const capaEnabled = mceFeatures.some(
+          (f) => f.name === 'cluster-api-provider-aws' && f.enabled
+        );
+
+        console.log('🤖 CAPI enabled:', capiEnabled);
+        console.log('🤖 CAPA enabled:', capaEnabled);
+
+        // If CAPI/CAPA not enabled, it's a fresh environment
+        if (!capiEnabled && !capaEnabled) {
+          return "Hey, this looks like a fresh MCE environment! CAPI/CAPA haven't been configured yet.";
+        }
+
+        // Step 2: Check for ROSA HCP clusters (exclude uninstalling/deleting)
+        const activeClusters = rosaClusters.filter(
+          (c) => c.status !== 'uninstalling' && c.status !== 'deleting'
+        );
+        const totalClusters = activeClusters.length;
+
+        console.log('🤖 Total active ROSA HCP clusters:', totalClusters);
+
+        // If there are ROSA HCP clusters
+        if (totalClusters > 0) {
+          return `Hey, this looks like an existing CAPI/CAPA configured environment with ${totalClusters} ROSA HCP cluster${totalClusters > 1 ? 's' : ''}.`;
+        }
+
+        // Step 3: Check if ROSA HCP namespace exists (from fetched resources)
+        const rosaNamespaceExists = freshResources.some((r) => r.namespace === 'ns-rosa-hcp');
+
+        console.log('🤖 ROSA namespace exists:', rosaNamespaceExists);
+
+        // If no clusters but namespace exists (has been provisioned before)
+        if (rosaNamespaceExists) {
+          return "This MCE environment is configured for CAPI and CAPA and it looks like we've provisioned here before.";
+        }
+
+        // If no clusters and no namespace (partially configured)
+        return 'Hey, this looks like a partially configured environment.';
+      };
+
+      const environmentAssessment = generateAssessment();
+
+      // Cluster configuration details (code-block format)
+      const clusterConfigDetails = `Cluster:      ${mceInfo?.name || 'multiclusterengine'}
+Version:      ${mceInfo?.version || '2.10.0'}
+API Server:   ${ocpStatus?.api_url || 'Not configured'}
+Status:       ${ocpStatus?.connected ? 'Connected' : 'Not Connected'}
+Last Verified: ${lastVerifiedDate}`;
+
+      // Component configuration details (code-block format) - use context features
+      const freshCAPIComponents = mceFeatures
+        .filter((f) => f.name?.startsWith('cluster-api') || f.name?.startsWith('hypershift'))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      const componentConfigDetails = `Configured Components:
+${freshCAPIComponents
+  .filter((c) => c.enabled)
+  .map((c) => `  • ${c.name}${c.version ? ` (${c.version})` : ''}`)
+  .join('\n')}`;
+
+      // Group resources by namespace (exclude capa-system and multicluster-engine)
+      const namespacesToExclude = ['capa-system', 'multicluster-engine'];
+      const filteredResources = freshResources.filter(
+        (resource) => !namespacesToExclude.includes(resource.namespace)
+      );
+      const groupedResources = filteredResources.reduce((acc, resource) => {
+        const namespace = resource.namespace || 'default';
+        if (!acc[namespace]) {
+          acc[namespace] = [];
+        }
+        acc[namespace].push(resource);
+        return acc;
+      }, {});
+
+      // Helper function to extract API version and status from resource YAML
+      const extractResourceInfo = (yamlContent, resourceType) => {
+        if (!yamlContent) return { version: null, status: null };
+
+        // Extract apiVersion from YAML (just the version part, e.g., v1beta2)
+        const apiVersionMatch = yamlContent.match(/apiVersion:\s*([^\n]+)/);
+        const fullVersion = apiVersionMatch ? apiVersionMatch[1].trim() : null;
+        const version = fullVersion ? fullVersion.split('/').pop() : null;
+
+        // Extract status based on resource type
+        let status = null;
+
+        if (resourceType === 'Deployment') {
+          // Extract replica status for deployments
+          const availableMatch = yamlContent.match(/availableReplicas:\s*(\d+)/);
+          const replicasMatch = yamlContent.match(/replicas:\s*(\d+)/);
+
+          if (availableMatch && replicasMatch) {
+            const available = availableMatch[1];
+            const total = replicasMatch[1];
+            status =
+              available === total
+                ? `✅ ${available}/${total} Ready`
+                : `⚠️ ${available}/${total} Ready`;
+          }
+        } else if (resourceType.includes('ROSA') || resourceType === 'Cluster') {
+          // Extract ready status for ROSA resources
+          const readyMatch = yamlContent.match(/ready:\s*(true|false)/i);
+          if (readyMatch) {
+            status = readyMatch[1].toLowerCase() === 'true' ? '✅ Ready' : '⏳ Not Ready';
+          }
+
+          // Check for deletion timestamp
+          if (yamlContent.includes('deletionTimestamp:')) {
+            status = '🗑️ Deleting';
+          }
+        }
+
+        return { version, status };
+      };
+
+      // Format resources by namespace with status
+      const resourceDetails =
+        freshResources.length > 0
+          ? Object.entries(groupedResources)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([namespace, resources]) => {
+                const resourceList = resources
+                  .map((resource) => {
+                    const { version, status } = extractResourceInfo(resource.yaml, resource.type);
+                    const versionStr = version ? ` [${version}]` : '';
+                    const statusStr = status ? ` - ${status}` : '';
+                    return `  • ${resource.name} (${resource.type})${versionStr}${statusStr}`;
+                  })
+                  .join('\n');
+
+                // Count ready/total resources
+                const statusCounts = resources.reduce(
+                  (acc, resource) => {
+                    const { status } = extractResourceInfo(resource.yaml, resource.type);
+                    if (status?.includes('✅')) {
+                      acc.ready++;
+                    } else if (status?.includes('⚠️') || status?.includes('⏳')) {
+                      acc.notReady++;
+                    } else if (status?.includes('🗑️')) {
+                      acc.deleting++;
+                    }
+                    acc.total++;
+                    return acc;
+                  },
+                  { ready: 0, notReady: 0, deleting: 0, total: 0 }
+                );
+
+                const statusSummary =
+                  statusCounts.ready > 0 || statusCounts.notReady > 0 || statusCounts.deleting > 0
+                    ? ` [✅ ${statusCounts.ready} Ready${statusCounts.notReady > 0 ? `, ⚠️ ${statusCounts.notReady} Not Ready` : ''}${statusCounts.deleting > 0 ? `, 🗑️ ${statusCounts.deleting} Deleting` : ''}]`
+                    : '';
+
+                return `                <h3>${namespace} (${resources.length} resource${resources.length !== 1 ? 's' : ''})${statusSummary}</h3>
+                <div class="code-block">${resourceList}</div>`;
+              })
+              .join('\n')
+          : '<p class="italic-note">No resources found</p>';
+
+      // ROSA HCP Clusters formatting - exclude uninstalling/deleting clusters
+      const activeClusters = rosaClusters.filter(
+        (c) => c.status !== 'uninstalling' && c.status !== 'deleting'
+      );
+
+      const rosaClusterSection =
+        activeClusters.length > 0
+          ? `            <!-- ROSA HCP CLUSTERS -->
+            <div class="section">
+                <h2>CAPI-Managed ROSA HCP Clusters</h2>
+
+                <div class="code-block">${activeClusters
+                  .map((cluster) => {
+                    const statusIcon =
+                      cluster.status === 'ready'
+                        ? '✅'
+                        : cluster.status === 'provisioning'
+                          ? '⏳'
+                          : cluster.status === 'failed'
+                            ? '❌'
+                            : '⚠️';
+                    const progressStr =
+                      cluster.progress !== undefined && cluster.status === 'provisioning'
+                        ? ` (${cluster.progress}%)`
+                        : '';
+                    const errorStr = cluster.error_message
+                      ? ` - Error: ${cluster.error_reason || 'Failed'}`
+                      : '';
+
+                    return `${statusIcon} ${cluster.name} - ${cluster.version || 'N/A'} - ${cluster.region || 'N/A'}${progressStr}${errorStr}`;
+                  })
+                  .join('\n')}</div>
+            </div>`
+          : '';
+
+      // Format Recent Tasks - simple status and name only
+      const recentTasksDetails =
+        recentJobs.length > 0
+          ? `<div class="code-block">${recentJobs
+              .map((job) => {
+                const statusIcon =
+                  job.status === 'completed' ? '✅' : job.status === 'failed' ? '❌' : '⏳';
+                const taskName = job.title || job.description || 'Task';
+                return `${statusIcon} ${taskName}`;
+              })
+              .join('\n')}</div>`
+          : '<p class="italic-note">No recent tasks found</p>';
+
+      // Replace placeholders in template
+      htmlTemplate = htmlTemplate
+        .replace(/\{\{TEST_TITLE\}\}/g, 'MCE Environment Status Report')
+        .replace(/\{\{TEST_DATE\}\}/g, dateTimeStr)
+        .replace(/\{\{TEST_ENVIRONMENT\}\}/g, 'MCE (OpenShift Hub)')
+        .replace(/\{\{FEATURE_NAME\}\}/g, 'CAPI/CAPA')
+        .replace(/\{\{CLUSTER_TYPE\}\}/g, 'MCE')
+        .replace(/\{\{ENVIRONMENT_ASSESSMENT\}\}/g, environmentAssessment)
+        .replace(/\{\{CLUSTER_CONFIG_DETAILS\}\}/g, clusterConfigDetails)
+        .replace(/\{\{COMPONENT_CONFIG_DETAILS\}\}/g, componentConfigDetails)
+        .replace(/\{\{RESOURCE_COUNT\}\}/g, filteredResources.length)
+        .replace(/\{\{RESOURCE_DETAILS\}\}/g, resourceDetails)
+        .replace(/\{\{ROSA_CLUSTER_SECTION\}\}/g, rosaClusterSection)
+        .replace(/\{\{RECENT_TASKS_DETAILS\}\}/g, recentTasksDetails);
+
+      // Create blob and download
+      const blob = new Blob([htmlTemplate], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      // Update operation as complete
+      const completionTime = new Date().toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      });
+
+      updateRecentOperationStatus(
+        reportId,
+        `✅ Report created at ${completionTime}`,
+        `MCE Status Report Generated\n\n✅ File: ${fileName}\n✅ Downloaded successfully\n✅ Includes ${freshCAPIComponents.filter((c) => c.enabled).length} configured components\n✅ Includes ${activeClusters.length} active ROSA HCP cluster(s)\n✅ Includes ${filteredResources.length} resources with versions\n✅ Includes ${recentJobs.length} recent tasks\n\nReport created at ${completionTime}`
+      );
+    } catch (error) {
+      console.error('❌ ConfigurationSection: Create status report failed:', error);
+
+      updateRecentOperationStatus(
+        reportId,
+        `❌ Failed to create report`,
+        `Error: ${error.message}`
+      );
     }
   };
 
@@ -426,7 +779,21 @@ const ConfigurationSection = ({
             {/* MCE Environment Card */}
             <StatusCard
               theme="mce"
-              title="MCE Environment"
+              title={
+                <div className="flex items-center gap-2">
+                  <span>MCE Environment</span>
+                  <span
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${
+                      ocpStatus?.connected
+                        ? 'text-green-600 bg-green-50 border-green-200'
+                        : 'text-red-600 bg-red-50 border-red-200'
+                    }`}
+                  >
+                    <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
+                    {ocpStatus?.connected ? 'Connected' : 'Not Connected'}
+                  </span>
+                </div>
+              }
               icon={
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -437,8 +804,7 @@ const ConfigurationSection = ({
                   />
                 </svg>
               }
-              status={ocpStatus?.connected ? 'Connected' : 'Not Connected'}
-              statusColor={ocpStatus?.connected ? 'green' : 'red'}
+              lastVerified={getLastVerifiedText()}
               actions={[
                 {
                   label: 'Configure Credentials',
@@ -468,6 +834,12 @@ const ConfigurationSection = ({
                         {ocpStatus?.api_url || 'Not configured'}
                       </div>
                     </div>
+                    {getLastVerifiedText() && (
+                      <div>
+                        <span className="font-medium text-gray-600">Last Verified:</span>
+                        <div className="mt-1 text-gray-700 text-xs">{getLastVerifiedText()}</div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -476,9 +848,16 @@ const ConfigurationSection = ({
             {/* Components Card */}
             <StatusCard
               theme="mce"
-              title="Components"
+              title={
+                <div className="flex items-center gap-2">
+                  <span>Components</span>
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200">
+                    <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
+                    {allCAPIComponents.filter((c) => c.enabled).length} configured
+                  </span>
+                </div>
+              }
               icon="🔧"
-              status={`${allCAPIComponents.filter((c) => c.enabled).length} configured`}
               actions={[
                 {
                   label: 'Configure',
@@ -628,18 +1007,20 @@ const ConfigurationSection = ({
             {/* Resources Card */}
             <StatusCard
               theme="mce"
-              title="Resources"
+              title={
+                <div className="flex items-center gap-2">
+                  <span>Resources</span>
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200">
+                    <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
+                    {mceResources.length} total
+                  </span>
+                </div>
+              }
               icon="📦"
-              status={`${mceResources.length} total`}
               actions={[
                 {
                   label: 'Provision',
                   onClick: onProvision,
-                  variant: 'primary',
-                },
-                {
-                  label: 'Export',
-                  onClick: onExport,
                   variant: 'primary',
                 },
                 {
@@ -649,6 +1030,34 @@ const ConfigurationSection = ({
                 },
               ]}
             >
+              {/* Export and Create Report Buttons */}
+              <div className="flex items-center space-x-2 mb-3 -mt-2">
+                <button
+                  onClick={onExport}
+                  className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white text-sm font-medium rounded-lg transition-all"
+                >
+                  <span>📤</span>
+                  <span>Export</span>
+                </button>
+                <button
+                  onClick={handleCreateStatusReport}
+                  disabled={!ocpStatus?.connected}
+                  className={`flex items-center space-x-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                    ocpStatus?.connected
+                      ? 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white cursor-pointer'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                  title={
+                    ocpStatus?.connected
+                      ? 'Create HTML status report'
+                      : 'Verify environment first to create report'
+                  }
+                >
+                  <span>📊</span>
+                  <span>Create Report</span>
+                </button>
+              </div>
+
               <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 {mceResourcesLoading ? (
                   <div className="text-center py-4">

@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars, no-console */
 import React, { useState, useEffect, useCallback } from 'react';
 import EnvironmentCard from '../cards/EnvironmentCard';
 import StatusCard from '../cards/StatusCard';
@@ -6,6 +7,7 @@ import MinikubeTerminalModal from '../modals/MinikubeTerminalModal';
 import MinikubeClusterConfigModal from '../modals/MinikubeClusterConfigModal';
 import NotificationSettingsModal from '../modals/NotificationSettingsModal';
 import CapiInstallMethodModal from '../modals/CapiInstallMethodModal';
+import { YamlEditorModal } from '../YamlEditorModal';
 import { BellIcon } from '@heroicons/react/24/outline';
 import {
   useMinikubeContext,
@@ -29,6 +31,8 @@ const MinikubeEnvironment = () => {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const [showMethodModal, setShowMethodModal] = useState(false);
+  const [showYamlEditorModal, setShowYamlEditorModal] = useState(false);
+  const [yamlEditorData, setYamlEditorData] = useState(null);
   const [installMethod, setInstallMethod] = useState(() => {
     return localStorage.getItem(STORAGE_KEY_METHOD) || 'clusterctl';
   });
@@ -88,6 +92,9 @@ const MinikubeEnvironment = () => {
         color: 'bg-purple-600',
         status: '⏳ Verifying...',
         environment: 'minikube',
+        playbook: 'Built-in verification (minikube status + kubectl)',
+        output:
+          'Verifying Minikube cluster accessibility...\nChecking cluster status...\nValidating kubectl connectivity...',
       });
 
       const result = await verifyMinikubeCluster(selectedMinikubeCluster || minikubeClusterInput);
@@ -124,6 +131,18 @@ const MinikubeEnvironment = () => {
   // Handle terminal action
   const handleTerminal = () => {
     setShowTerminalModal(true);
+  };
+
+  // Handle resource click to show YAML
+  const handleResourceClick = (resource) => {
+    if (resource.yaml) {
+      setYamlEditorData({
+        yaml_content: resource.yaml,
+        resource_name: resource.name,
+        resource_type: resource.type,
+      });
+      setShowYamlEditorModal(true);
+    }
   };
 
   // Handle CAPI/CAPA configuration
@@ -175,6 +194,7 @@ const MinikubeEnvironment = () => {
         color: 'bg-purple-600',
         status: '⏳ Configuring...',
         environment: 'minikube',
+        playbook: 'initialize-minikube-capi.yml',
         output: outputMessage,
       });
 
@@ -182,6 +202,7 @@ const MinikubeEnvironment = () => {
       const requestBody = {
         cluster_name: targetClusterName,
         install_method: activeMethod,
+        is_reconfiguration: isReconfiguring,
       };
 
       if (customImage) {
@@ -236,6 +257,7 @@ const MinikubeEnvironment = () => {
           color: 'bg-purple-600',
           status: `✅ CAPI/CAPI configured at ${completionTime}`,
           environment: 'minikube',
+          playbook: 'initialize-minikube-capi.yml',
           output: `CAPI/CAPA Configuration Complete\n\n✅ Cluster API controllers installed\n✅ AWS provider configured\n✅ ROSA CRDs deployed\n✅ Ready for cluster provisioning\n\nCompleted at ${completionTime}`,
         });
 
@@ -387,6 +409,242 @@ const MinikubeEnvironment = () => {
     setTimeout(() => {
       handleComponentConfigure(customImage, method);
     }, 100);
+  };
+
+  // Handle Create Status Report
+  const handleCreateStatusReport = async () => {
+    const reportId = `create-status-report-${Date.now()}`;
+    const fileName = `minikube-status-report-${new Date().toISOString().split('T')[0]}.html`;
+
+    try {
+      console.log('📊 MinikubeEnvironment: Create status report clicked');
+
+      // Add to recent operations
+      addToRecent({
+        id: reportId,
+        title: 'Create Status Report',
+        color: 'bg-purple-600',
+        status: '⏳ Generating report...',
+        environment: 'minikube',
+        output: `Generating HTML status report...\nGathering component data...\nFormatting resources...`,
+      });
+
+      // Fetch recent tasks/jobs
+      console.log('📊 Fetching recent tasks...');
+      const jobsResponse = await fetch(buildApiUrl('/api/jobs'));
+      const jobsData = await jobsResponse.json();
+      const allJobs = jobsData.success ? jobsData.jobs : [];
+      const recentJobs = allJobs.filter((job) => job.environment === 'minikube').slice(0, 10);
+      console.log(`📊 Fetched ${recentJobs.length} recent Minikube tasks`);
+
+      // Fetch the HTML template
+      const templateResponse = await fetch('/templates/test-status-report-template.html');
+      if (!templateResponse.ok) {
+        throw new Error('Failed to load report template');
+      }
+      let htmlTemplate = await templateResponse.text();
+
+      // Prepare data for the report
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+      const timeStr = now.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      });
+      const dateTimeStr = `${dateStr} at ${timeStr}`;
+
+      // Cluster configuration details (code-block format)
+      const clusterConfigDetails = `Cluster:      ${verifiedMinikubeClusterInfo?.name || 'Not verified'}
+Status:       ${verifiedMinikubeClusterInfo?.status || 'Unknown'}
+Driver:       ${verifiedMinikubeClusterInfo?.driver || 'N/A'}
+Kubernetes:   ${verifiedMinikubeClusterInfo?.kubernetesVersion || 'N/A'}
+Last Verified: ${dateTimeStr}`;
+
+      // Component configuration details (code-block format)
+      const capiComponents =
+        componentVersions.filter((c) => c.name?.startsWith('cluster-api')) || [];
+      const componentConfigDetails = `Configured Components:
+${
+  capiComponents
+    .filter((c) => c.enabled)
+    .map((c) => `  • ${c.name}${c.version ? ` (${c.version})` : ''}`)
+    .join('\n') || '  None configured'
+}`;
+
+      // Helper function to extract API version and status from resource YAML
+      const extractResourceInfo = (yamlContent, resourceType) => {
+        if (!yamlContent) return { version: null, status: null };
+
+        // Extract apiVersion from YAML
+        const apiVersionMatch = yamlContent.match(/apiVersion:\s*([^\n]+)/);
+        const version = apiVersionMatch ? apiVersionMatch[1].trim() : null;
+
+        // Extract status based on resource type
+        let status = null;
+
+        if (resourceType === 'Deployment') {
+          // Extract replica status for deployments
+          const availableMatch = yamlContent.match(/availableReplicas:\s*(\d+)/);
+          const replicasMatch = yamlContent.match(/replicas:\s*(\d+)/);
+
+          if (availableMatch && replicasMatch) {
+            const available = availableMatch[1];
+            const total = replicasMatch[1];
+            status =
+              available === total
+                ? `✅ ${available}/${total} Ready`
+                : `⚠️ ${available}/${total} Ready`;
+          }
+        } else if (resourceType === 'Cluster') {
+          // Extract ready status for Cluster resources
+          const readyMatch = yamlContent.match(/ready:\s*(true|false)/i);
+          if (readyMatch) {
+            status = readyMatch[1].toLowerCase() === 'true' ? '✅ Ready' : '⏳ Not Ready';
+          }
+
+          // Check for deletion timestamp
+          if (yamlContent.includes('deletionTimestamp:')) {
+            status = '🗑️ Deleting';
+          }
+        }
+
+        return { version, status };
+      };
+
+      // Group resources by type (since Minikube doesn't have namespaces like MCE)
+      const groupedResources = minikubeActiveResources.reduce((acc, resource) => {
+        const resourceType = resource.kind || resource.type || 'Unknown';
+        if (!acc[resourceType]) {
+          acc[resourceType] = [];
+        }
+        acc[resourceType].push(resource);
+        return acc;
+      }, {});
+
+      // Format resources by type with status
+      const resourceDetails =
+        minikubeActiveResources.length > 0
+          ? Object.entries(groupedResources)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([resourceType, resources]) => {
+                const resourceList = resources
+                  .map((resource) => {
+                    const { version, status } = extractResourceInfo(resource.yaml, resourceType);
+                    const versionStr = version ? ` [${version}]` : '';
+                    const statusStr = status ? ` - ${status}` : '';
+                    return `  • ${resource.name || resource.metadata?.name || 'Unknown'}${versionStr}${statusStr}`;
+                  })
+                  .join('\n');
+
+                // Count ready/total resources
+                const statusCounts = resources.reduce(
+                  (acc, resource) => {
+                    const { status } = extractResourceInfo(resource.yaml, resourceType);
+                    if (status?.includes('✅')) {
+                      acc.ready++;
+                    } else if (status?.includes('⚠️') || status?.includes('⏳')) {
+                      acc.notReady++;
+                    } else if (status?.includes('🗑️')) {
+                      acc.deleting++;
+                    }
+                    acc.total++;
+                    return acc;
+                  },
+                  { ready: 0, notReady: 0, deleting: 0, total: 0 }
+                );
+
+                const statusSummary =
+                  statusCounts.ready > 0 || statusCounts.notReady > 0 || statusCounts.deleting > 0
+                    ? ` [✅ ${statusCounts.ready} Ready${statusCounts.notReady > 0 ? `, ⚠️ ${statusCounts.notReady} Not Ready` : ''}${statusCounts.deleting > 0 ? `, 🗑️ ${statusCounts.deleting} Deleting` : ''}]`
+                    : '';
+
+                return `                <h3>${resourceType} (${resources.length} resource${resources.length !== 1 ? 's' : ''})${statusSummary}</h3>
+                <div class="code-block">${resourceList}</div>`;
+              })
+              .join('\n')
+          : '<p class="italic-note">No resources found</p>';
+
+      // Minikube clusters (managed clusters via CAPI)
+      const minikubeClustersSection =
+        minikubeClusters && minikubeClusters.length > 0
+          ? `            <!-- CAPI-MANAGED CLUSTERS -->
+            <div class="section">
+                <h2>CAPI-Managed Clusters</h2>
+
+                <div class="code-block">${minikubeClusters
+                  .map((cluster) => {
+                    return `✅ ${cluster.name || cluster} - Minikube`;
+                  })
+                  .join('\n')}</div>
+            </div>`
+          : '';
+
+      // Format Recent Tasks - simple status and name only
+      const recentTasksDetails =
+        recentJobs.length > 0
+          ? `<div class="code-block">${recentJobs
+              .map((job) => {
+                const statusIcon =
+                  job.status === 'completed' ? '✅' : job.status === 'failed' ? '❌' : '⏳';
+                const taskName = job.title || job.description || 'Task';
+                return `${statusIcon} ${taskName}`;
+              })
+              .join('\n')}</div>`
+          : '<p class="italic-note">No recent tasks found</p>';
+
+      // Replace placeholders in template
+      htmlTemplate = htmlTemplate
+        .replace(/\{\{TEST_TITLE\}\}/g, 'Minikube Environment Status Report')
+        .replace(/\{\{TEST_DATE\}\}/g, dateTimeStr)
+        .replace(/\{\{TEST_ENVIRONMENT\}\}/g, 'Minikube')
+        .replace(/\{\{FEATURE_NAME\}\}/g, 'CAPI')
+        .replace(/\{\{CLUSTER_TYPE\}\}/g, 'Minikube')
+        .replace(/\{\{CLUSTER_CONFIG_DETAILS\}\}/g, clusterConfigDetails)
+        .replace(/\{\{COMPONENT_CONFIG_DETAILS\}\}/g, componentConfigDetails)
+        .replace(/\{\{RESOURCE_COUNT\}\}/g, minikubeActiveResources.length)
+        .replace(/\{\{RESOURCE_DETAILS\}\}/g, resourceDetails)
+        .replace(/\{\{ROSA_CLUSTER_SECTION\}\}/g, minikubeClustersSection)
+        .replace(/\{\{RECENT_TASKS_DETAILS\}\}/g, recentTasksDetails);
+
+      // Create blob and download
+      const blob = new Blob([htmlTemplate], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      // Update operation as complete
+      const completionTime = new Date().toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      });
+
+      updateRecentOperationStatus(
+        reportId,
+        `✅ Report created at ${completionTime}`,
+        `Minikube Status Report Generated\n\n✅ File: ${fileName}\n✅ Downloaded successfully\n✅ Includes ${capiComponents.filter((c) => c.enabled).length} configured components\n✅ Includes ${minikubeActiveResources.length} resources with versions\n✅ Includes ${recentJobs.length} recent tasks\n\nReport created at ${completionTime}`
+      );
+    } catch (error) {
+      console.error('❌ MinikubeEnvironment: Create status report failed:', error);
+
+      updateRecentOperationStatus(
+        reportId,
+        `❌ Failed to create report`,
+        `Error: ${error.message}`
+      );
+    }
   };
 
   // Get cluster name to check if already configured
@@ -638,9 +896,10 @@ const MinikubeEnvironment = () => {
                   variant: 'primary',
                 },
                 {
-                  label: 'Export',
-                  icon: '📤',
-                  onClick: () => console.log('Export clicked'),
+                  label: 'Create Report',
+                  icon: '📊',
+                  onClick: handleCreateStatusReport,
+                  disabled: !verifiedMinikubeClusterInfo,
                   variant: 'primary',
                 },
                 {
@@ -688,14 +947,17 @@ const MinikubeEnvironment = () => {
                   <p className="text-sm mt-1">Click "Verify" or "Configure" to load resources.</p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {minikubeActiveResources.slice(0, 5).map((resource, index) => (
+                <div className="max-h-96 overflow-y-auto space-y-2">
+                  {minikubeActiveResources.map((resource, index) => (
                     <div
                       key={index}
-                      className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0"
+                      className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-purple-50 rounded px-2 transition-colors"
+                      onClick={() => handleResourceClick(resource)}
                     >
                       <div>
-                        <span className="font-medium">{resource.name || 'Unknown'}</span>
+                        <span className="font-medium text-purple-700 hover:text-purple-900">
+                          {resource.name || 'Unknown'}
+                        </span>
                         <div className="text-sm text-gray-600">
                           {resource.type || 'Unknown Type'}
                         </div>
@@ -703,9 +965,11 @@ const MinikubeEnvironment = () => {
                       <div className="text-right text-sm">
                         <div
                           className={`inline-block px-2 py-1 rounded-full text-xs ${
-                            resource.status === 'Running'
+                            resource.status === 'Ready'
                               ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
+                              : resource.status === 'Pending'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-gray-100 text-gray-800'
                           }`}
                         >
                           {resource.status || 'Unknown'}
@@ -713,12 +977,6 @@ const MinikubeEnvironment = () => {
                       </div>
                     </div>
                   ))}
-
-                  {minikubeActiveResources.length > 5 && (
-                    <div className="text-center py-2 text-sm text-purple-600">
-                      +{minikubeActiveResources.length - 5} more resources
-                    </div>
-                  )}
                 </div>
               )}
             </StatusCard>
@@ -762,6 +1020,15 @@ const MinikubeEnvironment = () => {
         onMethodSelected={handleMethodSelectedAndConfigure}
         currentMethod={installMethod}
         isReconfiguration={isReconfiguring}
+      />
+
+      {/* YAML Editor Modal */}
+      <YamlEditorModal
+        isOpen={showYamlEditorModal}
+        onClose={() => setShowYamlEditorModal(false)}
+        yamlData={yamlEditorData}
+        readOnly={true}
+        onProvision={() => setShowYamlEditorModal(false)}
       />
     </>
   );
