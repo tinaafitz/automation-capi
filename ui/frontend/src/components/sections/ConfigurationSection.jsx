@@ -329,7 +329,7 @@ const ConfigurationSection = ({
 
         // If CAPI/CAPA not enabled, it's a fresh environment
         if (!capiEnabled && !capaEnabled) {
-          return "Hey, this looks like a fresh MCE environment! CAPI/CAPA haven't been configured yet.";
+          return 'This MCE environment is not configured for CAPI/CAPA.';
         }
 
         // Step 2: Check for ROSA HCP clusters (exclude uninstalling/deleting)
@@ -342,7 +342,7 @@ const ConfigurationSection = ({
 
         // If there are ROSA HCP clusters
         if (totalClusters > 0) {
-          return `Hey, this looks like an existing CAPI/CAPA configured environment with ${totalClusters} ROSA HCP cluster${totalClusters > 1 ? 's' : ''}.`;
+          return `This CAPI/CAPA environment has ${totalClusters} active ROSA HCP Cluster${totalClusters > 1 ? 's' : ''}.`;
         }
 
         // Step 3: Check if ROSA HCP namespace exists (from fetched resources)
@@ -352,11 +352,11 @@ const ConfigurationSection = ({
 
         // If no clusters but namespace exists (has been provisioned before)
         if (rosaNamespaceExists) {
-          return "This MCE environment is configured for CAPI and CAPA and it looks like we've provisioned here before.";
+          return 'This CAPI/CAPA environment has provisioning resources but no active ROSA HCP clusters.';
         }
 
         // If no clusters and no namespace (partially configured)
-        return 'Hey, this looks like a partially configured environment.';
+        return 'This MCE environment has a partial CAPI/CAPA configuration.';
       };
 
       const environmentAssessment = generateAssessment();
@@ -498,6 +498,14 @@ ${freshCAPIComponents
                           : cluster.status === 'failed'
                             ? '❌'
                             : '⚠️';
+                    const statusText =
+                      cluster.status === 'ready'
+                        ? 'Ready'
+                        : cluster.status === 'provisioning'
+                          ? 'Provisioning'
+                          : cluster.status === 'failed'
+                            ? 'Failed'
+                            : cluster.status || 'Unknown';
                     const progressStr =
                       cluster.progress !== undefined && cluster.status === 'provisioning'
                         ? ` (${cluster.progress}%)`
@@ -506,7 +514,7 @@ ${freshCAPIComponents
                       ? ` - Error: ${cluster.error_reason || 'Failed'}`
                       : '';
 
-                    return `${statusIcon} ${cluster.name} - ${cluster.version || 'N/A'} - ${cluster.region || 'N/A'}${progressStr}${errorStr}`;
+                    return `${statusIcon} ${cluster.name} - ${cluster.version || 'N/A'} - ${cluster.region || 'N/A'} - ${statusText}${progressStr}${errorStr}`;
                   })
                   .join('\n')}</div>
             </div>`
