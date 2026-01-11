@@ -133,9 +133,8 @@ const ConfigurationSection = ({
 
     // Find the most recent completed verification job
     const recentValidationJob = mceJobs
-      ?.filter((job) =>
-        job.task_file?.includes('validate-capa-environment') &&
-        job.status === 'completed'
+      ?.filter(
+        (job) => job.task_file?.includes('validate-capa-environment') && job.status === 'completed'
       )
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
 
@@ -320,14 +319,16 @@ const ConfigurationSection = ({
       const generateAssessment = () => {
         // Step 1: Check if CAPI/CAPA are enabled (from UI context)
         const capiEnabled = mceFeatures.some((f) => f.name === 'cluster-api' && f.enabled);
-        const capaEnabled = mceFeatures.some((f) => f.name === 'cluster-api-provider-aws' && f.enabled);
+        const capaEnabled = mceFeatures.some(
+          (f) => f.name === 'cluster-api-provider-aws' && f.enabled
+        );
 
         console.log('🤖 CAPI enabled:', capiEnabled);
         console.log('🤖 CAPA enabled:', capaEnabled);
 
         // If CAPI/CAPA not enabled, it's a fresh environment
         if (!capiEnabled && !capaEnabled) {
-          return 'Hey, this looks like a fresh MCE environment! CAPI/CAPA haven\'t been configured yet.';
+          return "Hey, this looks like a fresh MCE environment! CAPI/CAPA haven't been configured yet.";
         }
 
         // Step 2: Check for ROSA HCP clusters (exclude uninstalling/deleting)
@@ -350,7 +351,7 @@ const ConfigurationSection = ({
 
         // If no clusters but namespace exists (has been provisioned before)
         if (rosaNamespaceExists) {
-          return 'This MCE environment is configured for CAPI and CAPA and it looks like we\'ve provisioned here before.';
+          return "This MCE environment is configured for CAPI and CAPA and it looks like we've provisioned here before.";
         }
 
         // If no clusters and no namespace (partially configured)
@@ -411,7 +412,10 @@ ${freshCAPIComponents
           if (availableMatch && replicasMatch) {
             const available = availableMatch[1];
             const total = replicasMatch[1];
-            status = available === total ? `✅ ${available}/${total} Ready` : `⚠️ ${available}/${total} Ready`;
+            status =
+              available === total
+                ? `✅ ${available}/${total} Ready`
+                : `⚠️ ${available}/${total} Ready`;
           }
         } else if (resourceType.includes('ROSA') || resourceType === 'Cluster') {
           // Extract ready status for ROSA resources
@@ -445,22 +449,26 @@ ${freshCAPIComponents
                   .join('\n');
 
                 // Count ready/total resources
-                const statusCounts = resources.reduce((acc, resource) => {
-                  const { status } = extractResourceInfo(resource.yaml, resource.type);
-                  if (status?.includes('✅')) {
-                    acc.ready++;
-                  } else if (status?.includes('⚠️') || status?.includes('⏳')) {
-                    acc.notReady++;
-                  } else if (status?.includes('🗑️')) {
-                    acc.deleting++;
-                  }
-                  acc.total++;
-                  return acc;
-                }, { ready: 0, notReady: 0, deleting: 0, total: 0 });
+                const statusCounts = resources.reduce(
+                  (acc, resource) => {
+                    const { status } = extractResourceInfo(resource.yaml, resource.type);
+                    if (status?.includes('✅')) {
+                      acc.ready++;
+                    } else if (status?.includes('⚠️') || status?.includes('⏳')) {
+                      acc.notReady++;
+                    } else if (status?.includes('🗑️')) {
+                      acc.deleting++;
+                    }
+                    acc.total++;
+                    return acc;
+                  },
+                  { ready: 0, notReady: 0, deleting: 0, total: 0 }
+                );
 
-                const statusSummary = statusCounts.ready > 0 || statusCounts.notReady > 0 || statusCounts.deleting > 0
-                  ? ` [✅ ${statusCounts.ready} Ready${statusCounts.notReady > 0 ? `, ⚠️ ${statusCounts.notReady} Not Ready` : ''}${statusCounts.deleting > 0 ? `, 🗑️ ${statusCounts.deleting} Deleting` : ''}]`
-                  : '';
+                const statusSummary =
+                  statusCounts.ready > 0 || statusCounts.notReady > 0 || statusCounts.deleting > 0
+                    ? ` [✅ ${statusCounts.ready} Ready${statusCounts.notReady > 0 ? `, ⚠️ ${statusCounts.notReady} Not Ready` : ''}${statusCounts.deleting > 0 ? `, 🗑️ ${statusCounts.deleting} Deleting` : ''}]`
+                    : '';
 
                 return `                <h3>${namespace} (${resources.length} resource${resources.length !== 1 ? 's' : ''})${statusSummary}</h3>
                 <div class="code-block">${resourceList}</div>`;
@@ -481,13 +489,21 @@ ${freshCAPIComponents
 
                 <div class="code-block">${activeClusters
                   .map((cluster) => {
-                    const statusIcon = cluster.status === 'ready' ? '✅' :
-                                      cluster.status === 'provisioning' ? '⏳' :
-                                      cluster.status === 'failed' ? '❌' : '⚠️';
-                    const progressStr = cluster.progress !== undefined && cluster.status === 'provisioning'
-                      ? ` (${cluster.progress}%)`
+                    const statusIcon =
+                      cluster.status === 'ready'
+                        ? '✅'
+                        : cluster.status === 'provisioning'
+                          ? '⏳'
+                          : cluster.status === 'failed'
+                            ? '❌'
+                            : '⚠️';
+                    const progressStr =
+                      cluster.progress !== undefined && cluster.status === 'provisioning'
+                        ? ` (${cluster.progress}%)`
+                        : '';
+                    const errorStr = cluster.error_message
+                      ? ` - Error: ${cluster.error_reason || 'Failed'}`
                       : '';
-                    const errorStr = cluster.error_message ? ` - Error: ${cluster.error_reason || 'Failed'}` : '';
 
                     return `${statusIcon} ${cluster.name} - ${cluster.version || 'N/A'} - ${cluster.region || 'N/A'}${progressStr}${errorStr}`;
                   })
@@ -820,9 +836,7 @@ ${freshCAPIComponents
                     {getLastVerifiedText() && (
                       <div>
                         <span className="font-medium text-gray-600">Last Verified:</span>
-                        <div className="mt-1 text-gray-700 text-xs">
-                          {getLastVerifiedText()}
-                        </div>
+                        <div className="mt-1 text-gray-700 text-xs">{getLastVerifiedText()}</div>
                       </div>
                     )}
                   </div>
@@ -1032,7 +1046,11 @@ ${freshCAPIComponents
                       ? 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white cursor-pointer'
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   }`}
-                  title={ocpStatus?.connected ? 'Create HTML status report' : 'Verify environment first to create report'}
+                  title={
+                    ocpStatus?.connected
+                      ? 'Create HTML status report'
+                      : 'Verify environment first to create report'
+                  }
                 >
                   <span>📊</span>
                   <span>Create Report</span>

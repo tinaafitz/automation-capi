@@ -1457,9 +1457,7 @@ Report created at ${completionTime}`
                   {getLastVerifiedText() && (
                     <div>
                       <span className="font-medium text-gray-600">Last Verified:</span>
-                      <div className="mt-1 text-gray-700 text-xs">
-                        {getLastVerifiedText()}
-                      </div>
+                      <div className="mt-1 text-gray-700 text-xs">{getLastVerifiedText()}</div>
                     </div>
                   )}
                 </div>

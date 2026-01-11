@@ -92,7 +92,8 @@ const MinikubeEnvironment = () => {
         status: '⏳ Verifying...',
         environment: 'minikube',
         playbook: 'Built-in verification (minikube status + kubectl)',
-        output: 'Verifying Minikube cluster accessibility...\nChecking cluster status...\nValidating kubectl connectivity...',
+        output:
+          'Verifying Minikube cluster accessibility...\nChecking cluster status...\nValidating kubectl connectivity...',
       });
 
       const result = await verifyMinikubeCluster(selectedMinikubeCluster || minikubeClusterInput);
@@ -465,12 +466,15 @@ Kubernetes:   ${verifiedMinikubeClusterInfo?.kubernetesVersion || 'N/A'}
 Last Verified: ${dateTimeStr}`;
 
       // Component configuration details (code-block format)
-      const capiComponents = componentVersions.filter((c) => c.name?.startsWith('cluster-api')) || [];
+      const capiComponents =
+        componentVersions.filter((c) => c.name?.startsWith('cluster-api')) || [];
       const componentConfigDetails = `Configured Components:
-${capiComponents
-  .filter((c) => c.enabled)
-  .map((c) => `  • ${c.name}${c.version ? ` (${c.version})` : ''}`)
-  .join('\n') || '  None configured'}`;
+${
+  capiComponents
+    .filter((c) => c.enabled)
+    .map((c) => `  • ${c.name}${c.version ? ` (${c.version})` : ''}`)
+    .join('\n') || '  None configured'
+}`;
 
       // Helper function to extract API version and status from resource YAML
       const extractResourceInfo = (yamlContent, resourceType) => {
@@ -491,7 +495,10 @@ ${capiComponents
           if (availableMatch && replicasMatch) {
             const available = availableMatch[1];
             const total = replicasMatch[1];
-            status = available === total ? `✅ ${available}/${total} Ready` : `⚠️ ${available}/${total} Ready`;
+            status =
+              available === total
+                ? `✅ ${available}/${total} Ready`
+                : `⚠️ ${available}/${total} Ready`;
           }
         } else if (resourceType === 'Cluster') {
           // Extract ready status for Cluster resources
@@ -582,7 +589,8 @@ ${capiComponents
         recentJobs.length > 0
           ? `<div class="code-block">${recentJobs
               .map((job) => {
-                const statusIcon = job.status === 'completed' ? '✅' : job.status === 'failed' ? '❌' : '⏳';
+                const statusIcon =
+                  job.status === 'completed' ? '✅' : job.status === 'failed' ? '❌' : '⏳';
                 const taskName = job.title || job.description || 'Task';
                 return `${statusIcon} ${taskName}`;
               })
@@ -959,8 +967,8 @@ ${capiComponents
                             resource.status === 'Ready'
                               ? 'bg-green-100 text-green-800'
                               : resource.status === 'Pending'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-gray-100 text-gray-800'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-gray-100 text-gray-800'
                           }`}
                         >
                           {resource.status || 'Unknown'}
