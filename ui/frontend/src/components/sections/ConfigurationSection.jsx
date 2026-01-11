@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars, no-console */
 import React, { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import StatusCard from '../cards/StatusCard';

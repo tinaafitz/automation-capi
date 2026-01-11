@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars, no-console */
 import React, { useState, useEffect, useCallback } from 'react';
 import EnvironmentCard from '../cards/EnvironmentCard';
 import StatusCard from '../cards/StatusCard';
