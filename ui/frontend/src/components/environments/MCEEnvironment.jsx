@@ -698,6 +698,167 @@ Export completed at ${completionTime}`
     );
   };
 
+  // Handle create status report action
+  const handleCreateStatusReport = async () => {
+    const reportId = `create-status-report-${Date.now()}`;
+    const fileName = `mce-status-report-${new Date().toISOString().split('T')[0]}.html`;
+
+    try {
+      // Add to recent operations
+      addToRecent({
+        id: reportId,
+        title: '📊 CREATE STATUS REPORT',
+        color: 'bg-cyan-600',
+        status: '⏳ Generating report...',
+        environment: 'mce',
+        output: `Generating HTML status report...\nGathering component data...\nFormatting resources...`,
+      });
+
+      // Fetch the HTML template
+      const templateResponse = await fetch('/templates/test-status-report-template.html');
+      if (!templateResponse.ok) {
+        throw new Error('Failed to load report template');
+      }
+      let htmlTemplate = await templateResponse.text();
+
+      // Prepare data for the report
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+
+      // CLI Versions
+      const cliVersionsRows = `
+        <tr>
+          <td>oc CLI</td>
+          <td>Latest</td>
+          <td>OpenShift CLI</td>
+        </tr>
+        <tr>
+          <td>kubectl</td>
+          <td>Latest</td>
+          <td>Kubernetes CLI</td>
+        </tr>`;
+
+      // Cluster configuration items
+      const clusterConfigItems = `
+        <li><strong>Cluster:</strong> ${mceInfo?.name || 'multiclusterengine'}</li>
+        <li><strong>Version:</strong> ${mceInfo?.version || '2.10.0'}</li>
+        <li><strong>API Server:</strong> ${ocpStatus?.api_url || 'Not configured'}</li>
+        <li><strong>Status:</strong> ${getConnectionStatus()}</li>`;
+
+      // Component rows
+      const componentRows = allCAPIComponents
+        .map(
+          (comp) => `
+        <tr>
+          <td>${comp.name}</td>
+          <td>${comp.version || 'N/A'}</td>
+          <td>${comp.enabled ? '✓' : '✕'}</td>
+        </tr>`
+        )
+        .join('');
+
+      // Resource rows
+      const resourceRows = mceResources
+        .map(
+          (resource) => `
+        <tr>
+          <td>${resource.name}</td>
+          <td>${resource.type}</td>
+          <td>${resource.status || 'Unknown'}</td>
+        </tr>`
+        )
+        .join('');
+
+      // Cluster details
+      const clusterDetails = `MCE Instance: ${mceInfo?.name || 'multiclusterengine'}
+Version:      ${mceInfo?.version || '2.10.0'}
+API Server:   ${ocpStatus?.api_url || 'Not configured'}
+Status:       ${getConnectionStatus()}
+Last Verified: ${getLastVerifiedText()}`;
+
+      // Feature configuration
+      const featureConfig = `CAPI Components Enabled: ${capiComponents.filter((c) => c.enabled).length}/${capiComponents.length}
+
+Configured Components:
+${allCAPIComponents
+  .filter((c) => c.enabled)
+  .map((c) => `  • ${c.name}${c.version ? ` (${c.version})` : ''}`)
+  .join('\n')}
+
+Hypershift Components:
+${hypershiftComponents
+  .filter((c) => c.enabled)
+  .map((c) => `  • ${c.name}`)
+  .join('\n')}`;
+
+      // Replace placeholders in template
+      htmlTemplate = htmlTemplate
+        .replace(/\{\{TEST_TITLE\}\}/g, 'MCE Environment Status Report')
+        .replace(/\{\{TEST_DATE\}\}/g, dateStr)
+        .replace(/\{\{TEST_ENVIRONMENT\}\}/g, 'MCE (OpenShift Hub)')
+        .replace(/\{\{FEATURE_NAME\}\}/g, 'CAPI/CAPA')
+        .replace(/\{\{CLI_VERSIONS_ROWS\}\}/g, cliVersionsRows)
+        .replace(/\{\{CLUSTER_TYPE\}\}/g, 'MCE')
+        .replace(/\{\{CLUSTER_CONFIG_ITEMS\}\}/g, clusterConfigItems)
+        .replace(/\{\{COMPONENTS_COUNT\}\}/g, allCAPIComponents.filter((c) => c.enabled).length)
+        .replace(/\{\{COMPONENT_ROWS\}\}/g, componentRows)
+        .replace(/\{\{CUSTOM_IMAGE_NOTE\}\}/g, '')
+        .replace(/\{\{RESOURCE_COUNT\}\}/g, mceResources.length)
+        .replace(/\{\{RESOURCE_ROWS\}\}/g, resourceRows)
+        .replace(/\{\{CLUSTER_DETAILS\}\}/g, clusterDetails)
+        .replace(/\{\{FEATURE_CONFIG_TITLE\}\}/g, 'Component Configuration')
+        .replace(/\{\{FEATURE_CONFIG\}\}/g, featureConfig)
+        .replace(/\{\{VERIFICATION_TITLE\}\}/g, 'Environment Verification')
+        .replace(
+          /\{\{VERIFICATION_DESCRIPTION\}\}/g,
+          'The following checks verify the MCE environment is properly configured for ROSA HCP cluster provisioning.'
+        )
+        .replace(/\{\{TEST_ITEMS\}\}/g, '<!-- No test items for MCE environment report -->');
+
+      // Create blob and download
+      const blob = new Blob([htmlTemplate], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      // Update operation as complete
+      const completionTime = new Date().toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      });
+
+      updateRecentOperationStatus(
+        reportId,
+        `✅ Report created at ${completionTime}`,
+        `MCE Status Report Generated
+
+✅ File: ${fileName}
+✅ Downloaded successfully
+✅ Includes ${mceResources.length} resources
+✅ Includes ${allCAPIComponents.filter((c) => c.enabled).length} configured components
+
+Report created at ${completionTime}`
+      );
+    } catch (error) {
+      updateRecentOperationStatus(
+        reportId,
+        `❌ Failed to create report`,
+        `Error: ${error.message}`
+      );
+    }
+  };
+
   // Handle resource click to show YAML
   const handleResourceClick = async (resource) => {
     try {
@@ -973,11 +1134,18 @@ Export completed at ${completionTime}`
     },
   ];
 
+  // Resource action buttons
   const resourceActions = [
     {
       label: 'Provision',
       icon: '❄️',
       onClick: handleProvision,
+      variant: 'primary',
+    },
+    {
+      label: 'Create Report',
+      icon: '📊',
+      onClick: handleCreateStatusReport,
       variant: 'primary',
     },
     {
@@ -1046,7 +1214,7 @@ Export completed at ${completionTime}`
   const getLastVerifiedText = () => {
     // First check for recent verification operations
     const recentMceVerification = recentOps.recentOperations
-      .filter(
+      ?.filter(
         (op) =>
           op.environment === 'mce' &&
           (op.status?.includes('✅') || op.status?.toLowerCase().includes('verified'))
@@ -1085,7 +1253,7 @@ Export completed at ${completionTime}`
       });
     }
 
-    return 'Not verified yet';
+    return null;
   };
 
   // Check for recent validation results from job history
@@ -1286,6 +1454,14 @@ Export completed at ${completionTime}`
                       {ocpStatus?.api_url || 'Not configured'}
                     </div>
                   </div>
+                  {getLastVerifiedText() && (
+                    <div>
+                      <span className="font-medium text-gray-600">Last Verified:</span>
+                      <div className="mt-1 text-gray-700 text-xs">
+                        {getLastVerifiedText()}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

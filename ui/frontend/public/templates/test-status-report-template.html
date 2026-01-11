@@ -210,6 +210,12 @@
         <!-- CONTENT -->
         <div class="content">
 
+            <!-- ENVIRONMENT ASSESSMENT -->
+            <div class="section">
+                <h2>💡 Environment Assessment</h2>
+                <div class="code-block" style="background: #f0f9ff; border-left: 4px solid #667eea; padding: 20px; font-size: 14px; line-height: 1.8;">{{ENVIRONMENT_ASSESSMENT}}</div>
+            </div>
+
             <!-- TEST ENVIRONMENT CONFIGURATION -->
             <div class="section">
                 <h2>Test Environment Configuration</h2>
@@ -248,24 +254,7 @@ Configured Components:
                 -->
             </div>
 
-            <!-- ROSA HCP CLUSTERS -->
-            <div class="section">
-                <h2>CAPI-Managed ROSA HCP Clusters</h2>
-
-                {{ROSA_CLUSTER_DETAILS}}
-                <!-- Example:
-                <div class="test-item">
-                    <h4>Cluster: trn-rosa-hcp-test</h4>
-                    <div class="code-block">Status:    provisioning
-Progress:  14% complete
-Region:    us-west-2
-Version:   4.20.0
-Namespace: ns-rosa-hcp
-Created:   2026-01-10 at 17:51:48 UTC
-Errors:    None</div>
-                </div>
-                -->
-            </div>
+{{ROSA_CLUSTER_SECTION}}
 
             <!-- RECENT TASKS SECTION -->
             <div class="section">
