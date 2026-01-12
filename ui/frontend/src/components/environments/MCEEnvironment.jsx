@@ -86,7 +86,7 @@ const MCEEnvironment = () => {
       // Immediately show "Starting..." in Task Summary for instant feedback
       addToRecent({
         id: verifyId,
-        title: '🔍 MCE ENVIRONMENT VERIFICATION',
+        title: '🔍 MCE Environment Verification',
         color: 'bg-cyan-600',
         status: '🚀 Starting verification...',
         environment: 'mce',
@@ -1006,36 +1006,47 @@ Report created at ${completionTime}`
   };
 
   // Prepare component status data from MCE features
-  const capiComponents = [
-    {
-      name: 'cluster-api',
-      enabled: mceFeatures.some((f) => f.name === 'cluster-api' && f.enabled),
-      version: 'v2.10.0',
-      date: '11/3/2025',
-    },
-    {
-      name: 'cluster-api-provider-aws',
-      enabled: mceFeatures.some((f) => f.name === 'cluster-api-provider-aws' && f.enabled),
-      version: 'v2.10.0',
-      date: '11/3/2025',
-    },
+  // Build CAPI components dynamically from all cluster-api related features
+  const capiComponentNames = [
+    'cluster-api',
+    'cluster-api-preview',
+    'cluster-api-provider-aws',
+    'cluster-api-provider-aws-preview',
   ];
 
-  // Add additional components status
+  const capiComponents = capiComponentNames
+    .map((name) => {
+      const feature = mceFeatures.find((f) => f.name === name);
+      if (!feature) return null;
+      return {
+        name: feature.name,
+        enabled: feature.enabled,
+        version: feature.version || null,
+        date: null,
+      };
+    })
+    .filter((comp) => comp !== null); // Show all components (enabled and disabled)
+
+  // Add additional components status - versions pulled from API
   const hypershiftComponents = [
     {
       name: 'hypershift',
       enabled: mceFeatures.some((f) => f.name === 'hypershift' && f.enabled),
-      version: null,
+      version: mceFeatures.find((f) => f.name === 'hypershift')?.version || null,
       date: null,
     },
     {
       name: 'hypershift-local-hosting',
       enabled: mceFeatures.some((f) => f.name === 'hypershift-local-hosting' && f.enabled),
-      version: null,
+      version: mceFeatures.find((f) => f.name === 'hypershift-local-hosting')?.version || null,
       date: null,
     },
-  ];
+  ].sort((a, b) => {
+    // Sort enabled components first
+    if (a.enabled && !b.enabled) return -1;
+    if (!a.enabled && b.enabled) return 1;
+    return 0;
+  });
 
   const allCAPIComponents = [
     ...capiComponents,
@@ -1053,7 +1064,12 @@ Report created at ${completionTime}`
       version: null,
       date: null,
     },
-  ];
+  ].sort((a, b) => {
+    // Sort enabled components first
+    if (a.enabled && !b.enabled) return -1;
+    if (!a.enabled && b.enabled) return 1;
+    return 0;
+  });
 
   // Fetch MCE resources from the cluster dynamically
   const fetchMCEResources = useCallback(async () => {
@@ -1191,6 +1207,10 @@ Report created at ${completionTime}`
     });
   };
 
+  // Check for recent validation results from job history
+  const jobHistory = useJobHistory();
+  const [recentVerificationStatus, setRecentVerificationStatus] = useState(null);
+
   // Get connection status
   const getConnectionStatus = () => {
     if (apiLoading) return 'Checking...';
@@ -1212,12 +1232,15 @@ Report created at ${completionTime}`
   };
 
   const getLastVerifiedText = () => {
-    // First check for recent verification operations
+    // Collect all verification sources with timestamps
+    const verificationSources = [];
+
+    // 1. Check recent operations
     const recentMceVerification = recentOps.recentOperations
       ?.filter(
         (op) =>
           op.environment === 'mce' &&
-          (op.status?.includes('✅') || op.status?.toLowerCase().includes('verified'))
+          (op.status?.includes('✅') || op.status?.toLowerCase().includes('verified') || op.status?.toLowerCase().includes('configured'))
       )
       .sort((a, b) => {
         const timeA = typeof a.timestamp === 'number' ? a.timestamp : Date.parse(a.timestamp);
@@ -1230,20 +1253,34 @@ Report created at ${completionTime}`
         typeof recentMceVerification.timestamp === 'number'
           ? recentMceVerification.timestamp
           : Date.parse(recentMceVerification.timestamp);
-
-      return new Date(timestamp).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-      });
+      verificationSources.push(timestamp);
     }
 
-    // Fall back to API data if available
+    // 2. Check job history for verification/configuration jobs
+    if (jobHistory) {
+      const mceJobs = jobHistory.getJobsByEnvironment('mce');
+      const recentJob = mceJobs
+        .filter((job) =>
+          (job.task_file?.includes('validate-capa-environment') ||
+           job.task_file?.includes('configure_capi_environment')) &&
+          job.status === 'completed'
+        )
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+
+      if (recentJob) {
+        verificationSources.push(new Date(recentJob.created_at).getTime());
+      }
+    }
+
+    // 3. Fall back to API data
     if (mceLastVerified) {
-      return new Date(mceLastVerified).toLocaleDateString('en-US', {
+      verificationSources.push(new Date(mceLastVerified).getTime());
+    }
+
+    // Find the most recent timestamp
+    if (verificationSources.length > 0) {
+      const mostRecent = Math.max(...verificationSources);
+      return new Date(mostRecent).toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
@@ -1255,10 +1292,6 @@ Report created at ${completionTime}`
 
     return null;
   };
-
-  // Check for recent validation results from job history
-  const jobHistory = useJobHistory();
-  const [recentVerificationStatus, setRecentVerificationStatus] = useState(null);
 
   useEffect(() => {
     // Check recent MCE validation and configuration jobs to determine verification status

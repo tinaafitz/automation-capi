@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { buildApiUrl, API_ENDPOINTS } from '../config/api';
 
-export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
+export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceInfo }) {
   const [config, setConfig] = useState({
     clusterName: '',
     clusterDescription: '',
@@ -19,6 +19,21 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
     privateNetwork: false,
     additionalTags: '',
     nodePoolName: '',
+    // Manual network configuration (for older MCE versions without automation)
+    manualPublicSubnet: '',
+    manualPrivateSubnet: '',
+    manualVpcId: '',
+    // Manual role configuration (for older MCE versions without automation)
+    manualInstallerRoleArn: '',
+    manualSupportRoleArn: '',
+    manualWorkerRoleArn: '',
+    manualControlPlaneOperatorRoleArn: '',
+    manualKmsProviderRoleArn: '',
+    manualIngressOperatorRoleArn: '',
+    manualImageRegistryOperatorRoleArn: '',
+    manualStorageOperatorRoleArn: '',
+    manualNetworkOperatorRoleArn: '',
+    manualOidcConfigId: '',
     // Log forwarding configuration
     enableLogForwarding: false,
     logForwardApplications: ['application', 'infrastructure'],
@@ -116,6 +131,56 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
     }
   }, [config.clusterName]);
 
+  // Reset feature flags and default OpenShift version when MCE version changes
+  useEffect(() => {
+    if (!mceInfo?.version) return;
+
+    const isMceVersionAtLeast = (current, target) => {
+      if (!current) return false;
+      const parseVersion = (ver) => {
+        const parts = ver.split('-')[0].split('.').map((p) => parseInt(p, 10));
+        return { major: parts[0] || 0, minor: parts[1] || 0, patch: parts[2] || 0 };
+      };
+      const curr = parseVersion(current);
+      const targ = parseVersion(target);
+      if (curr.major !== targ.major) return curr.major > targ.major;
+      if (curr.minor !== targ.minor) return curr.minor > targ.minor;
+      return curr.patch >= targ.patch;
+    };
+
+    const supportsNetworkRole = isMceVersionAtLeast(mceInfo.version, '2.9.0');
+    const supportsLogFwd = isMceVersionAtLeast(mceInfo.version, '2.10.0');
+
+    // Set default OpenShift version based on MCE version
+    let defaultOcpVersion = '4.19.10';
+    if (supportsLogFwd) {
+      // MCE 2.10+ defaults to 4.19.10 (supports 4.19-4.20)
+      defaultOcpVersion = '4.19.10';
+    } else if (supportsNetworkRole) {
+      // MCE 2.9 defaults to 4.19.10 (supports 4.18-4.19)
+      defaultOcpVersion = '4.19.10';
+    } else {
+      // MCE < 2.9 defaults to 4.18.9 (supports 4.15-4.18)
+      defaultOcpVersion = '4.18.9';
+    }
+
+    // Disable features if MCE version doesn't support them
+    setConfig((prev) => {
+      const updates = { openShiftVersion: defaultOcpVersion };
+
+      if (!supportsNetworkRole && (prev.createRosaNetwork || prev.createRosaRoleConfig)) {
+        updates.createRosaNetwork = false;
+        updates.createRosaRoleConfig = false;
+      }
+
+      if (!supportsLogFwd && prev.enableLogForwarding) {
+        updates.enableLogForwarding = false;
+      }
+
+      return { ...prev, ...updates };
+    });
+  }, [mceInfo?.version]);
+
   if (!isOpen) return null;
 
   const handleSubmit = (e) => {
@@ -126,6 +191,31 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
   const handleChange = (field, value) => {
     setConfig((prev) => ({ ...prev, [field]: value }));
   };
+
+  // Helper function to parse MCE version and check if it's >= target version
+  const isMceVersionAtLeast = (current, target) => {
+    if (!current) return false; // No MCE version = old version
+
+    // Parse MCE version format: "2.8.4-159" or "2.10.0"
+    const parseVersion = (ver) => {
+      const parts = ver.split('-')[0].split('.').map((p) => parseInt(p, 10));
+      return { major: parts[0] || 0, minor: parts[1] || 0, patch: parts[2] || 0 };
+    };
+
+    const curr = parseVersion(current);
+    const targ = parseVersion(target);
+
+    if (curr.major !== targ.major) return curr.major > targ.major;
+    if (curr.minor !== targ.minor) return curr.minor > targ.minor;
+    return curr.patch >= targ.patch;
+  };
+
+  // Feature availability based on MCE version
+  // MCE 2.9+ supports ROSANetwork and RosaRoleConfig
+  // MCE 2.10+ supports Log Forwarding
+  const mceVersion = mceInfo?.version || '2.8.0'; // Default to old version if not available
+  const supportsNetworkRoleConfig = isMceVersionAtLeast(mceVersion, '2.9.0');
+  const supportsLogForwarding = isMceVersionAtLeast(mceVersion, '2.10.0');
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -180,7 +270,7 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
               value={config.clusterName}
               onChange={(e) => handleChange('clusterName', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="test-420-network-roles-test"
+              placeholder="test-418-rosa-hcp"
             />
             <p className="mt-1 text-xs text-gray-500">Name for your ROSA HCP cluster</p>
           </div>
@@ -235,21 +325,50 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
               onChange={(e) => handleChange('openShiftVersion', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="4.20.0">4.20.0 (Latest)</option>
-              <option value="4.19.10">4.19.10 (Recommended)</option>
-              <option value="4.19.9">4.19.9</option>
-              <option value="4.19.8">4.19.8</option>
-              <option value="4.19.7">4.19.7</option>
-              <option value="4.19.0">4.19.0</option>
-              <option value="4.18.9">4.18.9</option>
-              <option value="4.18.8">4.18.8</option>
-              <option value="4.18.0">4.18.0</option>
-              <option value="4.17.9">4.17.9</option>
-              <option value="4.17.0">4.17.0</option>
-              <option value="4.16.9">4.16.9</option>
-              <option value="4.16.0">4.16.0</option>
-              <option value="4.15.9">4.15.9</option>
-              <option value="4.15.0">4.15.0</option>
+              {/* MCE 2.10+ supports OpenShift 4.20+ */}
+              {supportsLogForwarding && (
+                <>
+                  <option value="4.20.0">4.20.0 (Latest)</option>
+                  <option value="4.19.10">4.19.10</option>
+                  <option value="4.19.9">4.19.9</option>
+                  <option value="4.19.8">4.19.8</option>
+                  <option value="4.19.7">4.19.7</option>
+                  <option value="4.19.0">4.19.0</option>
+                </>
+              )}
+
+              {/* MCE 2.9+ supports OpenShift 4.18-4.19 */}
+              {supportsNetworkRoleConfig && (
+                <>
+                  {!supportsLogForwarding && (
+                    <>
+                      <option value="4.19.10">4.19.10 (Recommended)</option>
+                      <option value="4.19.9">4.19.9</option>
+                      <option value="4.19.8">4.19.8</option>
+                      <option value="4.19.7">4.19.7</option>
+                      <option value="4.19.0">4.19.0</option>
+                    </>
+                  )}
+                  <option value="4.18.9">4.18.9</option>
+                  <option value="4.18.8">4.18.8</option>
+                  <option value="4.18.0">4.18.0</option>
+                </>
+              )}
+
+              {/* MCE < 2.9 supports OpenShift 4.15-4.18 */}
+              {!supportsNetworkRoleConfig && (
+                <>
+                  <option value="4.18.9">4.18.9 (Recommended)</option>
+                  <option value="4.18.8">4.18.8</option>
+                  <option value="4.18.0">4.18.0</option>
+                  <option value="4.17.9">4.17.9</option>
+                  <option value="4.17.0">4.17.0</option>
+                  <option value="4.16.9">4.16.9</option>
+                  <option value="4.16.0">4.16.0</option>
+                  <option value="4.15.9">4.15.9</option>
+                  <option value="4.15.0">4.15.0</option>
+                </>
+              )}
             </select>
           </div>
 
@@ -363,7 +482,8 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
             </div>
           </div>
 
-          {/* Automation Options */}
+          {/* Automation Options - Only show for MCE 2.9+ */}
+          {supportsNetworkRoleConfig && (
           <div>
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Automation Options</h3>
 
@@ -405,6 +525,216 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
               </label>
             </div>
           </div>
+          )}
+
+          {/* Manual Network Configuration - Only show for older MCE versions (< 2.9) */}
+          {!supportsNetworkRoleConfig && (
+          <div className="border-t pt-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Network Configuration</h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  VPC ID <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={config.manualVpcId}
+                  onChange={(e) => handleChange('manualVpcId', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                  placeholder="vpc-0123456789abcdef0"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Existing VPC ID where the cluster will be deployed
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Public Subnet <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={config.manualPublicSubnet}
+                  onChange={(e) => handleChange('manualPublicSubnet', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                  placeholder="subnet-abc123"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Public subnet ID for the cluster
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Private Subnet <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={config.manualPrivateSubnet}
+                  onChange={(e) => handleChange('manualPrivateSubnet', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                  placeholder="subnet-def456"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Private subnet ID for the cluster
+                </p>
+              </div>
+            </div>
+          </div>
+          )}
+
+          {/* Manual Role Configuration - Only show for older MCE versions (< 2.9) */}
+          {!supportsNetworkRoleConfig && (
+          <div className="border-t pt-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">IAM Role Configuration</h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Installer Role ARN <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={config.manualInstallerRoleArn}
+                  onChange={(e) => handleChange('manualInstallerRoleArn', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                  placeholder="arn:aws:iam::123456789012:role/ManagedOpenShift-Installer-Role"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Support Role ARN <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={config.manualSupportRoleArn}
+                  onChange={(e) => handleChange('manualSupportRoleArn', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                  placeholder="arn:aws:iam::123456789012:role/ManagedOpenShift-Support-Role"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Worker Role ARN <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={config.manualWorkerRoleArn}
+                  onChange={(e) => handleChange('manualWorkerRoleArn', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                  placeholder="arn:aws:iam::123456789012:role/ManagedOpenShift-Worker-Role"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  OIDC Config ID <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={config.manualOidcConfigId}
+                  onChange={(e) => handleChange('manualOidcConfigId', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                  placeholder="12a3b4cd5e6f7890abcd1234ef567890"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  OIDC configuration ID from your ROSA account
+                </p>
+              </div>
+
+              {/* Operator Role ARNs - Collapsible */}
+              <details className="border border-gray-200 rounded-lg p-3">
+                <summary className="cursor-pointer font-medium text-sm text-gray-700 hover:text-gray-900">
+                  Operator Role ARNs (Optional - expand to configure)
+                </summary>
+                <div className="mt-3 space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Control Plane Operator Role ARN
+                    </label>
+                    <input
+                      type="text"
+                      value={config.manualControlPlaneOperatorRoleArn}
+                      onChange={(e) => handleChange('manualControlPlaneOperatorRoleArn', e.target.value)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs font-mono"
+                      placeholder="arn:aws:iam::123456789012:role/prefix-openshift-cluster-csi-drivers-ebs-cloud-credentials"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Ingress Operator Role ARN
+                    </label>
+                    <input
+                      type="text"
+                      value={config.manualIngressOperatorRoleArn}
+                      onChange={(e) => handleChange('manualIngressOperatorRoleArn', e.target.value)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs font-mono"
+                      placeholder="arn:aws:iam::123456789012:role/prefix-openshift-ingress-operator-cloud-credentials"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Image Registry Operator Role ARN
+                    </label>
+                    <input
+                      type="text"
+                      value={config.manualImageRegistryOperatorRoleArn}
+                      onChange={(e) => handleChange('manualImageRegistryOperatorRoleArn', e.target.value)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs font-mono"
+                      placeholder="arn:aws:iam::123456789012:role/prefix-openshift-image-registry-installer-cloud-credentials"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Storage Operator Role ARN
+                    </label>
+                    <input
+                      type="text"
+                      value={config.manualStorageOperatorRoleArn}
+                      onChange={(e) => handleChange('manualStorageOperatorRoleArn', e.target.value)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs font-mono"
+                      placeholder="arn:aws:iam::123456789012:role/prefix-openshift-cluster-csi-drivers-ebs-cloud-credentials"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Network Operator Role ARN
+                    </label>
+                    <input
+                      type="text"
+                      value={config.manualNetworkOperatorRoleArn}
+                      onChange={(e) => handleChange('manualNetworkOperatorRoleArn', e.target.value)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs font-mono"
+                      placeholder="arn:aws:iam::123456789012:role/prefix-openshift-cloud-network-config-controller-cloud-credentials"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      KMS Provider Role ARN
+                    </label>
+                    <input
+                      type="text"
+                      value={config.manualKmsProviderRoleArn}
+                      onChange={(e) => handleChange('manualKmsProviderRoleArn', e.target.value)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs font-mono"
+                      placeholder="arn:aws:iam::123456789012:role/prefix-kms-provider-role"
+                    />
+                  </div>
+                </div>
+              </details>
+            </div>
+          </div>
+          )}
 
           {/* Network Configuration */}
           {config.createRosaNetwork && (
@@ -468,7 +798,8 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
             </div>
           )}
 
-          {/* Log Forwarding Configuration */}
+          {/* Log Forwarding Configuration - Only show for 4.20+ */}
+          {supportsLogForwarding && (
           <div className="border-t pt-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">
               Log Forwarding Configuration
@@ -655,6 +986,7 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
               </div>
             )}
           </div>
+          )}
 
           {/* Provisioning Summary */}
           <div className="border-t pt-4">
@@ -665,7 +997,7 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite }) {
                 <span className="text-gray-700">
                   Cluster:{' '}
                   <span className="font-mono font-semibold">
-                    {config.clusterName || 'test-420-network-roles-test'}
+                    {config.clusterName || 'test-418-rosa-hcp'}
                   </span>
                 </span>
               </div>
@@ -745,5 +1077,9 @@ RosaProvisionModal.propTypes = {
     category: PropTypes.string,
     components: PropTypes.arrayOf(PropTypes.string),
     jira: PropTypes.arrayOf(PropTypes.string),
+  }),
+  mceInfo: PropTypes.shape({
+    name: PropTypes.string,
+    version: PropTypes.string,
   }),
 };

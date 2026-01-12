@@ -13,10 +13,11 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
+            line-height: 1.4;
             color: #333;
             background: #f5f5f5;
-            padding: 20px;
+            padding: 10px;
+            font-size: 13px;
         }
 
         .container {
@@ -27,50 +28,124 @@
         }
 
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0891b2 0%, #1e40af 100%);
             color: white;
-            padding: 30px 40px;
-            border-bottom: 4px solid #5a67d8;
+            padding: 16px 24px;
+            border-bottom: 3px solid #0284c7;
         }
 
         .header h1 {
-            font-size: 28px;
+            font-size: 20px;
             font-weight: 600;
-            margin-bottom: 15px;
+            margin-bottom: 8px;
         }
 
         .header .meta {
-            font-size: 14px;
+            font-size: 11px;
             opacity: 0.95;
         }
 
         .content {
-            padding: 40px;
+            padding: 20px 24px;
         }
 
         .section {
-            margin-bottom: 40px;
+            margin-bottom: 20px;
         }
 
         .section-divider {
             border: 0;
-            border-top: 2px dashed #e2e8f0;
-            margin: 30px 0;
+            border-top: 1px dashed #e2e8f0;
+            margin: 12px 0;
         }
 
         h2 {
-            font-size: 22px;
+            font-size: 16px;
             font-weight: 600;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
             color: #2d3748;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 8px;
+            border-bottom: 2px solid #0891b2;
+            padding-bottom: 4px;
+        }
+
+        /* Collapsible Section */
+        .collapsible-header {
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .collapsible-header:hover {
+            color: #0891b2;
+        }
+
+        .collapsible-indicator {
+            font-size: 14px;
+            transition: transform 0.3s ease;
+            display: inline-block;
+        }
+
+        .collapsible-indicator.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .collapsible-content {
+            max-height: 1000px;
+            overflow: hidden;
+            transition: max-height 0.3s ease, opacity 0.3s ease;
+            opacity: 1;
+        }
+
+        .collapsible-content.collapsed {
+            max-height: 0;
+            opacity: 0;
+        }
+
+        /* Environment Assessment Box */
+        .assessment-box {
+            background: linear-gradient(135deg, #ecfeff 0%, #dbeafe 100%);
+            border-left: 4px solid #0891b2;
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin: 12px 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            box-shadow: 0 1px 4px rgba(8, 145, 178, 0.1);
+        }
+
+        .assessment-icon {
+            font-size: 20px;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .assessment-content {
+            flex: 1;
+        }
+
+        .assessment-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0e7490;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .assessment-text {
+            font-size: 13px;
+            color: #164e63;
+            line-height: 1.4;
         }
 
         h3 {
-            font-size: 18px;
+            font-size: 14px;
             font-weight: 600;
-            margin: 25px 0 15px 0;
+            margin: 12px 0 8px 0;
             color: #2d3748;
         }
 
@@ -102,13 +177,13 @@
         .code-block {
             background: #f7fafc;
             border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            padding: 16px;
+            border-radius: 4px;
+            padding: 10px;
             font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
-            font-size: 13px;
-            line-height: 1.6;
+            font-size: 11px;
+            line-height: 1.4;
             overflow-x: auto;
-            margin: 15px 0;
+            margin: 8px 0;
             white-space: pre-wrap;
             word-wrap: break-word;
         }
@@ -184,18 +259,453 @@
             margin-top: 10px;
         }
 
+        /* Dashboard Summary Cards */
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            border: 2px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        }
+
+        .stat-card.stat-success {
+            border-color: #10b981;
+            background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+        }
+
+        .stat-card.stat-info {
+            border-color: #0891b2;
+            background: linear-gradient(135deg, #ecfeff 0%, #cffafe 100%);
+        }
+
+        .stat-card.stat-warning {
+            border-color: #f59e0b;
+            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+        }
+
+        .stat-number {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: #1e293b;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        /* Timeline for Recent Tasks */
+        .timeline {
+            position: relative;
+            padding-left: 24px;
+            margin: 10px 0;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #e2e8f0;
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 10px;
+            padding-left: 16px;
+        }
+
+        .timeline-marker {
+            position: absolute;
+            left: -18px;
+            top: 2px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid #10b981;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            z-index: 1;
+        }
+
+        .timeline-item.failed .timeline-marker {
+            border-color: #ef4444;
+        }
+
+        .timeline-item.pending .timeline-marker {
+            border-color: #f59e0b;
+        }
+
+        .timeline-content {
+            background: #f8fafc;
+            padding: 8px 12px;
+            border-radius: 4px;
+            border-left: 2px solid #10b981;
+        }
+
+        .timeline-item.failed .timeline-content {
+            border-left-color: #ef4444;
+        }
+
+        .timeline-item.pending .timeline-content {
+            border-left-color: #f59e0b;
+        }
+
+        .timeline-title {
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 2px;
+            font-size: 12px;
+        }
+
+        .timeline-time {
+            font-size: 10px;
+            color: #64748b;
+        }
+
+        /* Resource Cards */
+        .resource-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            margin: 20px 0;
+        }
+
+        .resource-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+            transition: all 0.2s ease;
+        }
+
+        .resource-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transform: translateY(-2px);
+        }
+
+        .resource-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .resource-type {
+            background: #f1f5f9;
+            color: #475569;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .status-dot.ready {
+            background: #10b981;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+        }
+
+        .status-dot.pending {
+            background: #f59e0b;
+            box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+        }
+
+        .status-dot.failed {
+            background: #ef4444;
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+        }
+
+        .resource-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 6px;
+        }
+
+        .resource-meta {
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        /* Copy Button */
+        .code-block-wrapper {
+            position: relative;
+            margin: 15px 0;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #0891b2;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            opacity: 0.8;
+        }
+
+        .copy-btn:hover {
+            opacity: 1;
+            background: #0e7490;
+            transform: scale(1.05);
+        }
+
+        .copy-btn.copied {
+            background: #10b981;
+        }
+
+        /* Collapsible Sections */
+        details {
+            margin: 20px 0;
+        }
+
+        summary {
+            cursor: pointer;
+            font-weight: 600;
+            padding: 12px 16px;
+            background: #f8fafc;
+            border-radius: 6px;
+            border-left: 4px solid #0891b2;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        summary:hover {
+            background: #f1f5f9;
+        }
+
+        summary::marker {
+            color: #0891b2;
+        }
+
+        details[open] summary {
+            margin-bottom: 16px;
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        /* Status Pills */
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .status-pill.status-ready {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-pill.status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-pill.status-failed {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-icon {
+            width: 12px;
+            height: 12px;
+        }
+
+        /* Dark Mode Support */
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid #e2e8f0;
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        body.dark-mode {
+            background: #1e293b;
+            color: #e2e8f0;
+        }
+
+        body.dark-mode .container {
+            background: #0f172a;
+        }
+
+        body.dark-mode .code-block {
+            background: #1e293b;
+            border-color: #334155;
+        }
+
+        body.dark-mode .resource-card,
+        body.dark-mode summary {
+            background: #1e293b;
+            border-color: #334155;
+            color: #e2e8f0;
+        }
+
+        body.dark-mode h2,
+        body.dark-mode h3,
+        body.dark-mode .resource-name,
+        body.dark-mode .timeline-title {
+            color: #f1f5f9;
+        }
+
         @media print {
             body {
                 background: white;
                 padding: 0;
+                font-size: 11px;
             }
             .container {
                 box-shadow: none;
+                max-width: 100%;
+            }
+            .theme-toggle {
+                display: none;
+            }
+            .copy-btn {
+                display: none;
+            }
+            .header {
+                padding: 12px 16px;
+            }
+            .header h1 {
+                font-size: 18px;
+            }
+            .content {
+                padding: 12px 16px;
+            }
+            .section {
+                margin-bottom: 12px;
+                page-break-inside: avoid;
+            }
+            h2 {
+                font-size: 14px;
+                margin-bottom: 6px;
+            }
+            h3 {
+                font-size: 12px;
+                margin: 8px 0 4px 0;
+            }
+            .dashboard {
+                margin: 10px 0;
+                gap: 8px;
+            }
+            .stat-card {
+                padding: 8px;
+            }
+            .stat-number {
+                font-size: 20px;
+            }
+            .stat-label {
+                font-size: 9px;
+            }
+            .assessment-box {
+                padding: 10px 12px;
+                margin: 10px 0;
+            }
+            .code-block {
+                font-size: 10px;
+                padding: 8px;
+                margin: 6px 0;
+            }
+            .timeline-item {
+                margin-bottom: 8px;
+            }
+            .section-divider {
+                margin: 8px 0;
             }
         }
     </style>
+    <script>
+        // Copy to clipboard function
+        function copyCode(button) {
+            const codeBlock = button.nextElementSibling;
+            const text = codeBlock.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = button.textContent;
+                button.textContent = '✓ Copied!';
+                button.classList.add('copied');
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('copied');
+                }, 2000);
+            });
+        }
+
+        // Dark mode toggle
+        function toggleTheme() {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('darkMode', isDark);
+            const toggle = document.querySelector('.theme-toggle');
+            toggle.textContent = isDark ? '☀️' : '🌙';
+        }
+
+        // Load dark mode preference
+        window.addEventListener('DOMContentLoaded', () => {
+            const isDark = localStorage.getItem('darkMode') === 'true';
+            if (isDark) {
+                document.body.classList.add('dark-mode');
+                const toggle = document.querySelector('.theme-toggle');
+                if (toggle) toggle.textContent = '☀️';
+            }
+        });
+    </script>
 </head>
 <body>
+    <!-- Theme Toggle -->
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">🌙</button>
+
     <div class="container">
         <!-- HEADER -->
         <div class="header">
@@ -210,66 +720,71 @@
         <!-- CONTENT -->
         <div class="content">
 
+            <!-- DASHBOARD SUMMARY -->
+            {{DASHBOARD_SUMMARY}}
+
             <!-- ENVIRONMENT ASSESSMENT -->
-            <div class="section">
-                <h2>💡 Environment Assessment</h2>
-                <div class="code-block" style="background: #f0f9ff; border-left: 4px solid #667eea; padding: 20px; font-size: 14px; line-height: 1.8;">{{ENVIRONMENT_ASSESSMENT}}</div>
+            <div class="assessment-box">
+                <div class="assessment-icon">💡</div>
+                <div class="assessment-content">
+                    <div class="assessment-text">{{ENVIRONMENT_ASSESSMENT}}</div>
+                </div>
             </div>
+
+            <hr class="section-divider">
 
             <!-- TEST ENVIRONMENT CONFIGURATION -->
             <div class="section">
                 <h2>Test Environment Configuration</h2>
 
                 <h3>{{CLUSTER_TYPE}} Configuration</h3>
-                <div class="code-block">{{CLUSTER_CONFIG_DETAILS}}
-<!-- Example:
-Cluster:      multiclusterengine
-Version:      2.10.0
-API Server:   https://api.ci-vb-tr35-arm.dev09.red-chesterfield.com:6443
-Status:       Connected
---></div>
+                <div class="code-block-wrapper">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+                    <div class="code-block">{{CLUSTER_CONFIG_DETAILS}}</div>
+                </div>
 
                 <h3>Components</h3>
-                <div class="code-block">{{COMPONENT_CONFIG_DETAILS}}
-<!-- Example:
-CAPI Components Enabled: 2/6
-
-Configured Components:
-  • cluster-api (v2.10.0)
-  • cluster-api-provider-aws (v2.10.0)
---></div>
+                <div class="code-block-wrapper">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+                    <div class="code-block">{{COMPONENT_CONFIG_DETAILS}}</div>
+                </div>
             </div>
+
+            <hr class="section-divider">
 
             <!-- RESOURCES SECTION -->
             <div class="section">
                 <h2>Resources</h2>
                 <p><strong>Total:</strong> {{RESOURCE_COUNT}} resources</p>
-
                 {{RESOURCE_DETAILS}}
-                <!-- Example:
-                <h3>ns-rosa-hcp (3 resources)</h3>
-                <div class="code-block">• trn-rosa-hcp-test (ROSAControlPlane)
-• trn-rosa-hcp-test-network (ROSANetwork)
-• trn-rosa-hcp-test-roles (ROSARoleConfig)</div>
-                -->
             </div>
 
-{{ROSA_CLUSTER_SECTION}}
+            <hr class="section-divider">
 
-            <!-- RECENT TASKS SECTION -->
+            {{ROSA_CLUSTER_SECTION}}
+
+            <!-- RECENT TASKS -->
             <div class="section">
-                <h2>Recent Tasks (Last 10)</h2>
-
-                {{RECENT_TASKS_DETAILS}}
-                <!-- Example:
-                <div class="code-block">✅ Verify MCE Environment
-✅ Apply ROSA provisioning YAML for trn-rosa-hcp-test
-❌ Apply ROSA provisioning YAML for trn-rosa-hcp -test
-⏳ Configure MCE CAPI/CAPA Environment</div>
-                -->
+                <h2 class="collapsible-header" onclick="toggleCollapsible('recent-tasks')">
+                    <span class="collapsible-indicator" id="recent-tasks-indicator">▼</span>
+                    Recent Tasks (Last 10)
+                </h2>
+                <div class="collapsible-content" id="recent-tasks-content">
+                    {{RECENT_TASKS_DETAILS}}
+                </div>
             </div>
 
         </div>
     </div>
+
+    <script>
+        function toggleCollapsible(id) {
+            const content = document.getElementById(id + '-content');
+            const indicator = document.getElementById(id + '-indicator');
+
+            content.classList.toggle('collapsed');
+            indicator.classList.toggle('collapsed');
+        }
+    </script>
 </body>
 </html>

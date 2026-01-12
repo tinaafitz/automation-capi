@@ -54,36 +54,39 @@ const ConfigurationSection = ({
   const [yamlEditorData, setYamlEditorData] = useState(null);
   const [isCompactMode, setIsCompactMode] = useState(false);
 
-  // Component version mapping
-  const componentVersions = {
-    'cluster-api': 'v2.10.0',
-    'cluster-api-provider-aws': 'v2.10.0',
-    'cluster-api-provider-metal3': 'v1.7.1',
-    'cluster-api-provider-openshift-assisted': 'v1.0.9',
-    hypershift: 'v4.17.0',
-    'hypershift-local-hosting': 'v4.17.0',
-  };
-
-  // Filter mceFeatures to get CAPI and Hypershift components (using 'name' field not 'component')
+  // Filter mceFeatures to get CAPI and Hypershift components - versions come from API
   const capiComponentsArray = (mceFeatures?.filter((f) => f.name?.startsWith('cluster-api')) || [])
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map((component) => ({
-      ...component,
-      version: componentVersions[component.name] || null,
-    }));
+    .sort((a, b) => {
+      // Sort enabled components first
+      if (a.enabled && !b.enabled) return -1;
+      if (!a.enabled && b.enabled) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
   const hypershiftComponentsArray = (
     mceFeatures?.filter((f) => f.name?.startsWith('hypershift')) || []
   )
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map((component) => ({
-      ...component,
-      version: componentVersions[component.name] || null,
-    }));
-  const allCAPIComponents = [...capiComponentsArray, ...hypershiftComponentsArray];
+    .sort((a, b) => {
+      // Sort enabled components first
+      if (a.enabled && !b.enabled) return -1;
+      if (!a.enabled && b.enabled) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+  // Check if using preview components (legacy/old MCE build)
+  const hasPreviewComponents = capiComponentsArray.some(
+    (c) => c.name?.includes('-preview') && c.enabled
+  );
+
+  // For preview builds, exclude Hypershift components from the total count
+  const allCAPIComponents = hasPreviewComponents
+    ? capiComponentsArray
+    : [...capiComponentsArray, ...hypershiftComponentsArray];
 
   // Debug logging
   console.log('📊 ConfigurationSection: mceFeatures:', mceFeatures);
   console.log('📊 ConfigurationSection: capiComponentsArray:', capiComponentsArray);
+  console.log('📊 ConfigurationSection: hasPreviewComponents:', hasPreviewComponents);
   console.log('📊 ConfigurationSection: hypershiftComponentsArray:', hypershiftComponentsArray);
 
   // Fetch MCE resources from the cluster dynamically
@@ -328,6 +331,11 @@ const ConfigurationSection = ({
 
       // AI Assessment - analyze environment state (using UI context values)
       const generateAssessment = () => {
+        // Check if using preview components (legacy/old MCE build)
+        const isPreviewBuild = mceFeatures.some(
+          (c) => c.name?.includes('-preview') && c.enabled
+        );
+
         // Step 1: Check if CAPI/CAPA are enabled (from UI context)
         const capiEnabled = mceFeatures.some((f) => f.name === 'cluster-api' && f.enabled);
         const capaEnabled = mceFeatures.some(
@@ -336,10 +344,12 @@ const ConfigurationSection = ({
 
         console.log('🤖 CAPI enabled:', capiEnabled);
         console.log('🤖 CAPA enabled:', capaEnabled);
+        console.log('🤖 Preview build:', isPreviewBuild);
 
         // If CAPI/CAPA not enabled, it's a fresh environment
         if (!capiEnabled && !capaEnabled) {
-          return 'This MCE environment is not configured for CAPI/CAPA.';
+          const previewWarning = isPreviewBuild ? ' ⚠️ Preview build detected.' : '';
+          return `This MCE environment is not configured for CAPI/CAPA.${previewWarning}`;
         }
 
         // Step 2: Check for ROSA HCP clusters (exclude uninstalling/deleting)
@@ -352,7 +362,8 @@ const ConfigurationSection = ({
 
         // If there are ROSA HCP clusters
         if (totalClusters > 0) {
-          return `This CAPI/CAPA configured environment has ${totalClusters} active ROSA HCP Cluster${totalClusters > 1 ? 's' : ''}.`;
+          const previewWarning = isPreviewBuild ? ' ⚠️ Preview build.' : '';
+          return `This CAPI/CAPA configured environment has ${totalClusters} active ROSA HCP Cluster${totalClusters > 1 ? 's' : ''}.${previewWarning}`;
         }
 
         // Step 3: Check if ROSA HCP namespace exists (from fetched resources)
@@ -362,18 +373,32 @@ const ConfigurationSection = ({
 
         // If no clusters but namespace exists (has been provisioned before)
         if (rosaNamespaceExists) {
-          return 'This CAPI/CAPA configured environment has provisioning resources but no active ROSA HCP clusters.';
+          const previewWarning = isPreviewBuild ? ' ⚠️ Preview build.' : '';
+          return `This CAPI/CAPA configured environment has provisioning resources but no active ROSA HCP clusters.${previewWarning}`;
         }
 
         // If no clusters and no namespace (partially configured)
-        return 'This MCE environment has a partial CAPI/CAPA configuration.';
+        const previewWarning = isPreviewBuild ? ' ⚠️ Preview build.' : '';
+        return `This MCE environment has a partial CAPI/CAPA configuration.${previewWarning}`;
       };
 
       const environmentAssessment = generateAssessment();
 
+      // Check if using preview components (legacy/old MCE build)
+      const hasPreviewComponentsInReport = mceFeatures.some(
+        (c) => c.name?.includes('-preview') && c.enabled
+      );
+
       // Component configuration details (code-block format) - use context features
+      // For preview builds, exclude Hypershift components (just like the UI does)
       const freshCAPIComponents = mceFeatures
-        .filter((f) => f.name?.startsWith('cluster-api') || f.name?.startsWith('hypershift'))
+        .filter((f) => {
+          // Always include cluster-api components
+          if (f.name?.startsWith('cluster-api')) return true;
+          // Only include Hypershift if NOT a preview build
+          if (f.name?.startsWith('hypershift')) return !hasPreviewComponentsInReport;
+          return false;
+        })
         .sort((a, b) => a.name.localeCompare(b.name));
 
       // Group resources by namespace (exclude capa-system and multicluster-engine)
@@ -409,7 +434,7 @@ const ConfigurationSection = ({
 
       // Cluster configuration details (code-block format)
       const clusterConfigDetails = `Cluster:      ${mceInfo?.name || 'multiclusterengine'}
-Version:      ${mceInfo?.version || '2.10.0'}
+Version:      ${mceInfo?.version || '2.10.0'}${hasPreviewComponentsInReport ? ' ⚠️ CAPI/CAPA Preview Build' : ''}
 API Server:   ${ocpStatus?.api_url || 'Not configured'}
 Status:       ${ocpStatus?.connected ? 'Connected' : 'Not Connected'}
 Last Verified: ${lastVerifiedDate}`;
@@ -1041,6 +1066,12 @@ ${freshCAPIComponents
                     <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
                     {ocpStatus?.connected ? 'Connected' : 'Not Connected'}
                   </span>
+                  {hasPreviewComponents && (
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-300">
+                      <span className="mr-1">⚠️</span>
+                      CAPI/CAPA Preview Build
+                    </span>
+                  )}
                 </div>
               }
               icon={
@@ -1133,6 +1164,12 @@ ${freshCAPIComponents
                     <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
                     {allCAPIComponents.filter((c) => c.enabled).length} configured
                   </span>
+                  {hasPreviewComponents && (
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-300">
+                      <span className="mr-1">⚠️</span>
+                      Preview Build
+                    </span>
+                  )}
                 </div>
               }
               icon={<Cog6ToothIcon className="h-5 w-5" />}
@@ -1203,7 +1240,8 @@ ${freshCAPIComponents
                     </div>
                   </div>
 
-                  {/* Hypershift Components - Already filtered for hypershift* */}
+                  {/* Hypershift Components - Only show on newer builds (not preview) */}
+                  {!hasPreviewComponents && (
                   <div className="bg-gradient-to-br from-gray-50 to-blue-50/30 rounded-lg p-3 border border-gray-100">
                     <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3 flex items-center gap-1.5">
                       <span>⚙️</span>
@@ -1257,6 +1295,7 @@ ${freshCAPIComponents
                       })}
                     </div>
                   </div>
+                )}
                 </div>
 
                 {/* Secondary Actions Toolbar */}

@@ -265,7 +265,7 @@ const EnvironmentContent = () => {
       // IMMEDIATELY show "Starting..." in Task Summary for instant feedback (before any async calls!)
       addToRecent({
         id: verifyId,
-        title: '🔍 MCE ENVIRONMENT VERIFICATION',
+        title: '🔍 MCE Environment Verification',
         color: 'bg-cyan-600',
         status: '🚀 Starting verification...',
         environment: 'mce',
@@ -708,6 +708,7 @@ const WhatCanIHelpRefactored = () => {
 const ModalProvider = () => {
   const app = useApp();
   const dispatch = useAppDispatch();
+  const apiStatus = useApiStatusContext();
   const { fetchJobHistory } = useJobHistory();
   const recentOps = useRecentOperationsContext();
   const { addToRecent, updateRecentOperationStatus } = recentOps;
@@ -752,6 +753,7 @@ Update completed at ${completionTime}`
       <RosaProvisionModal
         isOpen={app.showProvisionModal}
         onClose={() => dispatch({ type: AppActionTypes.SHOW_PROVISION_MODAL, payload: false })}
+        mceInfo={apiStatus.mceInfo}
         onSubmit={async (config) => {
           try {
             // Call generate-yaml API to get YAML preview
