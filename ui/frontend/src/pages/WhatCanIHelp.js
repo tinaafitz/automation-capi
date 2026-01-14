@@ -4434,7 +4434,8 @@ export function WhatCanIHelp() {
                     if (filteredResources.length === 0) {
                       return (
                         <div className="text-center py-8 text-sm text-gray-500 italic">
-                          No active resources found. Click "Verify" or "Configure" to load resources.
+                          No active resources found. Click "Verify" or "Configure" to load
+                          resources.
                         </div>
                       );
                     }
@@ -4448,7 +4449,7 @@ export function WhatCanIHelp() {
                     }, {});
 
                     const toggleNamespace = (ns) => {
-                      setMinikubeNamespaceCollapsed(prev => ({ ...prev, [ns]: !prev[ns] }));
+                      setMinikubeNamespaceCollapsed((prev) => ({ ...prev, [ns]: !prev[ns] }));
                     };
 
                     return (
@@ -4456,7 +4457,10 @@ export function WhatCanIHelp() {
                         {Object.entries(resourcesByNamespace)
                           .sort(([a], [b]) => a.localeCompare(b))
                           .map(([namespace, resources]) => (
-                            <div key={namespace} className="border border-gray-200 rounded-lg overflow-hidden">
+                            <div
+                              key={namespace}
+                              className="border border-gray-200 rounded-lg overflow-hidden"
+                            >
                               {/* Namespace Header */}
                               <button
                                 onClick={() => toggleNamespace(namespace)}
@@ -4464,15 +4468,33 @@ export function WhatCanIHelp() {
                               >
                                 <div className="flex items-center gap-2">
                                   {minikubeNamespaceCollapsed[namespace] ? (
-                                    <svg className="h-4 w-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                                    <svg
+                                      className="h-4 w-4 text-gray-600"
+                                      fill="currentColor"
+                                      viewBox="0 0 20 20"
+                                    >
+                                      <path
+                                        fillRule="evenodd"
+                                        d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                                        clipRule="evenodd"
+                                      />
                                     </svg>
                                   ) : (
-                                    <svg className="h-4 w-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                    <svg
+                                      className="h-4 w-4 text-gray-600"
+                                      fill="currentColor"
+                                      viewBox="0 0 20 20"
+                                    >
+                                      <path
+                                        fillRule="evenodd"
+                                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                        clipRule="evenodd"
+                                      />
                                     </svg>
                                   )}
-                                  <span className="text-sm font-medium text-gray-900">{namespace}</span>
+                                  <span className="text-sm font-medium text-gray-900">
+                                    {namespace}
+                                  </span>
                                 </div>
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                                   {resources.length}

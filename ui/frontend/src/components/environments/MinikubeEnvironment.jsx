@@ -487,8 +487,7 @@ ${
 
 Resources:
 ${
-  resources.map((c) => `  • ${c.name}${c.version ? ` (${c.version})` : ''}`).join('\n') ||
-  '  None'
+  resources.map((c) => `  • ${c.name}${c.version ? ` (${c.version})` : ''}`).join('\n') || '  None'
 }`;
 
       // Helper function to extract API version and status from resource YAML
@@ -630,7 +629,8 @@ ${
         recentJobs.length > 0
           ? `<div class="timeline">${recentJobs
               .map((job) => {
-                const statusClass = job.status === 'completed' ? '' : job.status === 'failed' ? 'failed' : 'pending';
+                const statusClass =
+                  job.status === 'completed' ? '' : job.status === 'failed' ? 'failed' : 'pending';
                 const statusIcon =
                   job.status === 'completed' ? '✓' : job.status === 'failed' ? '✕' : '⏳';
                 const taskName = job.title || job.description || 'Task';
@@ -812,7 +812,11 @@ ${
                       ? 'bg-white/20 hover:bg-white/30 text-white hover:scale-105 active:scale-100'
                       : 'bg-white/10 text-white/50 cursor-not-allowed'
                   }`}
-                  title={verifiedMinikubeClusterInfo ? "Configure CAPI/CAPA Components (Ctrl+1)" : "Verify a Minikube cluster first"}
+                  title={
+                    verifiedMinikubeClusterInfo
+                      ? 'Configure CAPI/CAPA Components (Ctrl+1)'
+                      : 'Verify a Minikube cluster first'
+                  }
                 >
                   <Cog6ToothIcon className="h-4 w-4" />
                   <span>Configure</span>
@@ -886,11 +890,13 @@ ${
               title={
                 <div className="flex items-center gap-2">
                   <span>Minikube Configuration</span>
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${
-                    clusterName
-                      ? 'text-green-600 bg-green-50 border-green-200'
-                      : 'text-gray-600 bg-gray-50 border-gray-200'
-                  }`}>
+                  <span
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${
+                      clusterName
+                        ? 'text-green-600 bg-green-50 border-green-200'
+                        : 'text-gray-600 bg-gray-50 border-gray-200'
+                    }`}
+                  >
                     <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
                     {clusterName
                       ? `🔷 ${clusterName}${methodDisplay ? ` (${methodDisplay})` : ''}`
@@ -1099,7 +1105,9 @@ ${
                 ) : minikubeActiveResources.length === 0 ? (
                   <div className="text-center py-4 text-gray-500">
                     <p>No resources found.</p>
-                    <p className="text-sm mt-1">Click "Verify" or "Configure" to load active resources.</p>
+                    <p className="text-sm mt-1">
+                      Click "Verify" or "Configure" to load active resources.
+                    </p>
                   </div>
                 ) : (
                   <div className="max-h-80 overflow-y-auto space-y-2">

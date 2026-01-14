@@ -156,7 +156,10 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
     const isMceVersionAtLeast = (current, target) => {
       if (!current) return false;
       const parseVersion = (ver) => {
-        const parts = ver.split('-')[0].split('.').map((p) => parseInt(p, 10));
+        const parts = ver
+          .split('-')[0]
+          .split('.')
+          .map((p) => parseInt(p, 10));
         return { major: parts[0] || 0, minor: parts[1] || 0, patch: parts[2] || 0 };
       };
       const curr = parseVersion(current);
@@ -167,7 +170,8 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
     };
 
     // For Minikube (no MCE), support all latest features
-    const isMinikube = !currentMceInfo || !currentMceInfo.version || currentMceInfo.version === 'N/A';
+    const isMinikube =
+      !currentMceInfo || !currentMceInfo.version || currentMceInfo.version === 'N/A';
     const supportsNetworkRole = isMinikube || isMceVersionAtLeast(currentMceInfo.version, '2.9.0');
     const supportsLogFwd = isMinikube || isMceVersionAtLeast(currentMceInfo.version, '2.10.0');
 
@@ -218,7 +222,10 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
 
     // Parse MCE version format: "2.8.4-159" or "2.10.0"
     const parseVersion = (ver) => {
-      const parts = ver.split('-')[0].split('.').map((p) => parseInt(p, 10));
+      const parts = ver
+        .split('-')[0]
+        .split('.')
+        .map((p) => parseInt(p, 10));
       return { major: parts[0] || 0, minor: parts[1] || 0, patch: parts[2] || 0 };
     };
 
@@ -517,256 +524,264 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
 
           {/* Automation Options - Only show for MCE 2.9+ */}
           {supportsNetworkRoleConfig && (
-          <div>
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Automation Options</h3>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Automation Options</h3>
 
-            <div className="space-y-3">
-              {/* Create ROSANetwork */}
-              <label className="flex items-start gap-3 p-3 bg-cyan-50 rounded-lg border border-cyan-200 cursor-pointer hover:bg-cyan-100 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={config.createRosaNetwork}
-                  onChange={(e) => handleChange('createRosaNetwork', e.target.checked)}
-                  className="mt-1 h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-300 rounded"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-900">Create ROSANetwork</span>
+              <div className="space-y-3">
+                {/* Create ROSANetwork */}
+                <label className="flex items-start gap-3 p-3 bg-cyan-50 rounded-lg border border-cyan-200 cursor-pointer hover:bg-cyan-100 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={config.createRosaNetwork}
+                    onChange={(e) => handleChange('createRosaNetwork', e.target.checked)}
+                    className="mt-1 h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-300 rounded"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-900">Create ROSANetwork</span>
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Automatically create VPC, subnets, and network resources via CloudFormation
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-600 mt-1">
-                    Automatically create VPC, subnets, and network resources via CloudFormation
-                  </p>
-                </div>
-              </label>
+                </label>
 
-              {/* Create RosaRoleConfig */}
-              <label className="flex items-start gap-3 p-3 bg-purple-50 rounded-lg border border-purple-200 cursor-pointer hover:bg-purple-100 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={config.createRosaRoleConfig}
-                  onChange={(e) => handleChange('createRosaRoleConfig', e.target.checked)}
-                  className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-900">Create RosaRoleConfig</span>
+                {/* Create RosaRoleConfig */}
+                <label className="flex items-start gap-3 p-3 bg-purple-50 rounded-lg border border-purple-200 cursor-pointer hover:bg-purple-100 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={config.createRosaRoleConfig}
+                    onChange={(e) => handleChange('createRosaRoleConfig', e.target.checked)}
+                    className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-900">
+                        Create RosaRoleConfig
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Automatically create AWS IAM roles and OIDC provider
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-600 mt-1">
-                    Automatically create AWS IAM roles and OIDC provider
-                  </p>
-                </div>
-              </label>
+                </label>
+              </div>
             </div>
-          </div>
           )}
 
           {/* Manual Network Configuration - Only show for older MCE versions (< 2.9) */}
           {!supportsNetworkRoleConfig && (
-          <div className="border-t pt-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Network Configuration</h3>
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Network Configuration</h3>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  VPC ID <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={config.manualVpcId}
-                  onChange={(e) => handleChange('manualVpcId', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                  placeholder="vpc-0123456789abcdef0"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  Existing VPC ID where the cluster will be deployed
-                </p>
-              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    VPC ID <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={config.manualVpcId}
+                    onChange={(e) => handleChange('manualVpcId', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                    placeholder="vpc-0123456789abcdef0"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Existing VPC ID where the cluster will be deployed
+                  </p>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Public Subnet <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={config.manualPublicSubnet}
-                  onChange={(e) => handleChange('manualPublicSubnet', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                  placeholder="subnet-abc123"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  Public subnet ID for the cluster
-                </p>
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Public Subnet <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={config.manualPublicSubnet}
+                    onChange={(e) => handleChange('manualPublicSubnet', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                    placeholder="subnet-abc123"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Public subnet ID for the cluster</p>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Private Subnet <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={config.manualPrivateSubnet}
-                  onChange={(e) => handleChange('manualPrivateSubnet', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                  placeholder="subnet-def456"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  Private subnet ID for the cluster
-                </p>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Private Subnet <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={config.manualPrivateSubnet}
+                    onChange={(e) => handleChange('manualPrivateSubnet', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                    placeholder="subnet-def456"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Private subnet ID for the cluster</p>
+                </div>
               </div>
             </div>
-          </div>
           )}
 
           {/* Manual Role Configuration - Only show for older MCE versions (< 2.9) */}
           {!supportsNetworkRoleConfig && (
-          <div className="border-t pt-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">IAM Role Configuration</h3>
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">IAM Role Configuration</h3>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Installer Role ARN <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={config.manualInstallerRoleArn}
-                  onChange={(e) => handleChange('manualInstallerRoleArn', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                  placeholder="arn:aws:iam::123456789012:role/ManagedOpenShift-Installer-Role"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Support Role ARN <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={config.manualSupportRoleArn}
-                  onChange={(e) => handleChange('manualSupportRoleArn', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                  placeholder="arn:aws:iam::123456789012:role/ManagedOpenShift-Support-Role"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Worker Role ARN <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={config.manualWorkerRoleArn}
-                  onChange={(e) => handleChange('manualWorkerRoleArn', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                  placeholder="arn:aws:iam::123456789012:role/ManagedOpenShift-Worker-Role"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  OIDC Config ID <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={config.manualOidcConfigId}
-                  onChange={(e) => handleChange('manualOidcConfigId', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                  placeholder="12a3b4cd5e6f7890abcd1234ef567890"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  OIDC configuration ID from your ROSA account
-                </p>
-              </div>
-
-              {/* Operator Role ARNs - Collapsible */}
-              <details className="border border-gray-200 rounded-lg p-3">
-                <summary className="cursor-pointer font-medium text-sm text-gray-700 hover:text-gray-900">
-                  Operator Role ARNs (Optional - expand to configure)
-                </summary>
-                <div className="mt-3 space-y-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Control Plane Operator Role ARN
-                    </label>
-                    <input
-                      type="text"
-                      value={config.manualControlPlaneOperatorRoleArn}
-                      onChange={(e) => handleChange('manualControlPlaneOperatorRoleArn', e.target.value)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs font-mono"
-                      placeholder="arn:aws:iam::123456789012:role/prefix-openshift-cluster-csi-drivers-ebs-cloud-credentials"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Ingress Operator Role ARN
-                    </label>
-                    <input
-                      type="text"
-                      value={config.manualIngressOperatorRoleArn}
-                      onChange={(e) => handleChange('manualIngressOperatorRoleArn', e.target.value)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs font-mono"
-                      placeholder="arn:aws:iam::123456789012:role/prefix-openshift-ingress-operator-cloud-credentials"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Image Registry Operator Role ARN
-                    </label>
-                    <input
-                      type="text"
-                      value={config.manualImageRegistryOperatorRoleArn}
-                      onChange={(e) => handleChange('manualImageRegistryOperatorRoleArn', e.target.value)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs font-mono"
-                      placeholder="arn:aws:iam::123456789012:role/prefix-openshift-image-registry-installer-cloud-credentials"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Storage Operator Role ARN
-                    </label>
-                    <input
-                      type="text"
-                      value={config.manualStorageOperatorRoleArn}
-                      onChange={(e) => handleChange('manualStorageOperatorRoleArn', e.target.value)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs font-mono"
-                      placeholder="arn:aws:iam::123456789012:role/prefix-openshift-cluster-csi-drivers-ebs-cloud-credentials"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Network Operator Role ARN
-                    </label>
-                    <input
-                      type="text"
-                      value={config.manualNetworkOperatorRoleArn}
-                      onChange={(e) => handleChange('manualNetworkOperatorRoleArn', e.target.value)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs font-mono"
-                      placeholder="arn:aws:iam::123456789012:role/prefix-openshift-cloud-network-config-controller-cloud-credentials"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      KMS Provider Role ARN
-                    </label>
-                    <input
-                      type="text"
-                      value={config.manualKmsProviderRoleArn}
-                      onChange={(e) => handleChange('manualKmsProviderRoleArn', e.target.value)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs font-mono"
-                      placeholder="arn:aws:iam::123456789012:role/prefix-kms-provider-role"
-                    />
-                  </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Installer Role ARN <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={config.manualInstallerRoleArn}
+                    onChange={(e) => handleChange('manualInstallerRoleArn', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                    placeholder="arn:aws:iam::123456789012:role/ManagedOpenShift-Installer-Role"
+                  />
                 </div>
-              </details>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Support Role ARN <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={config.manualSupportRoleArn}
+                    onChange={(e) => handleChange('manualSupportRoleArn', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                    placeholder="arn:aws:iam::123456789012:role/ManagedOpenShift-Support-Role"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Worker Role ARN <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={config.manualWorkerRoleArn}
+                    onChange={(e) => handleChange('manualWorkerRoleArn', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                    placeholder="arn:aws:iam::123456789012:role/ManagedOpenShift-Worker-Role"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    OIDC Config ID <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={config.manualOidcConfigId}
+                    onChange={(e) => handleChange('manualOidcConfigId', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                    placeholder="12a3b4cd5e6f7890abcd1234ef567890"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    OIDC configuration ID from your ROSA account
+                  </p>
+                </div>
+
+                {/* Operator Role ARNs - Collapsible */}
+                <details className="border border-gray-200 rounded-lg p-3">
+                  <summary className="cursor-pointer font-medium text-sm text-gray-700 hover:text-gray-900">
+                    Operator Role ARNs (Optional - expand to configure)
+                  </summary>
+                  <div className="mt-3 space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Control Plane Operator Role ARN
+                      </label>
+                      <input
+                        type="text"
+                        value={config.manualControlPlaneOperatorRoleArn}
+                        onChange={(e) =>
+                          handleChange('manualControlPlaneOperatorRoleArn', e.target.value)
+                        }
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs font-mono"
+                        placeholder="arn:aws:iam::123456789012:role/prefix-openshift-cluster-csi-drivers-ebs-cloud-credentials"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Ingress Operator Role ARN
+                      </label>
+                      <input
+                        type="text"
+                        value={config.manualIngressOperatorRoleArn}
+                        onChange={(e) =>
+                          handleChange('manualIngressOperatorRoleArn', e.target.value)
+                        }
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs font-mono"
+                        placeholder="arn:aws:iam::123456789012:role/prefix-openshift-ingress-operator-cloud-credentials"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Image Registry Operator Role ARN
+                      </label>
+                      <input
+                        type="text"
+                        value={config.manualImageRegistryOperatorRoleArn}
+                        onChange={(e) =>
+                          handleChange('manualImageRegistryOperatorRoleArn', e.target.value)
+                        }
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs font-mono"
+                        placeholder="arn:aws:iam::123456789012:role/prefix-openshift-image-registry-installer-cloud-credentials"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Storage Operator Role ARN
+                      </label>
+                      <input
+                        type="text"
+                        value={config.manualStorageOperatorRoleArn}
+                        onChange={(e) =>
+                          handleChange('manualStorageOperatorRoleArn', e.target.value)
+                        }
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs font-mono"
+                        placeholder="arn:aws:iam::123456789012:role/prefix-openshift-cluster-csi-drivers-ebs-cloud-credentials"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Network Operator Role ARN
+                      </label>
+                      <input
+                        type="text"
+                        value={config.manualNetworkOperatorRoleArn}
+                        onChange={(e) =>
+                          handleChange('manualNetworkOperatorRoleArn', e.target.value)
+                        }
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs font-mono"
+                        placeholder="arn:aws:iam::123456789012:role/prefix-openshift-cloud-network-config-controller-cloud-credentials"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        KMS Provider Role ARN
+                      </label>
+                      <input
+                        type="text"
+                        value={config.manualKmsProviderRoleArn}
+                        onChange={(e) => handleChange('manualKmsProviderRoleArn', e.target.value)}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs font-mono"
+                        placeholder="arn:aws:iam::123456789012:role/prefix-kms-provider-role"
+                      />
+                    </div>
+                  </div>
+                </details>
+              </div>
             </div>
-          </div>
           )}
 
           {/* Network Configuration */}
@@ -833,199 +848,213 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
 
           {/* Log Forwarding Configuration - Only show for 4.20+ */}
           {supportsLogForwarding && (
-          <div className="border-t pt-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">
-              Log Forwarding Configuration
-            </h3>
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                Log Forwarding Configuration
+              </h3>
 
-            {/* Enable Log Forwarding Toggle */}
-            <label className="flex items-start gap-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200 cursor-pointer hover:bg-yellow-100 transition-colors mb-4">
-              <input
-                type="checkbox"
-                checked={config.enableLogForwarding}
-                onChange={(e) => handleChange('enableLogForwarding', e.target.checked)}
-                className="mt-1 h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
-              />
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-900">Enable Log Forwarding</span>
-                  <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded-full font-semibold">
-                    NEW
-                  </span>
-                </div>
-                <p className="text-xs text-gray-600 mt-1">
-                  Forward cluster audit logs to AWS CloudWatch and optionally to S3
-                </p>
-              </div>
-            </label>
-
-            {/* Log Forwarding Config Available Notification */}
-            {logForwardingConfigAvailable && !config.enableLogForwarding && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
-                <div className="flex items-start gap-2">
-                  <span className="text-green-600 text-sm">✓</span>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-green-900">
-                      Log Forwarding Configuration Found!
-                    </p>
-                    <p className="text-xs text-green-700 mt-1">
-                      Pre-configured log forwarding setup detected for this cluster name.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={loadLogForwardingConfig}
-                      className="mt-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors font-medium"
-                    >
-                      📋 Load Configuration
-                    </button>
+              {/* Enable Log Forwarding Toggle */}
+              <label className="flex items-start gap-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200 cursor-pointer hover:bg-yellow-100 transition-colors mb-4">
+                <input
+                  type="checkbox"
+                  checked={config.enableLogForwarding}
+                  onChange={(e) => handleChange('enableLogForwarding', e.target.checked)}
+                  className="mt-1 h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-900">Enable Log Forwarding</span>
+                    <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded-full font-semibold">
+                      NEW
+                    </span>
                   </div>
-                </div>
-              </div>
-            )}
-
-            {/* Loading indicator */}
-            {loadingLogForwardingConfig && (
-              <div className="text-center py-2 mb-4">
-                <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
-                <span className="ml-2 text-sm text-gray-600">
-                  Checking for log forwarding config...
-                </span>
-              </div>
-            )}
-
-            {/* Log Forwarding Fields - Only show when enabled */}
-            {config.enableLogForwarding && (
-              <div className="space-y-4 pl-4 border-l-2 border-yellow-200">
-                {/* CloudWatch Log Role ARN */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    CloudWatch Log Role ARN <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required={config.enableLogForwarding}
-                    value={config.logForwardCloudWatchRoleArn}
-                    onChange={(e) => handleChange('logForwardCloudWatchRoleArn', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 font-mono text-sm"
-                    placeholder="arn:aws:iam::123456789012:role/cluster-log-forward-role"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    IAM role ARN with permissions to write to CloudWatch Logs. Created by setup
-                    task.
+                  <p className="text-xs text-gray-600 mt-1">
+                    Forward cluster audit logs to AWS CloudWatch and optionally to S3
                   </p>
                 </div>
+              </label>
 
-                {/* Applications to Forward */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Applications to Forward <span className="text-red-500">*</span>
-                  </label>
-                  <div className="space-y-2">
-                    {[
-                      { value: 'audit-webhook', label: 'Audit Logs', description: 'Kubernetes audit events' },
-                      { value: 'kube-apiserver', label: 'Kubernetes API Logs', description: 'Kube API server logs' },
-                      { value: 'openshift-apiserver', label: 'OpenShift API & OAuth Logs', description: 'OpenShift API and authentication logs' },
-                    ].map((app) => (
-                      <label
-                        key={app.value}
-                        className="flex items-start gap-2 p-2 bg-gray-50 rounded border border-gray-200 hover:bg-gray-100 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={config.logForwardApplications.includes(app.value)}
-                          onChange={(e) => {
-                            const newApps = e.target.checked
-                              ? [...config.logForwardApplications, app.value]
-                              : config.logForwardApplications.filter((a) => a !== app.value);
-                            handleChange('logForwardApplications', newApps);
-                          }}
-                          className="mt-0.5 h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
-                        />
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-gray-700">{app.label}</div>
-                          <div className="text-xs text-gray-500">{app.description}</div>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Select which log types to forward to CloudWatch and S3 (at least one required)
-                  </p>
-                </div>
-
-                {/* CloudWatch Log Group Name */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    CloudWatch Log Group <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required={config.enableLogForwarding}
-                    value={config.logForwardCloudWatchLogGroup}
-                    onChange={(e) => handleChange('logForwardCloudWatchLogGroup', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 font-mono text-sm"
-                    placeholder="/aws/rosa/cluster-name/audit"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    CloudWatch log group name where audit logs will be sent
-                  </p>
-                </div>
-
-                {/* S3 Bucket Name (Optional) */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    S3 Bucket Name (optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={config.logForwardS3Bucket}
-                    onChange={(e) => handleChange('logForwardS3Bucket', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 font-mono text-sm"
-                    placeholder="rosa-logs-test-471112697682"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Optional S3 bucket name for additional log storage
-                  </p>
-                </div>
-
-                {/* S3 Bucket Prefix (Optional) */}
-                {config.logForwardS3Bucket && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      S3 Bucket Prefix (optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={config.logForwardS3Prefix}
-                      onChange={(e) => handleChange('logForwardS3Prefix', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 font-mono text-sm"
-                      placeholder="logs/rosa-clusters"
-                    />
-                    <p className="mt-1 text-xs text-gray-500">
-                      Optional prefix for objects stored in the S3 bucket
-                    </p>
-                  </div>
-                )}
-
-                {/* Info Box */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              {/* Log Forwarding Config Available Notification */}
+              {logForwardingConfigAvailable && !config.enableLogForwarding && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
                   <div className="flex items-start gap-2">
-                    <span className="text-blue-600 text-sm">ℹ️</span>
+                    <span className="text-green-600 text-sm">✓</span>
                     <div className="flex-1">
-                      <p className="text-xs text-blue-800 font-medium mb-1">Setup Prerequisites</p>
-                      <p className="text-xs text-blue-700">
-                        Run the log forwarding setup first to create the IAM role, CloudWatch log
-                        group, and S3 bucket (if using S3):
+                      <p className="text-sm font-medium text-green-900">
+                        Log Forwarding Configuration Found!
                       </p>
-                      <code className="text-xs bg-blue-100 text-blue-900 px-2 py-1 rounded mt-1 block">
-                        ansible-playbook test-rosa-log-forwarding.yml -e setup_only=true
-                      </code>
+                      <p className="text-xs text-green-700 mt-1">
+                        Pre-configured log forwarding setup detected for this cluster name.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={loadLogForwardingConfig}
+                        className="mt-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors font-medium"
+                      >
+                        📋 Load Configuration
+                      </button>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+
+              {/* Loading indicator */}
+              {loadingLogForwardingConfig && (
+                <div className="text-center py-2 mb-4">
+                  <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
+                  <span className="ml-2 text-sm text-gray-600">
+                    Checking for log forwarding config...
+                  </span>
+                </div>
+              )}
+
+              {/* Log Forwarding Fields - Only show when enabled */}
+              {config.enableLogForwarding && (
+                <div className="space-y-4 pl-4 border-l-2 border-yellow-200">
+                  {/* CloudWatch Log Role ARN */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      CloudWatch Log Role ARN <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required={config.enableLogForwarding}
+                      value={config.logForwardCloudWatchRoleArn}
+                      onChange={(e) => handleChange('logForwardCloudWatchRoleArn', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 font-mono text-sm"
+                      placeholder="arn:aws:iam::123456789012:role/cluster-log-forward-role"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      IAM role ARN with permissions to write to CloudWatch Logs. Created by setup
+                      task.
+                    </p>
+                  </div>
+
+                  {/* Applications to Forward */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Applications to Forward <span className="text-red-500">*</span>
+                    </label>
+                    <div className="space-y-2">
+                      {[
+                        {
+                          value: 'audit-webhook',
+                          label: 'Audit Logs',
+                          description: 'Kubernetes audit events',
+                        },
+                        {
+                          value: 'kube-apiserver',
+                          label: 'Kubernetes API Logs',
+                          description: 'Kube API server logs',
+                        },
+                        {
+                          value: 'openshift-apiserver',
+                          label: 'OpenShift API & OAuth Logs',
+                          description: 'OpenShift API and authentication logs',
+                        },
+                      ].map((app) => (
+                        <label
+                          key={app.value}
+                          className="flex items-start gap-2 p-2 bg-gray-50 rounded border border-gray-200 hover:bg-gray-100 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={config.logForwardApplications.includes(app.value)}
+                            onChange={(e) => {
+                              const newApps = e.target.checked
+                                ? [...config.logForwardApplications, app.value]
+                                : config.logForwardApplications.filter((a) => a !== app.value);
+                              handleChange('logForwardApplications', newApps);
+                            }}
+                            className="mt-0.5 h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
+                          />
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-gray-700">{app.label}</div>
+                            <div className="text-xs text-gray-500">{app.description}</div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Select which log types to forward to CloudWatch and S3 (at least one required)
+                    </p>
+                  </div>
+
+                  {/* CloudWatch Log Group Name */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      CloudWatch Log Group <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required={config.enableLogForwarding}
+                      value={config.logForwardCloudWatchLogGroup}
+                      onChange={(e) => handleChange('logForwardCloudWatchLogGroup', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 font-mono text-sm"
+                      placeholder="/aws/rosa/cluster-name/audit"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      CloudWatch log group name where audit logs will be sent
+                    </p>
+                  </div>
+
+                  {/* S3 Bucket Name (Optional) */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      S3 Bucket Name (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={config.logForwardS3Bucket}
+                      onChange={(e) => handleChange('logForwardS3Bucket', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 font-mono text-sm"
+                      placeholder="rosa-logs-test-471112697682"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Optional S3 bucket name for additional log storage
+                    </p>
+                  </div>
+
+                  {/* S3 Bucket Prefix (Optional) */}
+                  {config.logForwardS3Bucket && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        S3 Bucket Prefix (optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={config.logForwardS3Prefix}
+                        onChange={(e) => handleChange('logForwardS3Prefix', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 font-mono text-sm"
+                        placeholder="logs/rosa-clusters"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Optional prefix for objects stored in the S3 bucket
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Info Box */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <span className="text-blue-600 text-sm">ℹ️</span>
+                      <div className="flex-1">
+                        <p className="text-xs text-blue-800 font-medium mb-1">
+                          Setup Prerequisites
+                        </p>
+                        <p className="text-xs text-blue-700">
+                          Run the log forwarding setup first to create the IAM role, CloudWatch log
+                          group, and S3 bucket (if using S3):
+                        </p>
+                        <code className="text-xs bg-blue-100 text-blue-900 px-2 py-1 rounded mt-1 block">
+                          ansible-playbook test-rosa-log-forwarding.yml -e setup_only=true
+                        </code>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           {/* Provisioning Summary */}

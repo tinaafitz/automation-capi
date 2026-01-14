@@ -267,16 +267,16 @@ export function CreateCluster() {
               </div>
               <div className="ml-3">
                 <label className="font-medium text-gray-700">S3 Log Forwarding</label>
-                <p className="text-sm text-gray-500">
-                  Forward cluster logs to AWS S3 bucket
-                </p>
+                <p className="text-sm text-gray-500">Forward cluster logs to AWS S3 bucket</p>
               </div>
             </div>
 
             {config.s3_log_forwarding_enabled && (
               <div className="ml-7 space-y-4 border-l-2 border-gray-200 pl-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">S3 Bucket Name *</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    S3 Bucket Name *
+                  </label>
                   <input
                     type="text"
                     required={config.s3_log_forwarding_enabled}
@@ -285,11 +285,15 @@ export function CreateCluster() {
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-red-500 focus:border-red-500"
                     placeholder="rosa-logs-test-471112697682"
                   />
-                  <p className="mt-1 text-xs text-gray-500">Name of the S3 bucket for log storage</p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Name of the S3 bucket for log storage
+                  </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">S3 Bucket Prefix (Optional)</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    S3 Bucket Prefix (Optional)
+                  </label>
                   <input
                     type="text"
                     value={config.s3_bucket_prefix}
@@ -297,16 +301,32 @@ export function CreateCluster() {
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-red-500 focus:border-red-500"
                     placeholder="logs/rosa-clusters"
                   />
-                  <p className="mt-1 text-xs text-gray-500">Prefix for objects stored in the S3 bucket</p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Prefix for objects stored in the S3 bucket
+                  </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Log Applications *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Log Applications *
+                  </label>
                   <div className="space-y-2">
                     {[
-                      { value: 'audit-webhook', label: 'Audit Logs', description: 'Kubernetes audit events' },
-                      { value: 'kube-apiserver', label: 'Kubernetes API Logs', description: 'Kube API server logs' },
-                      { value: 'openshift-apiserver', label: 'OpenShift API & OAuth Logs', description: 'OpenShift API and authentication logs' },
+                      {
+                        value: 'audit-webhook',
+                        label: 'Audit Logs',
+                        description: 'Kubernetes audit events',
+                      },
+                      {
+                        value: 'kube-apiserver',
+                        label: 'Kubernetes API Logs',
+                        description: 'Kube API server logs',
+                      },
+                      {
+                        value: 'openshift-apiserver',
+                        label: 'OpenShift API & OAuth Logs',
+                        description: 'OpenShift API and authentication logs',
+                      },
                     ].map((app) => (
                       <div key={app.value} className="flex items-start">
                         <div className="flex items-center h-5">

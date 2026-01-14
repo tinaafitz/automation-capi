@@ -54,17 +54,14 @@ export const useMinikubeEnvironment = () => {
     );
 
     try {
-      const response = await fetch(
-        'http://localhost:8000/api/minikube/get-active-resources',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            cluster_name: clusterName,
-            namespace: namespace,
-          }),
-        }
-      );
+      const response = await fetch('http://localhost:8000/api/minikube/get-active-resources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cluster_name: clusterName,
+          namespace: namespace,
+        }),
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);

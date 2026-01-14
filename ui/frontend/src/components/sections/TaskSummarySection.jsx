@@ -196,7 +196,11 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
 
   // Get status icon and color
   const getStatusDisplay = (status) => {
-    if (status?.includes('✅') || status?.toLowerCase().includes('success') || status?.toLowerCase().includes('completed')) {
+    if (
+      status?.includes('✅') ||
+      status?.toLowerCase().includes('success') ||
+      status?.toLowerCase().includes('completed')
+    ) {
       return {
         icon: <CheckCircleIcon className="h-5 w-5" />,
         bgColor: 'bg-green-500/20',
@@ -205,7 +209,11 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
         dotColor: 'bg-green-500',
       };
     }
-    if (status?.includes('❌') || status?.toLowerCase().includes('failed') || status?.toLowerCase().includes('error')) {
+    if (
+      status?.includes('❌') ||
+      status?.toLowerCase().includes('failed') ||
+      status?.toLowerCase().includes('error')
+    ) {
       return {
         icon: <XCircleIcon className="h-5 w-5" />,
         bgColor: 'bg-red-500/20',
@@ -214,7 +222,11 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
         dotColor: 'bg-red-500',
       };
     }
-    if (status?.includes('⏳') || status?.toLowerCase().includes('running') || status?.toLowerCase().includes('pending')) {
+    if (
+      status?.includes('⏳') ||
+      status?.toLowerCase().includes('running') ||
+      status?.toLowerCase().includes('pending')
+    ) {
       return {
         icon: <ArrowPathIcon className="h-5 w-5 animate-spin" />,
         bgColor: 'bg-blue-500/20',
@@ -325,7 +337,9 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
                       {/* Title and Timestamp */}
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3 flex-1">
-                          <div className={`w-2 h-2 rounded-full ${statusDisplay.dotColor} flex-shrink-0 mt-2`}></div>
+                          <div
+                            className={`w-2 h-2 rounded-full ${statusDisplay.dotColor} flex-shrink-0 mt-2`}
+                          ></div>
                           <h4 className={`font-semibold text-base flex-1 ${colors.text}`}>
                             {operation.title}
                           </h4>
@@ -339,7 +353,9 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
                       {operation.playbook && (
                         <div className="flex items-center space-x-2 text-sm pl-5">
                           <span className="text-gray-400">📋</span>
-                          <span className="text-gray-600 font-mono text-xs">{operation.playbook}</span>
+                          <span className="text-gray-600 font-mono text-xs">
+                            {operation.playbook}
+                          </span>
                         </div>
                       )}
 
@@ -363,16 +379,18 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
                           </button>
 
                           {/* Cancel Button - Only show for running backend jobs */}
-                          {operation.id && (operation.status?.includes('⏳') || operation.status?.toLowerCase().includes('running')) && (
-                            <button
-                              onClick={(e) => cancelJob(e, operation.id)}
-                              className="px-3 py-1.5 rounded-lg transition-all text-xs font-medium flex items-center space-x-1 bg-red-100 text-red-700 hover:bg-red-200"
-                              title="Cancel this job"
-                            >
-                              <StopIcon className="h-4 w-4" />
-                              <span>Cancel</span>
-                            </button>
-                          )}
+                          {operation.id &&
+                            (operation.status?.includes('⏳') ||
+                              operation.status?.toLowerCase().includes('running')) && (
+                              <button
+                                onClick={(e) => cancelJob(e, operation.id)}
+                                className="px-3 py-1.5 rounded-lg transition-all text-xs font-medium flex items-center space-x-1 bg-red-100 text-red-700 hover:bg-red-200"
+                                title="Cancel this job"
+                              >
+                                <StopIcon className="h-4 w-4" />
+                                <span>Cancel</span>
+                              </button>
+                            )}
 
                           {/* View Details Button */}
                           {hasDetails && (
@@ -396,7 +414,9 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
                     {isExpanded && hasDetails && (
                       <div className="border-t-2 border-gray-200 bg-gray-50">
                         <div className="bg-gray-800 px-4 py-2 border-b border-gray-700/50 flex items-center justify-between">
-                          <span className="text-green-400 text-xs font-mono font-semibold">OUTPUT</span>
+                          <span className="text-green-400 text-xs font-mono font-semibold">
+                            OUTPUT
+                          </span>
                           <div className="flex space-x-1">
                             <div className="w-2 h-2 rounded-full bg-red-500/50"></div>
                             <div className="w-2 h-2 rounded-full bg-yellow-500/50"></div>

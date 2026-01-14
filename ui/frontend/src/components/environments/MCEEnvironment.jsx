@@ -1250,7 +1250,9 @@ Report created at ${completionTime}`
       ?.filter(
         (op) =>
           op.environment === 'mce' &&
-          (op.status?.includes('✅') || op.status?.toLowerCase().includes('verified') || op.status?.toLowerCase().includes('configured'))
+          (op.status?.includes('✅') ||
+            op.status?.toLowerCase().includes('verified') ||
+            op.status?.toLowerCase().includes('configured'))
       )
       .sort((a, b) => {
         const timeA = typeof a.timestamp === 'number' ? a.timestamp : Date.parse(a.timestamp);
@@ -1270,10 +1272,11 @@ Report created at ${completionTime}`
     if (jobHistory) {
       const mceJobs = jobHistory.getJobsByEnvironment('mce');
       const recentJob = mceJobs
-        .filter((job) =>
-          (job.task_file?.includes('validate-capa-environment') ||
-           job.task_file?.includes('configure_capi_environment')) &&
-          job.status === 'completed'
+        .filter(
+          (job) =>
+            (job.task_file?.includes('validate-capa-environment') ||
+              job.task_file?.includes('configure_capi_environment')) &&
+            job.status === 'completed'
         )
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
 

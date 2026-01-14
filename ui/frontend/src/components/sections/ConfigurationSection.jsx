@@ -57,23 +57,23 @@ const ConfigurationSection = ({
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   // Filter mceFeatures to get CAPI and Hypershift components - versions come from API
-  const capiComponentsArray = (mceFeatures?.filter((f) => f.name?.startsWith('cluster-api')) || [])
-    .sort((a, b) => {
-      // Sort enabled components first
-      if (a.enabled && !b.enabled) return -1;
-      if (!a.enabled && b.enabled) return 1;
-      return a.name.localeCompare(b.name);
-    });
+  const capiComponentsArray = (
+    mceFeatures?.filter((f) => f.name?.startsWith('cluster-api')) || []
+  ).sort((a, b) => {
+    // Sort enabled components first
+    if (a.enabled && !b.enabled) return -1;
+    if (!a.enabled && b.enabled) return 1;
+    return a.name.localeCompare(b.name);
+  });
 
   const hypershiftComponentsArray = (
     mceFeatures?.filter((f) => f.name?.startsWith('hypershift')) || []
-  )
-    .sort((a, b) => {
-      // Sort enabled components first
-      if (a.enabled && !b.enabled) return -1;
-      if (!a.enabled && b.enabled) return 1;
-      return a.name.localeCompare(b.name);
-    });
+  ).sort((a, b) => {
+    // Sort enabled components first
+    if (a.enabled && !b.enabled) return -1;
+    if (!a.enabled && b.enabled) return 1;
+    return a.name.localeCompare(b.name);
+  });
 
   // Check if using preview components (legacy/old MCE build)
   const hasPreviewComponents = capiComponentsArray.some(
@@ -389,7 +389,8 @@ const ConfigurationSection = ({
         );
         const capaEnabled = freshCAPIComponents.some(
           (f) =>
-            (f.name === 'cluster-api-provider-aws' || f.name === 'cluster-api-provider-aws-preview') &&
+            (f.name === 'cluster-api-provider-aws' ||
+              f.name === 'cluster-api-provider-aws-preview') &&
             f.enabled
         );
 
@@ -474,7 +475,9 @@ Status:       ${ocpStatus?.connected ? 'Connected' : 'Not Connected'}
 Last Verified: ${lastVerifiedDate}`;
 
       // Skip deployment YAML fetching - we already have component info from API context
-      console.log(`📊 Using component data from API context (${freshCAPIComponents.filter((c) => c.enabled).length} enabled components)`);
+      console.log(
+        `📊 Using component data from API context (${freshCAPIComponents.filter((c) => c.enabled).length} enabled components)`
+      );
       updateRecentOperationStatus(
         reportId,
         '⏳ Generating report...',
@@ -625,7 +628,8 @@ ${freshCAPIComponents
         recentJobs.length > 0
           ? `<div class="timeline">${recentJobs
               .map((job) => {
-                const statusClass = job.status === 'completed' ? '' : job.status === 'failed' ? 'failed' : 'pending';
+                const statusClass =
+                  job.status === 'completed' ? '' : job.status === 'failed' ? 'failed' : 'pending';
                 const statusIcon =
                   job.status === 'completed' ? '✓' : job.status === 'failed' ? '✕' : '⏳';
                 const taskName = job.title || job.description || 'Task';
@@ -907,7 +911,11 @@ ${freshCAPIComponents
                 ? 'bg-white/20 hover:bg-white/30 text-white hover:scale-105 active:scale-100'
                 : 'bg-white/10 text-white/50 cursor-not-allowed'
             }`}
-            title={ocpStatus?.connected ? "Configure Components (Ctrl+2)" : "Configure credentials and verify first"}
+            title={
+              ocpStatus?.connected
+                ? 'Configure Components (Ctrl+2)'
+                : 'Configure credentials and verify first'
+            }
           >
             <Cog6ToothIcon className="h-4 w-4" />
             <span>Configure</span>
@@ -934,7 +942,11 @@ ${freshCAPIComponents
                 ? 'bg-white/20 hover:bg-white/30 text-white hover:scale-105 active:scale-100'
                 : 'bg-white/10 text-white/50 cursor-not-allowed'
             }`}
-            title={ocpStatus?.connected ? "Provision ROSA HCP Cluster (Ctrl+P)" : "Verify environment first"}
+            title={
+              ocpStatus?.connected
+                ? 'Provision ROSA HCP Cluster (Ctrl+P)'
+                : 'Verify environment first'
+            }
           >
             <RocketLaunchIcon className="h-4 w-4" />
             <span>Provision</span>
@@ -1106,415 +1118,452 @@ ${freshCAPIComponents
           ) : (
             /* Expanded View - Three Column Grid Layout */
             <div className={cardStyles.grid}>
-            {/* MCE Environment Card */}
-            <StatusCard
-              theme="mce"
-              title={
-                <div className="flex items-center gap-2">
-                  <span>MCE Environment</span>
-                  <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${
-                      ocpStatus?.connected
-                        ? 'text-green-600 bg-green-50 border-green-200'
-                        : 'text-red-600 bg-red-50 border-red-200'
-                    }`}
-                  >
-                    <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
-                    {ocpStatus?.connected ? 'Connected' : 'Not Connected'}
-                  </span>
-                  {hasPreviewComponents && (
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-300">
-                      <span className="mr-1">⚠️</span>
-                      CAPI/CAPA Preview Build
+              {/* MCE Environment Card */}
+              <StatusCard
+                theme="mce"
+                title={
+                  <div className="flex items-center gap-2">
+                    <span>MCE Environment</span>
+                    <span
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${
+                        ocpStatus?.connected
+                          ? 'text-green-600 bg-green-50 border-green-200'
+                          : 'text-red-600 bg-red-50 border-red-200'
+                      }`}
+                    >
+                      <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
+                      {ocpStatus?.connected ? 'Connected' : 'Not Connected'}
                     </span>
-                  )}
-                </div>
-              }
-              icon={
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
-              }
-              lastVerified={getLastVerifiedText()}
-              actions={[]}
-            >
-              <div className="space-y-4">
-                <div className="bg-white p-4 rounded-lg border border-cyan-100">
-                  <h5 className="font-semibold text-cyan-900 mb-2 flex items-center gap-2">
-                    <span>{mceInfo?.name || 'multiclusterengine'}</span>
-                    <span className="text-sm font-normal text-cyan-600">
-                      {mceInfo?.version || '2.10.0'}
-                    </span>
-                  </h5>
-
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="font-medium text-gray-600">API Server:</span>
-                      <div className="mt-1 text-cyan-600 font-mono text-xs break-all">
-                        {ocpStatus?.api_url || 'Not configured'}
-                      </div>
-                    </div>
-                    {getLastVerifiedText() && (
-                      <div>
-                        <span className="font-medium text-gray-600">Last Verified:</span>
-                        <div className="mt-1 text-gray-700 text-xs">{getLastVerifiedText()}</div>
-                      </div>
+                    {hasPreviewComponents && (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-300">
+                        <span className="mr-1">⚠️</span>
+                        CAPI/CAPA Preview Build
+                      </span>
                     )}
                   </div>
-                </div>
-
-                {/* Quick Stats Summary */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-lg p-3 border border-cyan-100">
-                    <div className="text-xs text-gray-600 mb-1">Components</div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-bold text-cyan-700">
-                        {allCAPIComponents.filter((c) => c.enabled).length}
+                }
+                icon={
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                    />
+                  </svg>
+                }
+                lastVerified={getLastVerifiedText()}
+                actions={[]}
+              >
+                <div className="space-y-4">
+                  <div className="bg-white p-4 rounded-lg border border-cyan-100">
+                    <h5 className="font-semibold text-cyan-900 mb-2 flex items-center gap-2">
+                      <span>{mceInfo?.name || 'multiclusterengine'}</span>
+                      <span className="text-sm font-normal text-cyan-600">
+                        {mceInfo?.version || '2.10.0'}
                       </span>
-                      <span className="text-xs text-gray-500">
-                        / {allCAPIComponents.length} enabled
-                      </span>
-                    </div>
-                  </div>
-                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-3 border border-green-100">
-                    <div className="text-xs text-gray-600 mb-1">Resources</div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-bold text-green-700">
-                        {mceResources.length}
-                      </span>
-                      <span className="text-xs text-gray-500">total</span>
-                    </div>
-                  </div>
-                </div>
+                    </h5>
 
-                {/* Secondary Actions Toolbar */}
-                <div className="border-t border-gray-200 pt-3 mt-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Quick Actions</span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={onRefresh}
-                        className="group p-2 rounded-lg hover:bg-cyan-50 transition-all duration-200 hover:scale-110 active:scale-95"
-                        title="Refresh Status"
-                      >
-                        <ArrowPathIcon className="h-4 w-4 text-gray-600 group-hover:text-cyan-600 group-hover:rotate-180 transition-all duration-300" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </StatusCard>
-
-            {/* Components Card */}
-            <StatusCard
-              theme="mce"
-              title={
-                <div className="flex items-center gap-2">
-                  <span>Components</span>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200">
-                    <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
-                    {allCAPIComponents.filter((c) => c.enabled).length} configured
-                  </span>
-                  {hasPreviewComponents && (
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-300">
-                      <span className="mr-1">⚠️</span>
-                      Preview Build
-                    </span>
-                  )}
-                </div>
-              }
-              icon={<Cog6ToothIcon className="h-5 w-5" />}
-              actions={[]}
-            >
-              <div className="space-y-3">
-                {/* Two-Column Grid Layout */}
-                <div className="grid grid-cols-2 gap-4">
-                  {/* CAPI Components - Already filtered for cluster-api* */}
-                  <div className="bg-gradient-to-br from-gray-50 to-cyan-50/30 rounded-lg p-3 border border-gray-100">
-                    <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-                      <span>🔌</span>
-                      <span>CAPI Providers</span>
-                    </div>
-                    <div className="space-y-1.5">
-                      {capiComponentsArray.map((feature, index) => {
-                        // Map component names to their actual deployment names
-                        const getDeploymentInfo = (componentName) => {
-                          switch (componentName) {
-                            case 'cluster-api':
-                              return { name: 'capi-controller-manager', namespace: 'capi-system' };
-                            case 'cluster-api-provider-aws':
-                              return { name: 'capa-controller-manager', namespace: 'capa-system' };
-                            case 'cluster-api-provider-metal3':
-                              return { name: 'capm3-controller-manager', namespace: 'capm3-system' };
-                            case 'cluster-api-provider-openshift-assisted':
-                              return {
-                                name: 'capi-provider-controller-manager',
-                                namespace: 'capi-provider-system',
-                              };
-                            default:
-                              return { name: componentName, namespace: 'default' };
-                          }
-                        };
-
-                        const deploymentInfo = getDeploymentInfo(feature.name);
-
-                        return (
-                          <div
-                            key={index}
-                            className="flex items-start justify-between text-xs cursor-pointer hover:bg-white/60 bg-white/40 rounded px-2.5 py-2 transition-all gap-2 border border-transparent hover:border-cyan-200"
-                            onClick={() =>
-                              feature.enabled &&
-                              handleResourceClick({
-                                name: deploymentInfo.name,
-                                type: 'Deployment',
-                                namespace: deploymentInfo.namespace,
-                              })
-                            }
-                            title={feature.enabled ? 'Click to view YAML' : 'Component not enabled'}
-                          >
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${feature.enabled ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-red-400 shadow-sm shadow-red-400/50'}`}></div>
-                              <div className="flex flex-col gap-0.5 min-w-0">
-                                <span className={`truncate font-medium ${feature.enabled ? 'text-gray-800 hover:text-cyan-700' : 'text-gray-500'}`}>
-                                  {feature.name}
-                                </span>
-                                {feature.version && (
-                                  <span className="text-[10px] text-gray-500 font-mono">
-                                    {feature.version}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Hypershift Components - Only show on newer builds (not preview) */}
-                  {!hasPreviewComponents && (
-                  <div className="bg-gradient-to-br from-gray-50 to-blue-50/30 rounded-lg p-3 border border-gray-100">
-                    <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-                      <span>⚙️</span>
-                      <span>Hypershift</span>
-                    </div>
-                    <div className="space-y-1.5">
-                      {hypershiftComponentsArray.map((feature, index) => {
-                        // Map component names to their actual deployment names
-                        const getHypershiftDeploymentInfo = (componentName) => {
-                          switch (componentName) {
-                            case 'hypershift':
-                              return { name: 'operator', namespace: 'hypershift' };
-                            case 'hypershift-local-hosting':
-                              return { name: 'operator', namespace: 'hypershift' };
-                            default:
-                              return { name: componentName, namespace: 'hypershift' };
-                          }
-                        };
-
-                        const deploymentInfo = getHypershiftDeploymentInfo(feature.name);
-
-                        return (
-                          <div
-                            key={index}
-                            className="flex items-start justify-between text-xs cursor-pointer hover:bg-white/60 bg-white/40 rounded px-2.5 py-2 transition-all gap-2 border border-transparent hover:border-blue-200"
-                            onClick={() =>
-                              feature.enabled &&
-                              handleResourceClick({
-                                name: deploymentInfo.name,
-                                type: 'Deployment',
-                                namespace: deploymentInfo.namespace,
-                              })
-                            }
-                            title={feature.enabled ? 'Click to view YAML' : 'Component not enabled'}
-                          >
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${feature.enabled ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-red-400 shadow-sm shadow-red-400/50'}`}></div>
-                              <div className="flex flex-col gap-0.5 min-w-0">
-                                <span className={`truncate font-medium ${feature.enabled ? 'text-gray-800 hover:text-cyan-700' : 'text-gray-500'}`}>
-                                  {feature.name}
-                                </span>
-                                {feature.version && (
-                                  <span className="text-[10px] text-gray-500 font-mono">
-                                    {feature.version}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                </div>
-
-                {/* Secondary Actions Toolbar */}
-                <div className="border-t border-gray-200 pt-3 mt-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Quick Actions</span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={handleComponentRefresh}
-                        className="group p-2 rounded-lg hover:bg-cyan-50 transition-all duration-200 hover:scale-110 active:scale-95"
-                        title="Refresh Components"
-                      >
-                        <ArrowPathIcon className="h-4 w-4 text-gray-600 group-hover:text-cyan-600 group-hover:rotate-180 transition-all duration-300" />
-                      </button>
-                      {capiComponentsArray.some((c) => c.name === 'cluster-api' && c.enabled) && (
-                        <button
-                          onClick={onDisableCapi}
-                          className="group p-2 rounded-lg hover:bg-red-50 transition-all duration-200 hover:scale-110 active:scale-95"
-                          title="Disable CAPI"
-                        >
-                          <NoSymbolIcon className="h-4 w-4 text-gray-600 group-hover:text-red-600 group-hover:rotate-12 transition-all duration-300" />
-                        </button>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <span className="font-medium text-gray-600">API Server:</span>
+                        <div className="mt-1 text-cyan-600 font-mono text-xs break-all">
+                          {ocpStatus?.api_url || 'Not configured'}
+                        </div>
+                      </div>
+                      {getLastVerifiedText() && (
+                        <div>
+                          <span className="font-medium text-gray-600">Last Verified:</span>
+                          <div className="mt-1 text-gray-700 text-xs">{getLastVerifiedText()}</div>
+                        </div>
                       )}
                     </div>
                   </div>
-                </div>
-              </div>
-            </StatusCard>
 
-            {/* Resources Card */}
-            <StatusCard
-              theme="mce"
-              title={
-                <div className="flex items-center gap-2">
-                  <span>Resources</span>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200">
-                    <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
-                    {mceResources.length} total
-                  </span>
-                </div>
-              }
-              icon={<RocketLaunchIcon className="h-5 w-5" />}
-              actions={[]}
-            >
-              <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                {mceResourcesLoading ? (
-                  <div className="text-center py-4">
-                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-600"></div>
-                    <p className="mt-2 text-sm text-gray-600">Loading resources...</p>
+                  {/* Quick Stats Summary */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-lg p-3 border border-cyan-100">
+                      <div className="text-xs text-gray-600 mb-1">Components</div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold text-cyan-700">
+                          {allCAPIComponents.filter((c) => c.enabled).length}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          / {allCAPIComponents.length} enabled
+                        </span>
+                      </div>
+                    </div>
+                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-3 border border-green-100">
+                      <div className="text-xs text-gray-600 mb-1">Resources</div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold text-green-700">
+                          {mceResources.length}
+                        </span>
+                        <span className="text-xs text-gray-500">total</span>
+                      </div>
+                    </div>
                   </div>
-                ) : mceResources.length === 0 ? (
-                  <div className="text-center py-4 text-gray-500">
-                    <p>No resources found.</p>
-                    <p className="text-sm mt-1">
-                      Resources will appear here when environment is configured.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2 pr-2">
-                    {Object.entries(groupedResources).map(([namespace, resources]) => {
-                      const isExpanded = expandedNamespaces.has(namespace);
-                      return (
-                        <div
-                          key={namespace}
-                          className="border border-gray-200 rounded-lg overflow-hidden"
+
+                  {/* Secondary Actions Toolbar */}
+                  <div className="border-t border-gray-200 pt-3 mt-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                        Quick Actions
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={onRefresh}
+                          className="group p-2 rounded-lg hover:bg-cyan-50 transition-all duration-200 hover:scale-110 active:scale-95"
+                          title="Refresh Status"
                         >
-                          <div
-                            className={`flex items-center justify-between cursor-pointer py-2.5 px-3 transition-all ${
-                              isExpanded
-                                ? 'bg-gradient-to-r from-cyan-50 to-blue-50 border-b border-cyan-200'
-                                : 'bg-gray-50 hover:bg-cyan-50'
-                            }`}
-                            onClick={() => toggleNamespace(namespace)}
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className={`transition-transform duration-200 ${isExpanded ? 'rotate-90 text-cyan-600' : 'text-gray-400'}`}>
-                                ▶
-                              </span>
-                              <h4 className={`font-semibold text-sm ${isExpanded ? 'text-cyan-900' : 'text-gray-800'}`}>
-                                {namespace}
-                              </h4>
-                            </div>
-                            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                              isExpanded
-                                ? 'bg-cyan-600 text-white'
-                                : 'bg-gray-200 text-gray-600'
-                            }`}>
-                              {resources.length}
-                            </span>
-                          </div>
+                          <ArrowPathIcon className="h-4 w-4 text-gray-600 group-hover:text-cyan-600 group-hover:rotate-180 transition-all duration-300" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </StatusCard>
 
-                          {isExpanded && (
-                            <div className="ml-6 mt-2 space-y-2">
-                              {resources.map((resource, index) => (
+              {/* Components Card */}
+              <StatusCard
+                theme="mce"
+                title={
+                  <div className="flex items-center gap-2">
+                    <span>Components</span>
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200">
+                      <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
+                      {allCAPIComponents.filter((c) => c.enabled).length} configured
+                    </span>
+                    {hasPreviewComponents && (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-300">
+                        <span className="mr-1">⚠️</span>
+                        Preview Build
+                      </span>
+                    )}
+                  </div>
+                }
+                icon={<Cog6ToothIcon className="h-5 w-5" />}
+                actions={[]}
+              >
+                <div className="space-y-3">
+                  {/* Two-Column Grid Layout */}
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* CAPI Components - Already filtered for cluster-api* */}
+                    <div className="bg-gradient-to-br from-gray-50 to-cyan-50/30 rounded-lg p-3 border border-gray-100">
+                      <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                        <span>🔌</span>
+                        <span>CAPI Providers</span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {capiComponentsArray.map((feature, index) => {
+                          // Map component names to their actual deployment names
+                          const getDeploymentInfo = (componentName) => {
+                            switch (componentName) {
+                              case 'cluster-api':
+                                return {
+                                  name: 'capi-controller-manager',
+                                  namespace: 'capi-system',
+                                };
+                              case 'cluster-api-provider-aws':
+                                return {
+                                  name: 'capa-controller-manager',
+                                  namespace: 'capa-system',
+                                };
+                              case 'cluster-api-provider-metal3':
+                                return {
+                                  name: 'capm3-controller-manager',
+                                  namespace: 'capm3-system',
+                                };
+                              case 'cluster-api-provider-openshift-assisted':
+                                return {
+                                  name: 'capi-provider-controller-manager',
+                                  namespace: 'capi-provider-system',
+                                };
+                              default:
+                                return { name: componentName, namespace: 'default' };
+                            }
+                          };
+
+                          const deploymentInfo = getDeploymentInfo(feature.name);
+
+                          return (
+                            <div
+                              key={index}
+                              className="flex items-start justify-between text-xs cursor-pointer hover:bg-white/60 bg-white/40 rounded px-2.5 py-2 transition-all gap-2 border border-transparent hover:border-cyan-200"
+                              onClick={() =>
+                                feature.enabled &&
+                                handleResourceClick({
+                                  name: deploymentInfo.name,
+                                  type: 'Deployment',
+                                  namespace: deploymentInfo.namespace,
+                                })
+                              }
+                              title={
+                                feature.enabled ? 'Click to view YAML' : 'Component not enabled'
+                              }
+                            >
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
                                 <div
-                                  key={index}
-                                  className="cursor-pointer hover:bg-cyan-50 rounded p-2 transition-colors"
-                                  onClick={() => handleResourceClick(resource)}
-                                >
-                                  <h5 className="font-medium text-gray-800 text-sm hover:text-cyan-700">
-                                    {resource.name}
-                                  </h5>
-                                  <div className="mt-1">
-                                    <span
-                                      className={`inline-block px-2 py-1 rounded text-xs font-medium ${getResourceTypeColor(resource.type)}`}
-                                    >
-                                      {resource.type}
+                                  className={`w-2 h-2 rounded-full flex-shrink-0 ${feature.enabled ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-red-400 shadow-sm shadow-red-400/50'}`}
+                                ></div>
+                                <div className="flex flex-col gap-0.5 min-w-0">
+                                  <span
+                                    className={`truncate font-medium ${feature.enabled ? 'text-gray-800 hover:text-cyan-700' : 'text-gray-500'}`}
+                                  >
+                                    {feature.name}
+                                  </span>
+                                  {feature.version && (
+                                    <span className="text-[10px] text-gray-500 font-mono">
+                                      {feature.version}
                                     </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Hypershift Components - Only show on newer builds (not preview) */}
+                    {!hasPreviewComponents && (
+                      <div className="bg-gradient-to-br from-gray-50 to-blue-50/30 rounded-lg p-3 border border-gray-100">
+                        <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                          <span>⚙️</span>
+                          <span>Hypershift</span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {hypershiftComponentsArray.map((feature, index) => {
+                            // Map component names to their actual deployment names
+                            const getHypershiftDeploymentInfo = (componentName) => {
+                              switch (componentName) {
+                                case 'hypershift':
+                                  return { name: 'operator', namespace: 'hypershift' };
+                                case 'hypershift-local-hosting':
+                                  return { name: 'operator', namespace: 'hypershift' };
+                                default:
+                                  return { name: componentName, namespace: 'hypershift' };
+                              }
+                            };
+
+                            const deploymentInfo = getHypershiftDeploymentInfo(feature.name);
+
+                            return (
+                              <div
+                                key={index}
+                                className="flex items-start justify-between text-xs cursor-pointer hover:bg-white/60 bg-white/40 rounded px-2.5 py-2 transition-all gap-2 border border-transparent hover:border-blue-200"
+                                onClick={() =>
+                                  feature.enabled &&
+                                  handleResourceClick({
+                                    name: deploymentInfo.name,
+                                    type: 'Deployment',
+                                    namespace: deploymentInfo.namespace,
+                                  })
+                                }
+                                title={
+                                  feature.enabled ? 'Click to view YAML' : 'Component not enabled'
+                                }
+                              >
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <div
+                                    className={`w-2 h-2 rounded-full flex-shrink-0 ${feature.enabled ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-red-400 shadow-sm shadow-red-400/50'}`}
+                                  ></div>
+                                  <div className="flex flex-col gap-0.5 min-w-0">
+                                    <span
+                                      className={`truncate font-medium ${feature.enabled ? 'text-gray-800 hover:text-cyan-700' : 'text-gray-500'}`}
+                                    >
+                                      {feature.name}
+                                    </span>
+                                    {feature.version && (
+                                      <span className="text-[10px] text-gray-500 font-mono">
+                                        {feature.version}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
-                              ))}
-                            </div>
-                          )}
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Secondary Actions Toolbar */}
-              <div className="border-t border-gray-200 pt-3 mt-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Quick Actions</span>
-                  <div className="flex items-center gap-1">
-                    {mceResources.length > 0 && (
-                      <button
-                        onClick={() => {
-                          if (expandedNamespaces.size === Object.keys(groupedResources).length) {
-                            setExpandedNamespaces(new Set());
-                          } else {
-                            setExpandedNamespaces(new Set(Object.keys(groupedResources)));
-                          }
-                        }}
-                        className="group p-2 rounded-lg hover:bg-cyan-50 transition-all duration-200 hover:scale-110 active:scale-95"
-                        title={expandedNamespaces.size === Object.keys(groupedResources).length ? 'Collapse All' : 'Expand All'}
-                      >
-                        {expandedNamespaces.size === Object.keys(groupedResources).length ? (
-                          <ChevronUpIcon className="h-4 w-4 text-gray-600 group-hover:text-cyan-600 transition-colors duration-200" />
-                        ) : (
-                          <ChevronDownIcon className="h-4 w-4 text-gray-600 group-hover:text-cyan-600 transition-colors duration-200" />
-                        )}
-                      </button>
+                      </div>
                     )}
-                    <button
-                      onClick={handleResourceRefresh}
-                      className="group p-2 rounded-lg hover:bg-cyan-50 transition-all duration-200 hover:scale-110 active:scale-95"
-                      title="Refresh Resources"
-                    >
-                      <ArrowPathIcon className="h-4 w-4 text-gray-600 group-hover:text-cyan-600 group-hover:rotate-180 transition-all duration-300" />
-                    </button>
-                    <button
-                      onClick={onExport}
-                      className="group p-2 rounded-lg hover:bg-cyan-50 transition-all duration-200 hover:scale-110 active:scale-95"
-                      title="Export Resources"
-                    >
-                      <ArrowUpTrayIcon className="h-4 w-4 text-gray-600 group-hover:text-cyan-600 group-hover:-translate-y-0.5 transition-all duration-200" />
-                    </button>
+                  </div>
+
+                  {/* Secondary Actions Toolbar */}
+                  <div className="border-t border-gray-200 pt-3 mt-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                        Quick Actions
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={handleComponentRefresh}
+                          className="group p-2 rounded-lg hover:bg-cyan-50 transition-all duration-200 hover:scale-110 active:scale-95"
+                          title="Refresh Components"
+                        >
+                          <ArrowPathIcon className="h-4 w-4 text-gray-600 group-hover:text-cyan-600 group-hover:rotate-180 transition-all duration-300" />
+                        </button>
+                        {capiComponentsArray.some((c) => c.name === 'cluster-api' && c.enabled) && (
+                          <button
+                            onClick={onDisableCapi}
+                            className="group p-2 rounded-lg hover:bg-red-50 transition-all duration-200 hover:scale-110 active:scale-95"
+                            title="Disable CAPI"
+                          >
+                            <NoSymbolIcon className="h-4 w-4 text-gray-600 group-hover:text-red-600 group-hover:rotate-12 transition-all duration-300" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </StatusCard>
-          </div>
+              </StatusCard>
+
+              {/* Resources Card */}
+              <StatusCard
+                theme="mce"
+                title={
+                  <div className="flex items-center gap-2">
+                    <span>Resources</span>
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200">
+                      <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
+                      {mceResources.length} total
+                    </span>
+                  </div>
+                }
+                icon={<RocketLaunchIcon className="h-5 w-5" />}
+                actions={[]}
+              >
+                <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                  {mceResourcesLoading ? (
+                    <div className="text-center py-4">
+                      <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-600"></div>
+                      <p className="mt-2 text-sm text-gray-600">Loading resources...</p>
+                    </div>
+                  ) : mceResources.length === 0 ? (
+                    <div className="text-center py-4 text-gray-500">
+                      <p>No resources found.</p>
+                      <p className="text-sm mt-1">
+                        Resources will appear here when environment is configured.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 pr-2">
+                      {Object.entries(groupedResources).map(([namespace, resources]) => {
+                        const isExpanded = expandedNamespaces.has(namespace);
+                        return (
+                          <div
+                            key={namespace}
+                            className="border border-gray-200 rounded-lg overflow-hidden"
+                          >
+                            <div
+                              className={`flex items-center justify-between cursor-pointer py-2.5 px-3 transition-all ${
+                                isExpanded
+                                  ? 'bg-gradient-to-r from-cyan-50 to-blue-50 border-b border-cyan-200'
+                                  : 'bg-gray-50 hover:bg-cyan-50'
+                              }`}
+                              onClick={() => toggleNamespace(namespace)}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`transition-transform duration-200 ${isExpanded ? 'rotate-90 text-cyan-600' : 'text-gray-400'}`}
+                                >
+                                  ▶
+                                </span>
+                                <h4
+                                  className={`font-semibold text-sm ${isExpanded ? 'text-cyan-900' : 'text-gray-800'}`}
+                                >
+                                  {namespace}
+                                </h4>
+                              </div>
+                              <span
+                                className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                                  isExpanded
+                                    ? 'bg-cyan-600 text-white'
+                                    : 'bg-gray-200 text-gray-600'
+                                }`}
+                              >
+                                {resources.length}
+                              </span>
+                            </div>
+
+                            {isExpanded && (
+                              <div className="ml-6 mt-2 space-y-2">
+                                {resources.map((resource, index) => (
+                                  <div
+                                    key={index}
+                                    className="cursor-pointer hover:bg-cyan-50 rounded p-2 transition-colors"
+                                    onClick={() => handleResourceClick(resource)}
+                                  >
+                                    <h5 className="font-medium text-gray-800 text-sm hover:text-cyan-700">
+                                      {resource.name}
+                                    </h5>
+                                    <div className="mt-1">
+                                      <span
+                                        className={`inline-block px-2 py-1 rounded text-xs font-medium ${getResourceTypeColor(resource.type)}`}
+                                      >
+                                        {resource.type}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Secondary Actions Toolbar */}
+                <div className="border-t border-gray-200 pt-3 mt-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                      Quick Actions
+                    </span>
+                    <div className="flex items-center gap-1">
+                      {mceResources.length > 0 && (
+                        <button
+                          onClick={() => {
+                            if (expandedNamespaces.size === Object.keys(groupedResources).length) {
+                              setExpandedNamespaces(new Set());
+                            } else {
+                              setExpandedNamespaces(new Set(Object.keys(groupedResources)));
+                            }
+                          }}
+                          className="group p-2 rounded-lg hover:bg-cyan-50 transition-all duration-200 hover:scale-110 active:scale-95"
+                          title={
+                            expandedNamespaces.size === Object.keys(groupedResources).length
+                              ? 'Collapse All'
+                              : 'Expand All'
+                          }
+                        >
+                          {expandedNamespaces.size === Object.keys(groupedResources).length ? (
+                            <ChevronUpIcon className="h-4 w-4 text-gray-600 group-hover:text-cyan-600 transition-colors duration-200" />
+                          ) : (
+                            <ChevronDownIcon className="h-4 w-4 text-gray-600 group-hover:text-cyan-600 transition-colors duration-200" />
+                          )}
+                        </button>
+                      )}
+                      <button
+                        onClick={handleResourceRefresh}
+                        className="group p-2 rounded-lg hover:bg-cyan-50 transition-all duration-200 hover:scale-110 active:scale-95"
+                        title="Refresh Resources"
+                      >
+                        <ArrowPathIcon className="h-4 w-4 text-gray-600 group-hover:text-cyan-600 group-hover:rotate-180 transition-all duration-300" />
+                      </button>
+                      <button
+                        onClick={onExport}
+                        className="group p-2 rounded-lg hover:bg-cyan-50 transition-all duration-200 hover:scale-110 active:scale-95"
+                        title="Export Resources"
+                      >
+                        <ArrowUpTrayIcon className="h-4 w-4 text-gray-600 group-hover:text-cyan-600 group-hover:-translate-y-0.5 transition-all duration-200" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </StatusCard>
+            </div>
           )}
         </div>
       )}
