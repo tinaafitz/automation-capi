@@ -8,7 +8,13 @@ import MinikubeClusterConfigModal from '../modals/MinikubeClusterConfigModal';
 import NotificationSettingsModal from '../modals/NotificationSettingsModal';
 import CapiInstallMethodModal from '../modals/CapiInstallMethodModal';
 import { YamlEditorModal } from '../YamlEditorModal';
-import { BellIcon } from '@heroicons/react/24/outline';
+import {
+  BellIcon,
+  Cog6ToothIcon,
+  CheckCircleIcon,
+  ChartBarIcon,
+  ArrowPathIcon,
+} from '@heroicons/react/24/outline';
 import {
   useMinikubeContext,
   useRecentOperationsContext,
@@ -37,6 +43,7 @@ const MinikubeEnvironment = () => {
     return localStorage.getItem(STORAGE_KEY_METHOD) || 'clusterctl';
   });
   const [componentVersions, setComponentVersions] = useState([]);
+  const [componentVersionsLoading, setComponentVersionsLoading] = useState(false);
 
   const {
     verifiedMinikubeClusterInfo,
@@ -282,6 +289,7 @@ const MinikubeEnvironment = () => {
   // Fetch component versions function (can be called manually or by useEffect)
   const fetchComponentVersions = useCallback(async () => {
     try {
+      setComponentVersionsLoading(true);
       // Get cluster name for the API call
       const targetClusterName =
         verifiedMinikubeClusterInfo?.name ||
@@ -307,6 +315,8 @@ const MinikubeEnvironment = () => {
       }
     } catch (error) {
       console.error('Failed to fetch component versions:', error);
+    } finally {
+      setComponentVersionsLoading(false);
     }
   }, [verifiedMinikubeClusterInfo, selectedMinikubeCluster, minikubeClusterInput]);
 
@@ -316,7 +326,7 @@ const MinikubeEnvironment = () => {
   }, [fetchComponentVersions]);
 
   // Use fetched versions or fallback to defaults
-  // Show "loading..." only if we have a verified cluster, otherwise show "not installed"
+  // Show "loading..." only while actively fetching, "not installed" if fetch completed with empty results
   const hasVerifiedCluster = !!verifiedMinikubeClusterInfo;
   const capiComponents =
     componentVersions.length > 0
@@ -324,41 +334,27 @@ const MinikubeEnvironment = () => {
       : [
           {
             name: 'Cert Manager',
-            enabled: hasVerifiedCluster,
-            version: hasVerifiedCluster ? 'loading...' : 'not installed',
+            enabled: false,
+            version: componentVersionsLoading ? 'loading...' : 'not installed',
           },
           {
             name: 'CAPI Controller',
-            enabled: hasVerifiedCluster,
-            version: hasVerifiedCluster ? 'loading...' : 'not installed',
+            enabled: false,
+            version: componentVersionsLoading ? 'loading...' : 'not installed',
           },
           {
             name: 'CAPA Controller',
-            enabled: hasVerifiedCluster,
-            version: hasVerifiedCluster ? 'loading...' : 'not installed',
+            enabled: false,
+            version: componentVersionsLoading ? 'loading...' : 'not installed',
           },
           {
             name: 'ROSA CRD',
-            enabled: hasVerifiedCluster,
-            version: hasVerifiedCluster ? 'loading...' : 'not installed',
+            enabled: false,
+            version: componentVersionsLoading ? 'loading...' : 'not installed',
           },
         ];
 
-  const minikubeActions = [
-    {
-      label: 'Verify',
-      icon: '✓',
-      onClick: handleMinikubeVerification,
-      disabled: minikubeLoading,
-      variant: 'primary',
-    },
-    {
-      label: 'Configure',
-      icon: '⚙️',
-      onClick: () => setShowConfigModal(true),
-      variant: 'primary',
-    },
-  ];
+  // Removed - buttons now in header bar instead of actions array
 
   // Custom Configure button with method selector
   const methodInfo = getMethodInfo(installMethod);
@@ -414,7 +410,15 @@ const MinikubeEnvironment = () => {
   // Handle Create Status Report
   const handleCreateStatusReport = async () => {
     const reportId = `create-status-report-${Date.now()}`;
-    const fileName = `minikube-status-report-${new Date().toISOString().split('T')[0]}.html`;
+
+    // Use minikube cluster name as identifier (e.g., "minikube" or custom cluster name)
+    const clusterIdentifier = verifiedMinikubeClusterInfo?.name || 'minikube';
+
+    // Create timestamp in YYYY-MM-DD-HH-MM-SS format
+    const now = new Date();
+    const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}`;
+
+    const fileName = `minikube-status-report-${clusterIdentifier}-${timestamp}.html`;
 
     try {
       console.log('📊 MinikubeEnvironment: Create status report clicked');
@@ -434,8 +438,9 @@ const MinikubeEnvironment = () => {
       const jobsResponse = await fetch(buildApiUrl('/api/jobs'));
       const jobsData = await jobsResponse.json();
       const allJobs = jobsData.success ? jobsData.jobs : [];
-      const recentJobs = allJobs.filter((job) => job.environment === 'minikube').slice(0, 10);
-      console.log(`📊 Fetched ${recentJobs.length} recent Minikube tasks`);
+      // Get last 10 jobs regardless of environment (since we don't have reliable environment field)
+      const recentJobs = allJobs.slice(0, 10);
+      console.log(`📊 Fetched ${recentJobs.length} recent tasks`);
 
       // Fetch the HTML template
       const templateResponse = await fetch('/templates/test-status-report-template.html');
@@ -462,19 +467,27 @@ const MinikubeEnvironment = () => {
       // Cluster configuration details (code-block format)
       const clusterConfigDetails = `Cluster:      ${verifiedMinikubeClusterInfo?.name || 'Not verified'}
 Status:       ${verifiedMinikubeClusterInfo?.status || 'Unknown'}
-Driver:       ${verifiedMinikubeClusterInfo?.driver || 'N/A'}
 Kubernetes:   ${verifiedMinikubeClusterInfo?.kubernetesVersion || 'N/A'}
 Last Verified: ${dateTimeStr}`;
 
       // Component configuration details (code-block format)
-      const capiComponents =
-        componentVersions.filter((c) => c.name?.startsWith('cluster-api')) || [];
+      // Separate actual components from resources
+      const components = componentVersions.filter(
+        (c) => c.enabled && (c.name === 'CAPI Controller' || c.name === 'CAPA Controller')
+      );
+      const resources = componentVersions.filter(
+        (c) => c.enabled && (c.name === 'Cert Manager' || c.name === 'ROSA CRD')
+      );
+
       const componentConfigDetails = `Configured Components:
 ${
-  capiComponents
-    .filter((c) => c.enabled)
-    .map((c) => `  • ${c.name}${c.version ? ` (${c.version})` : ''}`)
-    .join('\n') || '  None configured'
+  components.map((c) => `  • ${c.name}${c.version ? ` (${c.version})` : ''}`).join('\n') ||
+  '  None configured'
+}
+
+Resources:
+${
+  resources.map((c) => `  • ${c.name}${c.version ? ` (${c.version})` : ''}`).join('\n') || '  None'
 }`;
 
       // Helper function to extract API version and status from resource YAML
@@ -517,83 +530,124 @@ ${
         return { version, status };
       };
 
-      // Group resources by type (since Minikube doesn't have namespaces like MCE)
-      const groupedResources = minikubeActiveResources.reduce((acc, resource) => {
-        const resourceType = resource.kind || resource.type || 'Unknown';
-        if (!acc[resourceType]) {
-          acc[resourceType] = [];
-        }
-        acc[resourceType].push(resource);
-        return acc;
-      }, {});
-
-      // Format resources by type with status
+      // Format resources as flat list (MCE style) with each resource showing: name (Type) [version] - status
       const resourceDetails =
         minikubeActiveResources.length > 0
-          ? Object.entries(groupedResources)
-              .sort(([a], [b]) => a.localeCompare(b))
-              .map(([resourceType, resources]) => {
-                const resourceList = resources
-                  .map((resource) => {
-                    const { version, status } = extractResourceInfo(resource.yaml, resourceType);
-                    const versionStr = version ? ` [${version}]` : '';
-                    const statusStr = status ? ` - ${status}` : '';
-                    return `  • ${resource.name || resource.metadata?.name || 'Unknown'}${versionStr}${statusStr}`;
-                  })
-                  .join('\n');
+          ? (() => {
+              const resourceList = minikubeActiveResources
+                .sort((a, b) => {
+                  const nameA = (a.name || a.metadata?.name || 'Unknown').toLowerCase();
+                  const nameB = (b.name || b.metadata?.name || 'Unknown').toLowerCase();
+                  return nameA.localeCompare(nameB);
+                })
+                .map((resource) => {
+                  const resourceType = resource.kind || resource.type || 'Unknown';
+                  const resourceName = resource.name || resource.metadata?.name || 'Unknown';
+                  const { version, status } = extractResourceInfo(resource.yaml, resourceType);
+                  const versionStr = version ? ` [${version}]` : '';
+                  const statusStr = status ? ` - ${status}` : '';
+                  return `  • ${resourceName} (${resourceType})${versionStr}${statusStr}`;
+                })
+                .join('\n');
 
-                // Count ready/total resources
-                const statusCounts = resources.reduce(
-                  (acc, resource) => {
-                    const { status } = extractResourceInfo(resource.yaml, resourceType);
-                    if (status?.includes('✅')) {
-                      acc.ready++;
-                    } else if (status?.includes('⚠️') || status?.includes('⏳')) {
-                      acc.notReady++;
-                    } else if (status?.includes('🗑️')) {
-                      acc.deleting++;
-                    }
-                    acc.total++;
-                    return acc;
-                  },
-                  { ready: 0, notReady: 0, deleting: 0, total: 0 }
-                );
-
-                const statusSummary =
-                  statusCounts.ready > 0 || statusCounts.notReady > 0 || statusCounts.deleting > 0
-                    ? ` [✅ ${statusCounts.ready} Ready${statusCounts.notReady > 0 ? `, ⚠️ ${statusCounts.notReady} Not Ready` : ''}${statusCounts.deleting > 0 ? `, 🗑️ ${statusCounts.deleting} Deleting` : ''}]`
-                    : '';
-
-                return `                <h3>${resourceType} (${resources.length} resource${resources.length !== 1 ? 's' : ''})${statusSummary}</h3>
-                <div class="code-block">${resourceList}</div>`;
-              })
-              .join('\n')
+              return `                <div class="code-block">${resourceList}</div>`;
+            })()
           : '<p class="italic-note">No resources found</p>';
 
-      // Minikube clusters (managed clusters via CAPI)
+      // CAPI-managed clusters (Cluster resources provisioned via CAPI, not the Minikube cluster itself)
+      const capiManagedClusters = minikubeActiveResources.filter(
+        (resource) => resource.kind === 'Cluster' || resource.type === 'Cluster'
+      );
       const minikubeClustersSection =
-        minikubeClusters && minikubeClusters.length > 0
+        capiManagedClusters && capiManagedClusters.length > 0
           ? `            <!-- CAPI-MANAGED CLUSTERS -->
             <div class="section">
                 <h2>CAPI-Managed Clusters</h2>
 
-                <div class="code-block">${minikubeClusters
+                <div class="code-block">${capiManagedClusters
                   .map((cluster) => {
-                    return `✅ ${cluster.name || cluster} - Minikube`;
+                    const { status } = extractResourceInfo(cluster.yaml, 'Cluster');
+                    const statusStr = status ? ` - ${status}` : '';
+                    return `${cluster.name || 'Unknown'}${statusStr}`;
                   })
                   .join('\n')}</div>
             </div>`
           : '';
 
-      // Format Recent Tasks - simple status and name only
+      // AI Assessment - analyze environment state
+      const generateAssessment = () => {
+        // Check if CAPI is configured
+        const capiConfigured = capiComponents.some((c) => c.enabled);
+
+        if (!capiConfigured) {
+          return 'This Minikube environment is not configured for CAPI/CAPA yet.';
+        }
+
+        // Check for active CAPI-managed clusters
+        const activeClusters = capiManagedClusters?.length || 0;
+
+        if (activeClusters > 0) {
+          return `This CAPI/CAPA configured Minikube environment has ${activeClusters} active CAPI-managed cluster${activeClusters > 1 ? 's' : ''}.`;
+        }
+
+        // Check if resources exist (has been used before)
+        const hasResources = minikubeActiveResources.length > 0;
+
+        if (hasResources) {
+          return 'This CAPI/CAPA configured Minikube environment has provisioning resources but no active ROSA HCP clusters.';
+        }
+
+        // Configured but not used yet
+        return 'This Minikube environment has CAPI/CAPA configured and is ready for cluster provisioning.';
+      };
+
+      const environmentAssessment = generateAssessment();
+
+      // Dashboard Summary - generate stat cards
+      const activeClusters = capiManagedClusters?.length || 0;
+      const dashboardSummary = `<div class="dashboard">
+    <div class="stat-card stat-success">
+        <div class="stat-number">${activeClusters}</div>
+        <div class="stat-label">Active Clusters</div>
+    </div>
+    <div class="stat-card stat-info">
+        <div class="stat-number">${minikubeActiveResources.length}</div>
+        <div class="stat-label">Resources</div>
+    </div>
+    <div class="stat-card stat-success">
+        <div class="stat-number">${components.length}</div>
+        <div class="stat-label">Components</div>
+    </div>
+    <div class="stat-card ${verifiedMinikubeClusterInfo ? 'stat-success' : 'stat-warning'}">
+        <div class="stat-number">${verifiedMinikubeClusterInfo ? '✓' : '⚠'}</div>
+        <div class="stat-label">Environment</div>
+    </div>
+</div>`;
+
+      // Format Recent Tasks - beautiful timeline view
       const recentTasksDetails =
         recentJobs.length > 0
-          ? `<div class="code-block">${recentJobs
+          ? `<div class="timeline">${recentJobs
               .map((job) => {
+                const statusClass =
+                  job.status === 'completed' ? '' : job.status === 'failed' ? 'failed' : 'pending';
                 const statusIcon =
-                  job.status === 'completed' ? '✅' : job.status === 'failed' ? '❌' : '⏳';
+                  job.status === 'completed' ? '✓' : job.status === 'failed' ? '✕' : '⏳';
                 const taskName = job.title || job.description || 'Task';
-                return `${statusIcon} ${taskName}`;
+                const taskTime = job.created_at
+                  ? new Date(job.created_at).toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true,
+                    })
+                  : '';
+                return `<div class="timeline-item ${statusClass}">
+    <div class="timeline-marker">${statusIcon}</div>
+    <div class="timeline-content">
+        <div class="timeline-title">${taskName}</div>
+        ${taskTime ? `<div class="timeline-time">${taskTime}</div>` : ''}
+    </div>
+</div>`;
               })
               .join('\n')}</div>`
           : '<p class="italic-note">No recent tasks found</p>';
@@ -603,8 +657,10 @@ ${
         .replace(/\{\{TEST_TITLE\}\}/g, 'Minikube Environment Status Report')
         .replace(/\{\{TEST_DATE\}\}/g, dateTimeStr)
         .replace(/\{\{TEST_ENVIRONMENT\}\}/g, 'Minikube')
-        .replace(/\{\{FEATURE_NAME\}\}/g, 'CAPI')
+        .replace(/\{\{FEATURE_NAME\}\}/g, 'CAPI/CAPA')
         .replace(/\{\{CLUSTER_TYPE\}\}/g, 'Minikube')
+        .replace(/\{\{DASHBOARD_SUMMARY\}\}/g, dashboardSummary)
+        .replace(/\{\{ENVIRONMENT_ASSESSMENT\}\}/g, environmentAssessment)
         .replace(/\{\{CLUSTER_CONFIG_DETAILS\}\}/g, clusterConfigDetails)
         .replace(/\{\{COMPONENT_CONFIG_DETAILS\}\}/g, componentConfigDetails)
         .replace(/\{\{RESOURCE_COUNT\}\}/g, minikubeActiveResources.length)
@@ -658,48 +714,35 @@ ${
     : null;
   const isAlreadyConfigured = !!configClusterMethod;
 
-  const componentActions = [
-    {
-      label: isConfiguring ? 'Configuring...' : isAlreadyConfigured ? 'Reconfigure' : 'Configure',
-      icon: '⚙️',
-      onClick: handleConfigureClick,
-      disabled: isConfiguring,
-      variant: 'primary',
-    },
-    {
-      label: 'Refresh',
-      icon: '🔄',
-      onClick: () => {
-        console.log('🔄 Refreshing component versions and resources...');
+  // Component refresh handler for button in Components card
+  const handleRefreshComponents = () => {
+    console.log('🔄 Refreshing component versions and resources...');
 
-        // Add to recent operations
-        const refreshId = `refresh-components-${Date.now()}`;
-        const completionTime = new Date().toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true,
-        });
+    // Add to recent operations
+    const refreshId = `refresh-components-${Date.now()}`;
+    const completionTime = new Date().toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
 
-        addToRecent({
-          id: refreshId,
-          title: 'Refresh Component Versions',
-          description: `✅ Component versions refreshed at ${completionTime}`,
-          status: 'completed',
-          timestamp: new Date().toISOString(),
-          environment: 'minikube',
-        });
+    addToRecent({
+      id: refreshId,
+      title: 'Refresh Component Versions',
+      description: `✅ Component versions refreshed at ${completionTime}`,
+      status: 'completed',
+      timestamp: new Date().toISOString(),
+      environment: 'minikube',
+    });
 
-        // Refresh data
-        fetchComponentVersions();
-        fetchMinikubeActiveResources(
-          verifiedMinikubeClusterInfo?.name,
-          verifiedMinikubeClusterInfo?.namespace
-        );
-      },
-      variant: 'primary',
-    },
-  ];
+    // Refresh data
+    fetchComponentVersions();
+    fetchMinikubeActiveResources(
+      verifiedMinikubeClusterInfo?.name,
+      verifiedMinikubeClusterInfo?.namespace
+    );
+  };
 
   // Show configuration even if no cluster is verified yet
   const showFullConfig = !!verifiedMinikubeClusterInfo;
@@ -755,17 +798,88 @@ ${
           isCollapsed={minikubeConfigurationCollapsed}
           onToggle={() => setMinikubeConfigurationCollapsed(!minikubeConfigurationCollapsed)}
           titleActions={
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowNotificationSettings(true);
-              }}
-              className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition-colors duration-200 flex items-center space-x-2 text-sm font-medium"
-              title="Notification Settings"
-            >
-              <BellIcon className="h-4 w-4" />
-              <span>Notifications</span>
-            </button>
+            <div className="flex items-center gap-4">
+              {/* Workflow Actions */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleConfigureClick();
+                  }}
+                  disabled={!verifiedMinikubeClusterInfo}
+                  className={`px-3 py-1.5 rounded-lg transition-all duration-200 flex items-center space-x-2 text-sm font-medium ${
+                    verifiedMinikubeClusterInfo
+                      ? 'bg-white/20 hover:bg-white/30 text-white hover:scale-105 active:scale-100'
+                      : 'bg-white/10 text-white/50 cursor-not-allowed'
+                  }`}
+                  title={
+                    verifiedMinikubeClusterInfo
+                      ? 'Configure CAPI/CAPA Components (Ctrl+1)'
+                      : 'Verify a Minikube cluster first'
+                  }
+                >
+                  <Cog6ToothIcon className="h-4 w-4" />
+                  <span>Configure</span>
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleMinikubeVerification();
+                  }}
+                  disabled={minikubeLoading}
+                  className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition-all duration-200 flex items-center space-x-2 text-sm font-medium hover:scale-105 active:scale-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Verify Minikube Environment (Ctrl+2)"
+                >
+                  <CheckCircleIcon className="h-4 w-4" />
+                  <span>Verify</span>
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleProvision();
+                  }}
+                  disabled={!verifiedMinikubeClusterInfo}
+                  className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition-all duration-200 flex items-center space-x-2 text-sm font-medium hover:scale-105 active:scale-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Provision ROSA HCP Cluster (Ctrl+3)"
+                >
+                  <span>❄️</span>
+                  <span>Provision</span>
+                </button>
+              </div>
+
+              {/* Separator */}
+              <div className="h-8 w-px bg-white/30"></div>
+
+              {/* Utility Actions */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCreateStatusReport();
+                  }}
+                  disabled={!verifiedMinikubeClusterInfo}
+                  className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition-all duration-200 flex items-center space-x-2 text-sm font-medium hover:scale-105 active:scale-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Create Status Report"
+                >
+                  <ChartBarIcon className="h-4 w-4" />
+                  <span>Current Status</span>
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowNotificationSettings(true);
+                  }}
+                  className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition-colors duration-200 flex items-center space-x-2 text-sm font-medium hover:scale-105 active:scale-100"
+                  title="Notification Settings"
+                >
+                  <BellIcon className="h-4 w-4" />
+                  <span>Notifications</span>
+                </button>
+              </div>
+            </div>
           }
         >
           {/* Three Column Layout */}
@@ -773,7 +887,23 @@ ${
             {/* Minikube Configuration Card */}
             <StatusCard
               theme="minikube"
-              title="Minikube Configuration"
+              title={
+                <div className="flex items-center gap-2">
+                  <span>Minikube Configuration</span>
+                  <span
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${
+                      clusterName
+                        ? 'text-green-600 bg-green-50 border-green-200'
+                        : 'text-gray-600 bg-gray-50 border-gray-200'
+                    }`}
+                  >
+                    <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
+                    {clusterName
+                      ? `🔷 ${clusterName}${methodDisplay ? ` (${methodDisplay})` : ''}`
+                      : 'No cluster selected'}
+                  </span>
+                </div>
+              }
               icon={
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -783,11 +913,6 @@ ${
                     d="M13 10V3L4 14h7v7l9-11h-7z"
                   />
                 </svg>
-              }
-              status={
-                clusterName
-                  ? `🔷 ${clusterName}${methodDisplay ? ` (${methodDisplay})` : ''}`
-                  : 'No cluster selected'
               }
               verificationStatus={
                 creatingClusterOp ? 'Creating...' : showFullConfig ? 'Running' : 'Not configured'
@@ -804,7 +929,6 @@ ${
                     })
                   : null
               }
-              actions={minikubeActions}
             >
               {/* Cluster Information */}
               {showFullConfig ? (
@@ -843,6 +967,32 @@ ${
                       )}
                     </div>
                   </div>
+
+                  {/* Quick Actions Toolbar */}
+                  <div className="border-t border-gray-200 pt-3 mt-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                        Quick Actions
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={handleRefreshComponents}
+                          className="group p-2 rounded-lg hover:bg-purple-50 transition-all duration-200 hover:scale-110 active:scale-95"
+                          title="Refresh Components"
+                        >
+                          <ArrowPathIcon className="h-4 w-4 text-gray-600 group-hover:text-purple-600 group-hover:rotate-180 transition-all duration-300" />
+                        </button>
+                        <button
+                          onClick={handleMinikubeVerification}
+                          disabled={minikubeLoading}
+                          className="group p-2 rounded-lg hover:bg-purple-50 transition-all duration-200 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Verify Environment"
+                        >
+                          <CheckCircleIcon className="h-4 w-4 text-gray-600 group-hover:text-purple-600 transition-all duration-300" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-8 bg-purple-50 rounded-lg border-2 border-dashed border-purple-200">
@@ -874,111 +1024,169 @@ ${
             </StatusCard>
 
             {/* Components Card */}
-            <ComponentStatusCard
+            <StatusCard
               theme="minikube"
-              title="Components"
-              status={`${capiComponents.filter((c) => c.enabled).length} configured`}
-              components={capiComponents}
-              actions={componentActions}
-            />
+              title={
+                <div className="flex items-center gap-2">
+                  <span>Components</span>
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200">
+                    <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
+                    {capiComponents.filter((c) => c.enabled).length} configured
+                  </span>
+                </div>
+              }
+              icon="🔧"
+            >
+              <div className="space-y-3">
+                {capiComponents.map((component, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0"
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-medium text-gray-800">{component.name}</span>
+                      {component.version && (
+                        <span className="text-xs text-gray-500 font-mono mt-0.5">
+                          {component.version}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {component.date && (
+                        <span className="text-xs text-gray-500">{component.date}</span>
+                      )}
+                      <span className={component.enabled ? 'text-green-600' : 'text-red-600'}>
+                        {component.enabled ? '✓' : '✕'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Quick Actions Toolbar */}
+                <div className="border-t border-gray-200 pt-3 mt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                      Quick Actions
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={handleRefreshComponents}
+                        className="group p-2 rounded-lg hover:bg-purple-50 transition-all duration-200 hover:scale-110 active:scale-95"
+                        title="Refresh Components"
+                      >
+                        <ArrowPathIcon className="h-4 w-4 text-gray-600 group-hover:text-purple-600 group-hover:rotate-180 transition-all duration-300" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </StatusCard>
 
             {/* Resources Card */}
             <StatusCard
               theme="minikube"
-              title="Resources"
+              title={
+                <div className="flex items-center gap-2">
+                  <span>Resources</span>
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200">
+                    <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
+                    {minikubeActiveResources.length} total
+                  </span>
+                </div>
+              }
               icon="📦"
-              status={`${minikubeActiveResources.length} total`}
-              actions={[
-                {
-                  label: 'Provision',
-                  icon: '❄️',
-                  onClick: handleProvision,
-                  variant: 'primary',
-                },
-                {
-                  label: 'Create Report',
-                  icon: '📊',
-                  onClick: handleCreateStatusReport,
-                  disabled: !verifiedMinikubeClusterInfo,
-                  variant: 'primary',
-                },
-                {
-                  label: 'Refresh',
-                  icon: '🔄',
-                  onClick: () => {
-                    console.log('🔄 Refreshing active resources...');
-
-                    // Add to recent operations
-                    const refreshId = `refresh-resources-${Date.now()}`;
-                    const completionTime = new Date().toLocaleTimeString('en-US', {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                      second: '2-digit',
-                      hour12: true,
-                    });
-
-                    addToRecent({
-                      id: refreshId,
-                      title: 'Refresh Active Resources',
-                      description: `✅ Active resources refreshed at ${completionTime}`,
-                      status: 'completed',
-                      timestamp: new Date().toISOString(),
-                      environment: 'minikube',
-                    });
-
-                    // Refresh resources
-                    fetchMinikubeActiveResources(
-                      verifiedMinikubeClusterInfo?.name,
-                      verifiedMinikubeClusterInfo?.namespace
-                    );
-                  },
-                  variant: 'primary',
-                },
-              ]}
             >
-              {minikubeResourcesLoading ? (
-                <div className="text-center py-4">
-                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
-                  <p className="mt-2 text-sm text-gray-600">Loading resources...</p>
-                </div>
-              ) : minikubeActiveResources.length === 0 ? (
-                <div className="text-center py-4 text-gray-500">
-                  <p>No active resources found.</p>
-                  <p className="text-sm mt-1">Click "Verify" or "Configure" to load resources.</p>
-                </div>
-              ) : (
-                <div className="max-h-96 overflow-y-auto space-y-2">
-                  {minikubeActiveResources.map((resource, index) => (
-                    <div
-                      key={index}
-                      className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-purple-50 rounded px-2 transition-colors"
-                      onClick={() => handleResourceClick(resource)}
-                    >
-                      <div>
-                        <span className="font-medium text-purple-700 hover:text-purple-900">
-                          {resource.name || 'Unknown'}
-                        </span>
-                        <div className="text-sm text-gray-600">
-                          {resource.type || 'Unknown Type'}
+              <div className="space-y-3">
+                {minikubeResourcesLoading ? (
+                  <div className="text-center py-4">
+                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+                    <p className="mt-2 text-sm text-gray-600">Loading resources...</p>
+                  </div>
+                ) : minikubeActiveResources.length === 0 ? (
+                  <div className="text-center py-4 text-gray-500">
+                    <p>No resources found.</p>
+                    <p className="text-sm mt-1">
+                      Click "Verify" or "Configure" to load active resources.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="max-h-80 overflow-y-auto space-y-2">
+                    {minikubeActiveResources.map((resource, index) => (
+                      <div
+                        key={index}
+                        className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-purple-50 rounded px-2 transition-colors"
+                        onClick={() => handleResourceClick(resource)}
+                      >
+                        <div>
+                          <span className="font-medium text-purple-700 hover:text-purple-900">
+                            {resource.name || 'Unknown'}
+                          </span>
+                          <div className="text-sm text-gray-600">
+                            {resource.type || 'Unknown Type'}
+                          </div>
+                        </div>
+                        <div className="text-right text-sm">
+                          <div
+                            className={`inline-block px-2 py-1 rounded-full text-xs ${
+                              resource.status === 'Ready'
+                                ? 'bg-green-100 text-green-800'
+                                : resource.status === 'Pending'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            {resource.status || 'Unknown'}
+                          </div>
                         </div>
                       </div>
-                      <div className="text-right text-sm">
-                        <div
-                          className={`inline-block px-2 py-1 rounded-full text-xs ${
-                            resource.status === 'Ready'
-                              ? 'bg-green-100 text-green-800'
-                              : resource.status === 'Pending'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : 'bg-gray-100 text-gray-800'
-                          }`}
-                        >
-                          {resource.status || 'Unknown'}
-                        </div>
-                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Quick Actions Toolbar */}
+                <div className="border-t border-gray-200 pt-3 mt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                      Quick Actions
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          console.log('🔄 Refreshing active resources...');
+
+                          // Add to recent operations
+                          const refreshId = `refresh-resources-${Date.now()}`;
+                          const completionTime = new Date().toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true,
+                          });
+
+                          addToRecent({
+                            id: refreshId,
+                            title: 'Refresh Resources',
+                            description: `✅ Resources refreshed at ${completionTime}`,
+                            status: 'completed',
+                            timestamp: new Date().toISOString(),
+                            environment: 'minikube',
+                          });
+
+                          // Refresh resources
+                          fetchMinikubeActiveResources(
+                            verifiedMinikubeClusterInfo?.name,
+                            verifiedMinikubeClusterInfo?.namespace
+                          );
+                        }}
+                        className="group p-2 rounded-lg hover:bg-purple-50 transition-all duration-200 hover:scale-110 active:scale-95"
+                        title="Refresh Resources"
+                      >
+                        <ArrowPathIcon className="h-4 w-4 text-gray-600 group-hover:text-purple-600 group-hover:rotate-180 transition-all duration-300" />
+                      </button>
                     </div>
-                  ))}
+                  </div>
                 </div>
-              )}
+              </div>
             </StatusCard>
           </div>
         </EnvironmentCard>

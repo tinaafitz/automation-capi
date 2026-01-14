@@ -86,11 +86,17 @@ const StatusCard = ({
                 <button
                   key={index}
                   onClick={action.onClick}
-                  className={`${buttonStyle} ${colorClasses} disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
+                  className={`group ${buttonStyle} ${colorClasses} disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none active:scale-95`}
                   disabled={action.disabled}
                 >
-                  {action.icon && <span className="mr-1.5 text-sm">{action.icon}</span>}
-                  {action.label}
+                  <div className="flex items-center justify-center gap-2">
+                    {action.icon && (
+                      <span className="group-hover:scale-110 transition-transform duration-200">
+                        {action.icon}
+                      </span>
+                    )}
+                    <span>{action.label}</span>
+                  </div>
                 </button>
               );
             })}

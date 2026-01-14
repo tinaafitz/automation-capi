@@ -117,7 +117,7 @@ const RosaHcpClustersSection = ({ theme = 'mce' }) => {
       // IMMEDIATELY show "Deleting..." in Task Summary for instant feedback (BEFORE the API call!)
       addToRecent({
         id: deleteId,
-        title: `🗑️ DELETE CLUSTER: ${clusterName}`,
+        title: `🗑️ Delete Cluster: ${clusterName}`,
         color: 'bg-red-600',
         status: '🚀 Starting deletion...',
         environment: 'mce',

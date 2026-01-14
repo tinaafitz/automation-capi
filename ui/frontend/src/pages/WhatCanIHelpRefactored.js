@@ -9,7 +9,6 @@ import ConfigurationSection from '../components/sections/ConfigurationSection';
 import RosaHcpClustersSection from '../components/sections/RosaHcpClustersSection';
 import MCETerminalSection from '../components/sections/MCETerminalSection';
 import TaskSummarySection from '../components/sections/TaskSummarySection';
-import TaskDetailSection from '../components/sections/TaskDetailSection';
 import TestSuiteDashboard from '../components/sections/TestSuiteDashboard';
 import TestSuiteSection from '../components/sections/TestSuiteSection';
 import HelmChartTestDashboard from '../components/sections/HelmChartTestDashboard';
@@ -237,7 +236,6 @@ const EnvironmentContent = () => {
         ? [
             'minikube-environment',
             'task-summary',
-            'task-detail',
             'rosa-hcp-clusters',
             'test-suite-dashboard',
             'test-suite-runner',
@@ -247,7 +245,6 @@ const EnvironmentContent = () => {
         : [
             'mce-configuration',
             'task-summary',
-            'task-detail',
             'rosa-hcp-clusters',
             'test-suite-dashboard',
             'test-suite-runner',
@@ -268,7 +265,7 @@ const EnvironmentContent = () => {
       // IMMEDIATELY show "Starting..." in Task Summary for instant feedback (before any async calls!)
       addToRecent({
         id: verifyId,
-        title: '🔍 MCE ENVIRONMENT VERIFICATION',
+        title: '🔍 MCE Environment Verification',
         color: 'bg-cyan-600',
         status: '🚀 Starting verification...',
         environment: 'mce',
@@ -602,15 +599,6 @@ const EnvironmentContent = () => {
           />
         ) : null;
 
-      case 'task-detail':
-        return shouldShowSections ? (
-          <TaskDetailSection
-            key="task-detail"
-            theme={app.selectedEnvironment}
-            environment={app.selectedEnvironment}
-          />
-        ) : null;
-
       default:
         return null;
     }
@@ -720,6 +708,7 @@ const WhatCanIHelpRefactored = () => {
 const ModalProvider = () => {
   const app = useApp();
   const dispatch = useAppDispatch();
+  const apiStatus = useApiStatusContext();
   const { fetchJobHistory } = useJobHistory();
   const recentOps = useRecentOperationsContext();
   const { addToRecent, updateRecentOperationStatus } = recentOps;
@@ -764,6 +753,7 @@ Update completed at ${completionTime}`
       <RosaProvisionModal
         isOpen={app.showProvisionModal}
         onClose={() => dispatch({ type: AppActionTypes.SHOW_PROVISION_MODAL, payload: false })}
+        mceInfo={apiStatus.mceInfo}
         onSubmit={async (config) => {
           try {
             // Call generate-yaml API to get YAML preview
@@ -876,15 +866,7 @@ Update completed at ${completionTime}`
               const sectionId = 'capi-rosa-hcp-clusters';
               dispatch({ type: AppActionTypes.EXPAND_SECTION, payload: sectionId });
 
-              // Scroll to the cluster section after a small delay to allow for expansion
-              setTimeout(() => {
-                const element = document.querySelector(
-                  '[data-section-id="capi-rosa-hcp-clusters"]'
-                );
-                if (element) {
-                  element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-              }, 500);
+              // Note: Removed automatic scrolling - user should stay at current position
             }, 1500); // Small delay to show success message first
 
             // The job will now be tracked by the job history system and will show up
