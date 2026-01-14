@@ -746,8 +746,7 @@ async def cancel_job(job_id: str):
     # Only allow canceling jobs that are currently running
     if job.get("status") != "running":
         raise HTTPException(
-            status_code=400,
-            detail=f"Cannot cancel job with status: {job.get('status')}"
+            status_code=400, detail=f"Cannot cancel job with status: {job.get('status')}"
         )
 
     # Mark job as cancelled
@@ -757,11 +756,7 @@ async def cancel_job(job_id: str):
     jobs[job_id]["completed_at"] = datetime.now().isoformat()
     jobs[job_id]["progress"] = 0
 
-    return {
-        "success": True,
-        "message": "Job cancelled successfully",
-        "job_id": job_id
-    }
+    return {"success": True, "message": "Job cancelled successfully", "job_id": job_id}
 
 
 def check_and_timeout_stuck_jobs():
@@ -800,7 +795,9 @@ def check_and_timeout_stuck_jobs():
         if elapsed_time > TIMEOUT_MINUTES:
             # Mark job as failed due to timeout
             jobs[job_id]["status"] = "failed"
-            jobs[job_id]["message"] = f"Job timed out after {int(elapsed_time)} minutes with no progress"
+            jobs[job_id][
+                "message"
+            ] = f"Job timed out after {int(elapsed_time)} minutes with no progress"
             jobs[job_id]["error"] = f"Job exceeded timeout limit of {TIMEOUT_MINUTES} minutes"
             jobs[job_id]["completed_at"] = datetime.now().isoformat()
             jobs[job_id]["progress"] = 0
@@ -3823,11 +3820,22 @@ async def perform_cluster_deletion(job_id: str, cluster_name: str, namespace: st
         # Using the recommended format: oc delete -n <namespace> cluster/<name> rosacontrolplane/<name>
         try:
             print(f"🗑️ [DELETE-CLUSTER] Deleting cluster and rosacontrolplane for {cluster_name}")
-            jobs[job_id]["stdout"] += f"🗑️ Deleting cluster/{cluster_name} and rosacontrolplane/{cluster_name}\n"
-            jobs[job_id]["stdout"] += f"ℹ️  This triggers cascading deletion of all dependent resources\n"
+            jobs[job_id][
+                "stdout"
+            ] += f"🗑️ Deleting cluster/{cluster_name} and rosacontrolplane/{cluster_name}\n"
+            jobs[job_id][
+                "stdout"
+            ] += f"ℹ️  This triggers cascading deletion of all dependent resources\n"
 
             result = subprocess.run(
-                ["oc", "delete", "-n", namespace, f"cluster/{cluster_name}", f"rosacontrolplane/{cluster_name}"],
+                [
+                    "oc",
+                    "delete",
+                    "-n",
+                    namespace,
+                    f"cluster/{cluster_name}",
+                    f"rosacontrolplane/{cluster_name}",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=60,
@@ -3836,9 +3844,15 @@ async def perform_cluster_deletion(job_id: str, cluster_name: str, namespace: st
             if result.returncode == 0:
                 deleted_resources.append(f"cluster/{cluster_name}")
                 deleted_resources.append(f"rosacontrolplane/{cluster_name}")
-                print(f"✅ [DELETE-CLUSTER] Deletion initiated for cluster/{cluster_name} and rosacontrolplane/{cluster_name}")
-                jobs[job_id]["stdout"] += f"✅ Deletion initiated for cluster/{cluster_name} and rosacontrolplane/{cluster_name}\n"
-                jobs[job_id]["stdout"] += f"✅ Kubernetes will cascade delete MachinePools automatically\n"
+                print(
+                    f"✅ [DELETE-CLUSTER] Deletion initiated for cluster/{cluster_name} and rosacontrolplane/{cluster_name}"
+                )
+                jobs[job_id][
+                    "stdout"
+                ] += f"✅ Deletion initiated for cluster/{cluster_name} and rosacontrolplane/{cluster_name}\n"
+                jobs[job_id][
+                    "stdout"
+                ] += f"✅ Kubernetes will cascade delete MachinePools automatically\n"
 
                 # Step 2: Wait for the cluster to be fully deleted (max 10 minutes for ROSA cluster deletion)
                 print(f"⏳ [DELETE-CLUSTER] Waiting for cluster/{cluster_name} to be deleted...")
@@ -3861,18 +3875,30 @@ async def perform_cluster_deletion(job_id: str, cluster_name: str, namespace: st
                     )
 
                     if check_result.returncode != 0 and "not found" in check_result.stderr.lower():
-                        print(f"✅ [DELETE-CLUSTER] cluster/{cluster_name} successfully deleted after {elapsed_time}s")
-                        jobs[job_id]["stdout"] += f"✅ cluster/{cluster_name} successfully deleted after {elapsed_time}s\n✅ ROSA cluster has been removed from AWS/OCM\n"
+                        print(
+                            f"✅ [DELETE-CLUSTER] cluster/{cluster_name} successfully deleted after {elapsed_time}s"
+                        )
+                        jobs[job_id][
+                            "stdout"
+                        ] += f"✅ cluster/{cluster_name} successfully deleted after {elapsed_time}s\n✅ ROSA cluster has been removed from AWS/OCM\n"
                         break
                     else:
                         print(f"⏳ [DELETE-CLUSTER] Still waiting... ({elapsed_time}s elapsed)")
                         if elapsed_time % 60 == 0:  # Update job every 60 seconds
-                            jobs[job_id]["stdout"] += f"⏳ Still waiting for ROSA cluster deletion... ({elapsed_time}s elapsed)\n"
+                            jobs[job_id][
+                                "stdout"
+                            ] += f"⏳ Still waiting for ROSA cluster deletion... ({elapsed_time}s elapsed)\n"
 
                 if elapsed_time >= max_wait_time:
-                    errors.append(f"Timeout waiting for cluster/{cluster_name} to delete after {max_wait_time}s")
-                    print(f"⚠️ [DELETE-CLUSTER] Timeout waiting for cluster deletion, but it may still complete in the background")
-                    jobs[job_id]["stdout"] += f"⚠️ Timeout waiting for deletion after {max_wait_time}s, but the ROSA cluster deletion may still complete in the background\n"
+                    errors.append(
+                        f"Timeout waiting for cluster/{cluster_name} to delete after {max_wait_time}s"
+                    )
+                    print(
+                        f"⚠️ [DELETE-CLUSTER] Timeout waiting for cluster deletion, but it may still complete in the background"
+                    )
+                    jobs[job_id][
+                        "stdout"
+                    ] += f"⚠️ Timeout waiting for deletion after {max_wait_time}s, but the ROSA cluster deletion may still complete in the background\n"
             else:
                 if "not found" not in result.stderr.lower():
                     errors.append(f"Failed to delete resources: {result.stderr}")
@@ -3881,10 +3907,14 @@ async def perform_cluster_deletion(job_id: str, cluster_name: str, namespace: st
 
         except subprocess.TimeoutExpired:
             errors.append(f"Timeout deleting cluster and rosacontrolplane")
-            jobs[job_id]["stderr"] += f"❌ Timeout deleting cluster/{cluster_name} and rosacontrolplane/{cluster_name}\n"
+            jobs[job_id][
+                "stderr"
+            ] += f"❌ Timeout deleting cluster/{cluster_name} and rosacontrolplane/{cluster_name}\n"
         except Exception as e:
             errors.append(f"Error deleting cluster and rosacontrolplane: {str(e)}")
-            jobs[job_id]["stderr"] += f"❌ Error deleting cluster/{cluster_name} and rosacontrolplane/{cluster_name}: {str(e)}\n"
+            jobs[job_id][
+                "stderr"
+            ] += f"❌ Error deleting cluster/{cluster_name} and rosacontrolplane/{cluster_name}: {str(e)}\n"
 
         # Step 3: Clean up remaining ROSA resources if they still exist (they should cascade delete automatically)
         # MachinePools should be cascade deleted by Kubernetes, but other resources may need manual cleanup
