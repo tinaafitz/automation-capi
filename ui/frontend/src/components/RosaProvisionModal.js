@@ -1,13 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { buildApiUrl, API_ENDPOINTS } from '../config/api';
 
 export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceInfo }) {
+  // Capture initial MCE info when modal opens to prevent mid-form changes
+  const initialMceInfoRef = useRef(null);
+  const hasSetInitialMceInfo = useRef(false);
+
+  // Set the ref ONCE when modal opens, don't update it again
+  useEffect(() => {
+    if (isOpen && !hasSetInitialMceInfo.current) {
+      initialMceInfoRef.current = mceInfo;
+      hasSetInitialMceInfo.current = true;
+    } else if (!isOpen) {
+      // Reset when modal closes
+      hasSetInitialMceInfo.current = false;
+    }
+  }, [isOpen, mceInfo]);
+
   const [config, setConfig] = useState({
     clusterName: '',
     clusterDescription: '',
-    openShiftVersion: '4.19.10',
+    openShiftVersion: '4.20.8',
     createRosaNetwork: true,
     createRosaRoleConfig: true,
     vpcCidrBlock: '10.0.0.0/16',
@@ -36,7 +51,7 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
     manualOidcConfigId: '',
     // Log forwarding configuration
     enableLogForwarding: false,
-    logForwardApplications: ['application', 'infrastructure'],
+    logForwardApplications: ['audit-webhook', 'kube-apiserver'],
     logForwardCloudWatchRoleArn: '',
     logForwardCloudWatchLogGroup: '',
     logForwardS3Bucket: '',
@@ -101,7 +116,7 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
           ? 'comprehensive-test-really-long-cluster-name'
           : `test-${testSuite.category.toLowerCase()}-${testSuite.id}`,
         clusterDescription: testSuite.name || '',
-        openShiftVersion: '4.19.10',
+        openShiftVersion: '4.20.8',
         createRosaNetwork: true,
         createRosaRoleConfig: true,
         vpcCidrBlock: '10.0.0.0/16',
@@ -131,9 +146,12 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
     }
   }, [config.clusterName]);
 
-  // Reset feature flags and default OpenShift version when MCE version changes
+  // Reset feature flags and default OpenShift version when modal opens
+  // Use initialMceInfoRef to prevent changes mid-form
   useEffect(() => {
-    if (!mceInfo?.version) return;
+    if (!isOpen) return;
+
+    const currentMceInfo = initialMceInfoRef.current;
 
     const isMceVersionAtLeast = (current, target) => {
       if (!current) return false;
@@ -148,14 +166,16 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
       return curr.patch >= targ.patch;
     };
 
-    const supportsNetworkRole = isMceVersionAtLeast(mceInfo.version, '2.9.0');
-    const supportsLogFwd = isMceVersionAtLeast(mceInfo.version, '2.10.0');
+    // For Minikube (no MCE), support all latest features
+    const isMinikube = !currentMceInfo || !currentMceInfo.version || currentMceInfo.version === 'N/A';
+    const supportsNetworkRole = isMinikube || isMceVersionAtLeast(currentMceInfo.version, '2.9.0');
+    const supportsLogFwd = isMinikube || isMceVersionAtLeast(currentMceInfo.version, '2.10.0');
 
     // Set default OpenShift version based on MCE version
-    let defaultOcpVersion = '4.19.10';
+    let defaultOcpVersion = '4.20.8';
     if (supportsLogFwd) {
-      // MCE 2.10+ defaults to 4.19.10 (supports 4.19-4.20)
-      defaultOcpVersion = '4.19.10';
+      // MCE 2.10+ defaults to 4.20.8 (supports 4.19-4.20)
+      defaultOcpVersion = '4.20.8';
     } else if (supportsNetworkRole) {
       // MCE 2.9 defaults to 4.19.10 (supports 4.18-4.19)
       defaultOcpVersion = '4.19.10';
@@ -179,7 +199,7 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
 
       return { ...prev, ...updates };
     });
-  }, [mceInfo?.version]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -213,9 +233,13 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
   // Feature availability based on MCE version
   // MCE 2.9+ supports ROSANetwork and RosaRoleConfig
   // MCE 2.10+ supports Log Forwarding
-  const mceVersion = mceInfo?.version || '2.8.0'; // Default to old version if not available
-  const supportsNetworkRoleConfig = isMceVersionAtLeast(mceVersion, '2.9.0');
-  const supportsLogForwarding = isMceVersionAtLeast(mceVersion, '2.10.0');
+  // For Minikube (no MCE), support all latest features
+  // Use initialMceInfoRef to prevent modal from changing mid-form
+  const currentMceInfo = initialMceInfoRef.current;
+  const isMinikube = !currentMceInfo || !currentMceInfo.version || currentMceInfo.version === 'N/A';
+  const mceVersion = currentMceInfo?.version || '2.8.0';
+  const supportsNetworkRoleConfig = isMinikube || isMceVersionAtLeast(mceVersion, '2.9.0');
+  const supportsLogForwarding = isMinikube || isMceVersionAtLeast(mceVersion, '2.10.0');
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -328,7 +352,16 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
               {/* MCE 2.10+ supports OpenShift 4.20+ */}
               {supportsLogForwarding && (
                 <>
-                  <option value="4.20.0">4.20.0 (Latest)</option>
+                  <option value="4.20.8">4.20.8 (Latest - Recommended)</option>
+                  <option value="4.20.6">4.20.6</option>
+                  <option value="4.20.5">4.20.5</option>
+                  <option value="4.20.4">4.20.4</option>
+                  <option value="4.20.3">4.20.3</option>
+                  <option value="4.20.2">4.20.2</option>
+                  <option value="4.20.1">4.20.1</option>
+                  <option value="4.20.0">4.20.0</option>
+                  <option value="4.19.21">4.19.21</option>
+                  <option value="4.19.20">4.19.20</option>
                   <option value="4.19.10">4.19.10</option>
                   <option value="4.19.9">4.19.9</option>
                   <option value="4.19.8">4.19.8</option>
@@ -888,28 +921,35 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
                     Applications to Forward <span className="text-red-500">*</span>
                   </label>
                   <div className="space-y-2">
-                    {['application', 'infrastructure', 'audit-webhook'].map((app) => (
+                    {[
+                      { value: 'audit-webhook', label: 'Audit Logs', description: 'Kubernetes audit events' },
+                      { value: 'kube-apiserver', label: 'Kubernetes API Logs', description: 'Kube API server logs' },
+                      { value: 'openshift-apiserver', label: 'OpenShift API & OAuth Logs', description: 'OpenShift API and authentication logs' },
+                    ].map((app) => (
                       <label
-                        key={app}
-                        className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-200 hover:bg-gray-100 cursor-pointer"
+                        key={app.value}
+                        className="flex items-start gap-2 p-2 bg-gray-50 rounded border border-gray-200 hover:bg-gray-100 cursor-pointer"
                       >
                         <input
                           type="checkbox"
-                          checked={config.logForwardApplications.includes(app)}
+                          checked={config.logForwardApplications.includes(app.value)}
                           onChange={(e) => {
                             const newApps = e.target.checked
-                              ? [...config.logForwardApplications, app]
-                              : config.logForwardApplications.filter((a) => a !== app);
+                              ? [...config.logForwardApplications, app.value]
+                              : config.logForwardApplications.filter((a) => a !== app.value);
                             handleChange('logForwardApplications', newApps);
                           }}
-                          className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
+                          className="mt-0.5 h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
                         />
-                        <span className="text-sm text-gray-700">{app}</span>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-gray-700">{app.label}</div>
+                          <div className="text-xs text-gray-500">{app.description}</div>
+                        </div>
                       </label>
                     ))}
                   </div>
                   <p className="mt-1 text-xs text-gray-500">
-                    Select which log types to forward to CloudWatch (at least one required)
+                    Select which log types to forward to CloudWatch and S3 (at least one required)
                   </p>
                 </div>
 
@@ -931,38 +971,38 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
                   </p>
                 </div>
 
-                {/* S3 Bucket (Optional) */}
+                {/* S3 Bucket Name (Optional) */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    S3 Bucket (optional)
+                    S3 Bucket Name (optional)
                   </label>
                   <input
                     type="text"
                     value={config.logForwardS3Bucket}
                     onChange={(e) => handleChange('logForwardS3Bucket', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 font-mono text-sm"
-                    placeholder="my-rosa-logs-bucket"
+                    placeholder="rosa-logs-test-471112697682"
                   />
                   <p className="mt-1 text-xs text-gray-500">
                     Optional S3 bucket name for additional log storage
                   </p>
                 </div>
 
-                {/* S3 Prefix (Optional) */}
+                {/* S3 Bucket Prefix (Optional) */}
                 {config.logForwardS3Bucket && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      S3 Prefix (optional)
+                      S3 Bucket Prefix (optional)
                     </label>
                     <input
                       type="text"
                       value={config.logForwardS3Prefix}
                       onChange={(e) => handleChange('logForwardS3Prefix', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 font-mono text-sm"
-                      placeholder="logs/"
+                      placeholder="logs/rosa-clusters"
                     />
                     <p className="mt-1 text-xs text-gray-500">
-                      Object prefix/path within the S3 bucket
+                      Optional prefix for objects stored in the S3 bucket
                     </p>
                   </div>
                 )}
@@ -974,8 +1014,8 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
                     <div className="flex-1">
                       <p className="text-xs text-blue-800 font-medium mb-1">Setup Prerequisites</p>
                       <p className="text-xs text-blue-700">
-                        Run the log forwarding setup first to create the IAM role and CloudWatch log
-                        group:
+                        Run the log forwarding setup first to create the IAM role, CloudWatch log
+                        group, and S3 bucket (if using S3):
                       </p>
                       <code className="text-xs bg-blue-100 text-blue-900 px-2 py-1 rounded mt-1 block">
                         ansible-playbook test-rosa-log-forwarding.yml -e setup_only=true

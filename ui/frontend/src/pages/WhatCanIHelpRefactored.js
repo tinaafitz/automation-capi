@@ -866,15 +866,7 @@ Update completed at ${completionTime}`
               const sectionId = 'capi-rosa-hcp-clusters';
               dispatch({ type: AppActionTypes.EXPAND_SECTION, payload: sectionId });
 
-              // Scroll to the cluster section after a small delay to allow for expansion
-              setTimeout(() => {
-                const element = document.querySelector(
-                  '[data-section-id="capi-rosa-hcp-clusters"]'
-                );
-                if (element) {
-                  element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-              }, 500);
+              // Note: Removed automatic scrolling - user should stay at current position
             }, 1500); // Small delay to show success message first
 
             // The job will now be tracked by the job history system and will show up

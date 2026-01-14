@@ -166,6 +166,24 @@ async def run_minikube_init_playbook(
             except Exception as e:
                 print(f"Warning: Failed to load credentials: {e}")
 
+        # Switch kubectl context to the Minikube cluster BEFORE running playbook
+        try:
+            context_switch = subprocess.run(
+                ["kubectl", "config", "use-context", cluster_name],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if context_switch.returncode != 0:
+                jobs[job_id]["status"] = "failed"
+                jobs[job_id]["message"] = f"Failed to switch kubectl context to '{cluster_name}'"
+                jobs[job_id]["logs"].append(f"ERROR: {context_switch.stderr}")
+                return
+        except Exception as e:
+            jobs[job_id]["status"] = "failed"
+            jobs[job_id]["message"] = f"Failed to switch kubectl context: {str(e)}"
+            return
+
         # Prepare environment with Minikube profile
         env = os.environ.copy()
         env["MINIKUBE_PROFILE"] = cluster_name
@@ -669,6 +687,9 @@ def normalize_timestamp(value):
 async def list_jobs():
     """List all jobs"""
     try:
+        # Check for and timeout stuck jobs before returning the list
+        check_and_timeout_stuck_jobs()
+
         # Return all jobs sorted by creation time (newest first)
         job_list = []
         for job_id, job in jobs.items():
@@ -712,6 +733,82 @@ async def get_job_logs(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
 
     return {"logs": jobs[job_id].get("logs", [])}
+
+
+@app.post("/api/jobs/{job_id}/cancel")
+async def cancel_job(job_id: str):
+    """Cancel a running job"""
+    if job_id not in jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job = jobs[job_id]
+
+    # Only allow canceling jobs that are currently running
+    if job.get("status") != "running":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot cancel job with status: {job.get('status')}"
+        )
+
+    # Mark job as cancelled
+    jobs[job_id]["status"] = "failed"
+    jobs[job_id]["message"] = "Job cancelled by user"
+    jobs[job_id]["error"] = "Job was manually cancelled"
+    jobs[job_id]["completed_at"] = datetime.now().isoformat()
+    jobs[job_id]["progress"] = 0
+
+    return {
+        "success": True,
+        "message": "Job cancelled successfully",
+        "job_id": job_id
+    }
+
+
+def check_and_timeout_stuck_jobs():
+    """Check for stuck jobs and mark them as failed if they've been running too long"""
+    TIMEOUT_MINUTES = 10  # Timeout after 10 minutes with no progress
+
+    current_time = datetime.now()
+    stuck_jobs = []
+
+    for job_id, job in jobs.items():
+        # Only check running jobs
+        if job.get("status") != "running":
+            continue
+
+        # Get job start time
+        started_at = job.get("started_at")
+        if not started_at:
+            # If no started_at, use created_at
+            started_at = job.get("created_at")
+
+        if not started_at:
+            continue
+
+        # Parse the timestamp
+        try:
+            if isinstance(started_at, str):
+                start_time = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+            else:
+                start_time = started_at
+        except (ValueError, AttributeError):
+            continue
+
+        # Check if job has been running for too long
+        elapsed_time = (current_time - start_time).total_seconds() / 60  # Convert to minutes
+
+        if elapsed_time > TIMEOUT_MINUTES:
+            # Mark job as failed due to timeout
+            jobs[job_id]["status"] = "failed"
+            jobs[job_id]["message"] = f"Job timed out after {int(elapsed_time)} minutes with no progress"
+            jobs[job_id]["error"] = f"Job exceeded timeout limit of {TIMEOUT_MINUTES} minutes"
+            jobs[job_id]["completed_at"] = datetime.now().isoformat()
+            jobs[job_id]["progress"] = 0
+            stuck_jobs.append(job_id)
+
+            print(f"⏱️ Marked job {job_id} as failed due to timeout ({int(elapsed_time)} minutes)")
+
+    return stuck_jobs
 
 
 @app.websocket("/ws/jobs/{job_id}")
@@ -3721,36 +3818,32 @@ async def perform_cluster_deletion(job_id: str, cluster_name: str, namespace: st
     errors = []
 
     try:
-        # Step 1: Delete the Cluster resource (this will trigger CAPI controllers to delete all infrastructure)
+        # Step 1: Delete Cluster and ROSAControlPlane together
+        # This triggers proper cascading deletion and avoids RBAC issues with MachinePools
+        # Using the recommended format: oc delete -n <namespace> cluster/<name> rosacontrolplane/<name>
         try:
-            print(f"🗑️ [DELETE-CLUSTER] Initiating deletion of cluster/{cluster_name}")
+            print(f"🗑️ [DELETE-CLUSTER] Deleting cluster and rosacontrolplane for {cluster_name}")
+            jobs[job_id]["stdout"] += f"🗑️ Deleting cluster/{cluster_name} and rosacontrolplane/{cluster_name}\n"
+            jobs[job_id]["stdout"] += f"ℹ️  This triggers cascading deletion of all dependent resources\n"
+
             result = subprocess.run(
-                [
-                    "oc",
-                    "delete",
-                    "cluster",
-                    cluster_name,
-                    "-n",
-                    namespace,
-                    "--ignore-not-found=true",
-                ],
+                ["oc", "delete", "-n", namespace, f"cluster/{cluster_name}", f"rosacontrolplane/{cluster_name}"],
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=60,
             )
 
             if result.returncode == 0:
                 deleted_resources.append(f"cluster/{cluster_name}")
-                print(f"✅ [DELETE-CLUSTER] Deletion initiated for cluster/{cluster_name}")
-
-                jobs[job_id][
-                    "stdout"
-                ] += f"✅ Deletion initiated for cluster/{cluster_name}\n✅ CAPI controllers will now delete the ROSA cluster from AWS/OCM\n"
+                deleted_resources.append(f"rosacontrolplane/{cluster_name}")
+                print(f"✅ [DELETE-CLUSTER] Deletion initiated for cluster/{cluster_name} and rosacontrolplane/{cluster_name}")
+                jobs[job_id]["stdout"] += f"✅ Deletion initiated for cluster/{cluster_name} and rosacontrolplane/{cluster_name}\n"
+                jobs[job_id]["stdout"] += f"✅ Kubernetes will cascade delete MachinePools automatically\n"
 
                 # Step 2: Wait for the cluster to be fully deleted (max 10 minutes for ROSA cluster deletion)
-                print(
-                    f"⏳ [DELETE-CLUSTER] Waiting for cluster/{cluster_name} to be deleted..."
-                )
+                print(f"⏳ [DELETE-CLUSTER] Waiting for cluster/{cluster_name} to be deleted...")
+                jobs[job_id]["stdout"] += f"⏳ Waiting for cluster deletion to complete...\n"
+
                 max_wait_time = 600  # 10 minutes (ROSA deletion can take longer)
                 check_interval = 10  # Check every 10 seconds
                 elapsed_time = 0
@@ -3768,57 +3861,38 @@ async def perform_cluster_deletion(job_id: str, cluster_name: str, namespace: st
                     )
 
                     if check_result.returncode != 0 and "not found" in check_result.stderr.lower():
-                        print(
-                            f"✅ [DELETE-CLUSTER] cluster/{cluster_name} successfully deleted after {elapsed_time}s"
-                        )
-                        jobs[job_id][
-                            "stdout"
-                        ] += f"✅ cluster/{cluster_name} successfully deleted after {elapsed_time}s\n✅ ROSA cluster has been removed from AWS/OCM\n"
+                        print(f"✅ [DELETE-CLUSTER] cluster/{cluster_name} successfully deleted after {elapsed_time}s")
+                        jobs[job_id]["stdout"] += f"✅ cluster/{cluster_name} successfully deleted after {elapsed_time}s\n✅ ROSA cluster has been removed from AWS/OCM\n"
                         break
                     else:
                         print(f"⏳ [DELETE-CLUSTER] Still waiting... ({elapsed_time}s elapsed)")
                         if elapsed_time % 60 == 0:  # Update job every 60 seconds
-                            jobs[job_id][
-                                "stdout"
-                            ] += f"⏳ Still waiting for ROSA cluster deletion... ({elapsed_time}s elapsed)\n"
+                            jobs[job_id]["stdout"] += f"⏳ Still waiting for ROSA cluster deletion... ({elapsed_time}s elapsed)\n"
 
                 if elapsed_time >= max_wait_time:
-                    errors.append(
-                        f"Timeout waiting for cluster/{cluster_name} to delete after {max_wait_time}s"
-                    )
-                    print(
-                        f"⚠️ [DELETE-CLUSTER] Timeout waiting for cluster deletion, but it may still complete in the background"
-                    )
-                    jobs[job_id][
-                        "stdout"
-                    ] += f"⚠️ Timeout waiting for deletion after {max_wait_time}s, but the ROSA cluster deletion may still complete in the background\n"
+                    errors.append(f"Timeout waiting for cluster/{cluster_name} to delete after {max_wait_time}s")
+                    print(f"⚠️ [DELETE-CLUSTER] Timeout waiting for cluster deletion, but it may still complete in the background")
+                    jobs[job_id]["stdout"] += f"⚠️ Timeout waiting for deletion after {max_wait_time}s, but the ROSA cluster deletion may still complete in the background\n"
             else:
                 if "not found" not in result.stderr.lower():
-                    errors.append(
-                        f"Failed to delete cluster/{cluster_name}: {result.stderr}"
-                    )
-                    print(
-                        f"❌ [DELETE-CLUSTER] Error deleting cluster/{cluster_name}: {result.stderr}"
-                    )
-                    jobs[job_id][
-                        "stderr"
-                    ] += f"❌ Error deleting cluster/{cluster_name}: {result.stderr}\n"
+                    errors.append(f"Failed to delete resources: {result.stderr}")
+                    print(f"❌ [DELETE-CLUSTER] Error deleting resources: {result.stderr}")
+                    jobs[job_id]["stderr"] += f"❌ Error deleting resources: {result.stderr}\n"
 
         except subprocess.TimeoutExpired:
-            errors.append(f"Timeout deleting cluster/{cluster_name}")
-            jobs[job_id]["stderr"] += f"❌ Timeout deleting cluster/{cluster_name}\n"
+            errors.append(f"Timeout deleting cluster and rosacontrolplane")
+            jobs[job_id]["stderr"] += f"❌ Timeout deleting cluster/{cluster_name} and rosacontrolplane/{cluster_name}\n"
         except Exception as e:
-            errors.append(f"Error deleting cluster/{cluster_name}: {str(e)}")
-            jobs[job_id][
-                "stderr"
-            ] += f"❌ Error deleting cluster/{cluster_name}: {str(e)}\n"
+            errors.append(f"Error deleting cluster and rosacontrolplane: {str(e)}")
+            jobs[job_id]["stderr"] += f"❌ Error deleting cluster/{cluster_name} and rosacontrolplane/{cluster_name}: {str(e)}\n"
 
-        # Step 3: Clean up ROSA resources if they still exist (they should cascade delete, but just in case)
+        # Step 3: Clean up remaining ROSA resources if they still exist (they should cascade delete automatically)
+        # MachinePools should be cascade deleted by Kubernetes, but other resources may need manual cleanup
         cleanup_resources = [
-            ("rosacontrolplane", cluster_name),  # Most important - this triggers actual ROSA cluster deletion
             ("rosanetwork", f"{cluster_name}-network"),
             ("rosaroleconfig", f"{cluster_name}-roles"),
-            ("rosamachinepool", cluster_name),  # Also clean up machine pools
+            ("rosamachinepool", cluster_name),
+            ("rosacluster", cluster_name),
         ]
 
         for resource_type, resource_name in cleanup_resources:
@@ -3956,10 +4030,11 @@ async def get_mce_resources():
 
         # Define resource types to fetch
         resource_types = [
-            {
-                "type": "Deployment",
-                "namespaces": ["capi-system", "capa-system", "multicluster-engine"],
-            },
+            # Skip Deployment for now as it's slow and not critical for resource display
+            # {
+            #     "type": "Deployment",
+            #     "namespaces": ["capi-system", "capa-system", "multicluster-engine"],
+            # },
             {"type": "AWSClusterControllerIdentity", "namespaces": ["capa-system"]},
             {"type": "ROSACluster", "namespaces": None},  # All namespaces
             {"type": "ROSANetwork", "namespaces": None},  # All namespaces
@@ -4489,7 +4564,7 @@ async def get_capi_component_versions(cluster_name: str = None, environment: str
                     if "quay.io/melserng" in image or "dev" in tag or "pr" in tag.lower():
                         # Show repo shortname + tag for custom images
                         repo_name = repo.split("/")[-1] if "/" in repo else repo
-                        version = f"{tag} ({repo_name})"
+                        version = f"{tag} (custom: {repo_name})"
                     else:
                         version = tag
                 else:
@@ -4693,9 +4768,16 @@ async def verify_minikube_cluster(request: dict):
                     except:
                         version = "v1.32.0"
 
+                # Get driver from minikube status
+                driver = status_data.get("Driver", "N/A")
+
                 cluster_info = {
-                    "status": "running",
-                    "version": version,
+                    "name": cluster_name,
+                    "namespace": "ns-rosa-hcp",  # Default namespace for ROSA HCP resources
+                    "status": "Running",  # Capitalized to match Minikube convention
+                    "driver": driver,
+                    "kubernetesVersion": version,
+                    "version": version,  # Keep for backward compatibility
                 }
 
                 # Fetch creationTimestamp for key components

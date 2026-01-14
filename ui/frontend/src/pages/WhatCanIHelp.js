@@ -328,6 +328,8 @@ export function WhatCanIHelp() {
   // Sorting states for Key Components table
   const [mceComponentSortField, setMceComponentSortField] = useState('component');
   const [mceComponentSortDirection, setMceComponentSortDirection] = useState('asc');
+  // State for namespace collapse/expand in Minikube resources
+  const [minikubeNamespaceCollapsed, setMinikubeNamespaceCollapsed] = useState({});
 
   // Access global app state for provision target context
   const app = useApp();
@@ -4418,238 +4420,117 @@ export function WhatCanIHelp() {
                   </div>
                 )}
 
-                <div className="max-h-96 overflow-y-auto overflow-x-auto">
-                  {activeResources.filter(
-                    (r) =>
-                      // Filter out infrastructure components - only show workload resources
-                      r.type !== 'Namespace' &&
-                      r.type !== 'AWSClusterControllerIdentity' &&
-                      r.type !== 'Secret (ROSA Creds)' &&
-                      r.type !== 'Secret (AWS Creds)'
-                  ).length > 0 ? (
-                    <table className="min-w-full divide-y divide-purple-200">
-                      <thead className="bg-purple-50 sticky top-0">
-                        <tr>
-                          <th
-                            scope="col"
-                            className="px-4 py-3 text-left text-sm font-semibold text-purple-900 cursor-pointer hover:bg-purple-100 transition-colors"
-                            onClick={() => {
-                              const newDirection =
-                                minikubeSortField === 'name' && minikubeSortDirection === 'asc'
-                                  ? 'desc'
-                                  : 'asc';
-                              setMinikubeSortField('name');
-                              setMinikubeSortDirection(newDirection);
-                            }}
-                          >
-                            <div className="flex items-center gap-1">
-                              Name
-                              {minikubeSortField === 'name' && (
-                                <svg
-                                  className="w-4 h-4"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  {minikubeSortDirection === 'asc' ? (
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M5 15l7-7 7 7"
-                                    />
-                                  ) : (
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M19 9l-7 7-7-7"
-                                    />
-                                  )}
-                                </svg>
-                              )}
-                            </div>
-                          </th>
-                          <th
-                            scope="col"
-                            className="px-4 py-3 text-left text-sm font-semibold text-purple-900 cursor-pointer hover:bg-purple-100 transition-colors"
-                            onClick={() => {
-                              const newDirection =
-                                minikubeSortField === 'type' && minikubeSortDirection === 'asc'
-                                  ? 'desc'
-                                  : 'asc';
-                              setMinikubeSortField('type');
-                              setMinikubeSortDirection(newDirection);
-                            }}
-                          >
-                            <div className="flex items-center gap-1">
-                              Type
-                              {minikubeSortField === 'type' && (
-                                <svg
-                                  className="w-4 h-4"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  {minikubeSortDirection === 'asc' ? (
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M5 15l7-7 7 7"
-                                    />
-                                  ) : (
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M19 9l-7 7-7-7"
-                                    />
-                                  )}
-                                </svg>
-                              )}
-                            </div>
-                          </th>
-                          <th
-                            scope="col"
-                            className="px-4 py-3 text-left text-sm font-semibold text-purple-900 cursor-pointer hover:bg-purple-100 transition-colors"
-                            onClick={() => {
-                              const newDirection =
-                                minikubeSortField === 'status' && minikubeSortDirection === 'asc'
-                                  ? 'desc'
-                                  : 'asc';
-                              setMinikubeSortField('status');
-                              setMinikubeSortDirection(newDirection);
-                            }}
-                          >
-                            <div className="flex items-center gap-1">
-                              Status
-                              {minikubeSortField === 'status' && (
-                                <svg
-                                  className="w-4 h-4"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  {minikubeSortDirection === 'asc' ? (
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M5 15l7-7 7 7"
-                                    />
-                                  ) : (
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M19 9l-7 7-7-7"
-                                    />
-                                  )}
-                                </svg>
-                              )}
-                            </div>
-                          </th>
-                          <th
-                            scope="col"
-                            className="px-4 py-3 text-left text-sm font-semibold text-purple-900 cursor-pointer hover:bg-purple-100 transition-colors"
-                            onClick={() => {
-                              const newDirection =
-                                minikubeSortField === 'age' && minikubeSortDirection === 'asc'
-                                  ? 'desc'
-                                  : 'asc';
-                              setMinikubeSortField('age');
-                              setMinikubeSortDirection(newDirection);
-                            }}
-                          >
-                            <div className="flex items-center gap-1">
-                              Created
-                              {minikubeSortField === 'age' && (
-                                <svg
-                                  className="w-4 h-4"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  {minikubeSortDirection === 'asc' ? (
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M5 15l7-7 7 7"
-                                    />
-                                  ) : (
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M19 9l-7 7-7-7"
-                                    />
-                                  )}
-                                </svg>
-                              )}
-                            </div>
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-purple-100">
-                        {sortResources(
-                          activeResources.filter(
-                            (r) =>
-                              // Filter out infrastructure components - only show workload resources
-                              r.type !== 'Namespace' &&
-                              r.type !== 'AWSClusterControllerIdentity' &&
-                              r.type !== 'Secret (ROSA Creds)' &&
-                              r.type !== 'Secret (AWS Creds)'
-                          ),
-                          minikubeSortField,
-                          minikubeSortDirection
-                        ).map((resource, idx) => (
-                          <tr
-                            key={idx}
-                            className="hover:bg-purple-50 transition-colors cursor-pointer"
-                            onClick={() => {
-                              fetchResourceDetail(
-                                verifiedMinikubeClusterInfo.name,
-                                resource.type,
-                                resource.name,
-                                resource.namespace || 'ns-rosa-hcp'
-                              );
-                            }}
-                            title="Click to view YAML"
-                          >
-                            <td className="px-4 py-3 text-sm font-medium text-purple-900">
-                              {resource.name}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-purple-700">{resource.type}</td>
-                            <td className="px-4 py-3">
-                              <span
-                                className={`inline-flex px-2.5 py-1 rounded-full text-sm font-medium ${
-                                  resource.status === 'Ready' ||
-                                  resource.status === 'Active' ||
-                                  resource.status === 'Configured'
-                                    ? 'bg-green-100 text-green-800'
-                                    : resource.status === 'Provisioning' ||
-                                        resource.status === 'Configuring'
-                                      ? 'bg-amber-100 text-amber-800'
-                                      : 'bg-blue-100 text-blue-800'
-                                }`}
+                <div className="max-h-96 overflow-y-auto">
+                  {(() => {
+                    // Filter resources
+                    const filteredResources = activeResources.filter(
+                      (r) =>
+                        r.type !== 'Namespace' &&
+                        r.type !== 'AWSClusterControllerIdentity' &&
+                        r.type !== 'Secret (ROSA Creds)' &&
+                        r.type !== 'Secret (AWS Creds)'
+                    );
+
+                    if (filteredResources.length === 0) {
+                      return (
+                        <div className="text-center py-8 text-sm text-gray-500 italic">
+                          No active resources found. Click "Verify" or "Configure" to load resources.
+                        </div>
+                      );
+                    }
+
+                    // Group resources by namespace
+                    const resourcesByNamespace = filteredResources.reduce((acc, resource) => {
+                      const ns = resource.namespace || 'ns-rosa-hcp';
+                      if (!acc[ns]) acc[ns] = [];
+                      acc[ns].push(resource);
+                      return acc;
+                    }, {});
+
+                    const toggleNamespace = (ns) => {
+                      setMinikubeNamespaceCollapsed(prev => ({ ...prev, [ns]: !prev[ns] }));
+                    };
+
+                    return (
+                      <div className="space-y-2">
+                        {Object.entries(resourcesByNamespace)
+                          .sort(([a], [b]) => a.localeCompare(b))
+                          .map(([namespace, resources]) => (
+                            <div key={namespace} className="border border-gray-200 rounded-lg overflow-hidden">
+                              {/* Namespace Header */}
+                              <button
+                                onClick={() => toggleNamespace(namespace)}
+                                className="w-full flex items-center justify-between px-4 py-2 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
                               >
-                                {resource.status}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {resource.age || 'N/A'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <div className="text-center py-8 text-sm text-gray-500 italic">
-                      No active resources found. Click "Verify" or "Configure" to load resources.
-                    </div>
-                  )}
+                                <div className="flex items-center gap-2">
+                                  {minikubeNamespaceCollapsed[namespace] ? (
+                                    <svg className="h-4 w-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                  ) : (
+                                    <svg className="h-4 w-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                    </svg>
+                                  )}
+                                  <span className="text-sm font-medium text-gray-900">{namespace}</span>
+                                </div>
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                  {resources.length}
+                                </span>
+                              </button>
+
+                              {/* Namespace Resources */}
+                              {!minikubeNamespaceCollapsed[namespace] && (
+                                <div className="bg-white">
+                                  {resources.map((resource, idx) => (
+                                    <div
+                                      key={idx}
+                                      onClick={() => {
+                                        fetchResourceDetail(
+                                          verifiedMinikubeClusterInfo.name,
+                                          resource.type,
+                                          resource.name,
+                                          resource.namespace || 'ns-rosa-hcp'
+                                        );
+                                      }}
+                                      className="px-4 py-3 hover:bg-purple-50 cursor-pointer transition-colors border-b border-gray-100 last:border-b-0"
+                                      title="Click to view YAML"
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex-1 min-w-0">
+                                          <div className="text-sm font-medium text-purple-900 truncate">
+                                            {resource.name}
+                                          </div>
+                                          <div className="text-xs text-gray-500 mt-0.5">
+                                            {resource.type}
+                                          </div>
+                                        </div>
+                                        <div className="ml-4 flex-shrink-0">
+                                          <span
+                                            className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                                              resource.status === 'Ready' ||
+                                              resource.status === 'Active' ||
+                                              resource.status === 'Configured'
+                                                ? 'bg-green-100 text-green-800'
+                                                : resource.status === 'Provisioning' ||
+                                                    resource.status === 'Configuring'
+                                                  ? 'bg-amber-100 text-amber-800'
+                                                  : 'bg-blue-100 text-blue-800'
+                                            }`}
+                                          >
+                                            {resource.status}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -8584,6 +8465,7 @@ Need detailed help? Click "Help me configure everything" for step-by-step guidan
           setSelectedTestSuite(null);
         }}
         testSuite={selectedTestSuite}
+        mceInfo={mceInfo}
         onSubmit={async (config) => {
           console.log('🚀 [PROVISION] onSubmit handler called with config:', config);
 

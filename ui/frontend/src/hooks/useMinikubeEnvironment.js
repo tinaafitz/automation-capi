@@ -54,10 +54,16 @@ export const useMinikubeEnvironment = () => {
     );
 
     try {
-      const timestamp = Date.now();
       const response = await fetch(
-        `http://localhost:8000/api/clusters/${clusterName}/resources?namespace=${namespace}&t=${timestamp}`,
-        { method: 'GET' }
+        'http://localhost:8000/api/minikube/get-active-resources',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cluster_name: clusterName,
+            namespace: namespace,
+          }),
+        }
       );
 
       if (!response.ok) {
@@ -67,7 +73,7 @@ export const useMinikubeEnvironment = () => {
       const data = await response.json();
       console.log('✅ Active resources fetched:', data);
 
-      if (data.resources && Array.isArray(data.resources)) {
+      if (data.success && data.resources && Array.isArray(data.resources)) {
         setMinikubeActiveResources(data.resources);
       } else {
         console.warn('⚠️ Invalid resources data structure:', data);

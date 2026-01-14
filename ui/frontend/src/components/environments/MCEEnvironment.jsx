@@ -35,6 +35,7 @@ import {
   validateApiResponse,
   extractSafeErrorMessage,
 } from '../../config/api';
+import { getDeploymentInfo } from '../../utils/componentMapping';
 
 const MCEEnvironment = () => {
   const app = useApp();
@@ -701,7 +702,17 @@ Export completed at ${completionTime}`
   // Handle create status report action
   const handleCreateStatusReport = async () => {
     const reportId = `create-status-report-${Date.now()}`;
-    const fileName = `mce-status-report-${new Date().toISOString().split('T')[0]}.html`;
+
+    // Extract cluster identifier from API URL (e.g., "cqu-2151-zup" from "api-cqu-2151-zup.dev09.red-chesterfield.com")
+    const apiUrl = ocpStatus?.api_url || '';
+    const clusterMatch = apiUrl.match(/api-([^.]+)/);
+    const clusterIdentifier = clusterMatch ? clusterMatch[1] : 'unknown';
+
+    // Create timestamp in YYYY-MM-DD-HH-MM-SS format
+    const now = new Date();
+    const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}`;
+
+    const fileName = `mce-status-report-${clusterIdentifier}-${timestamp}.html`;
 
     try {
       // Add to recent operations
@@ -783,7 +794,6 @@ Last Verified: ${getLastVerifiedText()}`;
       // Feature configuration
       const featureConfig = `CAPI Components Enabled: ${capiComponents.filter((c) => c.enabled).length}/${capiComponents.length}
 
-Configured Components:
 ${allCAPIComponents
   .filter((c) => c.enabled)
   .map((c) => `  • ${c.name}${c.version ? ` (${c.version})` : ''}`)
@@ -1520,21 +1530,16 @@ Report created at ${completionTime}`
                     <div
                       key={index}
                       className="flex items-center justify-between text-sm cursor-pointer hover:bg-cyan-50 rounded p-2 transition-colors"
-                      onClick={() =>
-                        component.enabled &&
+                      onClick={() => {
+                        if (!component.enabled) return;
+
+                        const deploymentInfo = getDeploymentInfo(component.name);
                         handleResourceClick({
-                          name: component.name,
+                          name: deploymentInfo.name,
                           type: 'Deployment',
-                          namespace:
-                            component.name === 'cluster-api'
-                              ? 'capi-system'
-                              : component.name === 'cluster-api-provider-aws'
-                                ? 'capa-system'
-                                : component.name === 'cluster-api-provider-metal3'
-                                  ? 'capm3-system'
-                                  : 'capi-system',
-                        })
-                      }
+                          namespace: deploymentInfo.namespace,
+                        });
+                      }}
                       title={component.enabled ? 'Click to view YAML' : 'Component not enabled'}
                     >
                       <div className="flex flex-col">

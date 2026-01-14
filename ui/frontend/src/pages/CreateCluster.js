@@ -17,6 +17,10 @@ export function CreateCluster() {
     availability_zones: ['us-west-2a', 'us-west-2b'],
     cidr_block: '10.0.0.0/16',
     tags: {},
+    s3_log_forwarding_enabled: false,
+    s3_bucket_name: '',
+    s3_bucket_prefix: '',
+    s3_log_applications: [],
   });
 
   const [loading, setLoading] = useState(false);
@@ -101,8 +105,17 @@ export function CreateCluster() {
                   onChange={(e) => handleInputChange('version', e.target.value)}
                   className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-red-500 focus:border-red-500"
                 >
-                  <option value="4.20.0">4.20.0 (Latest)</option>
-                  <option value="4.19.10">4.19.10 (Recommended)</option>
+                  <option value="4.20.8">4.20.8 (Latest - Recommended)</option>
+                  <option value="4.20.6">4.20.6</option>
+                  <option value="4.20.5">4.20.5</option>
+                  <option value="4.20.4">4.20.4</option>
+                  <option value="4.20.3">4.20.3</option>
+                  <option value="4.20.2">4.20.2</option>
+                  <option value="4.20.1">4.20.1</option>
+                  <option value="4.20.0">4.20.0</option>
+                  <option value="4.19.21">4.19.21</option>
+                  <option value="4.19.20">4.19.20</option>
+                  <option value="4.19.10">4.19.10</option>
                   <option value="4.19.9">4.19.9</option>
                   <option value="4.19.8">4.19.8</option>
                   <option value="4.19.7">4.19.7</option>
@@ -240,6 +253,89 @@ export function CreateCluster() {
               </div>
             </div>
           )}
+
+          {/* S3 Log Forwarding Configuration */}
+          <div className="space-y-4">
+            <div className="flex items-start">
+              <div className="flex items-center h-5">
+                <input
+                  type="checkbox"
+                  checked={config.s3_log_forwarding_enabled}
+                  onChange={(e) => handleInputChange('s3_log_forwarding_enabled', e.target.checked)}
+                  className="focus:ring-red-500 h-4 w-4 text-red-600 border-gray-300 rounded"
+                />
+              </div>
+              <div className="ml-3">
+                <label className="font-medium text-gray-700">S3 Log Forwarding</label>
+                <p className="text-sm text-gray-500">
+                  Forward cluster logs to AWS S3 bucket
+                </p>
+              </div>
+            </div>
+
+            {config.s3_log_forwarding_enabled && (
+              <div className="ml-7 space-y-4 border-l-2 border-gray-200 pl-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">S3 Bucket Name *</label>
+                  <input
+                    type="text"
+                    required={config.s3_log_forwarding_enabled}
+                    value={config.s3_bucket_name}
+                    onChange={(e) => handleInputChange('s3_bucket_name', e.target.value)}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-red-500 focus:border-red-500"
+                    placeholder="rosa-logs-test-471112697682"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Name of the S3 bucket for log storage</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">S3 Bucket Prefix (Optional)</label>
+                  <input
+                    type="text"
+                    value={config.s3_bucket_prefix}
+                    onChange={(e) => handleInputChange('s3_bucket_prefix', e.target.value)}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-red-500 focus:border-red-500"
+                    placeholder="logs/rosa-clusters"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Prefix for objects stored in the S3 bucket</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Log Applications *</label>
+                  <div className="space-y-2">
+                    {[
+                      { value: 'audit-webhook', label: 'Audit Logs', description: 'Kubernetes audit events' },
+                      { value: 'kube-apiserver', label: 'Kubernetes API Logs', description: 'Kube API server logs' },
+                      { value: 'openshift-apiserver', label: 'OpenShift API & OAuth Logs', description: 'OpenShift API and authentication logs' },
+                    ].map((app) => (
+                      <div key={app.value} className="flex items-start">
+                        <div className="flex items-center h-5">
+                          <input
+                            type="checkbox"
+                            checked={config.s3_log_applications.includes(app.value)}
+                            onChange={(e) => {
+                              const apps = e.target.checked
+                                ? [...config.s3_log_applications, app.value]
+                                : config.s3_log_applications.filter((a) => a !== app.value);
+                              handleInputChange('s3_log_applications', apps);
+                            }}
+                            className="focus:ring-red-500 h-4 w-4 text-red-600 border-gray-300 rounded"
+                          />
+                        </div>
+                        <div className="ml-3 text-sm">
+                          <label className="font-medium text-gray-700">{app.label}</label>
+                          <p className="text-gray-500">{app.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {config.s3_log_forwarding_enabled && config.s3_log_applications.length === 0 && (
+                    <p className="mt-1 text-xs text-red-600">Select at least one application</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Error Display */}
           {errors.length > 0 && (

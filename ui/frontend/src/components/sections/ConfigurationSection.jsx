@@ -29,6 +29,7 @@ import {
 import { cardStyles } from '../../styles/themes';
 import { buildApiUrl, API_ENDPOINTS } from '../../config/api';
 import { useJobHistory } from '../../hooks/useJobHistory';
+import { getDeploymentInfo } from '../../utils/componentMapping';
 
 const ConfigurationSection = ({
   onVerifyEnvironment,
@@ -53,6 +54,7 @@ const ConfigurationSection = ({
   const [showYamlEditorModal, setShowYamlEditorModal] = useState(false);
   const [yamlEditorData, setYamlEditorData] = useState(null);
   const [isCompactMode, setIsCompactMode] = useState(false);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   // Filter mceFeatures to get CAPI and Hypershift components - versions come from API
   const capiComponentsArray = (mceFeatures?.filter((f) => f.name?.startsWith('cluster-api')) || [])
@@ -266,10 +268,23 @@ const ConfigurationSection = ({
 
   const handleCreateStatusReport = async () => {
     const reportId = `create-status-report-${Date.now()}`;
-    const fileName = `mce-status-report-${new Date().toISOString().split('T')[0]}.html`;
+
+    // Extract cluster identifier from API URL (e.g., "cqu-2151-zup" from "api.cqu-2151-zup.dev09.red-chesterfield.com")
+    const apiUrl = ocpStatus?.api_url || '';
+    const clusterMatch = apiUrl.match(/api[.-]([^.]+)/);
+    const clusterIdentifier = clusterMatch ? clusterMatch[1] : 'unknown';
+
+    // Create timestamp in YYYY-MM-DD-HH-MM-SS format
+    const now = new Date();
+    const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}`;
+
+    const fileName = `mce-status-report-${clusterIdentifier}-${timestamp}.html`;
 
     try {
       console.log('📊 ConfigurationSection: Create status report clicked');
+
+      // Set loading state to disable button
+      setIsGeneratingReport(true);
 
       // Add to recent operations
       addToRecent({
@@ -283,6 +298,11 @@ const ConfigurationSection = ({
 
       // Fetch fresh resources data first
       console.log('📊 Fetching fresh MCE resources...');
+      updateRecentOperationStatus(
+        reportId,
+        '⏳ Generating report...',
+        `Step 1/5: Fetching MCE resources...`
+      );
       const freshResources = await fetchMCEResources();
       console.log(`📊 Fetched ${freshResources.length} resources`);
 
@@ -291,6 +311,11 @@ const ConfigurationSection = ({
 
       // ROSA HCP clusters
       console.log('📊 Fetching ROSA HCP clusters...');
+      updateRecentOperationStatus(
+        reportId,
+        '⏳ Generating report...',
+        `Step 2/5: Fetching ROSA HCP clusters...\n✓ Fetched ${freshResources.length} resources`
+      );
       const rosaClustersResponse = await fetch(buildApiUrl('/api/rosa/clusters'));
       const rosaClustersData = await rosaClustersResponse.json();
       const rosaClusters = rosaClustersData.success ? rosaClustersData.clusters : [];
@@ -298,6 +323,11 @@ const ConfigurationSection = ({
 
       // Fetch recent tasks/jobs
       console.log('📊 Fetching recent tasks...');
+      updateRecentOperationStatus(
+        reportId,
+        '⏳ Generating report...',
+        `Step 3/5: Fetching recent tasks...\n✓ Fetched ${freshResources.length} resources\n✓ Fetched ${rosaClusters.length} ROSA clusters`
+      );
       const jobsResponse = await fetch(buildApiUrl('/api/jobs'));
       const jobsData = await jobsResponse.json();
       const allJobs = jobsData.success ? jobsData.jobs : [];
@@ -329,17 +359,38 @@ const ConfigurationSection = ({
       // Get the actual last verified date from job history
       const lastVerifiedDate = getLastVerifiedText() || 'Not verified yet';
 
-      // AI Assessment - analyze environment state (using UI context values)
+      // Check if using preview components (legacy/old MCE build) - do this FIRST
+      const hasPreviewComponentsInReport = mceFeatures.some(
+        (c) => c.name?.includes('-preview') && c.enabled
+      );
+
+      // Component configuration details (code-block format) - use context features
+      // For preview builds, exclude Hypershift components (just like the UI does)
+      // IMPORTANT: Define this BEFORE generateAssessment so we can use fresh data
+      const freshCAPIComponents = mceFeatures
+        .filter((f) => {
+          // Always include cluster-api components
+          if (f.name?.startsWith('cluster-api')) return true;
+          // Only include Hypershift if NOT a preview build
+          if (f.name?.startsWith('hypershift')) return !hasPreviewComponentsInReport;
+          return false;
+        })
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      // AI Assessment - analyze environment state (using freshly filtered components)
       const generateAssessment = () => {
         // Check if using preview components (legacy/old MCE build)
-        const isPreviewBuild = mceFeatures.some(
-          (c) => c.name?.includes('-preview') && c.enabled
-        );
+        const isPreviewBuild = hasPreviewComponentsInReport;
 
-        // Step 1: Check if CAPI/CAPA are enabled (from UI context)
-        const capiEnabled = mceFeatures.some((f) => f.name === 'cluster-api' && f.enabled);
-        const capaEnabled = mceFeatures.some(
-          (f) => f.name === 'cluster-api-provider-aws' && f.enabled
+        // Step 1: Check if CAPI/CAPA are enabled (using FRESH filtered components)
+        // Check for both stable and preview component names
+        const capiEnabled = freshCAPIComponents.some(
+          (f) => (f.name === 'cluster-api' || f.name === 'cluster-api-preview') && f.enabled
+        );
+        const capaEnabled = freshCAPIComponents.some(
+          (f) =>
+            (f.name === 'cluster-api-provider-aws' || f.name === 'cluster-api-provider-aws-preview') &&
+            f.enabled
         );
 
         console.log('🤖 CAPI enabled:', capiEnabled);
@@ -384,23 +435,6 @@ const ConfigurationSection = ({
 
       const environmentAssessment = generateAssessment();
 
-      // Check if using preview components (legacy/old MCE build)
-      const hasPreviewComponentsInReport = mceFeatures.some(
-        (c) => c.name?.includes('-preview') && c.enabled
-      );
-
-      // Component configuration details (code-block format) - use context features
-      // For preview builds, exclude Hypershift components (just like the UI does)
-      const freshCAPIComponents = mceFeatures
-        .filter((f) => {
-          // Always include cluster-api components
-          if (f.name?.startsWith('cluster-api')) return true;
-          // Only include Hypershift if NOT a preview build
-          if (f.name?.startsWith('hypershift')) return !hasPreviewComponentsInReport;
-          return false;
-        })
-        .sort((a, b) => a.name.localeCompare(b.name));
-
       // Group resources by namespace (exclude capa-system and multicluster-engine)
       const namespacesToExclude = ['capa-system', 'multicluster-engine'];
       const filteredResources = freshResources.filter(
@@ -439,6 +473,15 @@ API Server:   ${ocpStatus?.api_url || 'Not configured'}
 Status:       ${ocpStatus?.connected ? 'Connected' : 'Not Connected'}
 Last Verified: ${lastVerifiedDate}`;
 
+      // Skip deployment YAML fetching - we already have component info from API context
+      console.log(`📊 Using component data from API context (${freshCAPIComponents.filter((c) => c.enabled).length} enabled components)`);
+      updateRecentOperationStatus(
+        reportId,
+        '⏳ Generating report...',
+        `Step 4/5: Formatting component data...\n✓ Fetched ${freshResources.length} resources\n✓ Fetched ${rosaClusters.length} ROSA clusters\n✓ Fetched ${recentJobs.length} recent tasks`
+      );
+
+      // Generate simple component list using data we already have
       const componentConfigDetails = `Configured Components:
 ${freshCAPIComponents
   .filter((c) => c.enabled)
@@ -604,6 +647,14 @@ ${freshCAPIComponents
               .join('\n')}</div>`
           : '<p class="italic-note">No recent tasks found</p>';
 
+      // Final step: Generate HTML report
+      console.log('📊 Generating final HTML report...');
+      updateRecentOperationStatus(
+        reportId,
+        '⏳ Generating report...',
+        `Step 5/5: Generating HTML report...\n✓ Fetched ${freshResources.length} resources\n✓ Fetched ${rosaClusters.length} ROSA clusters\n✓ Fetched ${recentJobs.length} recent tasks\n✓ Formatted ${freshCAPIComponents.filter((c) => c.enabled).length} components`
+      );
+
       // Replace placeholders in template
       htmlTemplate = htmlTemplate
         .replace(/\{\{TEST_TITLE\}\}/g, 'MCE Environment Status Report')
@@ -642,7 +693,7 @@ ${freshCAPIComponents
       updateRecentOperationStatus(
         reportId,
         `✅ Report created at ${completionTime}`,
-        `MCE Status Report Generated\n\n✅ File: ${fileName}\n✅ Downloaded successfully\n✅ Includes ${freshCAPIComponents.filter((c) => c.enabled).length} configured components\n✅ Includes ${activeClusters.length} active ROSA HCP cluster(s)\n✅ Includes ${filteredResources.length} resources with versions\n✅ Includes ${recentJobs.length} recent tasks\n\nReport created at ${completionTime}`
+        `MCE Status Report Generated\n\n✅ File: ${fileName}\n✅ Downloaded successfully\n✅ ${freshCAPIComponents.filter((c) => c.enabled).length} configured components with versions\n✅ ${activeClusters.length} active ROSA HCP cluster(s)\n✅ ${filteredResources.length} resources with status\n✅ ${recentJobs.length} recent tasks\n\nReport created at ${completionTime}`
       );
     } catch (error) {
       console.error('❌ ConfigurationSection: Create status report failed:', error);
@@ -652,6 +703,9 @@ ${freshCAPIComponents
         `❌ Failed to create report`,
         `Error: ${error.message}`
       );
+    } finally {
+      // Always clear loading state when done (success or error)
+      setIsGeneratingReport(false);
     }
   };
 
@@ -895,20 +949,22 @@ ${freshCAPIComponents
               e.stopPropagation();
               handleCreateStatusReport();
             }}
-            disabled={!ocpStatus?.connected}
+            disabled={!ocpStatus?.connected || isGeneratingReport}
             className={`px-3 py-1.5 rounded-lg transition-all duration-200 flex items-center space-x-2 text-sm font-medium ${
-              ocpStatus?.connected
+              ocpStatus?.connected && !isGeneratingReport
                 ? 'bg-white/20 hover:bg-white/30 text-white hover:scale-105 active:scale-100'
                 : 'bg-white/10 text-white/50 cursor-not-allowed'
             }`}
             title={
-              ocpStatus?.connected
-                ? 'Create HTML Status Report (Ctrl+S)'
-                : 'Verify environment first to create report'
+              !ocpStatus?.connected
+                ? 'Verify environment first to create report'
+                : isGeneratingReport
+                  ? 'Report generation in progress...'
+                  : 'Create HTML Status Report (Ctrl+S)'
             }
           >
             <DocumentChartBarIcon className="h-4 w-4" />
-            <span>Current Status</span>
+            <span>{isGeneratingReport ? 'Generating...' : 'Current Status'}</span>
           </button>
 
           {/* Divider */}
@@ -1034,14 +1090,14 @@ ${freshCAPIComponents
                     </button>
                     <button
                       onClick={handleCreateStatusReport}
-                      disabled={!ocpStatus?.connected}
+                      disabled={!ocpStatus?.connected || isGeneratingReport}
                       className={`w-full text-xs px-2 py-1.5 rounded transition-all duration-200 font-medium ${
-                        ocpStatus?.connected
+                        ocpStatus?.connected && !isGeneratingReport
                           ? 'bg-white/60 hover:bg-white text-purple-700 hover:text-purple-900'
                           : 'bg-white/30 text-purple-400 cursor-not-allowed'
                       }`}
                     >
-                      📊 Status Report
+                      📊 {isGeneratingReport ? 'Generating...' : 'Status Report'}
                     </button>
                   </div>
                 </div>

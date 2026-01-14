@@ -10,6 +10,7 @@ import {
   XCircleIcon,
   ArrowPathIcon,
   DocumentDuplicateIcon,
+  StopIcon,
 } from '@heroicons/react/24/outline';
 import { useApp, useAppDispatch, useRecentOperationsContext } from '../../store/AppContext';
 import { AppActionTypes } from '../../store/AppContext';
@@ -87,6 +88,32 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
       recentOps.clearRecentOperations();
     } catch (error) {
       console.error('❌ [TaskSummarySection] Error clearing jobs:', error);
+    }
+  };
+
+  // Cancel a running job
+  const cancelJob = async (e, jobId) => {
+    e.stopPropagation();
+
+    try {
+      console.log(`⏹️ [TaskSummarySection] Canceling job ${jobId}`);
+
+      const response = await fetch(`http://localhost:8000/api/jobs/${jobId}/cancel`, {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        console.log(`✅ [TaskSummarySection] Job ${jobId} cancelled successfully`);
+        // Refresh to show updated status
+        fetchJobHistory();
+      } else {
+        const data = await response.json();
+        console.error(`❌ [TaskSummarySection] Failed to cancel job: ${data.detail}`);
+        alert(`Failed to cancel job: ${data.detail}`);
+      }
+    } catch (error) {
+      console.error(`❌ [TaskSummarySection] Error canceling job:`, error);
+      alert(`Error canceling job: ${error.message}`);
     }
   };
 
@@ -228,6 +255,7 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
 
     // Remove ANSI escape codes and return plain text for now
     // In a production app, you'd want to use a library like ansi-to-html
+    // eslint-disable-next-line no-control-regex
     return text.replace(/\x1B\[[0-9;]*m/g, '');
   };
 
@@ -333,6 +361,18 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
                           >
                             <DocumentDuplicateIcon className="h-4 w-4" />
                           </button>
+
+                          {/* Cancel Button - Only show for running backend jobs */}
+                          {operation.id && (operation.status?.includes('⏳') || operation.status?.toLowerCase().includes('running')) && (
+                            <button
+                              onClick={(e) => cancelJob(e, operation.id)}
+                              className="px-3 py-1.5 rounded-lg transition-all text-xs font-medium flex items-center space-x-1 bg-red-100 text-red-700 hover:bg-red-200"
+                              title="Cancel this job"
+                            >
+                              <StopIcon className="h-4 w-4" />
+                              <span>Cancel</span>
+                            </button>
+                          )}
 
                           {/* View Details Button */}
                           {hasDetails && (

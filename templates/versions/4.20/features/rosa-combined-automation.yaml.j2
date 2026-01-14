@@ -114,13 +114,11 @@ spec:
   # Network automation reference
   rosaNetworkRef:
     name: {{ cluster_name }}-network
-    namespace: {{ capi_namespace }}
 
   # Role automation reference (if enabled)
   {% if rosa_role_config is defined and rosa_role_config.enabled | default(false) %}
   rosaRoleConfigRef:
     name: {{ cluster_name }}-roles
-    namespace: {{ capi_namespace }}
   {% endif %}
 
   rosaClusterName: {{ cluster_name }}
@@ -152,6 +150,8 @@ spec:
   # PR: https://github.com/kubernetes-sigs/cluster-api-provider-aws/pull/5786
   # ======================================
   {% if log_forward_enabled | default(false) %}
+  # CloudWatch log forwarding configuration
+  {% if log_forward_cloudwatch_role_arn or log_forward_cloudwatch_log_group %}
   cloudWatchlogForwarder:
     # Applications to forward (valid values: application, infrastructure, audit-webhook)
     {% if log_forward_applications is defined and log_forward_applications %}
@@ -168,14 +168,27 @@ spec:
     {% if log_forward_cloudwatch_log_group is defined and log_forward_cloudwatch_log_group %}
     cloudWatchLogGroupName: {{ log_forward_cloudwatch_log_group | trim }}
     {% endif %}
+  {% endif %}
 
-    # S3 configuration (optional)
+  # S3 log forwarding configuration (separate from CloudWatch)
+  {% if log_forward_s3_bucket or log_forward_s3_prefix %}
+  s3LogForwarder:
+    # Applications to forward (valid values: application, infrastructure, audit-webhook)
+    {% if log_forward_applications is defined and log_forward_applications %}
+    applications:
+    {% for app in log_forward_applications %}
+      - {{ app }}
+    {% endfor %}
+    {% endif %}
+
+    # S3 configuration
     {% if log_forward_s3_bucket is defined and log_forward_s3_bucket %}
     s3ConfigBucketName: {{ log_forward_s3_bucket | trim }}
     {% endif %}
     {% if log_forward_s3_prefix is defined and log_forward_s3_prefix %}
     s3ConfigBucketPrefix: {{ log_forward_s3_prefix | trim }}
     {% endif %}
+  {% endif %}
   {% endif %}
 
   # Complete automation: No manual subnets, availability zones, or role ARNs required
