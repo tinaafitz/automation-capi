@@ -335,7 +335,8 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
                   <p className="mt-1">
                     File:{' '}
                     <code className="bg-gray-100 px-2 py-0.5 rounded text-gray-700 font-medium">
-                      {(yamlData?.cluster_name || 'cluster').replace(/\s+/g, '-')}-{(yamlData?.feature_type || 'config').replace(/\s+/g, '-')}.yaml
+                      {(yamlData?.cluster_name || 'cluster').replace(/\s+/g, '-')}-
+                      {(yamlData?.feature_type || 'config').replace(/\s+/g, '-')}.yaml
                     </code>
                   </p>
                 </>

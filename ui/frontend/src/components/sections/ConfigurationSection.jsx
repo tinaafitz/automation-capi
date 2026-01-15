@@ -304,12 +304,12 @@ const ConfigurationSection = ({
 
       // Fetch ROSA clusters, jobs, and template in parallel (quick operations)
       const [rosaClustersData, jobsData, templateText] = await Promise.all([
-        fetch(buildApiUrl('/api/rosa/clusters')).then(r => r.json()),
-        fetch(buildApiUrl('/api/jobs')).then(r => r.json()),
-        fetch('/templates/test-status-report-template.html').then(r => {
+        fetch(buildApiUrl('/api/rosa/clusters')).then((r) => r.json()),
+        fetch(buildApiUrl('/api/jobs')).then((r) => r.json()),
+        fetch('/templates/test-status-report-template.html').then((r) => {
           if (!r.ok) throw new Error('Failed to load report template');
           return r.text();
-        })
+        }),
       ]);
 
       const rosaClusters = rosaClustersData.success ? rosaClustersData.clusters : [];
@@ -317,7 +317,9 @@ const ConfigurationSection = ({
       const recentJobs = allJobs.slice(0, 10);
       let htmlTemplate = templateText; // Create mutable copy for replacements
 
-      console.log(`📊 Report data ready: ${freshResources.length} resources, ${rosaClusters.length} clusters, ${recentJobs.length} tasks`);
+      console.log(
+        `📊 Report data ready: ${freshResources.length} resources, ${rosaClusters.length} clusters, ${recentJobs.length} tasks`
+      );
 
       // Prepare data for the report
       const now = new Date();
@@ -1135,11 +1137,13 @@ ${freshCAPIComponents
                     <h5 className="font-semibold text-cyan-900 mb-2 flex items-center gap-2">
                       <span
                         className="cursor-pointer hover:text-cyan-700 transition-colors"
-                        onClick={() => handleResourceClick({
-                          name: mceInfo?.name || 'multiclusterengine',
-                          type: 'MultiClusterEngine',
-                          namespace: 'multicluster-engine'
-                        })}
+                        onClick={() =>
+                          handleResourceClick({
+                            name: mceInfo?.name || 'multiclusterengine',
+                            type: 'MultiClusterEngine',
+                            namespace: 'multicluster-engine',
+                          })
+                        }
                         title="Click to view YAML"
                       >
                         {mceInfo?.name || 'multiclusterengine'}

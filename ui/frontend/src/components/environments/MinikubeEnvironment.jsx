@@ -144,7 +144,14 @@ const MinikubeEnvironment = () => {
 
   // Handle resource click to show YAML
   const handleResourceClick = (resource) => {
-    console.log('Resource clicked:', resource.name, 'Type:', resource.type, 'Has YAML:', !!resource.yaml);
+    console.log(
+      'Resource clicked:',
+      resource.name,
+      'Type:',
+      resource.type,
+      'Has YAML:',
+      !!resource.yaml
+    );
 
     if (resource.yaml) {
       setYamlEditorData({
@@ -1065,7 +1072,14 @@ ${
                   <span>Components</span>
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-purple-600 bg-purple-50 border border-purple-200">
                     <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
-                    {capiComponents.filter((c) => c.enabled && (c.name === 'CAPI Controller' || c.name === 'CAPA Controller')).length} configured
+                    {
+                      capiComponents.filter(
+                        (c) =>
+                          c.enabled &&
+                          (c.name === 'CAPI Controller' || c.name === 'CAPA Controller')
+                      ).length
+                    }{' '}
+                    configured
                   </span>
                 </div>
               }
@@ -1091,7 +1105,9 @@ ${
                                 ? 'cursor-pointer hover:bg-white/60 hover:border-purple-200'
                                 : 'cursor-not-allowed opacity-60'
                             } bg-white/40 rounded px-2 py-1.5 transition-all gap-2 border border-transparent`}
-                            title={component.enabled ? 'Click to view YAML' : 'Component not enabled'}
+                            title={
+                              component.enabled ? 'Click to view YAML' : 'Component not enabled'
+                            }
                             onClick={(e) => {
                               e.stopPropagation();
                               if (component.enabled && component.yaml) {
@@ -1138,7 +1154,9 @@ ${
                                 ? 'cursor-pointer hover:bg-white/60 hover:border-purple-200'
                                 : 'cursor-not-allowed opacity-60'
                             } bg-white/40 rounded px-2 py-1.5 transition-all gap-2 border border-transparent`}
-                            title={component.enabled ? 'Click to view YAML' : 'Resource not enabled'}
+                            title={
+                              component.enabled ? 'Click to view YAML' : 'Resource not enabled'
+                            }
                             onClick={(e) => {
                               e.stopPropagation();
                               if (component.enabled && component.yaml) {
@@ -1197,7 +1215,8 @@ ${
                   <span>Resources</span>
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-purple-600 bg-purple-50 border border-purple-200">
                     <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
-                    {minikubeActiveResources.length} total • {Object.keys(groupedResources).length} namespace{Object.keys(groupedResources).length !== 1 ? 's' : ''}
+                    {minikubeActiveResources.length} total • {Object.keys(groupedResources).length}{' '}
+                    namespace{Object.keys(groupedResources).length !== 1 ? 's' : ''}
                   </span>
                 </div>
               }
@@ -1221,74 +1240,74 @@ ${
                     {Object.entries(groupedResources)
                       .sort(([a], [b]) => a.localeCompare(b))
                       .map(([namespace, resources]) => {
-                      const isExpanded = expandedNamespaces.has(namespace);
-                      return (
-                        <div
-                          key={namespace}
-                          className="border border-gray-200 rounded-lg overflow-hidden"
-                        >
+                        const isExpanded = expandedNamespaces.has(namespace);
+                        return (
                           <div
-                            className={`flex items-center justify-between cursor-pointer py-2.5 px-3 transition-all ${
-                              isExpanded
-                                ? 'bg-gradient-to-r from-purple-50 to-blue-50 border-b border-purple-200'
-                                : 'bg-gray-50 hover:bg-purple-50'
-                            }`}
-                            onClick={() => toggleNamespace(namespace)}
+                            key={namespace}
+                            className="border border-gray-200 rounded-lg overflow-hidden"
                           >
-                            <div className="flex items-center gap-2">
-                              <ChevronRightIcon
-                                className={`h-4 w-4 text-gray-500 transition-transform ${
-                                  isExpanded ? 'rotate-90' : ''
-                                }`}
-                              />
-                              <span className="font-semibold text-sm text-gray-700">
-                                {namespace}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                ({resources.length} resource{resources.length > 1 ? 's' : ''})
-                              </span>
+                            <div
+                              className={`flex items-center justify-between cursor-pointer py-2.5 px-3 transition-all ${
+                                isExpanded
+                                  ? 'bg-gradient-to-r from-purple-50 to-blue-50 border-b border-purple-200'
+                                  : 'bg-gray-50 hover:bg-purple-50'
+                              }`}
+                              onClick={() => toggleNamespace(namespace)}
+                            >
+                              <div className="flex items-center gap-2">
+                                <ChevronRightIcon
+                                  className={`h-4 w-4 text-gray-500 transition-transform ${
+                                    isExpanded ? 'rotate-90' : ''
+                                  }`}
+                                />
+                                <span className="font-semibold text-sm text-gray-700">
+                                  {namespace}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  ({resources.length} resource{resources.length > 1 ? 's' : ''})
+                                </span>
+                              </div>
                             </div>
-                          </div>
 
-                          {isExpanded && (
-                            <div className="bg-white">
-                              {resources.map((resource, idx) => (
-                                <div
-                                  key={idx}
-                                  className="flex justify-between items-center py-2 px-3 border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-purple-50 transition-colors"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleResourceClick(resource);
-                                  }}
-                                >
-                                  <div>
-                                    <span className="font-medium text-purple-700 hover:text-purple-900">
-                                      {resource.name || 'Unknown'}
-                                    </span>
-                                    <div className="text-xs text-gray-600">
-                                      {resource.type || 'Unknown Type'}
+                            {isExpanded && (
+                              <div className="bg-white">
+                                {resources.map((resource, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="flex justify-between items-center py-2 px-3 border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-purple-50 transition-colors"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleResourceClick(resource);
+                                    }}
+                                  >
+                                    <div>
+                                      <span className="font-medium text-purple-700 hover:text-purple-900">
+                                        {resource.name || 'Unknown'}
+                                      </span>
+                                      <div className="text-xs text-gray-600">
+                                        {resource.type || 'Unknown Type'}
+                                      </div>
+                                    </div>
+                                    <div className="text-right text-sm">
+                                      <div
+                                        className={`inline-block px-2 py-1 rounded-full text-xs ${
+                                          resource.status === 'Ready'
+                                            ? 'bg-green-100 text-green-800'
+                                            : resource.status === 'Pending'
+                                              ? 'bg-yellow-100 text-yellow-800'
+                                              : 'bg-gray-100 text-gray-800'
+                                        }`}
+                                      >
+                                        {resource.status || 'Unknown'}
+                                      </div>
                                     </div>
                                   </div>
-                                  <div className="text-right text-sm">
-                                    <div
-                                      className={`inline-block px-2 py-1 rounded-full text-xs ${
-                                        resource.status === 'Ready'
-                                          ? 'bg-green-100 text-green-800'
-                                          : resource.status === 'Pending'
-                                            ? 'bg-yellow-100 text-yellow-800'
-                                            : 'bg-gray-100 text-gray-800'
-                                      }`}
-                                    >
-                                      {resource.status || 'Unknown'}
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                   </div>
                 )}
 
