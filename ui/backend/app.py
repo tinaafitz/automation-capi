@@ -2171,6 +2171,7 @@ async def get_active_resources(request: Request):
                         {
                             "type": "CAPI Clusters",
                             "name": metadata.get("name", "unknown"),
+                            "namespace": namespace,
                             "version": spec.get("topology", {}).get("version", "v1.5.3"),
                             "status": (
                                 "Ready"
@@ -2234,6 +2235,7 @@ async def get_active_resources(request: Request):
                         {
                             "type": "ROSACluster",
                             "name": metadata.get("name", "unknown"),
+                            "namespace": namespace,
                             "version": spec.get("version", "v4.20"),
                             "status": "Ready" if is_ready else "Provisioning",
                             "age": calculate_age(metadata.get("creationTimestamp", "")),
@@ -2293,6 +2295,7 @@ async def get_active_resources(request: Request):
                         {
                             "type": "RosaControlPlane",
                             "name": metadata.get("name", "unknown"),
+                            "namespace": metadata.get("namespace", namespace),
                             "version": spec.get("version", "v4.20"),
                             "status": "Ready" if is_ready else "Provisioning",
                             "age": calculate_age(metadata.get("creationTimestamp", "")),
@@ -2347,6 +2350,7 @@ async def get_active_resources(request: Request):
                         {
                             "type": "RosaNetwork",
                             "name": metadata.get("name", "unknown"),
+                            "namespace": metadata.get("namespace", namespace),
                             "version": spec.get("version", "v4.20"),
                             "status": "Ready" if is_ready else "Configuring",
                             "age": calculate_age(metadata.get("creationTimestamp", "")),
@@ -2381,6 +2385,7 @@ async def get_active_resources(request: Request):
                     metadata = item.get("metadata", {})
                     spec = item.get("spec", {})
                     status = item.get("status", {})
+                    role_config_name = metadata.get("name", "unknown")
 
                     # Check conditions for RosaRoleConfig ready state
                     # Could be ROSARoleConfigReady, RosaRoleConfigReady, or just Ready
@@ -2397,13 +2402,24 @@ async def get_active_resources(request: Request):
                             is_ready = True
                             break
 
+                    # Fetch YAML for this RosaRoleConfig
+                    yaml_result = subprocess.run(
+                        ["kubectl", "get", "rosaroleconfig", role_config_name, "-n", namespace, "--context", cluster_name, "-o", "yaml"],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    yaml_content = yaml_result.stdout if yaml_result.returncode == 0 else ""
+
                     resources.append(
                         {
                             "type": "RosaRoleConfig",
-                            "name": metadata.get("name", "unknown"),
+                            "name": role_config_name,
+                            "namespace": metadata.get("namespace", namespace),
                             "version": spec.get("version", "v4.20"),
                             "status": "Ready" if is_ready else "Configuring",
                             "age": calculate_age(metadata.get("creationTimestamp", "")),
+                            "yaml": yaml_content,
                         }
                     )
         except Exception:
@@ -4537,7 +4553,24 @@ async def get_capi_component_versions(cluster_name: str = None, environment: str
             if cert_manager_result.returncode == 0:
                 image = cert_manager_result.stdout.strip()
                 version = image.split(":")[-1] if ":" in image else "unknown"
-                components.append({"name": "Cert Manager", "version": version, "enabled": True})
+
+                # Fetch YAML for cert-manager deployment
+                yaml_result = subprocess.run(
+                    cli_cmd + ["get", "deployment", "cert-manager", "-n", "cert-manager", "-o", "yaml"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                yaml_content = yaml_result.stdout if yaml_result.returncode == 0 else ""
+
+                components.append({
+                    "name": "Cert Manager",
+                    "version": version,
+                    "enabled": True,
+                    "yaml": yaml_content,
+                    "type": "Deployment",
+                    "namespace": "cert-manager"
+                })
         except Exception as e:
             print(f"Failed to get cert-manager version: {e}")
             components.append({"name": "Cert Manager", "version": "unknown", "enabled": False})
@@ -4562,7 +4595,24 @@ async def get_capi_component_versions(cluster_name: str = None, environment: str
             if capi_result.returncode == 0:
                 image = capi_result.stdout.strip()
                 version = image.split(":")[-1] if ":" in image else "unknown"
-                components.append({"name": "CAPI Controller", "version": version, "enabled": True})
+
+                # Fetch YAML for CAPI controller deployment
+                yaml_result = subprocess.run(
+                    cli_cmd + ["get", "deployment", "capi-controller-manager", "-n", "capi-system", "-o", "yaml"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                yaml_content = yaml_result.stdout if yaml_result.returncode == 0 else ""
+
+                components.append({
+                    "name": "CAPI Controller",
+                    "version": version,
+                    "enabled": True,
+                    "yaml": yaml_content,
+                    "type": "Deployment",
+                    "namespace": "capi-system"
+                })
         except Exception as e:
             print(f"Failed to get CAPI controller version: {e}")
             components.append({"name": "CAPI Controller", "version": "unknown", "enabled": False})
@@ -4599,7 +4649,24 @@ async def get_capi_component_versions(cluster_name: str = None, environment: str
                         version = tag
                 else:
                     version = "unknown"
-                components.append({"name": "CAPA Controller", "version": version, "enabled": True})
+
+                # Fetch YAML for CAPA controller deployment
+                yaml_result = subprocess.run(
+                    cli_cmd + ["get", "deployment", "capa-controller-manager", "-n", "capa-system", "-o", "yaml"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                yaml_content = yaml_result.stdout if yaml_result.returncode == 0 else ""
+
+                components.append({
+                    "name": "CAPA Controller",
+                    "version": version,
+                    "enabled": True,
+                    "yaml": yaml_content,
+                    "type": "Deployment",
+                    "namespace": "capa-system"
+                })
         except Exception as e:
             print(f"Failed to get CAPA controller version: {e}")
             components.append({"name": "CAPA Controller", "version": "unknown", "enabled": False})
@@ -4621,7 +4688,24 @@ async def get_capi_component_versions(cluster_name: str = None, environment: str
             )
             if rosa_crd_result.returncode == 0:
                 version = rosa_crd_result.stdout.strip() or "unknown"
-                components.append({"name": "ROSA CRD", "version": version, "enabled": True})
+
+                # Fetch YAML for ROSA CRD
+                yaml_result = subprocess.run(
+                    cli_cmd + ["get", "crd", "rosacontrolplanes.controlplane.cluster.x-k8s.io", "-o", "yaml"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                yaml_content = yaml_result.stdout if yaml_result.returncode == 0 else ""
+
+                components.append({
+                    "name": "ROSA CRD",
+                    "version": version,
+                    "enabled": True,
+                    "yaml": yaml_content,
+                    "type": "CustomResourceDefinition",
+                    "namespace": "cluster-scoped"
+                })
         except Exception as e:
             print(f"Failed to get ROSA CRD version: {e}")
             components.append({"name": "ROSA CRD", "version": "unknown", "enabled": False})
@@ -5544,13 +5628,25 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
                 metadata = data.get("metadata", {})
                 status = data.get("status", {})
                 phase = status.get("phase", "Active")
+
+                # Fetch YAML for namespace
+                yaml_result = subprocess.run(
+                    ["kubectl", "get", "namespace", namespace, "--context", cluster_name, "-o", "yaml"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                yaml_content = yaml_result.stdout if yaml_result.returncode == 0 else ""
+
                 resources.append(
                     {
                         "type": "Namespace",
                         "name": metadata.get("name", "unknown"),
+                        "namespace": metadata.get("name", "unknown"),  # Namespace resource shows its own name
                         "version": "",
                         "status": phase,
                         "age": calculate_age(metadata.get("creationTimestamp", "")),
+                        "yaml": yaml_content,
                     }
                 )
         except Exception:
@@ -5578,13 +5674,26 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
                 data = json_module.loads(result.stdout)
                 for item in data.get("items", []):
                     metadata = item.get("metadata", {})
+                    identity_name = metadata.get("name", "unknown")
+
+                    # Fetch YAML for this identity
+                    yaml_result = subprocess.run(
+                        ["kubectl", "get", "awsclustercontrolleridentity", identity_name, "--context", cluster_name, "-o", "yaml"],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    yaml_content = yaml_result.stdout if yaml_result.returncode == 0 else ""
+
                     resources.append(
                         {
                             "type": "AWSClusterControllerIdentity",
-                            "name": metadata.get("name", "unknown"),
+                            "name": identity_name,
+                            "namespace": metadata.get("namespace", "default"),  # Cluster-scoped resource
                             "version": "",
                             "status": "Configured",
                             "age": calculate_age(metadata.get("creationTimestamp", "")),
+                            "yaml": yaml_content,
                         }
                     )
         except Exception:
@@ -5614,10 +5723,12 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
 
                 data = json_module.loads(result.stdout)
                 metadata = data.get("metadata", {})
+
                 resources.append(
                     {
                         "type": "Secret (ROSA Creds)",
-                        "name": f"{metadata.get('name', 'unknown')} (capa-system)",
+                        "name": metadata.get('name', 'unknown'),
+                        "namespace": "capa-system",
                         "version": "",
                         "status": "Configured",
                         "age": calculate_age(metadata.get("creationTimestamp", "")),
@@ -5650,10 +5761,12 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
 
                 data = json_module.loads(result.stdout)
                 metadata = data.get("metadata", {})
+
                 resources.append(
                     {
                         "type": "Secret (ROSA Creds)",
-                        "name": f"{metadata.get('name', 'unknown')} ({namespace})",
+                        "name": metadata.get('name', 'unknown'),
+                        "namespace": namespace,
                         "version": "",
                         "status": "Configured",
                         "age": calculate_age(metadata.get("creationTimestamp", "")),
@@ -5686,10 +5799,12 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
 
                 data = json_module.loads(result.stdout)
                 metadata = data.get("metadata", {})
+
                 resources.append(
                     {
                         "type": "Secret (AWS Creds)",
-                        "name": f"{metadata.get('name', 'unknown')} (capa-system)",
+                        "name": metadata.get('name', 'unknown'),
+                        "namespace": "capa-system",
                         "version": "",
                         "status": "Configured",
                         "age": calculate_age(metadata.get("creationTimestamp", "")),
@@ -5724,10 +5839,22 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
                     metadata = item.get("metadata", {})
                     spec = item.get("spec", {})
                     status = item.get("status", {})
+                    cluster_name_item = metadata.get("name", "unknown")
+
+                    # Fetch YAML for this cluster
+                    yaml_result = subprocess.run(
+                        ["kubectl", "get", "clusters.cluster.x-k8s.io", cluster_name_item, "-n", namespace, "--context", cluster_name, "-o", "yaml"],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    yaml_content = yaml_result.stdout if yaml_result.returncode == 0 else ""
+
                     resources.append(
                         {
                             "type": "CAPI Clusters",
-                            "name": metadata.get("name", "unknown"),
+                            "name": cluster_name_item,
+                            "namespace": namespace,
                             "version": spec.get("topology", {}).get("version", "v1.5.3"),
                             "status": (
                                 "Ready"
@@ -5735,6 +5862,7 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
                                 else status.get("phase", "Active")
                             ),
                             "age": calculate_age(metadata.get("creationTimestamp", "")),
+                            "yaml": yaml_content,
                         }
                     )
         except Exception:
@@ -5766,6 +5894,7 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
                     metadata = item.get("metadata", {})
                     spec = item.get("spec", {})
                     status = item.get("status", {})
+                    rosa_cluster_name = metadata.get("name", "unknown")
 
                     # Check for ready status - could be in status.ready field or in conditions
                     is_ready = False
@@ -5787,13 +5916,24 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
                                 is_ready = True
                                 break
 
+                    # Fetch YAML for this ROSA cluster
+                    yaml_result = subprocess.run(
+                        ["kubectl", "get", "rosacluster", rosa_cluster_name, "-n", namespace, "--context", cluster_name, "-o", "yaml"],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    yaml_content = yaml_result.stdout if yaml_result.returncode == 0 else ""
+
                     resources.append(
                         {
                             "type": "ROSACluster",
-                            "name": metadata.get("name", "unknown"),
+                            "name": rosa_cluster_name,
+                            "namespace": namespace,
                             "version": spec.get("version", "v4.20"),
                             "status": "Ready" if is_ready else "Provisioning",
                             "age": calculate_age(metadata.get("creationTimestamp", "")),
+                            "yaml": yaml_content,
                         }
                     )
         except Exception:
@@ -5825,6 +5965,7 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
                     metadata = item.get("metadata", {})
                     spec = item.get("spec", {})
                     status = item.get("status", {})
+                    rcp_name = metadata.get("name", "unknown")
 
                     # Check for ready status - could be in status.ready field or in conditions
                     is_ready = False
@@ -5846,13 +5987,24 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
                                 is_ready = True
                                 break
 
+                    # Fetch YAML for this RosaControlPlane
+                    yaml_result = subprocess.run(
+                        ["kubectl", "get", "rosacontrolplane", rcp_name, "-n", namespace, "--context", cluster_name, "-o", "yaml"],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    yaml_content = yaml_result.stdout if yaml_result.returncode == 0 else ""
+
                     resources.append(
                         {
                             "type": "RosaControlPlane",
-                            "name": metadata.get("name", "unknown"),
+                            "name": rcp_name,
+                            "namespace": metadata.get("namespace", namespace),
                             "version": spec.get("version", "v4.20"),
                             "status": "Ready" if is_ready else "Provisioning",
                             "age": calculate_age(metadata.get("creationTimestamp", "")),
+                            "yaml": yaml_content,
                         }
                     )
         except Exception:
@@ -5884,6 +6036,7 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
                     metadata = item.get("metadata", {})
                     spec = item.get("spec", {})
                     status = item.get("status", {})
+                    network_name = metadata.get("name", "unknown")
 
                     # Check conditions for RosaNetwork ready state
                     # Could be ROSANetworkReady, RosaNetworkReady, or just Ready
@@ -5900,13 +6053,24 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
                             is_ready = True
                             break
 
+                    # Fetch YAML for this RosaNetwork
+                    yaml_result = subprocess.run(
+                        ["kubectl", "get", "rosanetwork", network_name, "-n", namespace, "--context", cluster_name, "-o", "yaml"],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    yaml_content = yaml_result.stdout if yaml_result.returncode == 0 else ""
+
                     resources.append(
                         {
                             "type": "RosaNetwork",
-                            "name": metadata.get("name", "unknown"),
+                            "name": network_name,
+                            "namespace": metadata.get("namespace", namespace),
                             "version": spec.get("version", "v4.20"),
                             "status": "Ready" if is_ready else "Configuring",
                             "age": calculate_age(metadata.get("creationTimestamp", "")),
+                            "yaml": yaml_content,
                         }
                     )
         except Exception:
@@ -5938,6 +6102,7 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
                     metadata = item.get("metadata", {})
                     spec = item.get("spec", {})
                     status = item.get("status", {})
+                    role_config_name = metadata.get("name", "unknown")
 
                     # Check conditions for RosaRoleConfig ready state
                     # Could be ROSARoleConfigReady, RosaRoleConfigReady, or just Ready
@@ -5954,13 +6119,24 @@ async def _get_active_resources_impl(cluster_name: str, namespace: str = "ns-ros
                             is_ready = True
                             break
 
+                    # Fetch YAML for this RosaRoleConfig
+                    yaml_result = subprocess.run(
+                        ["kubectl", "get", "rosaroleconfig", role_config_name, "-n", namespace, "--context", cluster_name, "-o", "yaml"],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    yaml_content = yaml_result.stdout if yaml_result.returncode == 0 else ""
+
                     resources.append(
                         {
                             "type": "RosaRoleConfig",
-                            "name": metadata.get("name", "unknown"),
+                            "name": role_config_name,
+                            "namespace": metadata.get("namespace", namespace),
                             "version": spec.get("version", "v4.20"),
                             "status": "Ready" if is_ready else "Configuring",
                             "age": calculate_age(metadata.get("creationTimestamp", "")),
+                            "yaml": yaml_content,
                         }
                     )
         except Exception:

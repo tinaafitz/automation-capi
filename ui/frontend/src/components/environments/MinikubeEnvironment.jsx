@@ -14,6 +14,7 @@ import {
   CheckCircleIcon,
   ChartBarIcon,
   ArrowPathIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 import {
   useMinikubeContext,
@@ -44,6 +45,7 @@ const MinikubeEnvironment = () => {
   });
   const [componentVersions, setComponentVersions] = useState([]);
   const [componentVersionsLoading, setComponentVersionsLoading] = useState(false);
+  const [expandedNamespaces, setExpandedNamespaces] = useState(new Set());
 
   const {
     verifiedMinikubeClusterInfo,
@@ -142,13 +144,22 @@ const MinikubeEnvironment = () => {
 
   // Handle resource click to show YAML
   const handleResourceClick = (resource) => {
+    console.log('Resource clicked:', resource.name, 'Type:', resource.type, 'Has YAML:', !!resource.yaml);
+
     if (resource.yaml) {
       setYamlEditorData({
         yaml_content: resource.yaml,
-        resource_name: resource.name,
-        resource_type: resource.type,
+        cluster_name: resource.name,
+        feature_type: resource.type,
       });
       setShowYamlEditorModal(true);
+    } else {
+      // Check if it's a secret (intentionally no YAML)
+      if (resource.type && resource.type.includes('Secret')) {
+        console.log('Secret resource - YAML not displayed for security');
+      } else {
+        console.warn('No YAML available for resource:', resource.name);
+      }
     }
   };
 
@@ -407,7 +418,7 @@ const MinikubeEnvironment = () => {
     }, 100);
   };
 
-  // Handle Create Status Report
+  // Handle Export Environment Report
   const handleCreateStatusReport = async () => {
     const reportId = `create-status-report-${Date.now()}`;
 
@@ -418,7 +429,7 @@ const MinikubeEnvironment = () => {
     const now = new Date();
     const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}`;
 
-    const fileName = `minikube-status-report-${clusterIdentifier}-${timestamp}.html`;
+    const fileName = `minikube-environment-report-${clusterIdentifier}-${timestamp}.html`;
 
     try {
       console.log('📊 MinikubeEnvironment: Create status report clicked');
@@ -426,11 +437,11 @@ const MinikubeEnvironment = () => {
       // Add to recent operations
       addToRecent({
         id: reportId,
-        title: 'Create Status Report',
+        title: 'Export Environment Report',
         color: 'bg-purple-600',
-        status: '⏳ Generating report...',
+        status: '⏳ Exporting report...',
         environment: 'minikube',
-        output: `Generating HTML status report...\nGathering component data...\nFormatting resources...`,
+        output: `Exporting HTML environment report...\nGathering component data...\nFormatting resources...`,
       });
 
       // Fetch recent tasks/jobs
@@ -689,8 +700,8 @@ ${
 
       updateRecentOperationStatus(
         reportId,
-        `✅ Report created at ${completionTime}`,
-        `Minikube Status Report Generated\n\n✅ File: ${fileName}\n✅ Downloaded successfully\n✅ Includes ${capiComponents.filter((c) => c.enabled).length} configured components\n✅ Includes ${minikubeActiveResources.length} resources with versions\n✅ Includes ${recentJobs.length} recent tasks\n\nReport created at ${completionTime}`
+        `✅ Report exported at ${completionTime}`,
+        `Minikube Environment Report Exported\n\n✅ File: ${fileName}\n✅ Downloaded successfully\n✅ Includes ${capiComponents.filter((c) => c.enabled).length} configured components\n✅ Includes ${minikubeActiveResources.length} resources with versions\n✅ Includes ${recentJobs.length} recent tasks\n\nReport exported at ${completionTime}`
       );
     } catch (error) {
       console.error('❌ MinikubeEnvironment: Create status report failed:', error);
@@ -713,6 +724,29 @@ ${
     ? localStorage.getItem(`minikube-cluster-method-${configTargetClusterName}`)
     : null;
   const isAlreadyConfigured = !!configClusterMethod;
+
+  // Toggle namespace expansion
+  const toggleNamespace = (namespace) => {
+    setExpandedNamespaces((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(namespace)) {
+        newSet.delete(namespace);
+      } else {
+        newSet.add(namespace);
+      }
+      return newSet;
+    });
+  };
+
+  // Group resources by namespace
+  const groupedResources = minikubeActiveResources.reduce((acc, resource) => {
+    const namespace = resource.namespace || 'default';
+    if (!acc[namespace]) {
+      acc[namespace] = [];
+    }
+    acc[namespace].push(resource);
+    return acc;
+  }, {});
 
   // Component refresh handler for button in Components card
   const handleRefreshComponents = () => {
@@ -861,10 +895,10 @@ ${
                   }}
                   disabled={!verifiedMinikubeClusterInfo}
                   className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition-all duration-200 flex items-center space-x-2 text-sm font-medium hover:scale-105 active:scale-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Create Status Report"
+                  title="Export Environment Report"
                 >
                   <ChartBarIcon className="h-4 w-4" />
-                  <span>Current Status</span>
+                  <span>Export Report</span>
                 </button>
 
                 <button
@@ -893,7 +927,7 @@ ${
                   <span
                     className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${
                       clusterName
-                        ? 'text-green-600 bg-green-50 border-green-200'
+                        ? 'text-purple-600 bg-purple-50 border-purple-200'
                         : 'text-gray-600 bg-gray-50 border-gray-200'
                     }`}
                   >
@@ -1029,38 +1063,111 @@ ${
               title={
                 <div className="flex items-center gap-2">
                   <span>Components</span>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-purple-600 bg-purple-50 border border-purple-200">
                     <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
-                    {capiComponents.filter((c) => c.enabled).length} configured
+                    {capiComponents.filter((c) => c.enabled && (c.name === 'CAPI Controller' || c.name === 'CAPA Controller')).length} configured
                   </span>
                 </div>
               }
               icon="🔧"
             >
               <div className="space-y-3">
-                {capiComponents.map((component, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0"
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-medium text-gray-800">{component.name}</span>
-                      {component.version && (
-                        <span className="text-xs text-gray-500 font-mono mt-0.5">
-                          {component.version}
-                        </span>
-                      )}
+                {/* Two-Column Grid Layout */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Configured Components Section */}
+                  <div className="bg-gradient-to-br from-gray-50 to-purple-50/30 rounded-lg p-2 border border-gray-100">
+                    <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                      <span>🔌</span>
+                      <span>Configured Components</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {component.date && (
-                        <span className="text-xs text-gray-500">{component.date}</span>
-                      )}
-                      <span className={component.enabled ? 'text-green-600' : 'text-red-600'}>
-                        {component.enabled ? '✓' : '✕'}
-                      </span>
+                    <div className="space-y-1">
+                      {capiComponents
+                        .filter((c) => c.name === 'CAPI Controller' || c.name === 'CAPA Controller')
+                        .map((component, index) => (
+                          <div
+                            key={index}
+                            className={`flex items-start justify-between text-xs ${
+                              component.enabled
+                                ? 'cursor-pointer hover:bg-white/60 hover:border-purple-200'
+                                : 'cursor-not-allowed opacity-60'
+                            } bg-white/40 rounded px-2 py-1.5 transition-all gap-2 border border-transparent`}
+                            title={component.enabled ? 'Click to view YAML' : 'Component not enabled'}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (component.enabled && component.yaml) {
+                                handleResourceClick(component);
+                              }
+                            }}
+                          >
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <div
+                                className={`w-2 h-2 rounded-full flex-shrink-0 ${component.enabled ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-red-400 shadow-sm shadow-red-400/50'}`}
+                              ></div>
+                              <div className="flex flex-col gap-0.5 min-w-0">
+                                <span
+                                  className={`truncate font-medium ${component.enabled ? 'text-gray-800 hover:text-purple-700' : 'text-gray-500'}`}
+                                >
+                                  {component.name}
+                                </span>
+                                {component.version && (
+                                  <span className="text-[10px] text-gray-500 font-mono">
+                                    {component.version}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                     </div>
                   </div>
-                ))}
+
+                  {/* Resources Section */}
+                  <div className="bg-gradient-to-br from-gray-50 to-purple-50/30 rounded-lg p-2 border border-gray-100">
+                    <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                      <span>📦</span>
+                      <span>Resources</span>
+                    </div>
+                    <div className="space-y-1">
+                      {capiComponents
+                        .filter((c) => c.name === 'Cert Manager' || c.name === 'ROSA CRD')
+                        .map((component, index) => (
+                          <div
+                            key={index}
+                            className={`flex items-start justify-between text-xs ${
+                              component.enabled
+                                ? 'cursor-pointer hover:bg-white/60 hover:border-purple-200'
+                                : 'cursor-not-allowed opacity-60'
+                            } bg-white/40 rounded px-2 py-1.5 transition-all gap-2 border border-transparent`}
+                            title={component.enabled ? 'Click to view YAML' : 'Resource not enabled'}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (component.enabled && component.yaml) {
+                                handleResourceClick(component);
+                              }
+                            }}
+                          >
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <div
+                                className={`w-2 h-2 rounded-full flex-shrink-0 ${component.enabled ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-red-400 shadow-sm shadow-red-400/50'}`}
+                              ></div>
+                              <div className="flex flex-col gap-0.5 min-w-0">
+                                <span
+                                  className={`truncate font-medium ${component.enabled ? 'text-gray-800 hover:text-purple-700' : 'text-gray-500'}`}
+                                >
+                                  {component.name}
+                                </span>
+                                {component.version && (
+                                  <span className="text-[10px] text-gray-500 font-mono">
+                                    {component.version}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </div>
 
                 {/* Quick Actions Toolbar */}
                 <div className="border-t border-gray-200 pt-3 mt-2">
@@ -1088,9 +1195,9 @@ ${
               title={
                 <div className="flex items-center gap-2">
                   <span>Resources</span>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-purple-600 bg-purple-50 border border-purple-200">
                     <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
-                    {minikubeActiveResources.length} total
+                    {minikubeActiveResources.length} total • {Object.keys(groupedResources).length} namespace{Object.keys(groupedResources).length !== 1 ? 's' : ''}
                   </span>
                 </div>
               }
@@ -1110,36 +1217,78 @@ ${
                     </p>
                   </div>
                 ) : (
-                  <div className="max-h-80 overflow-y-auto space-y-2">
-                    {minikubeActiveResources.map((resource, index) => (
-                      <div
-                        key={index}
-                        className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-purple-50 rounded px-2 transition-colors"
-                        onClick={() => handleResourceClick(resource)}
-                      >
-                        <div>
-                          <span className="font-medium text-purple-700 hover:text-purple-900">
-                            {resource.name || 'Unknown'}
-                          </span>
-                          <div className="text-sm text-gray-600">
-                            {resource.type || 'Unknown Type'}
-                          </div>
-                        </div>
-                        <div className="text-right text-sm">
+                  <div className="max-h-80 overflow-y-auto space-y-2 pr-2">
+                    {Object.entries(groupedResources)
+                      .sort(([a], [b]) => a.localeCompare(b))
+                      .map(([namespace, resources]) => {
+                      const isExpanded = expandedNamespaces.has(namespace);
+                      return (
+                        <div
+                          key={namespace}
+                          className="border border-gray-200 rounded-lg overflow-hidden"
+                        >
                           <div
-                            className={`inline-block px-2 py-1 rounded-full text-xs ${
-                              resource.status === 'Ready'
-                                ? 'bg-green-100 text-green-800'
-                                : resource.status === 'Pending'
-                                  ? 'bg-yellow-100 text-yellow-800'
-                                  : 'bg-gray-100 text-gray-800'
+                            className={`flex items-center justify-between cursor-pointer py-2.5 px-3 transition-all ${
+                              isExpanded
+                                ? 'bg-gradient-to-r from-purple-50 to-blue-50 border-b border-purple-200'
+                                : 'bg-gray-50 hover:bg-purple-50'
                             }`}
+                            onClick={() => toggleNamespace(namespace)}
                           >
-                            {resource.status || 'Unknown'}
+                            <div className="flex items-center gap-2">
+                              <ChevronRightIcon
+                                className={`h-4 w-4 text-gray-500 transition-transform ${
+                                  isExpanded ? 'rotate-90' : ''
+                                }`}
+                              />
+                              <span className="font-semibold text-sm text-gray-700">
+                                {namespace}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                ({resources.length} resource{resources.length > 1 ? 's' : ''})
+                              </span>
+                            </div>
                           </div>
+
+                          {isExpanded && (
+                            <div className="bg-white">
+                              {resources.map((resource, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex justify-between items-center py-2 px-3 border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-purple-50 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleResourceClick(resource);
+                                  }}
+                                >
+                                  <div>
+                                    <span className="font-medium text-purple-700 hover:text-purple-900">
+                                      {resource.name || 'Unknown'}
+                                    </span>
+                                    <div className="text-xs text-gray-600">
+                                      {resource.type || 'Unknown Type'}
+                                    </div>
+                                  </div>
+                                  <div className="text-right text-sm">
+                                    <div
+                                      className={`inline-block px-2 py-1 rounded-full text-xs ${
+                                        resource.status === 'Ready'
+                                          ? 'bg-green-100 text-green-800'
+                                          : resource.status === 'Pending'
+                                            ? 'bg-yellow-100 text-yellow-800'
+                                            : 'bg-gray-100 text-gray-800'
+                                      }`}
+                                    >
+                                      {resource.status || 'Unknown'}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 

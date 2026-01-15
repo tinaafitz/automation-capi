@@ -278,7 +278,7 @@ const ConfigurationSection = ({
     const now = new Date();
     const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}`;
 
-    const fileName = `mce-status-report-${clusterIdentifier}-${timestamp}.html`;
+    const fileName = `mce-environment-report-${clusterIdentifier}-${timestamp}.html`;
 
     try {
       console.log('📊 ConfigurationSection: Create status report clicked');
@@ -289,57 +289,35 @@ const ConfigurationSection = ({
       // Add to recent operations
       addToRecent({
         id: reportId,
-        title: 'Create Status Report',
+        title: 'Export Environment Report',
         color: 'bg-cyan-600',
-        status: '⏳ Generating report...',
+        status: '⏳ Exporting report...',
         environment: 'mce',
-        output: `Generating HTML status report...\nGathering component data...\nFormatting resources...`,
+        output: `Exporting HTML environment report...\nGathering component data...\nFormatting resources...`,
       });
 
-      // Fetch fresh resources data first
-      console.log('📊 Fetching fresh MCE resources...');
-      updateRecentOperationStatus(
-        reportId,
-        '⏳ Generating report...',
-        `Step 1/5: Fetching MCE resources...`
-      );
-      const freshResources = await fetchMCEResources();
-      console.log(`📊 Fetched ${freshResources.length} resources`);
+      // Use existing data from state for resources - fetch clusters, jobs, and template in parallel
+      console.log('📊 Using existing resources, fetching clusters and jobs in parallel...');
 
-      // Use existing MCE features from context (already loaded in UI)
-      console.log('📊 Using MCE features from context:', mceFeatures.length, 'features');
+      // Use data already loaded in the component
+      const freshResources = mceResources; // Already in state
 
-      // ROSA HCP clusters
-      console.log('📊 Fetching ROSA HCP clusters...');
-      updateRecentOperationStatus(
-        reportId,
-        '⏳ Generating report...',
-        `Step 2/5: Fetching ROSA HCP clusters...\n✓ Fetched ${freshResources.length} resources`
-      );
-      const rosaClustersResponse = await fetch(buildApiUrl('/api/rosa/clusters'));
-      const rosaClustersData = await rosaClustersResponse.json();
+      // Fetch ROSA clusters, jobs, and template in parallel (quick operations)
+      const [rosaClustersData, jobsData, templateText] = await Promise.all([
+        fetch(buildApiUrl('/api/rosa/clusters')).then(r => r.json()),
+        fetch(buildApiUrl('/api/jobs')).then(r => r.json()),
+        fetch('/templates/test-status-report-template.html').then(r => {
+          if (!r.ok) throw new Error('Failed to load report template');
+          return r.text();
+        })
+      ]);
+
       const rosaClusters = rosaClustersData.success ? rosaClustersData.clusters : [];
-      console.log(`📊 Fetched ${rosaClusters.length} ROSA clusters`);
-
-      // Fetch recent tasks/jobs
-      console.log('📊 Fetching recent tasks...');
-      updateRecentOperationStatus(
-        reportId,
-        '⏳ Generating report...',
-        `Step 3/5: Fetching recent tasks...\n✓ Fetched ${freshResources.length} resources\n✓ Fetched ${rosaClusters.length} ROSA clusters`
-      );
-      const jobsResponse = await fetch(buildApiUrl('/api/jobs'));
-      const jobsData = await jobsResponse.json();
       const allJobs = jobsData.success ? jobsData.jobs : [];
-      const recentJobs = allJobs.slice(0, 10); // Get 10 most recent
-      console.log(`📊 Fetched ${recentJobs.length} recent tasks`);
+      const recentJobs = allJobs.slice(0, 10);
+      let htmlTemplate = templateText; // Create mutable copy for replacements
 
-      // Fetch the HTML template
-      const templateResponse = await fetch('/templates/test-status-report-template.html');
-      if (!templateResponse.ok) {
-        throw new Error('Failed to load report template');
-      }
-      let htmlTemplate = await templateResponse.text();
+      console.log(`📊 Report data ready: ${freshResources.length} resources, ${rosaClusters.length} clusters, ${recentJobs.length} tasks`);
 
       // Prepare data for the report
       const now = new Date();
@@ -473,16 +451,6 @@ Version:      ${mceInfo?.version || '2.10.0'}${hasPreviewComponentsInReport ? ' 
 API Server:   ${ocpStatus?.api_url || 'Not configured'}
 Status:       ${ocpStatus?.connected ? 'Connected' : 'Not Connected'}
 Last Verified: ${lastVerifiedDate}`;
-
-      // Skip deployment YAML fetching - we already have component info from API context
-      console.log(
-        `📊 Using component data from API context (${freshCAPIComponents.filter((c) => c.enabled).length} enabled components)`
-      );
-      updateRecentOperationStatus(
-        reportId,
-        '⏳ Generating report...',
-        `Step 4/5: Formatting component data...\n✓ Fetched ${freshResources.length} resources\n✓ Fetched ${rosaClusters.length} ROSA clusters\n✓ Fetched ${recentJobs.length} recent tasks`
-      );
 
       // Generate simple component list using data we already have
       const componentConfigDetails = `Configured Components:
@@ -651,14 +619,6 @@ ${freshCAPIComponents
               .join('\n')}</div>`
           : '<p class="italic-note">No recent tasks found</p>';
 
-      // Final step: Generate HTML report
-      console.log('📊 Generating final HTML report...');
-      updateRecentOperationStatus(
-        reportId,
-        '⏳ Generating report...',
-        `Step 5/5: Generating HTML report...\n✓ Fetched ${freshResources.length} resources\n✓ Fetched ${rosaClusters.length} ROSA clusters\n✓ Fetched ${recentJobs.length} recent tasks\n✓ Formatted ${freshCAPIComponents.filter((c) => c.enabled).length} components`
-      );
-
       // Replace placeholders in template
       htmlTemplate = htmlTemplate
         .replace(/\{\{TEST_TITLE\}\}/g, 'MCE Environment Status Report')
@@ -696,8 +656,8 @@ ${freshCAPIComponents
 
       updateRecentOperationStatus(
         reportId,
-        `✅ Report created at ${completionTime}`,
-        `MCE Status Report Generated\n\n✅ File: ${fileName}\n✅ Downloaded successfully\n✅ ${freshCAPIComponents.filter((c) => c.enabled).length} configured components with versions\n✅ ${activeClusters.length} active ROSA HCP cluster(s)\n✅ ${filteredResources.length} resources with status\n✅ ${recentJobs.length} recent tasks\n\nReport created at ${completionTime}`
+        `✅ Report exported at ${completionTime}`,
+        `MCE Environment Report Exported\n\n✅ File: ${fileName}\n✅ Downloaded successfully\n✅ ${freshCAPIComponents.filter((c) => c.enabled).length} configured components with versions\n✅ ${activeClusters.length} active ROSA HCP cluster(s)\n✅ ${filteredResources.length} resources with status\n✅ ${recentJobs.length} recent tasks\n\nReport exported at ${completionTime}`
       );
     } catch (error) {
       console.error('❌ ConfigurationSection: Create status report failed:', error);
@@ -972,11 +932,11 @@ ${freshCAPIComponents
                 ? 'Verify environment first to create report'
                 : isGeneratingReport
                   ? 'Report generation in progress...'
-                  : 'Create HTML Status Report (Ctrl+S)'
+                  : 'Export Environment Report (Ctrl+S)'
             }
           >
             <DocumentChartBarIcon className="h-4 w-4" />
-            <span>{isGeneratingReport ? 'Generating...' : 'Current Status'}</span>
+            <span>{isGeneratingReport ? 'Exporting...' : 'Export Report'}</span>
           </button>
 
           {/* Divider */}
@@ -1109,7 +1069,7 @@ ${freshCAPIComponents
                           : 'bg-white/30 text-purple-400 cursor-not-allowed'
                       }`}
                     >
-                      📊 {isGeneratingReport ? 'Generating...' : 'Status Report'}
+                      📊 {isGeneratingReport ? 'Exporting...' : 'Export Report'}
                     </button>
                   </div>
                 </div>
@@ -1158,7 +1118,17 @@ ${freshCAPIComponents
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded-lg border border-cyan-100">
                     <h5 className="font-semibold text-cyan-900 mb-2 flex items-center gap-2">
-                      <span>{mceInfo?.name || 'multiclusterengine'}</span>
+                      <span
+                        className="cursor-pointer hover:text-cyan-700 transition-colors"
+                        onClick={() => handleResourceClick({
+                          name: mceInfo?.name || 'multiclusterengine',
+                          type: 'MultiClusterEngine',
+                          namespace: 'multicluster-engine'
+                        })}
+                        title="Click to view YAML"
+                      >
+                        {mceInfo?.name || 'multiclusterengine'}
+                      </span>
                       <span className="text-sm font-normal text-cyan-600">
                         {mceInfo?.version || '2.10.0'}
                       </span>
@@ -1257,27 +1227,28 @@ ${freshCAPIComponents
                       <div className="space-y-1.5">
                         {capiComponentsArray.map((feature, index) => {
                           // Map component names to their actual deployment names
+                          // In MCE environment, all CAPI controllers are in multicluster-engine namespace
                           const getDeploymentInfo = (componentName) => {
                             switch (componentName) {
                               case 'cluster-api':
                                 return {
                                   name: 'capi-controller-manager',
-                                  namespace: 'capi-system',
+                                  namespace: 'multicluster-engine',
                                 };
                               case 'cluster-api-provider-aws':
                                 return {
                                   name: 'capa-controller-manager',
-                                  namespace: 'capa-system',
+                                  namespace: 'multicluster-engine',
                                 };
                               case 'cluster-api-provider-metal3':
                                 return {
                                   name: 'capm3-controller-manager',
-                                  namespace: 'capm3-system',
+                                  namespace: 'multicluster-engine',
                                 };
                               case 'cluster-api-provider-openshift-assisted':
                                 return {
                                   name: 'capi-provider-controller-manager',
-                                  namespace: 'capi-provider-system',
+                                  namespace: 'multicluster-engine',
                                 };
                               default:
                                 return { name: componentName, namespace: 'default' };
@@ -1289,7 +1260,11 @@ ${freshCAPIComponents
                           return (
                             <div
                               key={index}
-                              className="flex items-start justify-between text-xs cursor-pointer hover:bg-white/60 bg-white/40 rounded px-2.5 py-2 transition-all gap-2 border border-transparent hover:border-cyan-200"
+                              className={`flex items-start justify-between text-xs ${
+                                feature.enabled
+                                  ? 'cursor-pointer hover:bg-white/60 hover:border-cyan-200'
+                                  : 'cursor-not-allowed opacity-60'
+                              } bg-white/40 rounded px-2.5 py-2 transition-all gap-2 border border-transparent`}
                               onClick={() =>
                                 feature.enabled &&
                                 handleResourceClick({
