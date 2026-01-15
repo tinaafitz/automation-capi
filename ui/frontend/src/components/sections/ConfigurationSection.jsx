@@ -912,6 +912,21 @@ ${freshCAPIComponents
             <span>Provision</span>
           </button>
 
+          {/* Disable CAPI Button - Only show when any CAPI component is enabled */}
+          {capiComponentsArray.some((c) => c.enabled) && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDisableCapi();
+              }}
+              className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition-all duration-200 flex items-center space-x-2 text-sm font-medium hover:scale-105 active:scale-100"
+              title="Disable CAPI Components"
+            >
+              <NoSymbolIcon className="h-4 w-4" />
+              <span>Disable CAPI</span>
+            </button>
+          )}
+
           {/* Divider */}
           <div className="h-6 w-px bg-white/30 mx-1"></div>
 
@@ -1378,15 +1393,6 @@ ${freshCAPIComponents
                         >
                           <ArrowPathIcon className="h-4 w-4 text-gray-600 group-hover:text-cyan-600 group-hover:rotate-180 transition-all duration-300" />
                         </button>
-                        {capiComponentsArray.some((c) => c.name === 'cluster-api' && c.enabled) && (
-                          <button
-                            onClick={onDisableCapi}
-                            className="group p-2 rounded-lg hover:bg-red-50 transition-all duration-200 hover:scale-110 active:scale-95"
-                            title="Disable CAPI"
-                          >
-                            <NoSymbolIcon className="h-4 w-4 text-gray-600 group-hover:text-red-600 group-hover:rotate-12 transition-all duration-300" />
-                          </button>
-                        )}
                       </div>
                     </div>
                   </div>

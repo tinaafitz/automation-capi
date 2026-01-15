@@ -1601,8 +1601,8 @@ Report created at ${completionTime}`
                 </div>
               </div>
 
-              {/* Disable CAPI Button - Only show when CAPI is enabled */}
-              {capiComponents.some((c) => c.name === 'cluster-api' && c.enabled) && (
+              {/* Disable CAPI Button - Only show when any CAPI component is enabled */}
+              {capiComponents.some((c) => c.enabled) && (
                 <div className="pt-4 border-t border-gray-200">
                   <button
                     onClick={handleDisableCapi}
