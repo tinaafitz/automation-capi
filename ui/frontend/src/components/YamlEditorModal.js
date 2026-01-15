@@ -95,7 +95,9 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${yamlData?.cluster_name || 'cluster'}-${yamlData?.feature_type || 'config'}.yaml`;
+    const clusterName = (yamlData?.cluster_name || 'cluster').replace(/\s+/g, '-');
+    const featureType = (yamlData?.feature_type || 'config').replace(/\s+/g, '-');
+    a.download = `${clusterName}-${featureType}.yaml`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -333,7 +335,8 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
                   <p className="mt-1">
                     File:{' '}
                     <code className="bg-gray-100 px-2 py-0.5 rounded text-gray-700 font-medium">
-                      {yamlData?.cluster_name}-{yamlData?.feature_type}.yaml
+                      {(yamlData?.cluster_name || 'cluster').replace(/\s+/g, '-')}-
+                      {(yamlData?.feature_type || 'config').replace(/\s+/g, '-')}.yaml
                     </code>
                   </p>
                 </>
