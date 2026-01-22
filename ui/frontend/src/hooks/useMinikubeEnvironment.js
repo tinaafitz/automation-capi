@@ -153,6 +153,32 @@ export const useMinikubeEnvironment = () => {
     }
   }, []);
 
+  // Auto-detect current kubectl context on mount
+  useEffect(() => {
+    const detectCurrentContext = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/minikube/current-context');
+        const data = await response.json();
+
+        if (data.success && data.current_context) {
+          console.log('🔍 Auto-detected current kubectl context:', data.current_context);
+
+          // Only auto-set if no cluster is currently selected
+          if (!selectedMinikubeCluster && !minikubeClusterInput) {
+            setSelectedMinikubeCluster(data.current_context);
+            setMinikubeClusterInput(data.current_context);
+            localStorage.setItem('minikube-selected-cluster', data.current_context);
+            console.log('✅ Auto-selected cluster:', data.current_context);
+          }
+        }
+      } catch (error) {
+        console.log('ℹ️ Could not auto-detect kubectl context:', error.message);
+      }
+    };
+
+    detectCurrentContext();
+  }, []); // Run only on mount
+
   // Sort resources
   const sortedMinikubeResources = [...minikubeActiveResources].sort((a, b) => {
     const aValue = a[minikubeSortField] || '';

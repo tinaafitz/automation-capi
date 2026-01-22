@@ -4792,6 +4792,41 @@ async def list_minikube_clusters():
         }
 
 
+@app.get("/api/minikube/current-context")
+async def get_current_kubectl_context():
+    """Get the current kubectl context (active cluster)"""
+    try:
+        # Get current context
+        context_result = subprocess.run(
+            ["kubectl", "config", "current-context"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        if context_result.returncode != 0:
+            return {
+                "success": False,
+                "current_context": None,
+                "message": "No current kubectl context set",
+            }
+
+        current_context = context_result.stdout.strip()
+
+        return {
+            "success": True,
+            "current_context": current_context,
+            "message": f"Current context: {current_context}",
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "current_context": None,
+            "message": f"Error getting current context: {str(e)}",
+        }
+
+
 @app.post("/api/minikube/verify-cluster")
 async def verify_minikube_cluster(request: dict):
     """Verify if a Minikube cluster exists and is accessible"""
@@ -6462,7 +6497,7 @@ async def generate_provisioning_yaml(request: Request):
 
         # Extract configuration
         cluster_name = config.get("clusterName")
-        openshift_version = config.get("openShiftVersion", "4.19.10")
+        openshift_version = config.get("openShiftVersion", "4.20.10")
         create_rosa_network = config.get("createRosaNetwork", True)
         create_rosa_roles = config.get("createRosaRoleConfig", True)
         vpc_cidr_block = config.get("vpcCidrBlock", "10.0.0.0/16")
@@ -8767,6 +8802,277 @@ async def get_helm_test_logs(provider: str, environment: str, test_type: str):
     except Exception as e:
         print(f"❌ Error getting Helm test logs: {str(e)}")
         return {"success": False, "message": f"Error getting logs: {str(e)}"}
+
+
+# ============================================================================
+# MCE Environment Management API
+# ============================================================================
+
+@app.get("/api/mce-environments")
+async def list_mce_environments(platform: Optional[str] = None, status: Optional[str] = None):
+    """
+    List all saved MCE test environments with optional filtering.
+
+    Query Parameters:
+        platform: Filter by platform (e.g., "IBM Power", "AWS-ARM")
+        status: Filter by test status (pass, fail, blocked, in_progress, unknown)
+    """
+    try:
+        import sys
+        scripts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "scripts")
+        sys.path.insert(0, scripts_dir)
+
+        from mce_env_manager import MCEEnvManager
+
+        manager = MCEEnvManager()
+        envs = manager.list_environments(platform_filter=platform, status_filter=status)
+
+        # Format for frontend
+        formatted_envs = []
+        for env in envs:
+            data = env.get('data', {})
+            cluster_data = data.get('cluster', {})
+            notification = data.get('notification', {})
+
+            formatted_envs.append({
+                'clusterName': env.get('cluster_name'),
+                'platform': env.get('platform'),
+                'status': env.get('status'),
+                'notes': env.get('notes', ''),
+                'addedDate': env.get('added_date'),
+                'lastAccessed': env.get('last_accessed'),
+                'ocpVersion': cluster_data.get('ocp_version'),
+                'mceVersion': cluster_data.get('mce_version'),
+                'acmVersion': cluster_data.get('acm_version'),
+                'clusterStatus': cluster_data.get('status'),
+                'password': cluster_data.get('password'),
+                'consoleUrl': cluster_data.get('console_url'),
+                'jira': notification.get('jira'),
+                'polarion': notification.get('polarion'),
+                'totalFailures': notification.get('total_failures', 0),
+                'components': notification.get('components', {})
+            })
+
+        return {
+            'success': True,
+            'environments': formatted_envs,
+            'total': len(formatted_envs)
+        }
+
+    except Exception as e:
+        print(f"❌ Error listing MCE environments: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'success': False,
+            'message': f'Error listing environments: {str(e)}',
+            'environments': [],
+            'total': 0
+        }
+
+
+@app.get("/api/mce-environments/{cluster_name}")
+async def get_mce_environment(cluster_name: str):
+    """
+    Get detailed information for a specific MCE environment.
+    """
+    try:
+        import sys
+        scripts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "scripts")
+        sys.path.insert(0, scripts_dir)
+
+        from mce_env_manager import MCEEnvManager
+
+        manager = MCEEnvManager()
+        env = manager.get_environment(cluster_name)
+
+        if not env:
+            raise HTTPException(status_code=404, detail=f"Environment {cluster_name} not found")
+
+        data = env.get('data', {})
+        cluster_data = data.get('cluster', {})
+        notification = data.get('notification', {})
+        platform = env.get('platform', '')
+
+        # Build API URL based on platform
+        if 'IBM' in platform or 'Power' in platform:
+            api_url = f"https://api.{cluster_name}.rdr-ppcloud.sandbox.cis.ibm.net:6443"
+        elif 'ARM' in platform or 'AWS' in platform:
+            api_url = f"https://api.{cluster_name}.dev09.red-chesterfield.com:6443"
+        else:
+            api_url = f"https://api.{cluster_name}:6443"
+
+        return {
+            'success': True,
+            'environment': {
+                'clusterName': env.get('cluster_name'),
+                'platform': platform,
+                'status': env.get('status'),
+                'notes': env.get('notes', ''),
+                'addedDate': env.get('added_date'),
+                'lastAccessed': env.get('last_accessed'),
+                'ocpVersion': cluster_data.get('ocp_version'),
+                'mceVersion': cluster_data.get('mce_version'),
+                'acmVersion': cluster_data.get('acm_version'),
+                'clusterStatus': cluster_data.get('status'),
+                'password': cluster_data.get('password'),
+                'consoleUrl': cluster_data.get('console_url'),
+                'apiUrl': api_url,
+                'jira': notification.get('jira'),
+                'polarion': notification.get('polarion'),
+                'title': notification.get('title'),
+                'totalFailures': notification.get('total_failures', 0),
+                'components': notification.get('components', {}),
+                'loginCommand': f"oc login {api_url} -u kubeadmin -p {cluster_data.get('password')} --insecure-skip-tls-verify"
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error getting MCE environment: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error getting environment: {str(e)}")
+
+
+@app.post("/api/mce-environments/{cluster_name}/status")
+async def update_mce_environment_status(cluster_name: str, request: Request):
+    """
+    Update the test status for an MCE environment.
+
+    Body:
+        status: Test status (pass, fail, blocked, in_progress, unknown)
+        notes: Optional notes about the test result
+    """
+    try:
+        import sys
+        scripts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "scripts")
+        sys.path.insert(0, scripts_dir)
+
+        from mce_env_manager import MCEEnvManager
+
+        body = await request.json()
+        status = body.get('status')
+        notes = body.get('notes')
+
+        if status not in ['pass', 'fail', 'blocked', 'in_progress', 'unknown']:
+            raise HTTPException(status_code=400, detail="Invalid status value")
+
+        manager = MCEEnvManager()
+        success = manager.update_status(cluster_name, status, notes)
+
+        if not success:
+            raise HTTPException(status_code=404, detail=f"Environment {cluster_name} not found")
+
+        return {
+            'success': True,
+            'message': f'Updated {cluster_name} to status: {status}'
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error updating MCE environment status: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error updating status: {str(e)}")
+
+
+@app.get("/api/mce-environments/stats/summary")
+async def get_mce_environment_stats():
+    """
+    Get statistics about MCE test environments.
+    """
+    try:
+        import sys
+        scripts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "scripts")
+        sys.path.insert(0, scripts_dir)
+
+        from mce_env_manager import MCEEnvManager
+
+        manager = MCEEnvManager()
+        stats = manager.get_stats()
+
+        return {
+            'success': True,
+            'stats': {
+                'total': stats.get('total', 0),
+                'byPlatform': stats.get('by_platform', {}),
+                'byStatus': stats.get('by_status', {}),
+                'recent': [
+                    {
+                        'clusterName': env.get('cluster_name'),
+                        'platform': env.get('platform'),
+                        'status': env.get('status'),
+                        'lastAccessed': env.get('last_accessed')
+                    }
+                    for env in stats.get('recent', [])
+                ]
+            }
+        }
+
+    except Exception as e:
+        print(f"❌ Error getting MCE environment stats: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'success': False,
+            'message': f'Error getting stats: {str(e)}',
+            'stats': {'total': 0, 'byPlatform': {}, 'byStatus': {}, 'recent': []}
+        }
+
+
+@app.get("/api/mce-environments/search/{query}")
+async def search_mce_environments(query: str):
+    """
+    Search MCE environments by cluster name, platform, Jira, Polarion, or notes.
+    """
+    try:
+        import sys
+        scripts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "scripts")
+        sys.path.insert(0, scripts_dir)
+
+        from mce_env_manager import MCEEnvManager
+
+        manager = MCEEnvManager()
+        results = manager.search_environments(query)
+
+        # Format for frontend
+        formatted_results = []
+        for env in results:
+            data = env.get('data', {})
+            cluster_data = data.get('cluster', {})
+            notification = data.get('notification', {})
+
+            formatted_results.append({
+                'clusterName': env.get('cluster_name'),
+                'platform': env.get('platform'),
+                'status': env.get('status'),
+                'notes': env.get('notes', ''),
+                'lastAccessed': env.get('last_accessed'),
+                'jira': notification.get('jira'),
+                'polarion': notification.get('polarion'),
+                'totalFailures': notification.get('total_failures', 0)
+            })
+
+        return {
+            'success': True,
+            'results': formatted_results,
+            'total': len(formatted_results),
+            'query': query
+        }
+
+    except Exception as e:
+        print(f"❌ Error searching MCE environments: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'success': False,
+            'message': f'Error searching environments: {str(e)}',
+            'results': [],
+            'total': 0
+        }
 
 
 if __name__ == "__main__":

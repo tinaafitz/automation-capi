@@ -12,7 +12,7 @@
       "extra_vars": {
         "cluster_name": "test-rosa-hcp-{{ 999999 | random }}",
         "domain_prefix": "rosa-test",
-        "openshift_version": "4.19.10",
+        "openshift_version": "4.20.10",
         "create_rosa_network": true,
         "create_rosa_role_config": true,
         "vpc_cidr_block": "10.0.0.0/16",
@@ -51,7 +51,7 @@
     "customization": {
       "cluster_name": "Name of the cluster (auto-generated random name by default)",
       "domain_prefix": "Domain prefix for cluster API URL (required, max 15 chars)",
-      "openshift_version": "OpenShift version to deploy (default: 4.19.10)",
+      "openshift_version": "OpenShift version to deploy (default: 4.20.10, latest stable ROSA HCP)",
       "aws_region": "AWS region for deployment (default: us-west-2)",
       "channel_group": "Update channel: stable, fast, or candidate (default: stable)"
     },

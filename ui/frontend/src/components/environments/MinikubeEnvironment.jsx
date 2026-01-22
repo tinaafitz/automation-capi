@@ -59,6 +59,7 @@ const MinikubeEnvironment = () => {
     minikubeConfigurationCollapsed,
     verifyMinikubeCluster,
     fetchMinikubeActiveResources,
+    fetchMinikubeClusters,
     setSelectedMinikubeCluster,
     setMinikubeClusterInput,
     setMinikubeConfigurationCollapsed,
@@ -342,6 +343,11 @@ const MinikubeEnvironment = () => {
   useEffect(() => {
     fetchComponentVersions();
   }, [fetchComponentVersions]);
+
+  // Fetch available Minikube clusters on mount
+  useEffect(() => {
+    fetchMinikubeClusters();
+  }, [fetchMinikubeClusters]);
 
   // Use fetched versions or fallback to defaults
   // Show "loading..." only while actively fetching, "not installed" if fetch completed with empty results
@@ -929,20 +935,34 @@ ${
             <StatusCard
               theme="minikube"
               title={
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <span>Minikube Configuration</span>
-                  <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${
-                      clusterName
-                        ? 'text-purple-600 bg-purple-50 border-purple-200'
-                        : 'text-gray-600 bg-gray-50 border-gray-200'
-                    }`}
-                  >
-                    <div className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80"></div>
-                    {clusterName
-                      ? `🔷 ${clusterName}${methodDisplay ? ` (${methodDisplay})` : ''}`
-                      : 'No cluster selected'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {/* Cluster Selector Dropdown */}
+                    <select
+                      value={clusterName || ''}
+                      onChange={(e) => {
+                        const newCluster = e.target.value;
+                        setSelectedMinikubeCluster(newCluster);
+                        setMinikubeClusterInput(newCluster);
+                        localStorage.setItem('minikube-selected-cluster', newCluster);
+                        console.log('🔄 Cluster switched to:', newCluster);
+                      }}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border text-purple-600 bg-purple-50 border-purple-200 hover:bg-purple-100 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-1"
+                    >
+                      <option value="">Select cluster...</option>
+                      {minikubeClusters.map((cluster) => (
+                        <option key={cluster} value={cluster}>
+                          🔷 {cluster}
+                        </option>
+                      ))}
+                    </select>
+                    {methodDisplay && clusterName && (
+                      <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium text-purple-600 bg-purple-50 border border-purple-200">
+                        ⚡ {methodDisplay}
+                      </span>
+                    )}
+                  </div>
                 </div>
               }
               icon={

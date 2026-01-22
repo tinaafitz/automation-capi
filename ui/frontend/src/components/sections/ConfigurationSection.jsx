@@ -25,6 +25,7 @@ import {
   NoSymbolIcon,
   ViewColumnsIcon,
   Squares2X2Icon,
+  RectangleStackIcon,
 } from '@heroicons/react/24/outline';
 import { cardStyles } from '../../styles/themes';
 import { buildApiUrl, API_ENDPOINTS } from '../../config/api';
@@ -39,6 +40,7 @@ const ConfigurationSection = ({
   onProvision,
   onExport,
   onDisableCapi,
+  onOpenMCEEnvironments,
 }) => {
   const app = useApp();
   const dispatch = useAppDispatch();
@@ -850,6 +852,22 @@ ${freshCAPIComponents
           </div>
         </div>
         <div className="flex items-center space-x-2">
+          {/* Quick Reference Actions */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenMCEEnvironments();
+            }}
+            className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition-all duration-200 flex items-center space-x-2 text-sm font-medium hover:scale-105 active:scale-100"
+            title="MCE Test Environments"
+          >
+            <RectangleStackIcon className="h-4 w-4" />
+            <span>MCE Environments</span>
+          </button>
+
+          {/* Divider */}
+          <div className="h-6 w-px bg-white/30 mx-1"></div>
+
           {/* Workflow Actions */}
           <button
             onClick={(e) => {
@@ -1019,10 +1037,12 @@ ${freshCAPIComponents
                   <div className="text-xs text-gray-600 mb-1">
                     {mceInfo?.name || 'multiclusterengine'}
                   </div>
-                  <div className="text-xs font-mono text-gray-500">
-                    {mceInfo?.version || '2.10.0'}
-                  </div>
-                  {ocpStatus?.connected && getLastVerifiedText() && (
+                  {ocpStatus?.api_url && mceInfo?.version && (
+                    <div className="text-xs font-mono text-gray-500">
+                      {mceInfo.version}
+                    </div>
+                  )}
+                  {ocpStatus?.api_url && getLastVerifiedText() && (
                     <div className="text-[10px] text-gray-500 mt-2 border-t border-cyan-200 pt-2">
                       Last verified: {getLastVerifiedText()}
                     </div>
@@ -1148,9 +1168,11 @@ ${freshCAPIComponents
                       >
                         {mceInfo?.name || 'multiclusterengine'}
                       </span>
-                      <span className="text-sm font-normal text-cyan-600">
-                        {mceInfo?.version || '2.10.0'}
-                      </span>
+                      {mceInfo?.version && (
+                        <span className="text-sm font-normal text-cyan-600">
+                          {mceInfo.version}
+                        </span>
+                      )}
                     </h5>
 
                     <div className="space-y-2 text-sm">
@@ -1576,6 +1598,7 @@ ConfigurationSection.propTypes = {
   onProvision: PropTypes.func.isRequired,
   onExport: PropTypes.func.isRequired,
   onDisableCapi: PropTypes.func.isRequired,
+  onOpenMCEEnvironments: PropTypes.func.isRequired,
 };
 
 export default ConfigurationSection;

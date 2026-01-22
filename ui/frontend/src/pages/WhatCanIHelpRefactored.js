@@ -15,6 +15,7 @@ import HelmChartTestDashboard from '../components/sections/HelmChartTestDashboar
 import DraggableSection from '../components/sections/DraggableSection';
 import FilingCabinet from '../components/sections/FilingCabinet';
 import NotificationSettingsModal from '../components/modals/NotificationSettingsModal';
+import MCEEnvironmentSelector from '../components/MCEEnvironmentSelector';
 import { RosaProvisionModal } from '../components/RosaProvisionModal';
 import { YamlEditorModal } from '../components/YamlEditorModal';
 import { AIAssistantChat } from '../components/chat/AIAssistantChat';
@@ -255,6 +256,7 @@ const EnvironmentContent = () => {
 
   // State for modals
   const [showNotificationSettings, setShowNotificationSettings] = React.useState(false);
+  const [showMCEEnvironmentsModal, setShowMCEEnvironmentsModal] = React.useState(false);
 
   // Handlers for MCE sections
   const handleVerifyEnvironment = async () => {
@@ -343,6 +345,39 @@ const EnvironmentContent = () => {
 
   const handleOpenNotifications = () => {
     setShowNotificationSettings(true);
+  };
+
+  const handleOpenMCEEnvironments = () => {
+    setShowMCEEnvironmentsModal(true);
+  };
+
+  const handleUseEnvironmentCredentials = async (credentials) => {
+    try {
+      // Save the credentials to the backend
+      const response = await fetch(buildApiUrl('/api/credentials'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ credentials }),
+      });
+
+      if (response.ok) {
+        // Close the MCE environments modal
+        setShowMCEEnvironmentsModal(false);
+
+        // Show success message
+        alert(`✅ Credentials set successfully for ${credentials.clusterName}!\n\nYou can now verify or configure the environment.`);
+
+        // Refresh API status to reflect the new credentials
+        await apiStatus.refreshAllStatus();
+      } else {
+        const error = await response.json();
+        alert(`Failed to save credentials: ${error.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      alert(`Failed to save credentials: ${error.message}`);
+    }
   };
 
   const handleConfigure = async () => {
@@ -549,6 +584,7 @@ const EnvironmentContent = () => {
             onProvision={handleProvision}
             onExport={handleExport}
             onDisableCapi={handleDisableCapi}
+            onOpenMCEEnvironments={handleOpenMCEEnvironments}
           />
         ) : null;
 
@@ -686,6 +722,29 @@ const EnvironmentContent = () => {
         isOpen={showNotificationSettings}
         onClose={() => setShowNotificationSettings(false)}
       />
+
+      {/* MCE Environments Modal */}
+      {showMCEEnvironmentsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-2xl max-w-7xl w-full max-h-[95vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-cyan-600 to-cyan-700 text-white p-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold">MCE Test Environments</h2>
+              <button
+                onClick={() => setShowMCEEnvironmentsModal(false)}
+                className="text-white hover:text-gray-200 text-2xl font-bold px-3 py-1 rounded hover:bg-white/20 transition-colors"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="overflow-y-auto max-h-[85vh] p-6">
+              <MCEEnvironmentSelector onUseCredentials={handleUseEnvironmentCredentials} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -73,9 +73,9 @@ spec:
     CreatedBy: "ansible-automation"
     Purpose: "combined-automation-testing"
 ---
-# ROSARoleConfig for automated AWS IAM role creation (if 4.20 templates available)
+# ROSARoleConfig for automated AWS IAM role creation
 # FIXED: Removed unsupported credentialsSecretRef field
-{% if rosa_role_config is defined and rosa_role_config.enabled | default(false) %}
+# Default: ALWAYS CREATED for automated role management
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: ROSARoleConfig
 metadata:
@@ -94,7 +94,6 @@ spec:
     version: {{ rosa_role_config.version | default(openshift_version) }}
   operatorRoleConfig:
     prefix: "{{ rosa_role_config.prefix | default(cluster_name_prefix) }}"
-{% endif %}
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1beta2
 kind: ROSAControlPlane
@@ -115,11 +114,9 @@ spec:
   rosaNetworkRef:
     name: {{ cluster_name }}-network
 
-  # Role automation reference (if enabled)
-  {% if rosa_role_config is defined and rosa_role_config.enabled | default(false) %}
+  # Role automation reference
   rosaRoleConfigRef:
     name: {{ cluster_name }}-roles
-  {% endif %}
 
   rosaClusterName: {{ cluster_name }}
   domainPrefix: {{ domain_prefix | default('rosa-' + cluster_name_prefix) }}
