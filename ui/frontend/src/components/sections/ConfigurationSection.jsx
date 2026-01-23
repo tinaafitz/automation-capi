@@ -1038,9 +1038,7 @@ ${freshCAPIComponents
                     {mceInfo?.name || 'multiclusterengine'}
                   </div>
                   {ocpStatus?.api_url && mceInfo?.version && (
-                    <div className="text-xs font-mono text-gray-500">
-                      {mceInfo.version}
-                    </div>
+                    <div className="text-xs font-mono text-gray-500">{mceInfo.version}</div>
                   )}
                   {ocpStatus?.api_url && getLastVerifiedText() && (
                     <div className="text-[10px] text-gray-500 mt-2 border-t border-cyan-200 pt-2">
@@ -1169,9 +1167,7 @@ ${freshCAPIComponents
                         {mceInfo?.name || 'multiclusterengine'}
                       </span>
                       {mceInfo?.version && (
-                        <span className="text-sm font-normal text-cyan-600">
-                          {mceInfo.version}
-                        </span>
+                        <span className="text-sm font-normal text-cyan-600">{mceInfo.version}</span>
                       )}
                     </h5>
 

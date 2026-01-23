@@ -1490,9 +1490,7 @@ Report created at ${completionTime}`
                 >
                   <span>{mceInfo?.name || 'multiclusterengine'}</span>
                   {ocpStatus?.api_url && mceInfo?.version && (
-                    <span className="text-sm font-normal text-cyan-600">
-                      {mceInfo.version}
-                    </span>
+                    <span className="text-sm font-normal text-cyan-600">{mceInfo.version}</span>
                   )}
                 </h5>
 
