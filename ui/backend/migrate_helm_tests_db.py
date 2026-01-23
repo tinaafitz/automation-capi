@@ -17,7 +17,9 @@ def migrate_database():
     print(f"🔄 Migrating database: {db_path}")
 
     if not os.path.exists(db_path):
-        print("⚠️  Database doesn't exist yet - will be created with new schema on first use")
+        print(
+            "⚠️  Database doesn't exist yet - will be created with new schema on first use"
+        )
         return True
 
     try:
