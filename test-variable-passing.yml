@@ -1,0 +1,37 @@
+---
+- name: Test Variable Passing
+  hosts: localhost
+  gather_facts: false
+  vars:
+    # Default values (should be overridden by command-line)
+    name_prefix: "DEFAULT"
+    aws_region: "DEFAULT"
+    test_var: "DEFAULT"
+
+  tasks:
+    - name: Display all received variables
+      debug:
+        msg:
+          - "=========================================="
+          - "VARIABLE PASSING TEST RESULTS"
+          - "=========================================="
+          - ""
+          - "name_prefix: {{ name_prefix }}"
+          - "aws_region: {{ aws_region }}"
+          - "test_var: {{ test_var }}"
+          - ""
+          - "Derived Variables:"
+          - "  cluster_name: {{ name_prefix }}-rosa-hcp-123456"
+          - "  domain_prefix: {{ name_prefix }}-12345"
+          - "  role_prefix: {{ name_prefix }}-roles"
+          - ""
+          - "=========================================="
+
+    - name: Check if dry_run is set
+      debug:
+        msg: "DRY RUN MODE: {{ dry_run | default('NOT SET') }}"
+      when: dry_run is defined
+
+    - name: Success message
+      debug:
+        msg: "✅ Variable passing test completed successfully!"

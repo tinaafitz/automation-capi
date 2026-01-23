@@ -1,0 +1,33 @@
+{
+  "name": "Test Variable Passing",
+  "description": "Simple test to verify command-line variable passing works correctly",
+  "version": "1.0.0",
+  "tags": ["test", "variables", "validation"],
+  "environment": "any",
+  "playbooks": [
+    {
+      "name": "test-variable-passing.yml",
+      "description": "Display all variables to verify passing mechanism",
+      "vars": {
+        "name_prefix": "DEFAULT",
+        "aws_region": "DEFAULT",
+        "test_var": "DEFAULT"
+      },
+      "timeout": 60
+    }
+  ],
+  "documentation": {
+    "overview": "This test suite verifies that command-line extra variables are correctly passed to playbooks and override JSON defaults.",
+    "usage": [
+      "./run-test-suite.py 00-test-variable-passing",
+      "./run-test-suite.py 00-test-variable-passing -e name_prefix=xyz",
+      "./run-test-suite.py 00-test-variable-passing -e name_prefix=qe6 -e aws_region=us-east-1",
+      "./run-test-suite.py 00-test-variable-passing -e name_prefix=dev --dry-run"
+    ],
+    "expected_results": [
+      "Variables should show command-line values when provided",
+      "Variables should show DEFAULT when not provided via command-line",
+      "Command-line values should override JSON defaults"
+    ]
+  }
+}

@@ -1,41 +1,57 @@
-# CAPI and HyperShift are mutually exclusive - disable HyperShift components first
-- set_fact:
-    component: "hypershift"
-
-- name: Disable hypershift
-  include_tasks: "{{ AUTOMATION_PATH }}/tasks/update_enabled_flag.yml"
-  vars:
-    enable: "false"
-
-- set_fact:
-    component: "hypershift-local-hosting"
-
-- name: Disable hypershift-local-hosting
-  include_tasks: "{{ AUTOMATION_PATH }}/tasks/update_enabled_flag.yml"
-  vars:
-    enable: "false"
-
-# Now enable CAPI components
+# Check if CAPI and CAPA are already enabled
 - set_fact:
     component: "cluster-api"
 
-- name: Get {{ component }} status
+- name: Get cluster-api status
   include_tasks: "{{ AUTOMATION_PATH }}/tasks/get_mce_component_status.yml"
+
+- set_fact:
+    capi_enabled: "{{ component_enabled.stdout | bool }}"
+
+- set_fact:
+    component: "cluster-api-provider-aws"
+
+- name: Get cluster-api-provider-aws status
+  include_tasks: "{{ AUTOMATION_PATH }}/tasks/get_mce_component_status.yml"
+
+- set_fact:
+    capa_enabled: "{{ component_enabled.stdout | bool }}"
+
+# CAPI and HyperShift are mutually exclusive - disable HyperShift components first
+# Skip if both CAPI and CAPA are already enabled (Hypershift should already be disabled)
+- block:
+  - set_fact:
+      component: "hypershift"
+
+  - name: Disable hypershift
+    include_tasks: "{{ AUTOMATION_PATH }}/tasks/update_enabled_flag.yml"
+    vars:
+      enable: "false"
+
+  - set_fact:
+      component: "hypershift-local-hosting"
+
+  - name: Disable hypershift-local-hosting
+    include_tasks: "{{ AUTOMATION_PATH }}/tasks/update_enabled_flag.yml"
+    vars:
+      enable: "false"
+  when: not (capi_enabled and capa_enabled)
+
+# Now enable CAPI components (only if needed)
+- set_fact:
+    component: "cluster-api"
 
 - name: Enable capi
   include_tasks: "{{ AUTOMATION_PATH }}/tasks/update_enabled_flag.yml"
   vars:
     enable: "true"
-  when: not component_enabled.stdout | bool
+  when: not capi_enabled
 
 - set_fact:
     component: "cluster-api-provider-aws"
-
-- name: Get {{ component }} status
-  include_tasks: "{{ AUTOMATION_PATH }}/tasks/get_mce_component_status.yml"
 
 - name: Enable capa
   include_tasks: "{{ AUTOMATION_PATH }}/tasks/update_enabled_flag.yml"
   vars:
     enable: "true"
-  when: not component_enabled.stdout | bool
+  when: not capa_enabled

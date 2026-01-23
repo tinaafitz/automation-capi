@@ -47,6 +47,7 @@ const MCEEnvironment = () => {
   const [yamlEditorData, setYamlEditorData] = useState(null);
   const [expandedNamespaces, setExpandedNamespaces] = useState(new Set());
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  const [showMCEEnvironmentsModal, setShowMCEEnvironmentsModal] = useState(false);
 
   const {
     ocpStatus,
@@ -1488,9 +1489,9 @@ Report created at ${completionTime}`
                   title="Click to view YAML"
                 >
                   <span>{mceInfo?.name || 'multiclusterengine'}</span>
-                  <span className="text-sm font-normal text-cyan-600">
-                    {mceInfo?.version || '2.10.0'}
-                  </span>
+                  {ocpStatus?.api_url && mceInfo?.version && (
+                    <span className="text-sm font-normal text-cyan-600">{mceInfo.version}</span>
+                  )}
                 </h5>
 
                 <div className="space-y-2 text-sm">
@@ -1500,7 +1501,7 @@ Report created at ${completionTime}`
                       {ocpStatus?.api_url || 'Not configured'}
                     </div>
                   </div>
-                  {getLastVerifiedText() && (
+                  {ocpStatus?.api_url && getLastVerifiedText() && (
                     <div>
                       <span className="font-medium text-gray-600">Last Verified:</span>
                       <div className="mt-1 text-gray-700 text-xs">{getLastVerifiedText()}</div>
