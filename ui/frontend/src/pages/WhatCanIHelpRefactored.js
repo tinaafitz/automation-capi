@@ -367,7 +367,9 @@ const EnvironmentContent = () => {
         setShowMCEEnvironmentsModal(false);
 
         // Show success message
-        alert(`✅ Credentials set successfully for ${credentials.clusterName}!\n\nYou can now verify or configure the environment.`);
+        alert(
+          `✅ Credentials set successfully for ${credentials.clusterName}!\n\nYou can now verify or configure the environment.`
+        );
 
         // Refresh API status to reflect the new credentials
         await apiStatus.refreshAllStatus();
