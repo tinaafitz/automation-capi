@@ -3571,11 +3571,45 @@ async def get_mce_features():
             mce_name = mce.get("metadata", {}).get("name", "multiclusterengine")
             mce_version = mce.get("status", {}).get("currentVersion", "Unknown")
 
+            # Check for CRD availability
+            rosa_network_crd_available = False
+            rosa_role_config_crd_available = False
+
+            try:
+                # Check for ROSANetwork CRD
+                crd_check = subprocess.run(
+                    ["oc", "get", "crd", "rosanetworks.infrastructure.cluster.x-k8s.io"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                rosa_network_crd_available = crd_check.returncode == 0
+
+                # Check for ROSARoleConfig CRD (might be named differently)
+                # Try both possible CRD names
+                for crd_name in [
+                    "rosaroleconfigs.infrastructure.cluster.x-k8s.io",
+                    "rosaroles.infrastructure.cluster.x-k8s.io",
+                ]:
+                    crd_check = subprocess.run(
+                        ["oc", "get", "crd", crd_name], capture_output=True, text=True, timeout=10
+                    )
+                    if crd_check.returncode == 0:
+                        rosa_role_config_crd_available = True
+                        break
+            except Exception as e:
+                # If CRD check fails, assume CRDs not available
+                print(f"CRD check failed: {e}")
+
             mce_info = {
                 "name": mce_name,
                 "version": mce_version,
                 "status": mce_status,
                 "available": mce_status == "Available",
+                "capabilities": {
+                    "rosaNetworkCrd": rosa_network_crd_available,
+                    "rosaRoleConfigCrd": rosa_role_config_crd_available,
+                },
             }
 
             components = mce.get("spec", {}).get("overrides", {}).get("components", [])
@@ -6642,6 +6676,23 @@ async def generate_provisioning_yaml(request: Request):
         log_forward_s3_bucket = config.get("logForwardS3Bucket", "")
         log_forward_s3_prefix = config.get("logForwardS3Prefix", "")
 
+        # Extract manual configuration (for environments without ROSANetwork/ROSARoleConfig CRDs)
+        manual_public_subnet = config.get("manualPublicSubnet", "")
+        manual_private_subnet = config.get("manualPrivateSubnet", "")
+        manual_vpc_id = config.get("manualVpcId", "")
+        manual_installer_role_arn = config.get("manualInstallerRoleArn", "")
+        manual_support_role_arn = config.get("manualSupportRoleArn", "")
+        manual_worker_role_arn = config.get("manualWorkerRoleArn", "")
+        manual_control_plane_operator_role_arn = config.get("manualControlPlaneOperatorRoleArn", "")
+        manual_kms_provider_role_arn = config.get("manualKmsProviderRoleArn", "")
+        manual_ingress_operator_role_arn = config.get("manualIngressOperatorRoleArn", "")
+        manual_image_registry_operator_role_arn = config.get(
+            "manualImageRegistryOperatorRoleArn", ""
+        )
+        manual_storage_operator_role_arn = config.get("manualStorageOperatorRoleArn", "")
+        manual_network_operator_role_arn = config.get("manualNetworkOperatorRoleArn", "")
+        manual_oidc_config_id = config.get("manualOidcConfigId", "")
+
         if not cluster_name:
             raise HTTPException(status_code=400, detail="cluster_name is required")
 
@@ -6742,6 +6793,27 @@ async def generate_provisioning_yaml(request: Request):
             "log_forward_cloudwatch_log_group": log_forward_cloudwatch_log_group,
             "log_forward_s3_bucket": log_forward_s3_bucket,
             "log_forward_s3_prefix": log_forward_s3_prefix,
+            # Manual configuration (for environments without CRDs)
+            "manual_subnets": (
+                [manual_public_subnet, manual_private_subnet]
+                if manual_public_subnet and manual_private_subnet
+                else []
+            ),
+            "manual_public_subnet": manual_public_subnet,
+            "manual_private_subnet": manual_private_subnet,
+            "manual_vpc_id": manual_vpc_id,
+            "manual_oidc_config_id": manual_oidc_config_id,
+            "manual_roles": {
+                "installer": manual_installer_role_arn,
+                "support": manual_support_role_arn,
+                "worker": manual_worker_role_arn,
+                "control_plane_operator": manual_control_plane_operator_role_arn,
+                "kms_provider": manual_kms_provider_role_arn,
+                "ingress_operator": manual_ingress_operator_role_arn,
+                "image_registry_operator": manual_image_registry_operator_role_arn,
+                "storage_operator": manual_storage_operator_role_arn,
+                "network_operator": manual_network_operator_role_arn,
+            },
         }
 
         # Determine which template to use based on automation options
@@ -8603,8 +8675,7 @@ async def get_helm_test_status():
         cursor = conn.cursor()
 
         # Create table if it doesn't exist
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS helm_test_results (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 provider TEXT NOT NULL,
@@ -8621,19 +8692,16 @@ async def get_helm_test_status():
                 install_method TEXT,
                 UNIQUE(provider, environment, test_type)
             )
-        """
-        )
+        """)
         conn.commit()
 
         # Fetch all test results including Git source information
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT provider, environment, test_type, status, duration, pass_rate, timestamp,
                    chart_source, git_branch, install_method
             FROM helm_test_results
             ORDER BY timestamp DESC
-        """
-        )
+        """)
 
         results = cursor.fetchall()
         conn.close()

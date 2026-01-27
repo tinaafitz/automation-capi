@@ -17,9 +17,7 @@ def migrate_database():
     print(f"🔄 Migrating database: {db_path}")
 
     if not os.path.exists(db_path):
-        print(
-            "⚠️  Database doesn't exist yet - will be created with new schema on first use"
-        )
+        print("⚠️  Database doesn't exist yet - will be created with new schema on first use")
         return True
 
     try:
@@ -52,30 +50,24 @@ def migrate_database():
 
         # Add missing columns
         if "chart_source" in migrations_needed:
-            cursor.execute(
-                """
+            cursor.execute("""
                 ALTER TABLE helm_test_results
                 ADD COLUMN chart_source TEXT DEFAULT 'helm_repo'
-            """
-            )
+            """)
             print("  ✓ Added chart_source column")
 
         if "git_branch" in migrations_needed:
-            cursor.execute(
-                """
+            cursor.execute("""
                 ALTER TABLE helm_test_results
                 ADD COLUMN git_branch TEXT
-            """
-            )
+            """)
             print("  ✓ Added git_branch column")
 
         if "install_method" in migrations_needed:
-            cursor.execute(
-                """
+            cursor.execute("""
                 ALTER TABLE helm_test_results
                 ADD COLUMN install_method TEXT DEFAULT 'helm_repo'
-            """
-            )
+            """)
             print("  ✓ Added install_method column")
 
         conn.commit()
