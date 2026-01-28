@@ -1,0 +1,141 @@
+---
+- name: Verify MCE CAPI/CAPA Environment (STRICT - Checks Pod Status)
+  hosts: localhost
+  any_errors_fatal: true
+  vars_files:
+    - vars/vars.yml
+    - vars/user_vars.yml
+  tasks:
+    - set_fact:
+        ocp_user:  "{{ OCP_HUB_CLUSTER_USER }}"
+        ocp_password:  "{{ OCP_HUB_CLUSTER_PASSWORD }}"
+        api_url:  "{{ OCP_HUB_API_URL }}"
+        mce_namespace: "{{ MCE_NAMESPACE }}"
+        strict_mode: true
+
+    - name: Prepare ansible runner host
+      include_tasks: tasks/prepare_ansible_runner.yml
+      when: not skip_ansible_runner | bool
+
+    - name: Login OCP
+      include_tasks: tasks/login_ocp.yml
+
+    # ======================================================
+    # STRICT CHECK: Verify CAPI Controller Pod is Running
+    # ======================================================
+    - name: Get CAPI controller pod status
+      shell: |
+        oc --context='{{ ocp_context }}' get pods -n {{ mce_namespace }} -l control-plane=controller-manager,cluster.x-k8s.io/provider=cluster-api -o json | \
+        jq -r '.items[0] | {name: .metadata.name, phase: .status.phase, ready: (.status.containerStatuses[0].ready // false), state: (.status.containerStatuses[0].state | keys[0])}'
+      register: capi_pod_status
+      failed_when: false
+      changed_when: false
+
+    - name: Parse CAPI pod status
+      set_fact:
+        capi_pod: "{{ capi_pod_status.stdout | from_json }}"
+      when: capi_pod_status.stdout | length > 0
+
+    - name: Fail if CAPI pod not found
+      fail:
+        msg: |
+          ❌ CAPI Controller Pod Not Found
+
+          The CAPI controller deployment exists but no pod was found.
+          This usually means the deployment hasn't created pods yet.
+
+          Check: oc get pods -n {{ mce_namespace }} -l cluster.x-k8s.io/provider=cluster-api
+      when: capi_pod_status.stdout | length == 0
+
+    - name: Fail if CAPI pod not running
+      fail:
+        msg: |
+          ❌ CAPI Controller Pod Not Ready
+
+          Pod Name: {{ capi_pod.name }}
+          Phase: {{ capi_pod.phase }}
+          Ready: {{ capi_pod.ready }}
+          State: {{ capi_pod.state }}
+
+          {% if capi_pod.state == 'waiting' %}
+          The CAPI controller pod is in waiting state (likely ImagePullBackOff or CrashLoopBackOff).
+
+          Check details:
+            oc describe pod -n {{ mce_namespace }} {{ capi_pod.name }}
+            oc logs -n {{ mce_namespace }} {{ capi_pod.name }}
+
+          Common Issues:
+          - ImagePullBackOff: Invalid or missing container image (check MCE CSV for placeholder SHA256)
+          - CrashLoopBackOff: Pod starting but failing (check logs)
+          {% elif capi_pod.phase != 'Running' %}
+          The pod is not in Running phase.
+          {% elif not capi_pod.ready %}
+          The pod is running but containers are not ready.
+          {% endif %}
+
+          Environment cannot provision clusters until CAPI controller is healthy.
+      when: capi_pod.phase != 'Running' or not capi_pod.ready
+
+    - name: CAPI pod is healthy
+      debug:
+        msg: "✅ CAPI Controller Pod: {{ capi_pod.name }} is Running and Ready"
+
+    # ======================================================
+    # STRICT CHECK: Verify CAPA Controller Pod is Running
+    # ======================================================
+    - name: Get CAPA controller pod status
+      shell: |
+        oc --context='{{ ocp_context }}' get pods -n {{ mce_namespace }} -l control-plane=capa-controller-manager -o json | \
+        jq -r '.items[0] | {name: .metadata.name, phase: .status.phase, ready: (.status.containerStatuses[0].ready // false), state: (.status.containerStatuses[0].state | keys[0])}'
+      register: capa_pod_status
+      failed_when: false
+      changed_when: false
+
+    - name: Parse CAPA pod status
+      set_fact:
+        capa_pod: "{{ capa_pod_status.stdout | from_json }}"
+      when: capa_pod_status.stdout | length > 0
+
+    - name: Fail if CAPA pod not found
+      fail:
+        msg: |
+          ❌ CAPA Controller Pod Not Found
+
+          The CAPA controller deployment exists but no pod was found.
+      when: capa_pod_status.stdout | length == 0
+
+    - name: Fail if CAPA pod not running
+      fail:
+        msg: |
+          ❌ CAPA Controller Pod Not Ready
+
+          Pod Name: {{ capa_pod.name }}
+          Phase: {{ capa_pod.phase }}
+          Ready: {{ capa_pod.ready }}
+          State: {{ capa_pod.state }}
+
+          Check: oc describe pod -n {{ mce_namespace }} {{ capa_pod.name }}
+      when: capa_pod.phase != 'Running' or not capa_pod.ready
+
+    - name: CAPA pod is healthy
+      debug:
+        msg: "✅ CAPA Controller Pod: {{ capa_pod.name }} is Running and Ready"
+
+    # ======================================================
+    # SUCCESS: All Checks Passed
+    # ======================================================
+    - name: Environment validation complete
+      debug:
+        msg: |
+
+          ✅ ✅ ✅ STRICT VALIDATION PASSED! ✅ ✅ ✅
+
+          CAPI Controller:
+            Pod: {{ capi_pod.name }}
+            Status: Running and Ready
+
+          CAPA Controller:
+            Pod: {{ capa_pod.name }}
+            Status: Running and Ready
+
+          🎉 Environment is fully healthy and ready for cluster provisioning!

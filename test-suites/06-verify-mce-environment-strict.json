@@ -1,0 +1,65 @@
+{
+  "name": "Verify MCE Environment (STRICT)",
+  "description": "Strict validation that checks CAPI/CAPA pod status - FAILS if pods not running",
+  "version": "1.0.0",
+  "tags": ["mce", "capi", "capa", "validation", "strict", "pod-status"],
+  "environment": "mce",
+  "stopOnFailure": true,
+  "playbooks": [
+    {
+      "name": "Strict Environment Verification",
+      "file": "verify_capi_environment_strict.yaml",
+      "description": "Validates CAPI/CAPA pods are actually running (not just deployed)",
+      "required": true,
+      "timeout": 60
+    }
+  ],
+  "documentation": {
+    "overview": "This is a STRICT version of environment verification that checks pod health, not just deployment existence. It will FAIL if CAPI or CAPA pods are in ImagePullBackOff, CrashLoopBackOff, or not Ready.",
+    "differences_from_05": {
+      "05_verify_mce_environment": "Checks if deployments exist (passes even if pods failing)",
+      "06_verify_mce_environment_strict": "Checks if pods are Running and Ready (fails if ImagePullBackOff)"
+    },
+    "when_to_use": {
+      "use_05": [
+        "Initial environment discovery",
+        "Want to see configuration even if broken",
+        "Generating reports on environment state"
+      ],
+      "use_06": [
+        "Before provisioning clusters (gate check)",
+        "CI/CD pipelines (must pass or abort)",
+        "Verify MCE bug fixes",
+        "Health check for monitoring"
+      ]
+    },
+    "exit_codes": {
+      "0": "All pods are Running and Ready",
+      "1": "One or more pods not healthy (ImagePullBackOff, etc.)"
+    },
+    "use_in_workflows": {
+      "description": "Use exit codes to control workflow execution",
+      "example": [
+        "./run-test-suite.py 06-verify-mce-environment-strict",
+        "if [ $? -eq 0 ]; then",
+        "  ./run-test-suite.py 20-rosa-hcp-provision -e name_prefix=prod",
+        "else",
+        "  echo 'Environment not ready, aborting provisioning'",
+        "  exit 1",
+        "fi"
+      ]
+    },
+    "what_this_catches": [
+      "CAPI controller in ImagePullBackOff (MCE 2.11.0 placeholder image bug)",
+      "CAPA controller in CrashLoopBackOff",
+      "Pods created but containers not ready",
+      "Pods in Pending state",
+      "Missing pods (deployment exists but no pods created)"
+    ],
+    "comparison_table": {
+      "headers": ["Test", "CAPI Deployment Exists", "CAPI Pod Exists", "CAPI Pod Running", "CAPI Pod Ready"],
+      "05_basic": ["✓ Checks", "✗ Doesn't check", "✗ Doesn't check", "✗ Doesn't check"],
+      "06_strict": ["✓ Checks", "✓ Checks", "✓ Checks", "✓ Checks"]
+    }
+  }
+}

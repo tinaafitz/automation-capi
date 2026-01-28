@@ -1,0 +1,196 @@
+{
+  "name": "Verify MCE Environment",
+  "description": "Validate MCE/CAPI/CAPA environment configuration before provisioning",
+  "version": "1.0.0",
+  "tags": ["mce", "capi", "capa", "validation", "verification"],
+  "environment": "mce",
+  "playbooks": [
+    {
+      "name": "Verify CAPI/CAPA Environment",
+      "file": "verify_capi_environment.yaml",
+      "description": "Validates MCE environment is properly configured with CAPI/CAPA controllers"
+    }
+  ],
+  "documentation": {
+    "overview": "This test suite validates the MCE environment before attempting cluster provisioning. It checks OCP login, CAPI/CAPA controller deployments, and optionally reports on existing resources. Use this to verify your environment is ready for ROSA HCP cluster management.",
+    "prerequisites": [
+      "OpenShift cluster login credentials configured in vars/user_vars.yml",
+      "MCE hub cluster deployed",
+      "Network access to OpenShift API"
+    ],
+    "quick_start": {
+      "basic_usage": "./run-test-suite.py 05-verify-mce-environment",
+      "description": "Validates MCE environment is ready for cluster provisioning"
+    },
+    "usage_examples": {
+      "pre_configuration_check": {
+        "command": "./run-test-suite.py 05-verify-mce-environment",
+        "description": "Run before 10-configure-mce-environment to see what needs to be configured",
+        "use_case": "First-time setup or troubleshooting"
+      },
+      "post_configuration_validation": {
+        "command": "./run-test-suite.py 10-configure-mce-environment && ./run-test-suite.py 05-verify-mce-environment",
+        "description": "Configure MCE then verify the configuration succeeded",
+        "use_case": "Ensure configuration changes were applied correctly"
+      },
+      "pre_provisioning_check": {
+        "command": "./run-test-suite.py 05-verify-mce-environment && ./run-test-suite.py 20-rosa-hcp-provision -e name_prefix=test",
+        "description": "Verify environment before provisioning a cluster",
+        "use_case": "Proactive validation to catch issues early"
+      }
+    },
+    "validation_steps": [
+      "1. Verify OCP login successful",
+      "2a. Check CAPI controller (capi-controller-manager) deployed",
+      "2b. Check CAPA controller (capa-controller-manager) deployed",
+      "3. Report ClusterManager registration configuration (informational)",
+      "4. Report ClusterRoleBinding status (informational)",
+      "5. Report AWS credentials secret status (informational)",
+      "6. Report ROSA credentials secret status (informational)",
+      "7. Report AWSClusterControllerIdentity status (informational)",
+      "8. List existing ROSA namespaces (informational)",
+      "9. List existing ROSACluster resources (informational)",
+      "10. List existing RosaControlPlane resources (informational)",
+      "11. List existing RosaNetwork resources (informational)",
+      "12. List existing Cluster resources (informational)"
+    ],
+    "what_gets_validated": {
+      "critical_checks": {
+        "description": "These MUST pass for the test to succeed",
+        "checks": [
+          "OCP login context is valid",
+          "CAPI controller manager is deployed in multicluster-engine namespace",
+          "CAPA controller manager is deployed in multicluster-engine namespace"
+        ]
+      },
+      "informational_checks": {
+        "description": "These are reported but don't cause failure",
+        "checks": [
+          "ClusterManager registration configuration",
+          "ClusterRoleBinding for CAPI registration",
+          "AWS and ROSA credential secrets",
+          "AWSClusterControllerIdentity",
+          "Existing clusters and resources"
+        ]
+      }
+    },
+    "expected_results": {
+      "fully_configured": [
+        "✅ OCP login successful",
+        "✅ CAPI controller deployed and running",
+        "✅ CAPA controller deployed and running",
+        "✓ All configuration resources present",
+        "Message: ENVIRONMENT CONFIGURED AND READY TO GO!"
+      ],
+      "needs_configuration": [
+        "✅ OCP login successful",
+        "❌ CAPI controller not found - needs configuration",
+        "Error: Click 'Configure' button to set up CAPI/CAPA"
+      ],
+      "login_needed": [
+        "❌ OpenShift login needed",
+        "Error: Click 'Credentials' button to update cluster connection"
+      ]
+    },
+    "workflow_integration": {
+      "description": "How this fits into the complete ROSA HCP workflow",
+      "recommended_workflow": [
+        "1. Verify environment: ./run-test-suite.py 05-verify-mce-environment",
+        "2. If validation fails, configure: ./run-test-suite.py 10-configure-mce-environment",
+        "3. Verify configuration worked: ./run-test-suite.py 05-verify-mce-environment",
+        "4. Provision cluster: ./run-test-suite.py 20-rosa-hcp-provision -e name_prefix=test",
+        "5. Delete cluster: ./run-test-suite.py 30-rosa-hcp-delete -e name_prefix=test"
+      ],
+      "troubleshooting_workflow": [
+        "1. Cluster provisioning failed?",
+        "2. Run: ./run-test-suite.py 05-verify-mce-environment",
+        "3. Check which critical checks failed",
+        "4. Re-configure: ./run-test-suite.py 10-configure-mce-environment",
+        "5. Verify again: ./run-test-suite.py 05-verify-mce-environment",
+        "6. Retry provisioning"
+      ]
+    },
+    "troubleshooting": {
+      "ocp_login_failed": {
+        "symptom": "🔑 OpenShift login needed",
+        "check": "oc whoami --show-context",
+        "solution": "Update OCP_HUB_CLUSTER_USER, OCP_HUB_CLUSTER_PASSWORD, and OCP_HUB_API_URL in vars/user_vars.yml"
+      },
+      "capi_controller_not_found": {
+        "symptom": "⚙️ Configuration needed - CAPI controller not found",
+        "check": "oc get deployment -n multicluster-engine | grep capi",
+        "solution": "Run: ./run-test-suite.py 10-configure-mce-environment"
+      },
+      "capa_controller_not_found": {
+        "symptom": "⚙️ AWS provider needed - CAPA controller not found",
+        "check": "oc get deployment -n multicluster-engine | grep capa",
+        "solution": "Run: ./run-test-suite.py 10-configure-mce-environment"
+      },
+      "controllers_not_ready": {
+        "symptom": "Controllers deployed but pods not ready",
+        "check": "oc get pods -n multicluster-engine | grep -E '(capi|capa)'",
+        "solution": "Check pod logs: oc logs -n multicluster-engine deployment/capi-controller-manager"
+      }
+    },
+    "monitoring": {
+      "commands": [
+        "oc get deployment -n multicluster-engine | grep -E '(capi|capa)'",
+        "oc get pods -n multicluster-engine | grep -E '(capi|capa)'",
+        "oc get mce multiclusterengine -n multicluster-engine -o yaml",
+        "oc get rosacontrolplane,rosamachinepool,rosanetwork --all-namespaces"
+      ],
+      "description": "Use these commands to monitor environment status after validation"
+    },
+    "important_notes": [
+      "✓ This test suite is non-destructive - it only reads and reports status",
+      "✓ Informational checks don't cause failure - they show what exists",
+      "✓ Critical checks must pass: OCP login, CAPI controller, CAPA controller",
+      "✓ Run this before provisioning to catch configuration issues early",
+      "✓ Run this after configuration to verify changes were applied",
+      "⚠️ If validation fails, run 10-configure-mce-environment to fix issues"
+    ],
+    "next_steps": {
+      "if_validation_passes": [
+        "Environment is ready for cluster provisioning!",
+        "",
+        "1. Provision a ROSA HCP cluster:",
+        "   ./run-test-suite.py 20-rosa-hcp-provision -e name_prefix=test",
+        "",
+        "2. Or use the E2E workflow:",
+        "   ./run-e2e-workflow.sh test skip-config"
+      ],
+      "if_validation_fails": [
+        "Environment needs configuration.",
+        "",
+        "1. Configure MCE environment:",
+        "   ./run-test-suite.py 10-configure-mce-environment",
+        "",
+        "2. Verify configuration succeeded:",
+        "   ./run-test-suite.py 05-verify-mce-environment",
+        "",
+        "3. Then provision clusters:",
+        "   ./run-test-suite.py 20-rosa-hcp-provision -e name_prefix=test"
+      ]
+    },
+    "comparison": {
+      "verify_vs_configure": {
+        "05_verify_mce_environment": "Read-only validation - checks current state",
+        "10_configure_mce_environment": "Write operation - applies configuration changes"
+      },
+      "when_to_use_each": {
+        "use_verify_when": [
+          "Before provisioning clusters",
+          "After configuration to confirm it worked",
+          "Troubleshooting provisioning issues",
+          "Checking environment status"
+        ],
+        "use_configure_when": [
+          "First-time MCE setup",
+          "CAPI/CAPA controllers not deployed",
+          "Configuration resources missing",
+          "After MCE upgrade or changes"
+        ]
+      }
+    }
+  }
+}
