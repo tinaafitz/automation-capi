@@ -31,6 +31,10 @@
       "OpenShift cluster login credentials configured",
       "rosa-creds-secret created in multicluster-engine namespace"
     ],
+    "quick_start": {
+      "basic_usage": "./run-test-suite.py 03-rosa-hcp-provision -e name_prefix=qe6",
+      "description": "Using name_prefix automatically sets cluster_name to '{prefix}-rosa-hcp' and domain_prefix to '{prefix}', making it easy to name all resources consistently"
+    },
     "automation_features": {
       "ROSANetwork": {
         "enabled_by_default": true,
@@ -49,8 +53,9 @@
       }
     },
     "customization": {
-      "cluster_name": "Name of the cluster (auto-generated random name by default)",
-      "domain_prefix": "Domain prefix for cluster API URL (required, max 15 chars)",
+      "name_prefix": "Simple prefix to name all resources consistently (e.g., 'qe6' creates 'qe6-rosa-hcp' cluster). Automatically sets cluster_name and domain_prefix. RECOMMENDED for easy naming.",
+      "cluster_name": "Name of the cluster (auto-generated random name by default, or derived from name_prefix)",
+      "domain_prefix": "Domain prefix for cluster API URL (required, max 15 chars, or derived from name_prefix)",
       "openshift_version": "OpenShift version to deploy (default: 4.20.10, latest stable ROSA HCP)",
       "aws_region": "AWS region for deployment (default: us-west-2)",
       "channel_group": "Update channel: stable, fast, or candidate (default: stable)"

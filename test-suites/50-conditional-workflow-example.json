@@ -1,0 +1,85 @@
+{
+  "name": "Conditional Workflow Example",
+  "description": "Demonstrates stopOnFailure and required playbooks - verifies environment before provisioning",
+  "version": "1.0.0",
+  "tags": ["example", "conditional", "workflow"],
+  "environment": "mce",
+  "stopOnFailure": true,
+  "playbooks": [
+    {
+      "name": "Step 1: Verify Environment",
+      "file": "verify_capi_environment.yaml",
+      "description": "Validates MCE environment is properly configured",
+      "required": true,
+      "timeout": 60
+    },
+    {
+      "name": "Step 2: Provision Cluster (only if verification passed)",
+      "file": "create_rosa_hcp_cluster.yml",
+      "description": "Provisions ROSA HCP cluster (only runs if verification passed)",
+      "required": true,
+      "vars": {
+        "name_prefix": "test-conditional"
+      }
+    },
+    {
+      "name": "Step 3: Optional Cleanup",
+      "file": "delete_rosa_hcp_cluster.yml",
+      "description": "Cleanup (runs even if provisioning fails)",
+      "required": false,
+      "vars": {
+        "name_prefix": "test-conditional"
+      }
+    }
+  ],
+  "documentation": {
+    "overview": "This test suite shows how to use stopOnFailure and required flags to create conditional workflows.",
+    "behavior": {
+      "stopOnFailure_true": {
+        "description": "With stopOnFailure: true, the suite stops when a required playbook fails",
+        "example": [
+          "1. Run Step 1 (Verify) - required: true",
+          "2. If Step 1 FAILS → Stop, don't run Step 2",
+          "3. If Step 1 PASSES → Run Step 2 (Provision)",
+          "4. If Step 2 FAILS → Stop, don't run Step 3",
+          "5. Run Step 3 (Cleanup) - required: false (runs even if previous failed)"
+        ]
+      },
+      "required_true_vs_false": {
+        "required_true": "Playbook MUST pass or suite stops (if stopOnFailure: true)",
+        "required_false": "Playbook can fail, suite continues to next step"
+      }
+    },
+    "usage_examples": {
+      "safe_provisioning": {
+        "command": "./run-test-suite.py 50-conditional-workflow-example",
+        "description": "Only provisions if environment verification passes first",
+        "benefit": "Prevents provisioning failures due to misconfiguration"
+      },
+      "override_name": {
+        "command": "./run-test-suite.py 50-conditional-workflow-example -e name_prefix=prod",
+        "description": "Override cluster name prefix via command line"
+      }
+    },
+    "exit_codes": {
+      "0": "All required playbooks passed",
+      "1": "One or more required playbooks failed"
+    },
+    "shell_scripting_example": {
+      "description": "Use exit codes in bash scripts for automation",
+      "script": [
+        "#!/bin/bash",
+        "",
+        "# Run verification first",
+        "./run-test-suite.py 05-verify-mce-environment",
+        "if [ $? -eq 0 ]; then",
+        "  echo 'Environment OK, proceeding with provisioning'",
+        "  ./run-test-suite.py 20-rosa-hcp-provision -e name_prefix=prod",
+        "else",
+        "  echo 'Environment verification failed, aborting'",
+        "  exit 1",
+        "fi"
+      ]
+    }
+  }
+}

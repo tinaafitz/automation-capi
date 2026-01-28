@@ -8,8 +8,8 @@ Executes test suites defined in JSON format without requiring the web UI.
 
 Usage:
     ./run-test-suite.py 02-basic-rosa-hcp-cluster-creation
-    ./run-test-suite.py 01-configure-mce-environment -e name_prefix=xyz
-    ./run-test-suite.py 01-configure-mce-environment --dry-run
+    ./run-test-suite.py 10-configure-mce-environment -e name_prefix=xyz
+    ./run-test-suite.py 10-configure-mce-environment --dry-run
     ./run-test-suite.py --all
     ./run-test-suite.py --tag rosa-hcp
     ./run-test-suite.py --list
@@ -111,7 +111,8 @@ class TestSuiteRunner:
     def run_playbook(self, playbook: Dict, suite_name: str) -> Dict:
         """Execute a single Ansible playbook."""
         playbook_name = playbook.get("name")
-        playbook_path = self.base_dir / playbook_name
+        playbook_file = playbook.get("file", playbook_name)  # Use 'file' field, fallback to 'name'
+        playbook_path = self.base_dir / playbook_file
 
         if not playbook_path.exists():
             return {
@@ -307,9 +308,58 @@ class TestSuiteRunner:
 
         return output_file
 
+    def _extract_environment_info(self, playbook_output: str) -> dict:
+        """Extract environment information from playbook output."""
+        import re
+
+        env_info = {}
+
+        # Extract OCP login info
+        ocp_login_match = re.search(r'Successfully logged in - User: ([\w:]+) \| API: (https://[^\s]+) \| Context: ([^\s]+)', playbook_output)
+        if ocp_login_match:
+            env_info['ocp_user'] = ocp_login_match.group(1)
+            env_info['ocp_api_url'] = ocp_login_match.group(2)
+            env_info['ocp_context'] = ocp_login_match.group(3)
+
+        # Extract CAPI controller info
+        capi_match = re.search(r'CAPI controller deployed - ({[^}]+})', playbook_output)
+        if capi_match:
+            env_info['capi_controller'] = capi_match.group(1)
+
+        # Extract CAPA controller info
+        capa_match = re.search(r'CAPA controller deployed - ({[^}]+})', playbook_output)
+        if capa_match:
+            env_info['capa_controller'] = capa_match.group(1)
+
+        # Check for RosaNetwork resources
+        if 'RosaNetwork resources found' in playbook_output or 'No RosaNetwork resources found' in playbook_output:
+            if 'No RosaNetwork resources found' in playbook_output:
+                env_info['rosa_network'] = 'none'
+            else:
+                env_info['rosa_network'] = 'available'
+
+        # Check for RosaRoleConfig (note: might be ROSARoleConfig in some outputs)
+        if 'rosa-creds-secret found' in playbook_output:
+            env_info['rosa_role_config'] = 'available'
+        elif 'rosa-creds-secret not found' in playbook_output:
+            env_info['rosa_role_config'] = 'none'
+
+        return env_info
+
     def _generate_html_report(self) -> str:
         """Generate HTML test report."""
         passed_pct = (self.results["passed"] / max(self.results["total_tests"], 1)) * 100
+
+        # Extract environment info from first successful playbook
+        env_info = {}
+        for suite in self.results.get("suites", []):
+            for playbook in suite.get("playbooks", []):
+                if playbook.get("success") and playbook.get("output"):
+                    env_info = self._extract_environment_info(playbook["output"])
+                    if env_info:
+                        break
+            if env_info:
+                break
 
         html = f"""
 <!DOCTYPE html>
@@ -320,6 +370,11 @@ class TestSuiteRunner:
         body {{ font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }}
         .container {{ max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
         h1 {{ color: #333; border-bottom: 3px solid #4CAF50; padding-bottom: 10px; }}
+        .env-info {{ background: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2196F3; }}
+        .env-info h2 {{ margin-top: 0; color: #1976D2; font-size: 18px; }}
+        .env-item {{ margin: 8px 0; }}
+        .env-label {{ font-weight: bold; color: #555; }}
+        .env-value {{ color: #333; font-family: monospace; background: white; padding: 2px 6px; border-radius: 3px; }}
         .summary {{ display: flex; gap: 20px; margin: 20px 0; }}
         .stat-box {{ flex: 1; padding: 20px; border-radius: 8px; text-align: center; }}
         .stat-box.total {{ background: #2196F3; color: white; }}
@@ -342,7 +397,84 @@ class TestSuiteRunner:
 <body>
     <div class="container">
         <h1>ROSA HCP Test Results</h1>
+"""
 
+        # Add environment info section if available
+        if env_info:
+            html += """
+        <div class="env-info">
+            <h2>🔧 Environment Information</h2>
+"""
+            if 'ocp_api_url' in env_info:
+                html += f"""
+            <div class="env-item">
+                <span class="env-label">OpenShift API:</span>
+                <span class="env-value">{env_info['ocp_api_url']}</span>
+            </div>
+"""
+            if 'ocp_user' in env_info:
+                html += f"""
+            <div class="env-item">
+                <span class="env-label">User:</span>
+                <span class="env-value">{env_info['ocp_user']}</span>
+            </div>
+"""
+            if 'ocp_context' in env_info:
+                html += f"""
+            <div class="env-item">
+                <span class="env-label">Context:</span>
+                <span class="env-value">{env_info['ocp_context']}</span>
+            </div>
+"""
+            if 'capi_controller' in env_info:
+                html += f"""
+            <div class="env-item">
+                <span class="env-label">CAPI Controller:</span>
+                <span class="env-value">✓ Deployed</span>
+            </div>
+"""
+            if 'capa_controller' in env_info:
+                html += f"""
+            <div class="env-item">
+                <span class="env-label">CAPA Controller:</span>
+                <span class="env-value">✓ Deployed</span>
+            </div>
+"""
+            if 'rosa_network' in env_info:
+                if env_info['rosa_network'] == 'available':
+                    html += """
+            <div class="env-item">
+                <span class="env-label">ROSANetwork CRD:</span>
+                <span class="env-value">✓ Available (MCE Enhancement)</span>
+            </div>
+"""
+                else:
+                    html += """
+            <div class="env-item">
+                <span class="env-label">ROSANetwork CRD:</span>
+                <span class="env-value">ℹ Not yet available</span>
+            </div>
+"""
+            if 'rosa_role_config' in env_info:
+                if env_info['rosa_role_config'] == 'available':
+                    html += """
+            <div class="env-item">
+                <span class="env-label">ROSARoleConfig:</span>
+                <span class="env-value">✓ Available (MCE Enhancement)</span>
+            </div>
+"""
+                else:
+                    html += """
+            <div class="env-item">
+                <span class="env-label">ROSARoleConfig:</span>
+                <span class="env-value">ℹ Not yet available</span>
+            </div>
+"""
+            html += """
+        </div>
+"""
+
+        html += f"""
         <div class="summary">
             <div class="stat-box total">
                 <div class="stat-number">{self.results["total_tests"]}</div>
@@ -471,16 +603,16 @@ Examples:
     ./run-test-suite.py 02-basic-rosa-hcp-cluster-creation
 
   Run a test suite with extra variables:
-    ./run-test-suite.py 01-configure-mce-environment -e name_prefix=xyz
+    ./run-test-suite.py 10-configure-mce-environment -e name_prefix=xyz
 
   Run with multiple extra variables:
     ./run-test-suite.py 02-basic-rosa-hcp-cluster-creation -e name_prefix=dev -e aws_region=us-east-1
 
   Dry run (check mode, no changes):
-    ./run-test-suite.py 01-configure-mce-environment --dry-run
+    ./run-test-suite.py 10-configure-mce-environment --dry-run
 
   Dry run with extra variables:
-    ./run-test-suite.py 01-configure-mce-environment --dry-run -e name_prefix=xyz
+    ./run-test-suite.py 10-configure-mce-environment --dry-run -e name_prefix=xyz
 
   Run all test suites:
     ./run-test-suite.py --all

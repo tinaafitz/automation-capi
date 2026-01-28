@@ -1,0 +1,123 @@
+{
+  "name": "ROSA HCP Cluster Deletion",
+  "description": "Delete a ROSA HCP cluster and its automation resources (ROSANetwork, ROSARoleConfig)",
+  "version": "1.0.0",
+  "tags": ["rosa", "hcp", "deletion", "cleanup", "lifecycle"],
+  "environment": "mce",
+  "playbooks": [
+    {
+      "name": "Delete ROSA HCP Cluster",
+      "file": "delete_rosa_hcp_cluster.yml",
+      "description": "Deletes a ROSA HCP cluster including optional ROSANetwork and ROSARoleConfig automation resources",
+      "extra_vars": {
+        "capi_namespace": "ns-rosa-hcp",
+        "delete_network": true,
+        "delete_roles": true,
+        "wait_for_deletion": true,
+        "deletion_timeout": 600
+      }
+    }
+  ],
+  "documentation": {
+    "overview": "This test suite deletes ROSA HCP clusters and their automation resources. It pairs with the 03-rosa-hcp-provision test suite for complete cluster lifecycle management.",
+    "prerequisites": [
+      "MCE/ACM hub cluster with CAPI/CAPA configured",
+      "OpenShift cluster login credentials configured",
+      "Existing ROSA HCP cluster created via 03-rosa-hcp-provision test suite"
+    ],
+    "quick_start": {
+      "basic_usage": "./run-test-suite.py 04-rosa-hcp-delete -e name_prefix=qe6",
+      "description": "Using name_prefix automatically derives cluster_name as '{prefix}-rosa-hcp' and deletes all related resources (network, roles) created during provisioning"
+    },
+    "usage_examples": {
+      "delete_by_name_prefix": {
+        "command": "./run-test-suite.py 04-rosa-hcp-delete -e name_prefix=qe6",
+        "description": "Delete cluster and all automation resources created with name_prefix=qe6"
+      },
+      "delete_by_cluster_name": {
+        "command": "./run-test-suite.py 04-rosa-hcp-delete -e cluster_name=my-test-cluster",
+        "description": "Delete cluster by explicit name"
+      },
+      "delete_without_network": {
+        "command": "./run-test-suite.py 04-rosa-hcp-delete -e name_prefix=qe6 -e delete_network=false",
+        "description": "Delete cluster but keep ROSANetwork resources (VPC, subnets)"
+      },
+      "delete_without_roles": {
+        "command": "./run-test-suite.py 04-rosa-hcp-delete -e name_prefix=qe6 -e delete_roles=false",
+        "description": "Delete cluster but keep ROSARoleConfig resources (IAM roles)"
+      },
+      "delete_without_waiting": {
+        "command": "./run-test-suite.py 04-rosa-hcp-delete -e name_prefix=qe6 -e wait_for_deletion=false",
+        "description": "Initiate deletion without waiting for completion"
+      }
+    },
+    "customization": {
+      "name_prefix": "Simple prefix to identify cluster (e.g., 'qe6'). Automatically derives cluster_name as '{prefix}-rosa-hcp'. RECOMMENDED for matching provisioning workflow.",
+      "cluster_name": "Name of the cluster to delete (auto-derived from name_prefix if provided, or specify explicitly)",
+      "capi_namespace": "Namespace where cluster resources exist (default: ns-rosa-hcp)",
+      "delete_network": "Delete ROSANetwork resources (VPC, subnets) - true or false (default: true)",
+      "delete_roles": "Delete ROSARoleConfig resources (IAM roles, OIDC) - true or false (default: true)",
+      "wait_for_deletion": "Wait for resources to be fully deleted - true or false (default: true)",
+      "deletion_timeout": "Timeout in seconds for waiting (default: 600 = 10 minutes)"
+    },
+    "deletion_order": [
+      "1. ROSAMachinePool - Delete worker node pools first",
+      "2. ROSAControlPlane - Delete control plane (triggers AWS cluster deletion)",
+      "3. ROSANetwork - Delete VPC and networking resources (if delete_network=true)",
+      "4. ROSARoleConfig - Delete IAM roles and OIDC provider (if delete_roles=true)",
+      "5. Core Cluster object - Delete orphaned CAPI cluster object (if exists)"
+    ],
+    "expected_results": [
+      "ROSAControlPlane deleted successfully",
+      "ROSAMachinePool deleted (if it existed)",
+      "ROSANetwork deleted (if enabled and existed)",
+      "ROSARoleConfig deleted (if enabled and existed)",
+      "All Kubernetes resources removed from namespace",
+      "AWS resources cleaned up (cluster, VPC, IAM roles)"
+    ],
+    "monitoring": [
+      "oc get rosacontrolplane,rosamachinepool,rosanetwork,rosaroleconfig -n ns-rosa-hcp",
+      "oc describe rosacontrolplane <cluster-name> -n ns-rosa-hcp",
+      "rosa list clusters --region us-west-2"
+    ],
+    "troubleshooting": {
+      "stuck_deletion": {
+        "symptom": "Resources stuck in 'Deleting' state",
+        "check": "oc get rosacontrolplane <name> -n ns-rosa-hcp -o yaml | grep finalizers",
+        "solution": "Check AWS Console for stuck CloudFormation stacks or IAM role deletion issues"
+      },
+      "orphaned_resources": {
+        "symptom": "Core Cluster object remains after ROSAControlPlane deletion",
+        "check": "oc get cluster.cluster.x-k8s.io -n ns-rosa-hcp",
+        "solution": "The playbook automatically cleans up orphaned core Cluster objects"
+      },
+      "network_deletion_timeout": {
+        "symptom": "ROSANetwork deletion takes longer than timeout",
+        "check": "AWS Console > CloudFormation - check stack deletion progress",
+        "solution": "Increase deletion_timeout or set wait_for_deletion=false"
+      },
+      "role_deletion_timeout": {
+        "symptom": "ROSARoleConfig deletion takes longer than timeout",
+        "check": "AWS Console > IAM - check if roles are being used elsewhere",
+        "solution": "Ensure no other resources are using the IAM roles"
+      }
+    },
+    "lifecycle_workflow": {
+      "description": "Complete ROSA HCP cluster lifecycle using test suites",
+      "steps": [
+        "1. Configure: ./run-test-suite.py 01-configure-mce-environment",
+        "2. Provision: ./run-test-suite.py 03-rosa-hcp-provision -e name_prefix=qe6",
+        "3. Test: Run your cluster tests...",
+        "4. Delete: ./run-test-suite.py 04-rosa-hcp-delete -e name_prefix=qe6"
+      ]
+    },
+    "notes": [
+      "Always use the same name_prefix or cluster_name used during provisioning",
+      "ROSANetwork deletion may take 5-10 minutes due to CloudFormation stack deletion",
+      "ROSARoleConfig deletion may take 2-5 minutes for IAM role cleanup",
+      "If delete_network=false, VPC and subnets remain and can be reused",
+      "If delete_roles=false, IAM roles remain and can be reused",
+      "The playbook safely handles cases where resources don't exist (idempotent)"
+    ]
+  }
+}

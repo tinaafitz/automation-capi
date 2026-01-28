@@ -1,0 +1,121 @@
+{
+  "name": "Enable CAPI/CAPA, Disable Hypershift",
+  "description": "Switch MCE from Hypershift back to CAPI/CAPA for cluster management",
+  "version": "1.0.0",
+  "tags": ["mce", "capi", "hypershift", "configuration", "component-management"],
+  "environment": "mce",
+  "playbooks": [
+    {
+      "name": "Enable CAPI/CAPA and Disable Hypershift",
+      "file": "enable_capi_disable_hypershift.yml",
+      "description": "Enables CAPI and CAPA components in MCE and disables Hypershift components",
+      "extra_vars": {
+        "pause_duration": 30
+      }
+    }
+  ],
+  "documentation": {
+    "overview": "This test suite switches the MCE configuration from Hypershift mode back to CAPI/CAPA mode. Use this when you need to return to CAPI-based cluster management for ROSA HCP clusters.",
+    "prerequisites": [
+      "MCE/ACM hub cluster deployed",
+      "OpenShift cluster login credentials configured",
+      "Sufficient permissions to modify MCE configuration",
+      "All Hypershift-managed clusters should be deleted before switching modes"
+    ],
+    "quick_start": {
+      "basic_usage": "./run-test-suite.py 06-enable-capi-disable-hypershift",
+      "description": "Enables CAPI/CAPA components and disables Hypershift components in MCE"
+    },
+    "usage_examples": {
+      "basic_switch": {
+        "command": "./run-test-suite.py 06-enable-capi-disable-hypershift",
+        "description": "Switch from Hypershift to CAPI with default 30-second pause between steps"
+      },
+      "custom_pause": {
+        "command": "./run-test-suite.py 06-enable-capi-disable-hypershift -e pause_duration=60",
+        "description": "Switch with a longer pause (60s) to allow more time for MCE reconciliation"
+      }
+    },
+    "customization": {
+      "pause_duration": "Time in seconds to wait between disabling Hypershift and enabling CAPI (default: 30)"
+    },
+    "operation_steps": [
+      "1. Login to OpenShift cluster",
+      "2. Get current MCE configuration",
+      "3. Disable Hypershift components (hypershift, hypershift-local-hosting)",
+      "4. Pause for MCE reconciliation",
+      "5. Enable CAPI components (cluster-api, cluster-api-provider-aws)",
+      "6. Verify final configuration"
+    ],
+    "expected_results": [
+      "CAPI/CAPA components enabled in MCE",
+      "Hypershift components disabled in MCE",
+      "MCE reconciliation successful",
+      "CAPI/CAPA controllers deployed and running",
+      "No errors in MCE operator logs"
+    ],
+    "monitoring": [
+      "oc get mce multiclusterengine -n multicluster-engine -o yaml",
+      "oc get deployment -n multicluster-engine | grep -E '(capi|capa)'",
+      "oc logs -n multicluster-engine deployment/multicluster-engine-operator",
+      "oc get deployment -n multicluster-engine capi-controller-manager",
+      "oc get deployment -n multicluster-engine capa-controller-manager"
+    ],
+    "troubleshooting": {
+      "component_not_enabled": {
+        "symptom": "CAPI components not showing as enabled",
+        "check": "oc get mce multiclusterengine -n multicluster-engine -o jsonpath='{.spec.overrides.components[?(@.name==\"cluster-api\")].enabled}'",
+        "solution": "Check MCE operator logs for reconciliation errors. May need to restart MCE operator."
+      },
+      "component_not_disabled": {
+        "symptom": "Hypershift components not showing as disabled",
+        "check": "oc get mce multiclusterengine -n multicluster-engine -o jsonpath='{.spec.overrides.components[?(@.name==\"hypershift\")].enabled}'",
+        "solution": "Verify no Hypershift-managed clusters exist. Delete any remaining Hypershift resources before disabling."
+      },
+      "mce_not_reconciling": {
+        "symptom": "MCE configuration changes not applied",
+        "check": "oc get mce multiclusterengine -n multicluster-engine -o jsonpath='{.status.conditions[?(@.type==\"Available\")]}'",
+        "solution": "Increase pause_duration to allow more time. Check MCE operator status."
+      },
+      "capi_controllers_not_deploying": {
+        "symptom": "CAPI/CAPA controller deployments not appearing",
+        "check": "oc get deployment -n multicluster-engine | grep -E '(capi|capa)'",
+        "solution": "Check MCE operator logs. Verify component configuration is correct. May need to run 01-configure-mce-environment test suite."
+      }
+    },
+    "important_notes": [
+      "⚠️  Delete all Hypershift-managed clusters BEFORE disabling Hypershift components",
+      "⚠️  This operation changes the cluster management mode - ensure you understand the implications",
+      "⚠️  After switching, run the MCE configuration test suite: ./run-test-suite.py 01-configure-mce-environment",
+      "✓ The operation is reversible - you can switch back to Hypershift if needed",
+      "✓ MCE will automatically deploy/remove the appropriate controllers based on configuration"
+    ],
+    "workflow_integration": {
+      "description": "Complete workflow for switching back to CAPI/CAPA from Hypershift",
+      "steps": [
+        "1. Delete Hypershift clusters: (use Hypershift CLI or Console)",
+        "2. Switch mode: ./run-test-suite.py 06-enable-capi-disable-hypershift",
+        "3. Configure CAPI: ./run-test-suite.py 01-configure-mce-environment",
+        "4. Verify: oc get deployment -n multicluster-engine | grep -E '(capi|capa)'",
+        "5. Provision cluster: ./run-test-suite.py 03-rosa-hcp-provision -e name_prefix=test"
+      ]
+    },
+    "next_steps": {
+      "after_enabling_capi": [
+        "1. Configure MCE CAPI environment:",
+        "   ./run-test-suite.py 01-configure-mce-environment",
+        "",
+        "2. Verify CAPI components are running:",
+        "   oc get deployment -n multicluster-engine | grep -E '(capi|capa)'",
+        "",
+        "3. Provision a ROSA HCP cluster:",
+        "   ./run-test-suite.py 03-rosa-hcp-provision -e name_prefix=test"
+      ]
+    },
+    "reverse_operation": {
+      "description": "To switch back from CAPI/CAPA to Hypershift",
+      "command": "./run-test-suite.py 05-disable-capi-enable-hypershift",
+      "note": "Use test suite 05-disable-capi-enable-hypershift to return to Hypershift mode"
+    }
+  }
+}
