@@ -37,6 +37,7 @@
 
 pipeline {
     options {
+        // This rotates the logs evry month
         buildDiscarder(logRotator(daysToKeepStr: '30'))
         // This stops the automatic, failing checkout
         skipDefaultCheckout()
