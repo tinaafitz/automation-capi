@@ -167,6 +167,7 @@ class TestSuiteRunner:
                 return {
                     "name": playbook_name,
                     "description": playbook.get("description", ""),
+                    "test_case_id": playbook.get("test_case_id", ""),
                     "success": True,
                     "duration": duration,
                     "output": result.stdout
@@ -176,6 +177,7 @@ class TestSuiteRunner:
                 return {
                     "name": playbook_name,
                     "description": playbook.get("description", ""),
+                    "test_case_id": playbook.get("test_case_id", ""),
                     "success": False,
                     "error": result.stderr,
                     "duration": duration,
@@ -188,6 +190,7 @@ class TestSuiteRunner:
             return {
                 "name": playbook_name,
                 "description": playbook.get("description", ""),
+                "test_case_id": playbook.get("test_case_id", ""),
                 "success": False,
                 "error": f"Timeout after {timeout} seconds",
                 "duration": duration
@@ -198,6 +201,7 @@ class TestSuiteRunner:
             return {
                 "name": playbook_name,
                 "description": playbook.get("description", ""),
+                "test_case_id": playbook.get("test_case_id", ""),
                 "success": False,
                 "error": str(e),
                 "duration": duration
@@ -582,8 +586,20 @@ class TestSuiteRunner:
             # Add each playbook as a testcase
             for playbook in suite['playbooks']:
                 testcase = ET.SubElement(testsuite, 'testcase')
-                testcase.set('name', playbook.get('description', playbook['name']))
-                testcase.set('classname', f"{suite['name']}")
+
+                # Build testcase name with test_case_id if present
+                test_case_id = playbook.get('test_case_id', '')
+                description = playbook.get('description', playbook['name'])
+
+                if test_case_id:
+                    testcase_name = f"{test_case_id}: {description}"
+                else:
+                    testcase_name = description
+
+                testcase.set('name', testcase_name)
+
+                # Classname combines suite name + testcase name
+                testcase.set('classname', f"{suite['name']} {testcase_name}")
                 testcase.set('time', str(round(playbook['duration'], 3)))
 
                 # If failed, add failure element with error details
