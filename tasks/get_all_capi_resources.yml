@@ -1,0 +1,64 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Get MCE CAPI/CAPA deployments
+      shell: oc get deployment -n multicluster-engine --no-headers 2>/dev/null | grep -E "(capi|capa)" || echo "No CAPI/CAPA deployments"
+      register: mce_deployments
+      failed_when: false
+
+    - name: Get MCE CAPI/CAPA secrets
+      shell: oc get secret -n multicluster-engine --no-headers 2>/dev/null | grep -E "(capi|capa)" | head -10 || echo "No CAPI/CAPA secrets"
+      register: mce_secrets
+      failed_when: false
+
+    - name: Get MCE CAPI/CAPA services
+      shell: oc get service -n multicluster-engine --no-headers 2>/dev/null | grep -E "(capi|capa)" || echo "No CAPI/CAPA services"
+      register: mce_services
+      failed_when: false
+
+    - name: Get ROSA HCP resources
+      shell: oc get all -n ns-rosa-hcp --no-headers 2>/dev/null || echo "No resources in ns-rosa-hcp"
+      register: rosa_hcp_output
+      failed_when: false
+
+    - name: Get ROSA cluster resources with YAML
+      shell: |
+        for resource in $(oc get rosacluster,rosacontrolplane,rosamachinepool,rosanetwork -n ns-rosa-hcp --no-headers 2>/dev/null | awk '{print $1}' | head -5); do
+          echo "=== RESOURCE: $resource ==="
+          oc get $resource -n ns-rosa-hcp -o yaml 2>/dev/null || echo "Failed to get YAML for $resource"
+          echo ""
+        done
+      register: rosa_resources_yaml
+      failed_when: false
+
+    - name: Get MCE deployment YAMLs
+      shell: |
+        for deployment in $(oc get deployment -n multicluster-engine --no-headers 2>/dev/null | grep -E "(capi|capa)" | awk '{print $1}' | head -3); do
+          echo "=== RESOURCE: deployment/$deployment ==="
+          oc get deployment $deployment -n multicluster-engine -o yaml 2>/dev/null || echo "Failed to get YAML for deployment/$deployment"
+          echo ""
+        done
+      register: mce_deployments_yaml
+      failed_when: false
+
+    - name: Set combined output fact
+      set_fact:
+        combined_resources_output: |
+          === MCE Deployments ===
+          {{ mce_deployments.stdout }}
+          === MCE Secrets ===
+          {{ mce_secrets.stdout }}
+          === MCE Services ===
+          {{ mce_services.stdout }}
+          === ROSA HCP ===
+          {{ rosa_hcp_output.stdout }}
+          === ROSA Resources YAML ===
+          {{ rosa_resources_yaml.stdout }}
+          === MCE Deployments YAML ===
+          {{ mce_deployments_yaml.stdout }}
+
+    - name: Display combined output
+      debug:
+        var: combined_resources_output
