@@ -58,7 +58,6 @@ pipeline {
         // CAPI_AWS_ROLE_ARN = "arn:aws:iam::xxxxxxxx:role/capi-role"
         CAPI_AWS_ACCESS_KEY_ID = credentials('CAPI_AWS_ACCESS_KEY_ID')
         CAPI_AWS_SECRET_ACCESS_KEY = credentials('CAPI_AWS_SECRET_ACCESS_KEY')
-        GITHUB_TOKEN = credentials('vincent-github-token')
     }
     parameters {
         string(name:'OCP_HUB_API_URL', defaultValue: '', description: 'Hub OCP API url')
@@ -73,17 +72,20 @@ pipeline {
                 retry(count: 3) {
                     script{
                         def capa_repo = "tinaafitz/automation-capi.git"
-                        sh """
-                            rm -rf capa
-                            
-                            # Configure Git to use the token for this command only via a secure header.
-                            git -c http.https://github.com/.extraheader="AUTHORIZATION: basic \$(echo -n x-oauth-basic:${env.GITHUB_TOKEN} | base64)" \
-                                -c http.sslVerify=false \
-                                clone \
-                                -b "${params.TEST_GIT_BRANCH}" \
-                                "https://github.com/${capa_repo}" \
-                                capa/
-                        """
+                        def git_branch = params.TEST_GIT_BRANCH
+                        withCredentials([string(credentialsId: 'vincent-github-token', variable: 'GITHUB_TOKEN')]) {
+                            sh '''
+                                rm -rf capa
+
+                                # Configure Git to use the token for this command only via a secure header.
+                                git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $(echo -n x-oauth-basic:${GITHUB_TOKEN} | base64)" \
+                                    -c http.sslVerify=false \
+                                    clone \
+                                    -b "''' + git_branch + '''" \
+                                    "https://github.com/''' + capa_repo + '''" \
+                                    capa/
+                            '''
+                        }
                     }
                 }
             }
