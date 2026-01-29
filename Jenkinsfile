@@ -87,7 +87,7 @@ pipeline {
                             export MCE_NAMESPACE=${params.MCE_NAMESPACE}
 
                             # Execute the CAPI/CAPA configuration test suite (RHACM4K-61722)
-                            ./run-test-suite.py 10-configure-mce-environment
+                            ./run-test-suite.py 10-configure-mce-environment --format junit
                         """
                         // Archive results from both old and new test systems
                         archiveArtifacts artifacts: 'results/**/*.xml, test-results/**/*.xml', allowEmptyArchive: true, followSymlinks: false, fingerprint: true
