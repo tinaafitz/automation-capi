@@ -1,0 +1,67 @@
+- name: Disable CAPI and CAPA, Enable Hypershift
+  block:
+  - name: Get name of MCE
+    shell: oc get mce -n multicluster-engine -ojson | jq -r '.items[].metadata.name'
+    register: mce_name
+
+  # Step 1: Disable CAPI components first (due to mutual exclusivity with Hypershift)
+  - name: Get current components array
+    shell: |
+      oc get mce {{ mce_name.stdout }} -n multicluster-engine -ojson | jq -c '.spec.overrides.components // []'
+    register: current_components
+
+  - name: Remove existing entries for cluster-api and cluster-api-provider-aws
+    shell: |
+      echo '{{ current_components.stdout }}' | jq -c 'map(select(.name != "cluster-api" and .name != "cluster-api-provider-aws"))'
+    register: filtered_components_step1
+
+  - name: Add CAPI components as disabled
+    shell: |
+      echo '{{ filtered_components_step1.stdout }}' | jq -c '. + [
+        {"name":"cluster-api","enabled":false,"configOverrides":{}},
+        {"name":"cluster-api-provider-aws","enabled":false,"configOverrides":{}}
+      ]'
+    register: updated_components_step1
+
+  - name: Apply CAPI disable first
+    shell: |
+      oc patch mce {{ mce_name.stdout }} -n multicluster-engine --type=merge -p '{"spec":{"overrides":{"components":{{ updated_components_step1.stdout }}}}}'
+    changed_when: true
+    register: patch_status_step1
+
+  - name: Display CAPI disable result
+    debug:
+      msg: "{{ patch_status_step1.stdout }}"
+
+  - name: Wait for MCE reconciliation
+    pause:
+      seconds: 3
+
+  # Step 2: Enable Hypershift components after CAPI is disabled
+  - name: Get updated components array
+    shell: |
+      oc get mce {{ mce_name.stdout }} -n multicluster-engine -ojson | jq -c '.spec.overrides.components // []'
+    register: current_components_step2
+
+  - name: Remove existing entries for hypershift and hypershift-local-hosting
+    shell: |
+      echo '{{ current_components_step2.stdout }}' | jq -c 'map(select(.name != "hypershift" and .name != "hypershift-local-hosting"))'
+    register: filtered_components_step2
+
+  - name: Add Hypershift components as enabled
+    shell: |
+      echo '{{ filtered_components_step2.stdout }}' | jq -c '. + [
+        {"name":"hypershift","enabled":true,"configOverrides":{}},
+        {"name":"hypershift-local-hosting","enabled":true,"configOverrides":{}}
+      ]'
+    register: updated_components_step2
+
+  - name: Apply Hypershift enable
+    shell: |
+      oc patch mce {{ mce_name.stdout }} -n multicluster-engine --type=merge -p '{"spec":{"overrides":{"components":{{ updated_components_step2.stdout }}}}}'
+    changed_when: true
+    register: patch_status_step2
+
+  - name: Display Hypershift enable result
+    debug:
+      msg: "{{ patch_status_step2.stdout }}"

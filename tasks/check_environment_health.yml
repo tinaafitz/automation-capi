@@ -1,0 +1,456 @@
+---
+# Task file to check health of a single MCE environment
+# Called with loop_var: env (environment data from MCE database)
+
+- name: "{{ env.cluster_name }} - Initialize health check result"
+  ansible.builtin.set_fact:
+    current_check:
+      cluster_name: "{{ env.cluster_name }}"
+      platform: "{{ env.platform }}"
+      ocp_version: "{{ env.data.cluster.ocp_version }}"
+      mce_version: "{{ env.data.cluster.mce_version }}"
+      acm_version: "{{ env.data.cluster.acm_version }}"
+      api_url: "https://api.{{ env.data.cluster.console_url.split('apps.')[1] | regex_replace('/$', '') }}"
+      checked_at: "{{ lookup('pipe', 'date +\"%Y-%m-%d %H:%M:%S\"') }}"
+      issues: []
+      warnings: []
+      status: "healthy"
+
+- name: "{{ env.cluster_name }} - Login to cluster"
+  ansible.builtin.shell: |
+    oc login {{ current_check.api_url }}:6443 \
+      -u {{ env.data.cluster.get('user', 'kubeadmin') }} \
+      -p {{ env.data.cluster.password }} \
+      --insecure-skip-tls-verify=true
+  register: login_result
+  failed_when: false
+  changed_when: false
+  no_log: true
+
+- name: "{{ env.cluster_name }} - Handle login failure"
+  when: login_result.rc != 0
+  block:
+    - name: Mark as unreachable
+      ansible.builtin.set_fact:
+        current_check: "{{ current_check | combine({'status': 'unreachable', 'issues': current_check.issues + ['Cannot login to cluster']}) }}"
+
+    - name: Add to results and skip further checks
+      ansible.builtin.set_fact:
+        health_check_results: "{{ health_check_results + [current_check] }}"
+
+    - name: Set skip flag for this environment
+      ansible.builtin.set_fact:
+        skip_health_checks: true
+
+- name: "{{ env.cluster_name }} - Perform health checks"
+  when: login_result.rc == 0
+  block:
+    - name: "{{ env.cluster_name }} - Check for stuck RosaNetwork resources"
+      ansible.builtin.shell: |
+        oc get rosanetwork -A -o json
+      register: rosanetwork_check
+      failed_when: false
+      changed_when: false
+
+- name: "{{ env.cluster_name }} - Analyze RosaNetwork resources"
+  when:
+    - login_result.rc == 0
+    - rosanetwork_check is defined
+    - rosanetwork_check.rc == 0
+  block:
+    - name: Parse RosaNetwork data
+      ansible.builtin.set_fact:
+        rosanetwork_data: "{{ rosanetwork_check.stdout | from_json }}"
+
+    - name: Check for resources in Deleting state
+      ansible.builtin.set_fact:
+        stuck_rosanetworks: "{{ rosanetwork_data.get('items', []) | selectattr('metadata.deletionTimestamp', 'defined') | list }}"
+
+    - name: Record stuck RosaNetwork issue
+      when: stuck_rosanetworks | length > 0
+      ansible.builtin.set_fact:
+        current_check: "{{ current_check | combine({
+          'status': 'issue_detected',
+          'issues': current_check.issues + [{
+            'type': 'RosaNetwork Deletion Stuck',
+            'severity': 'warning',
+            'count': stuck_rosanetworks | length,
+            'description': stuck_rosanetworks | length | string + ' RosaNetwork resource(s) stuck in Deleting status',
+            'resources': stuck_rosanetworks | map(attribute='metadata.name') | list,
+            'correlation': 'Known issue on OCP ' + env.data.cluster.ocp_version
+          }]
+        }) }}"
+
+    - name: Check for any RosaNetwork resources (even healthy ones)
+      when: rosanetwork_data.get('items', []) | length > 0 and stuck_rosanetworks | length == 0
+      ansible.builtin.set_fact:
+        current_check: "{{ current_check | combine({
+          'warnings': current_check.warnings + [{
+            'type': 'RosaNetwork Resources Present',
+            'count': rosanetwork_data.get('items', []) | length,
+            'description': rosanetwork_data.get('items', []) | length | string + ' RosaNetwork resource(s) found (not stuck, but present)',
+            'resources': rosanetwork_data.get('items', []) | map(attribute='metadata.name') | list
+          }]
+        }) }}"
+
+- name: "{{ env.cluster_name }} - Check CAPI CRDs for version compatibility"
+  ansible.builtin.shell: |
+    oc get crd -o json | jq -r '.items[] | select(.metadata.name | contains("cluster.x-k8s.io")) | {name: .metadata.name, versions: [.spec.versions[].name]} | @json'
+  register: crd_check
+  failed_when: false
+  changed_when: false
+
+- name: "{{ env.cluster_name }} - Analyze CRD versions"
+  when:
+    - login_result.rc == 0
+    - crd_check is defined
+    - crd_check.rc == 0
+    - crd_check.stdout != ""
+  block:
+    - name: Parse CRD version data
+      ansible.builtin.set_fact:
+        capi_crds: "{{ crd_check.stdout_lines | map('from_json') | list }}"
+
+    - name: Check for v1beta2 support issues
+      ansible.builtin.set_fact:
+        crds_without_v1beta2: "{{ capi_crds | selectattr('versions', 'defined') | rejectattr('versions', 'contains', 'v1beta2') | list }}"
+
+    - name: Record CRD version compatibility issue
+      when:
+        - crds_without_v1beta2 | length > 0
+        - env.data.cluster.ocp_version is version('4.20', '>=')
+      ansible.builtin.set_fact:
+        current_check: "{{ current_check | combine({
+          'status': 'issue_detected',
+          'issues': current_check.issues + [{
+            'type': 'CRD v1beta2 Compatibility',
+            'severity': 'error',
+            'count': crds_without_v1beta2 | length,
+            'description': 'CRD version mismatch - v1beta2 not supported on OCP ' + env.data.cluster.ocp_version,
+            'crds': crds_without_v1beta2 | map(attribute='name') | list,
+            'correlation': 'Known issue on OCP 4.20.x - see rdr-acm216-hub420'
+          }]
+        }) }}"
+
+    - name: Add warning for OCP 4.20 even without detected issues
+      when:
+        - env.data.cluster.ocp_version is version('4.20', '>=')
+        - crds_without_v1beta2 | length == 0
+      ansible.builtin.set_fact:
+        current_check: "{{ current_check | combine({
+          'warnings': current_check.warnings + [{
+            'type': 'OCP 4.20 CRD Risk',
+            'description': 'OCP 4.20.x has known CRD v1beta2 compatibility risks - monitor for issues',
+            'correlation': 'Same OCP version as rdr-acm216-hub420 (known issue)'
+          }]
+        }) }}"
+
+- name: "{{ env.cluster_name }} - Check for RosaControlPlane resources"
+  ansible.builtin.shell: |
+    oc get rosacontrolplane -A -o json
+  register: rosacp_check
+  failed_when: false
+  changed_when: false
+
+- name: "{{ env.cluster_name }} - Analyze RosaControlPlane resources"
+  when:
+    - login_result.rc == 0
+    - rosacp_check is defined
+    - rosacp_check.rc == 0
+  block:
+    - name: Parse RosaControlPlane data
+      ansible.builtin.set_fact:
+        rosacp_data: "{{ rosacp_check.stdout | from_json }}"
+
+    - name: Check for stuck RosaControlPlane deletions
+      ansible.builtin.set_fact:
+        stuck_rosacps: "{{ rosacp_data.get('items', []) | selectattr('metadata.deletionTimestamp', 'defined') | list }}"
+
+    - name: Record stuck RosaControlPlane issue
+      when: stuck_rosacps | length > 0
+      ansible.builtin.set_fact:
+        current_check: "{{ current_check | combine({
+          'status': 'issue_detected',
+          'issues': current_check.issues + [{
+            'type': 'RosaControlPlane Deletion Stuck',
+            'severity': 'warning',
+            'count': stuck_rosacps | length,
+            'description': stuck_rosacps | length | string + ' RosaControlPlane resource(s) stuck in Deleting status',
+            'resources': stuck_rosacps | map(attribute='metadata.name') | list
+          }]
+        }) }}"
+
+# ============================================================================
+# CAPI/CAPA Version Extraction and Compatibility Checking
+# ============================================================================
+
+- name: "{{ env.cluster_name }} - Extract CAPI controller version"
+  when: login_result.rc == 0
+  ansible.builtin.shell: |
+    oc get deployment capi-controller-manager -n multicluster-engine \
+      -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || echo "not_found"
+  register: capi_image
+  failed_when: false
+  changed_when: false
+
+- name: "{{ env.cluster_name }} - Parse CAPI version from image"
+  when:
+    - login_result.rc == 0
+    - capi_image is defined
+  ansible.builtin.set_fact:
+    capi_version: "{{ capi_image.stdout | regex_search('v?([0-9]+\\.[0-9]+\\.[0-9]+)', '\\1') | default(['unknown'], true) | first }}"
+    capi_version_major_minor: "{{ capi_image.stdout | regex_search('v?([0-9]+\\.[0-9]+)', '\\1') | default(['unknown'], true) | first }}"
+
+- name: "{{ env.cluster_name }} - Extract CAPA controller version"
+  when: login_result.rc == 0
+  ansible.builtin.shell: |
+    oc get deployment capa-controller-manager -n multicluster-engine \
+      -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || echo "not_found"
+  register: capa_image
+  failed_when: false
+  changed_when: false
+
+- name: "{{ env.cluster_name }} - Parse CAPA version from image"
+  when:
+    - login_result.rc == 0
+    - capa_image is defined
+  ansible.builtin.set_fact:
+    capa_version: "{{ capa_image.stdout | regex_search('v?([0-9]+\\.[0-9]+\\.[0-9]+)', '\\1') | default(['unknown'], true) | first }}"
+
+# ============================================================================
+# Fallback Version Detection for SHA-based Images
+# ============================================================================
+
+- name: "{{ env.cluster_name }} - Fallback: Extract CAPI version from buildinfo labels"
+  when:
+    - login_result.rc == 0
+    - capi_version is defined
+    - capi_version == "unknown"
+  block:
+    - name: Get CAPI controller pod name
+      ansible.builtin.shell: |
+        oc get pod -n multicluster-engine -l control-plane=controller-manager,cluster.x-k8s.io/provider=cluster-api -o name | head -1 | cut -d/ -f2
+      register: capi_pod_name
+      failed_when: false
+      changed_when: false
+
+    - name: Extract version from buildinfo labels.json
+      when:
+        - capi_pod_name is defined
+        - capi_pod_name.rc == 0
+        - capi_pod_name.stdout != ""
+      ansible.builtin.shell: |
+        oc exec -n multicluster-engine {{ capi_pod_name.stdout }} -- cat /root/buildinfo/labels.json 2>/dev/null | grep -oP '"version":\s*"v?\K[0-9]+\.[0-9]+\.[0-9]+'
+      register: capi_buildinfo_version
+      failed_when: false
+      changed_when: false
+
+    - name: Update CAPI version from buildinfo
+      when:
+        - capi_buildinfo_version is defined
+        - capi_buildinfo_version.rc is defined
+        - capi_buildinfo_version.rc == 0
+        - capi_buildinfo_version.stdout != ""
+      ansible.builtin.set_fact:
+        capi_version: "{{ capi_buildinfo_version.stdout }}"
+        capi_version_major_minor: "{{ capi_buildinfo_version.stdout | regex_search('^([0-9]+\\.[0-9]+)', '\\1') }}"
+
+- name: "{{ env.cluster_name }} - Fallback: Infer CAPI version from CRD API versions"
+  when:
+    - login_result.rc == 0
+    - capi_version is defined
+    - capi_version == "unknown"
+  block:
+    - name: Check CRD API versions
+      ansible.builtin.shell: |
+        oc get crd clusters.cluster.x-k8s.io -o jsonpath='{.spec.versions[*].name}'
+      register: capi_crd_versions
+      failed_when: false
+      changed_when: false
+
+    - name: Infer CAPI version from CRD versions
+      when:
+        - capi_crd_versions is defined
+        - capi_crd_versions.rc == 0
+      ansible.builtin.set_fact:
+        capi_version: "{{ '1.5.x' if 'v1beta2' in capi_crd_versions.stdout else '1.4.x' }}"
+        capi_version_major_minor: "{{ '1.5' if 'v1beta2' in capi_crd_versions.stdout else '1.4' }}"
+        capi_version_inferred: true
+
+- name: "{{ env.cluster_name }} - Fallback: Infer CAPA version from CAPI version"
+  when:
+    - login_result.rc == 0
+    - capa_version is defined
+    - capa_version == "unknown"
+    - capi_version is defined
+    - capi_version != "unknown"
+  ansible.builtin.set_fact:
+    capa_version: "{{ '2.3.x' if capi_version_major_minor is version('1.5', '>=') else '2.2.x' }}"
+    capa_version_inferred: true
+
+- name: "{{ env.cluster_name }} - Extract OCP major.minor version"
+  ansible.builtin.set_fact:
+    ocp_major_minor: "{{ env.data.cluster.ocp_version | regex_search('^([0-9]+\\.[0-9]+)', '\\1') | first }}"
+
+- name: "{{ env.cluster_name }} - Extract MCE major.minor version"
+  ansible.builtin.set_fact:
+    mce_major_minor: "{{ env.data.cluster.mce_version | regex_search('^([0-9]+\\.[0-9]+)', '\\1') | default(['unknown'], true) | first }}"
+
+- name: "{{ env.cluster_name }} - Add version info to result"
+  when: login_result.rc == 0
+  ansible.builtin.set_fact:
+    current_check: "{{ current_check | combine({
+      'versions': {
+        'ocp': env.data.cluster.ocp_version,
+        'ocp_series': ocp_major_minor,
+        'mce': env.data.cluster.mce_version,
+        'mce_series': mce_major_minor,
+        'capi': capi_version | default('unknown'),
+        'capi_series': capi_version_major_minor | default('unknown'),
+        'capa': capa_version | default('unknown')
+      }
+    }) }}"
+
+- name: "{{ env.cluster_name }} - Check CAPI version compatibility with OCP"
+  when:
+    - login_result.rc == 0
+    - capi_version is defined
+    - capi_version != "unknown"
+    - ocp_major_minor in capi_compatibility_matrix
+  block:
+    - name: Get compatibility requirements for this OCP version
+      ansible.builtin.set_fact:
+        ocp_requirements: "{{ capi_compatibility_matrix[ocp_major_minor] }}"
+
+    - name: Check if CAPI version is compatible
+      ansible.builtin.set_fact:
+        capi_compatible: "{{ capi_version_major_minor == ocp_requirements.capi.recommended_version.split('.')[0:2] | join('.') | regex_replace('v', '') }}"
+
+    - name: Detect CAPI version mismatch (Critical for OCP 4.20+)
+      when:
+        - not capi_compatible
+        - ocp_requirements.critical | default(false)
+      ansible.builtin.set_fact:
+        current_check: "{{ current_check | combine({
+          'status': 'issue_detected',
+          'issues': current_check.issues + [{
+            'type': 'CAPI Version Incompatibility',
+            'severity': 'critical',
+            'description': 'OCP ' + env.data.cluster.ocp_version + ' requires CAPI ' + ocp_requirements.capi.recommended_version + ' but found v' + capi_version,
+            'details': {
+              'ocp_version': env.data.cluster.ocp_version,
+              'current_capi': 'v' + capi_version,
+              'required_capi': ocp_requirements.capi.recommended_version,
+              'required_crd_api': ocp_requirements.capi.crd_api_version
+            },
+            'correlation': ocp_requirements.notes,
+            'impact': 'ROSA cluster provisioning will fail - CRD API version mismatch'
+          }]
+        }) }}"
+
+    - name: Detect CAPI version mismatch (Warning for older OCP)
+      when:
+        - not capi_compatible
+        - not (ocp_requirements.critical | default(false))
+      ansible.builtin.set_fact:
+        current_check: "{{ current_check | combine({
+          'warnings': current_check.warnings + [{
+            'type': 'CAPI Version Mismatch',
+            'description': 'OCP ' + env.data.cluster.ocp_version + ' recommends CAPI ' + ocp_requirements.capi.recommended_version + ' but found v' + capi_version,
+            'recommendation': 'Consider upgrading to recommended version for optimal compatibility'
+          }]
+        }) }}"
+
+- name: "{{ env.cluster_name }} - Check MCE version compatibility with CAPI"
+  when:
+    - login_result.rc == 0
+    - capi_version is defined
+    - capi_version != "unknown"
+    - mce_major_minor != "unknown"
+    - mce_major_minor in mce_capi_matrix
+  block:
+    - name: Get MCE CAPI requirements
+      ansible.builtin.set_fact:
+        mce_requirements: "{{ mce_capi_matrix[mce_major_minor] }}"
+
+    - name: Check if CAPI matches MCE requirements
+      ansible.builtin.set_fact:
+        mce_capi_compatible: "{{ capi_version_major_minor in mce_requirements.capi_version }}"
+
+    - name: Detect MCE-CAPI version mismatch
+      when: not mce_capi_compatible
+      ansible.builtin.set_fact:
+        current_check: "{{ current_check | combine({
+          'status': 'issue_detected',
+          'issues': current_check.issues + [{
+            'type': 'MCE-CAPI Version Incompatibility',
+            'severity': 'critical',
+            'description': 'MCE ' + mce_major_minor + ' requires ' + mce_requirements.capi_version + ' but found CAPI v' + capi_version,
+            'details': {
+              'mce_version': env.data.cluster.mce_version,
+              'current_capi': 'v' + capi_version,
+              'required_capi': mce_requirements.capi_version,
+              'required_crd_version': mce_requirements.crd_version
+            },
+            'correlation': mce_requirements.notes | default('MCE and CAPI version mismatch'),
+            'impact': 'Cluster provisioning may fail due to API incompatibilities'
+          }]
+        }) }}"
+
+- name: "{{ env.cluster_name }} - Check OCP version correlation with known issues"
+  ansible.builtin.set_fact:
+    version_warnings: []
+
+- name: "{{ env.cluster_name }} - Check if OCP version matches known problematic versions"
+  block:
+    # OCP 4.18.30 - Known RosaNetwork deletion issue (cqu-2151-yup)
+    - name: Check for OCP 4.18.30 correlation
+      when: env.data.cluster.ocp_version == '4.18.30'
+      ansible.builtin.set_fact:
+        version_warnings: "{{ version_warnings + [{
+          'type': 'OCP Version Correlation',
+          'description': 'OCP 4.18.30 has known RosaNetwork deletion issues (see cqu-2151-yup)',
+          'recommendation': 'Monitor RosaNetwork resource cleanup closely'
+        }] }}"
+
+    # OCP 4.20.10 - Known CRD v1beta2 issue (rdr-acm216-hub420)
+    - name: Check for OCP 4.20.10 correlation
+      when: env.data.cluster.ocp_version == '4.20.10'
+      ansible.builtin.set_fact:
+        version_warnings: "{{ version_warnings + [{
+          'type': 'OCP Version Correlation',
+          'description': 'OCP 4.20.10 has known CRD v1beta2 compatibility issues (see rdr-acm216-hub420)',
+          'recommendation': 'Verify CRD versions before ROSA cluster provisioning'
+        }] }}"
+
+    # OCP 4.20.x - General warning
+    - name: Check for OCP 4.20.x correlation
+      when:
+        - env.data.cluster.ocp_version is version('4.20', '>=')
+        - env.data.cluster.ocp_version is version('4.21', '<')
+        - env.data.cluster.ocp_version != '4.20.10'
+      ansible.builtin.set_fact:
+        version_warnings: "{{ version_warnings + [{
+          'type': 'OCP Version Correlation',
+          'description': 'OCP 4.20.x series may have CRD v1beta2 compatibility risks',
+          'recommendation': 'Monitor for issues similar to rdr-acm216-hub420 (OCP 4.20.10)'
+        }] }}"
+
+- name: "{{ env.cluster_name }} - Add version warnings to result"
+  when: version_warnings | length > 0
+  ansible.builtin.set_fact:
+    current_check: "{{ current_check | combine({
+      'warnings': current_check.warnings + version_warnings
+    }) }}"
+
+- name: "{{ env.cluster_name }} - Add environment to results"
+  ansible.builtin.set_fact:
+    health_check_results: "{{ health_check_results + [current_check] }}"
+
+- name: "{{ env.cluster_name }} - Display health check summary"
+  ansible.builtin.debug:
+    msg: |
+      Health Check Summary for {{ env.cluster_name }}:
+      - Status: {{ current_check.status }}
+      - Issues: {{ current_check.issues | length }}
+      - Warnings: {{ current_check.warnings | length }}

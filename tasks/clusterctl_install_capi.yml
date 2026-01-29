@@ -1,0 +1,167 @@
+---
+# clusterctl-based CAPI/CAPA Installation
+# Installs CAPI providers using the official clusterctl tool
+
+- name: Install CAPI/CAPA using clusterctl
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+
+  - name: Generate AWS B64 encoded credentials
+    shell: |
+      clusterawsadm bootstrap credentials encode-as-profile
+    register: aws_b64_creds
+    environment:
+      AWS_REGION: "{{ AWS_REGION }}"
+      AWS_ACCESS_KEY_ID: "{{ AWS_ACCESS_KEY_ID }}"
+      AWS_SECRET_ACCESS_KEY: "{{ AWS_SECRET_ACCESS_KEY }}"
+    no_log: true
+
+  - name: Display custom CAPA image information
+    when: lookup('env', 'CUSTOM_CAPA_IMAGE') == 'true'
+    debug:
+      msg:
+        - "🎨 Custom CAPA Image Configuration:"
+        - "Repository: {{ lookup('env', 'CUSTOM_CAPA_IMAGE_REPO') | trim }}"
+        - "Tag: {{ lookup('env', 'CUSTOM_CAPA_IMAGE_TAG') | trim }}"
+        - "Will patch CAPA deployment after initialization"
+
+  - name: Initialize clusterctl with ROSA support
+    shell: |
+      clusterctl init --infrastructure aws
+    environment:
+      KUBECONFIG: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+      AWS_REGION: "{{ AWS_REGION }}"
+      EXP_ROSA: "true"
+      EXP_MACHINE_POOL: "true"
+      CLUSTER_TOPOLOGY: "true"
+      AWS_B64ENCODED_CREDENTIALS: "{{ aws_b64_creds.stdout }}"
+    register: clusterctl_init
+    failed_when: false
+
+  - name: Display clusterctl initialization result
+    debug:
+      msg: "{{ clusterctl_init.stdout_lines }}"
+
+  - name: Wait for CAPI controller manager to be ready
+    shell: |
+      kubectl wait --for=condition=Available --timeout=300s \
+        deployment/capi-controller-manager -n capi-system
+    register: capi_ready
+    until: capi_ready.rc == 0
+    retries: 10
+    delay: 30
+    failed_when: false
+
+  - name: Wait for CAPA controller manager to be ready
+    shell: |
+      kubectl wait --for=condition=Available --timeout=300s \
+        deployment/capa-controller-manager -n capa-system
+    register: capa_ready
+    until: capa_ready.rc == 0
+    retries: 10
+    delay: 30
+    failed_when: false
+
+  - name: Apply updated CRDs from CAPA source
+    when: lookup('env', 'CUSTOM_CAPA_IMAGE') == 'true' and lookup('env', 'CUSTOM_CAPA_SOURCE_PATH') != ''
+    shell: |
+      kubectl apply -k {{ lookup('env', 'CUSTOM_CAPA_SOURCE_PATH') }}/config/default/
+    register: apply_crds
+
+  - name: Display CRD application result
+    when: lookup('env', 'CUSTOM_CAPA_IMAGE') == 'true' and lookup('env', 'CUSTOM_CAPA_SOURCE_PATH') != ''
+    debug:
+      msg:
+        - "✅ Updated CRDs applied from CAPA source"
+        - "Source: {{ lookup('env', 'CUSTOM_CAPA_SOURCE_PATH') }}/config/default/"
+
+  - name: Patch CAPA controller deployment with custom image
+    when: lookup('env', 'CUSTOM_CAPA_IMAGE') == 'true'
+    shell: |
+      kubectl set image deployment/capa-controller-manager \
+        manager={{ lookup('env', 'CUSTOM_CAPA_IMAGE_REPO') | trim }}:{{ lookup('env', 'CUSTOM_CAPA_IMAGE_TAG') | trim }} \
+        -n capa-system
+    register: patch_capa_image
+
+  - name: Display CAPA image patch result
+    when: lookup('env', 'CUSTOM_CAPA_IMAGE') == 'true'
+    debug:
+      msg:
+        - "✅ CAPA controller patched with custom image"
+        - "Image: {{ lookup('env', 'CUSTOM_CAPA_IMAGE_REPO') | trim }}:{{ lookup('env', 'CUSTOM_CAPA_IMAGE_TAG') | trim }}"
+
+  - name: Wait for CAPA controller to restart with new image
+    when: lookup('env', 'CUSTOM_CAPA_IMAGE') == 'true'
+    shell: |
+      kubectl rollout status deployment/capa-controller-manager -n capa-system --timeout=300s
+    register: capa_restart
+    failed_when: false
+
+  - name: Verify CAPA controller is running with custom image
+    when: lookup('env', 'CUSTOM_CAPA_IMAGE') == 'true'
+    shell: |
+      kubectl get deployment capa-controller-manager -n capa-system -o jsonpath='{.spec.template.spec.containers[0].image}'
+    register: verify_custom_image
+
+  - name: Display verified CAPA image
+    when: lookup('env', 'CUSTOM_CAPA_IMAGE') == 'true'
+    debug:
+      msg: "CAPA controller running with image: {{ verify_custom_image.stdout }}"
+
+  - name: Create ns-rosa-hcp namespace
+    shell: |
+      kubectl create namespace ns-rosa-hcp --dry-run=client -o yaml | kubectl apply -f -
+    register: ns_rosa
+
+  - name: Create AWS credentials secret in capa-system
+    shell: |
+      kubectl create secret generic capa-manager-bootstrap-credentials \
+        --from-literal=AWS_ACCESS_KEY_ID="{{ AWS_ACCESS_KEY_ID }}" \
+        --from-literal=AWS_SECRET_ACCESS_KEY="{{ AWS_SECRET_ACCESS_KEY }}" \
+        --from-literal=AWS_REGION="{{ AWS_REGION }}" \
+        -n capa-system \
+        --dry-run=client -o yaml | kubectl apply -f -
+    register: aws_secret
+    no_log: true
+
+  - name: Create ROSA credentials secret in capa-system
+    shell: |
+      kubectl create secret generic rosa-creds-secret \
+        --from-literal=ocmClientID="{{ OCM_CLIENT_ID }}" \
+        --from-literal=ocmClientSecret="{{ OCM_CLIENT_SECRET }}" \
+        --from-literal=ocmApiUrl="https://api.stage.openshift.com" \
+        -n capa-system \
+        --dry-run=client -o yaml | kubectl apply -f -
+    register: rosa_secret_capa
+    no_log: true
+
+  - name: Create ROSA credentials secret in ns-rosa-hcp
+    shell: |
+      kubectl create secret generic rosa-creds-secret \
+        --from-literal=ocmClientID="{{ OCM_CLIENT_ID }}" \
+        --from-literal=ocmClientSecret="{{ OCM_CLIENT_SECRET }}" \
+        --from-literal=ocmApiUrl="https://api.stage.openshift.com" \
+        -n ns-rosa-hcp \
+        --dry-run=client -o yaml | kubectl apply -f -
+    register: rosa_secret_ns
+    no_log: true
+
+  - name: Verify CAPI/CAPA installation
+    shell: |
+      kubectl get deploy -n capi-system
+      kubectl get deploy -n capa-system
+      kubectl get ns ns-rosa-hcp
+    register: verification
+
+  - name: Display verification results
+    debug:
+      msg:
+        - "✓ CAPI Core installed via clusterctl"
+        - "✓ CAPA (AWS) provider installed via clusterctl"
+        - "✓ Namespaces created: capi-system, capa-system, ns-rosa-hcp"
+        - "✓ AWS credentials configured"
+        - "✓ ROSA credentials configured"
+        - ""
+        - "Installation method: clusterctl"

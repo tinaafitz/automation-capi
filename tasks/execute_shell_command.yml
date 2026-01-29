@@ -1,0 +1,15 @@
+---
+- name: Execute shell command
+  shell: "{{ shell_command }}"
+  register: shell_output
+  failed_when: false
+
+- name: Print command output
+  debug:
+    msg: "Command: {{ shell_command }}\nOutput: {{ shell_output.stdout }}"
+
+- name: Set output fact
+  set_fact:
+    command_output: "{{ shell_output.stdout }}"
+    command_stderr: "{{ shell_output.stderr }}"
+    command_rc: "{{ shell_output.rc }}"

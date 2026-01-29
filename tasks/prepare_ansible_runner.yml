@@ -1,0 +1,15 @@
+---
+# Prepare Ansible Runner Host
+# This task is typically used in CI/CD environments to setup the runner
+# For local development, this can be skipped with: -e skip_ansible_runner=true
+
+- name: Display Ansible Runner preparation message
+  debug:
+    msg: "Preparing Ansible runner host environment..."
+
+- name: Ensure output directory exists
+  file:
+    path: "{{ output_dir | default('~/output') }}"
+    state: directory
+    mode: '0755'
+  when: output_dir is defined
