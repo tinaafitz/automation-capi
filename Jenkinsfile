@@ -13,8 +13,26 @@
 //   30-rosa-hcp-delete            - Delete ROSA HCP cluster
 //   05-verify-mce-environment     - Verify MCE environment
 //
-// Example Usage in Stage:
-//   sh "./run-test-suite.py 10-configure-mce-environment"
+// Credentials Required (set as environment variables or in vars/user_vars.yml):
+//   - OCP_HUB_API_URL           : OpenShift cluster API URL
+//   - OCP_HUB_CLUSTER_USER      : OpenShift username (default: kubeadmin)
+//   - OCP_HUB_CLUSTER_PASSWORD  : OpenShift password
+//   - AWS_ACCESS_KEY_ID         : AWS access key (from Jenkins credentials)
+//   - AWS_SECRET_ACCESS_KEY     : AWS secret key (from Jenkins credentials)
+//   - OCM_CLIENT_ID             : OCM client ID (from Jenkins credentials)
+//   - OCM_CLIENT_SECRET         : OCM client secret (from Jenkins credentials)
+//   - MCE_NAMESPACE             : MCE namespace (default: multicluster-engine)
+//
+// Example Usage in Stage (with environment variables):
+//   sh """
+//     export OCP_HUB_API_URL=${params.OCP_HUB_API_URL}
+//     export OCP_HUB_CLUSTER_USER=${params.OCP_HUB_CLUSTER_USER}
+//     export OCP_HUB_CLUSTER_PASSWORD=${params.OCP_HUB_CLUSTER_PASSWORD}
+//     export AWS_ACCESS_KEY_ID=${CAPI_AWS_ACCESS_KEY_ID}
+//     export AWS_SECRET_ACCESS_KEY=${CAPI_AWS_SECRET_ACCESS_KEY}
+//     export MCE_NAMESPACE=${params.MCE_NAMESPACE}
+//     ./run-test-suite.py 10-configure-mce-environment
+//   """
 // ============================================================================
 
 pipeline {
