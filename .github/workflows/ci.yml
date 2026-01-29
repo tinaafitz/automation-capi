@@ -83,6 +83,14 @@ jobs:
   frontend-test:
     name: Frontend Tests
     runs-on: ubuntu-latest
+    # Skip if no frontend files changed
+    if: |
+      github.event_name == 'push' ||
+      contains(github.event.pull_request.labels.*.name, 'frontend') ||
+      contains(github.event.pull_request.title, 'frontend') ||
+      contains(github.event.pull_request.title, 'ui') ||
+      contains(github.event.pull_request.title, 'Frontend') ||
+      contains(github.event.pull_request.title, 'UI')
 
     steps:
       - name: Checkout code
@@ -121,6 +129,14 @@ jobs:
   frontend-lint:
     name: Frontend Linting
     runs-on: ubuntu-latest
+    # Skip if no frontend files changed
+    if: |
+      github.event_name == 'push' ||
+      contains(github.event.pull_request.labels.*.name, 'frontend') ||
+      contains(github.event.pull_request.title, 'frontend') ||
+      contains(github.event.pull_request.title, 'ui') ||
+      contains(github.event.pull_request.title, 'Frontend') ||
+      contains(github.event.pull_request.title, 'UI')
 
     steps:
       - name: Checkout code
@@ -149,6 +165,14 @@ jobs:
   frontend-build:
     name: Frontend Build
     runs-on: ubuntu-latest
+    # Skip if no frontend files changed
+    if: |
+      github.event_name == 'push' ||
+      contains(github.event.pull_request.labels.*.name, 'frontend') ||
+      contains(github.event.pull_request.title, 'frontend') ||
+      contains(github.event.pull_request.title, 'ui') ||
+      contains(github.event.pull_request.title, 'Frontend') ||
+      contains(github.event.pull_request.title, 'UI')
 
     steps:
       - name: Checkout code

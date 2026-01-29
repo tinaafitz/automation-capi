@@ -8,6 +8,7 @@
     {
       "name": "configure_mce_environment.yml",
       "description": "Configure CAPI/CAPA environment (disable Hypershift, enable CAPI/CAPA, create credentials)",
+      "test_case_id": "RHACM4K-61722",
       "timeout": 600,
       "required": true
     }

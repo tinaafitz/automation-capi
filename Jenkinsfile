@@ -1,5 +1,22 @@
 
 @Library('ci-shared-lib') _
+
+// ============================================================================
+// CAPI/CAPA Test Pipeline - Supports Both Test Systems
+// ============================================================================
+// Old System: ./run-automation.sh cap-enable-test.yml → results/
+// New System: ./run-test-suite.py <suite-id> → test-results/
+//
+// Available Test Suites (New System):
+//   10-configure-mce-environment  - Configure CAPI/CAPA (RHACM4K-61722)
+//   20-rosa-hcp-provision         - Provision ROSA HCP cluster
+//   30-rosa-hcp-delete            - Delete ROSA HCP cluster
+//   05-verify-mce-environment     - Verify MCE environment
+//
+// Example Usage in Stage:
+//   sh "./run-test-suite.py 10-configure-mce-environment"
+// ============================================================================
+
 pipeline {
     options {
         buildDiscarder(logRotator(daysToKeepStr: '30'))
@@ -52,7 +69,8 @@ pipeline {
                             # Execute the CAPI and CAPA tests
                            ./run-automation.sh cap-enable-test.yml
                         """
-                        archiveArtifacts artifacts: 'results/**/*.xml', followSymlinks: false, fingerprint: true
+                        // Archive results from both old and new test systems
+                        archiveArtifacts artifacts: 'results/**/*.xml, test-results/**/*.xml', allowEmptyArchive: true, followSymlinks: false, fingerprint: true
                     }
                     catch (ex) {
                         echo 'CAPI Tests failed ... Continuing with the pipeline'
@@ -64,8 +82,11 @@ pipeline {
         stage('Archive CAPI artifacts') {
             steps {
                 script {
-                   archiveArtifacts artifacts: 'results/**/*.xml', followSymlinks: false
-                   junit 'results/**/*.xml'
+                   // Archive artifacts from both old (results/) and new (test-results/) systems
+                   archiveArtifacts artifacts: 'results/**/*.xml, test-results/**/*.xml', allowEmptyArchive: true, followSymlinks: false
+
+                   // Publish JUnit test results from both systems
+                   junit allowEmptyResults: true, testResults: 'results/**/*.xml, test-results/**/*.xml'
                 }
             }
         }

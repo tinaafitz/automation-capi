@@ -167,6 +167,7 @@ class TestSuiteRunner:
                 return {
                     "name": playbook_name,
                     "description": playbook.get("description", ""),
+                    "test_case_id": playbook.get("test_case_id", ""),
                     "success": True,
                     "duration": duration,
                     "output": result.stdout
@@ -176,6 +177,7 @@ class TestSuiteRunner:
                 return {
                     "name": playbook_name,
                     "description": playbook.get("description", ""),
+                    "test_case_id": playbook.get("test_case_id", ""),
                     "success": False,
                     "error": result.stderr,
                     "duration": duration,
@@ -188,6 +190,7 @@ class TestSuiteRunner:
             return {
                 "name": playbook_name,
                 "description": playbook.get("description", ""),
+                "test_case_id": playbook.get("test_case_id", ""),
                 "success": False,
                 "error": f"Timeout after {timeout} seconds",
                 "duration": duration
@@ -198,6 +201,7 @@ class TestSuiteRunner:
             return {
                 "name": playbook_name,
                 "description": playbook.get("description", ""),
+                "test_case_id": playbook.get("test_case_id", ""),
                 "success": False,
                 "error": str(e),
                 "duration": duration
@@ -305,6 +309,17 @@ class TestSuiteRunner:
             latest_file = self.results_dir / "latest.html"
             with open(latest_file, 'w') as f:
                 f.write(html_content)
+
+        elif format == "junit":
+            output_file = results_date_dir / f"test-run-{timestamp}.xml"
+            junit_content = self._generate_junit_xml()
+            with open(output_file, 'w') as f:
+                f.write(junit_content)
+
+            # Also save as latest.xml
+            latest_file = self.results_dir / "latest.xml"
+            with open(latest_file, 'w') as f:
+                f.write(junit_content)
 
         return output_file
 
@@ -540,6 +555,71 @@ class TestSuiteRunner:
 
         return html
 
+    def _generate_junit_xml(self) -> str:
+        """Generate JUnit XML test report for CI/CD integration."""
+        import xml.etree.ElementTree as ET
+        from xml.dom import minidom
+
+        # Create root testsuites element
+        testsuites = ET.Element('testsuites')
+        testsuites.set('name', 'ROSA HCP Test Suite')
+        testsuites.set('tests', str(self.results['total_tests']))
+        testsuites.set('failures', str(self.results['failed']))
+        testsuites.set('errors', '0')
+        testsuites.set('skipped', str(self.results.get('skipped', 0)))
+        testsuites.set('time', str(round(self.results['duration'], 3)))
+
+        # Add each suite as a testsuite element
+        for suite in self.results.get('suites', []):
+            testsuite = ET.SubElement(testsuites, 'testsuite')
+            testsuite.set('name', suite['name'])
+            testsuite.set('timestamp', suite['start_time'])
+            testsuite.set('tests', str(len(suite['playbooks'])))
+            testsuite.set('time', str(round(suite['duration'], 3)))
+
+            # Count failures in this suite
+            suite_failures = sum(1 for p in suite['playbooks'] if not p['success'])
+            testsuite.set('failures', str(suite_failures))
+            testsuite.set('errors', '0')
+            testsuite.set('skipped', '0')
+
+            # Add each playbook as a testcase
+            for playbook in suite['playbooks']:
+                testcase = ET.SubElement(testsuite, 'testcase')
+
+                # Build testcase name with test_case_id if present
+                test_case_id = playbook.get('test_case_id', '')
+                description = playbook.get('description', playbook['name'])
+
+                if test_case_id:
+                    testcase_name = f"{test_case_id}: {description}"
+                else:
+                    testcase_name = description
+
+                testcase.set('name', testcase_name)
+
+                # Classname combines suite name + testcase name
+                testcase.set('classname', f"{suite['name']} {testcase_name}")
+                testcase.set('time', str(round(playbook['duration'], 3)))
+
+                # If failed, add failure element with error details
+                if not playbook['success']:
+                    failure = ET.SubElement(testcase, 'failure')
+                    failure.set('type', 'TestFailure')
+                    failure.set('message', playbook.get('error', 'Test failed'))
+
+                    # Add full error details as text content
+                    error_text = f"Playbook: {playbook['name']}\n"
+                    error_text += f"Error: {playbook.get('error', 'Unknown error')}\n"
+                    if 'output' in playbook and playbook['output']:
+                        error_text += f"\nOutput:\n{playbook['output']}"
+                    failure.text = error_text
+
+        # Pretty print XML
+        xml_str = ET.tostring(testsuites, encoding='unicode')
+        dom = minidom.parseString(xml_str)
+        return dom.toprettyxml(indent='  ')
+
     def _print_suite_header(self, suite_data: Dict):
         """Print formatted suite header."""
         print("\n" + "=" * 80)
@@ -651,9 +731,9 @@ Examples:
 
     parser.add_argument(
         "--format",
-        choices=["json", "html", "both"],
-        default="both",
-        help="Output format for test results (default: both)"
+        choices=["json", "html", "junit", "all"],
+        default="all",
+        help="Output format for test results: json, html, junit (JUnit XML), or all (default: all)"
     )
 
     parser.add_argument(
@@ -733,13 +813,17 @@ Examples:
 
     # Save results
     if not args.no_save:
-        if args.format in ["json", "both"]:
+        if args.format in ["json", "all"]:
             json_file = runner.save_results(format="json")
             print(f"{Colors.CYAN}📄 JSON results: {json_file}{Colors.ENDC}")
 
-        if args.format in ["html", "both"]:
+        if args.format in ["html", "all"]:
             html_file = runner.save_results(format="html")
             print(f"{Colors.CYAN}📄 HTML report: {html_file}{Colors.ENDC}")
+
+        if args.format in ["junit", "all"]:
+            junit_file = runner.save_results(format="junit")
+            print(f"{Colors.CYAN}📄 JUnit XML: {junit_file}{Colors.ENDC}")
 
     # Return exit code for CI/CD
     return 0 if success else 1
