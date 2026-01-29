@@ -37,24 +37,28 @@
 
 pipeline {
     options {
+        // This rotates the logs evry month
         buildDiscarder(logRotator(daysToKeepStr: '30'))
+        // This stops the automatic, failing checkout
+        skipDefaultCheckout()
     }
     agent {
-        docker {
-            // image 'quay.io/stolostron/acm-qe:python3'
-            // registryUrl 'https://quay.io/stolostron/acm-qe'
-            // registryCredentialsId '0089f10c-7a3a-4d16-b5b0-3a2c9abedaa2'
-            // args '--network host -u 0:0'
-            alwaysPull true
-            image 'quay.io/vboulos/acmqe-automation/python3:python-3.9-ansible'
-            args '--network host -u 0:0'
+        kubernetes {
+            defaultContainer 'capa-container'
+            yamlFile 'picsAgentPod_capa.yaml'
+            // ITUP Prod
+            cloud 'remote-ocp-cluster-itup-prod'
+            // ITUP PreProd
+            // cloud 'remote-ocp-cluster-itup-pre-prod'
         }
     }
+
     environment {
         CI = 'true'
         // CAPI_AWS_ROLE_ARN = "arn:aws:iam::xxxxxxxx:role/capi-role"
         CAPI_AWS_ACCESS_KEY_ID = credentials('CAPI_AWS_ACCESS_KEY_ID')
         CAPI_AWS_SECRET_ACCESS_KEY = credentials('CAPI_AWS_SECRET_ACCESS_KEY')
+        GITHUB_TOKEN = credentials('vincent-github-token')
     }
     parameters {
         string(name:'OCP_HUB_API_URL', defaultValue: '', description: 'Hub OCP API url')
@@ -64,6 +68,26 @@ pipeline {
         string(name:'TEST_GIT_BRANCH', defaultValue: 'main', description: 'CAPI test Git branch')
     }
     stages {
+        stage('Clone the capi/capa repo') {
+            steps {
+                retry(count: 3) {
+                    script{
+                        def capa_repo = "tinaafitz/automation-capi.git"
+                        sh """
+                            rm -rf capa
+                            
+                            # Configure Git to use the token for this command only via a secure header.
+                            git -c http.https://github.com/.extraheader="AUTHORIZATION: basic \$(echo -n x-oauth-basic:${env.GITHUB_TOKEN} | base64)" \
+                                -c http.sslVerify=false \
+                                clone \
+                                -b "${params.TEST_GIT_BRANCH}" \
+                                "https://github.com/${capa_repo}" \
+                                capa/
+                        """
+                    }
+                }
+            }
+        }
         stage ('Build: Ensure required variables are set') {
             when {
                 expression {
@@ -89,6 +113,7 @@ pipeline {
                             string(credentialsId: 'CAPI_AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
                         ]) {
                             sh '''
+                                cd capa
                                 # Execute the CAPI/CAPA configuration test suite (RHACM4K-61722)
                                 ./run-test-suite.py 10-configure-mce-environment --format junit
                             '''
