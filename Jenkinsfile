@@ -39,17 +39,28 @@ pipeline {
     options {
         buildDiscarder(logRotator(daysToKeepStr: '30'))
     }
+    // agent {
+    //     docker {
+    //         // image 'quay.io/stolostron/acm-qe:python3'
+    //         // registryUrl 'https://quay.io/stolostron/acm-qe'
+    //         // registryCredentialsId '0089f10c-7a3a-4d16-b5b0-3a2c9abedaa2'
+    //         // args '--network host -u 0:0'
+    //         alwaysPull true
+    //         image 'quay.io/vboulos/acmqe-automation/python3:python-3.9-ansible'
+    //         args '--network host -u 0:0'
+    //     }
+    // }
     agent {
-        docker {
-            // image 'quay.io/stolostron/acm-qe:python3'
-            // registryUrl 'https://quay.io/stolostron/acm-qe'
-            // registryCredentialsId '0089f10c-7a3a-4d16-b5b0-3a2c9abedaa2'
-            // args '--network host -u 0:0'
-            alwaysPull true
-            image 'quay.io/vboulos/acmqe-automation/python3:python-3.9-ansible'
-            args '--network host -u 0:0'
+        kubernetes {
+            defaultContainer 'capa-container'
+            yamlFile 'picsAgentPod_capa.yaml'
+            // ITUP Prod
+            cloud 'remote-ocp-cluster-itup-prod'
+            // ITUP PreProd
+            // cloud 'remote-ocp-cluster-itup-pre-prod'
         }
     }
+
     environment {
         CI = 'true'
         // CAPI_AWS_ROLE_ARN = "arn:aws:iam::xxxxxxxx:role/capi-role"

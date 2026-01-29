@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    label: capa
+    owner: pics
+spec:
+  activeDeadlineSeconds: 18000
+  containers:
+  - name: jnlp
+    # image: "image-registry.openshift-image-registry.svc:5000/dno--jenkins-csb-rhacm/tests-jenkins-agent:latest"
+    image: "images.paas.redhat.com/jenkins-csb/inbound-agent-sidecar:latest"
+    workingDir: '/home/jenkins'
+    env:
+      - name: HOME
+        value: '/home/jenkins'
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 50m
+        memory: 256Mi
+  - name: capa-container
+    image: 'quay.io/vboulos/acmqe-automation/pics:ubi9'
+    registry: docker.io
+    # imagePullSecrets: 'agent-image-secret'
+    tty: true
+    imagePullPolicy: Always
+    command: [ 'sleep', '365d' ]
+    workingDir: '/home/jenkins'
+    env:
+      - name: HOME
+        value: '/home/jenkins'
+      - name: HTTP_PROXY
+        value: "http://proxy.squi-001.prod.iad2.dc.redhat.com:3128" 
+      - name: HTTPS_PROXY
+        value: "http://proxy.squi-001.prod.iad2.dc.redhat.com:3128"
+      # - name: NO_PROXY
+      #   value: ".cluster.local,.svc,localhost,.corp.redhat.com"
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
