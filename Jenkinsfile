@@ -102,6 +102,8 @@ pipeline {
                             string(credentialsId: 'CAPI_AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
                         ]) {
                             sh '''
+                                pwd
+                                ls
                                 # Execute the CAPI/CAPA configuration test suite (RHACM4K-61722)
                                 ./run-test-suite.py 10-configure-mce-environment --format junit
                             '''
