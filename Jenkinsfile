@@ -38,6 +38,8 @@
 pipeline {
     options {
         buildDiscarder(logRotator(daysToKeepStr: '30'))
+        // This stops the automatic, failing checkout
+        skipDefaultCheckout()
     }
     // agent {
     //     docker {
