@@ -79,13 +79,15 @@ pipeline {
                 script {
                     try {
                         sh """
-                            export OCP_USER=$OCP_HUB_CLUSTER_USER
-                            export OCP_PASSWORD=$OCP_HUB_CLUSTER_PASSWORD
-                            export API_URL=$OCP_HUB_API_URL
-                            export MCE_NAMESPACE=$MCE_NAMESPACE
+                            export OCP_HUB_API_URL=${params.OCP_HUB_API_URL}
+                            export OCP_HUB_CLUSTER_USER=${params.OCP_HUB_CLUSTER_USER}
+                            export OCP_HUB_CLUSTER_PASSWORD=${params.OCP_HUB_CLUSTER_PASSWORD}
+                            export AWS_ACCESS_KEY_ID=${CAPI_AWS_ACCESS_KEY_ID}
+                            export AWS_SECRET_ACCESS_KEY=${CAPI_AWS_SECRET_ACCESS_KEY}
+                            export MCE_NAMESPACE=${params.MCE_NAMESPACE}
 
-                            # Execute the CAPI and CAPA tests
-                           ./run-automation.sh cap-enable-test.yml
+                            # Execute the CAPI/CAPA configuration test suite (RHACM4K-61722)
+                            ./run-test-suite.py 10-configure-mce-environment
                         """
                         // Archive results from both old and new test systems
                         archiveArtifacts artifacts: 'results/**/*.xml, test-results/**/*.xml', allowEmptyArchive: true, followSymlinks: false, fingerprint: true
