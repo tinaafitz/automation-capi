@@ -75,20 +75,24 @@ pipeline {
             }
         }
         stage('Run CAPI Tests') {
+            environment {
+                OCP_HUB_API_URL = "${params.OCP_HUB_API_URL}"
+                OCP_HUB_CLUSTER_USER = "${params.OCP_HUB_CLUSTER_USER}"
+                OCP_HUB_CLUSTER_PASSWORD = "${params.OCP_HUB_CLUSTER_PASSWORD}"
+                MCE_NAMESPACE = "${params.MCE_NAMESPACE}"
+            }
             steps {
                 script {
                     try {
-                        sh """
-                            export OCP_HUB_API_URL=${params.OCP_HUB_API_URL}
-                            export OCP_HUB_CLUSTER_USER=${params.OCP_HUB_CLUSTER_USER}
-                            export OCP_HUB_CLUSTER_PASSWORD=${params.OCP_HUB_CLUSTER_PASSWORD}
-                            export AWS_ACCESS_KEY_ID=${CAPI_AWS_ACCESS_KEY_ID}
-                            export AWS_SECRET_ACCESS_KEY=${CAPI_AWS_SECRET_ACCESS_KEY}
-                            export MCE_NAMESPACE=${params.MCE_NAMESPACE}
-
-                            # Execute the CAPI/CAPA configuration test suite (RHACM4K-61722)
-                            ./run-test-suite.py 10-configure-mce-environment --format junit
-                        """
+                        withCredentials([
+                            string(credentialsId: 'CAPI_AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+                            string(credentialsId: 'CAPI_AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                        ]) {
+                            sh '''
+                                # Execute the CAPI/CAPA configuration test suite (RHACM4K-61722)
+                                ./run-test-suite.py 10-configure-mce-environment --format junit
+                            '''
+                        }
                         // Archive results from both old and new test systems
                         archiveArtifacts artifacts: 'results/**/*.xml, test-results/**/*.xml', allowEmptyArchive: true, followSymlinks: false, fingerprint: true
                     }
