@@ -117,7 +117,7 @@ pipeline {
                             sh '''
                                 cd capa
                                 # Execute the CAPI/CAPA configuration test suite (RHACM4K-61722)
-                                ./run-test-suite.py 10-configure-mce-environment --format junit
+                                ./run-test-suite.py 10-configure-mce-environment --format junit -vv
                             '''
                         }
                         // Archive results from both old and new test systems

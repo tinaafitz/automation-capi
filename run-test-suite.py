@@ -10,6 +10,7 @@ Usage:
     ./run-test-suite.py 02-basic-rosa-hcp-cluster-creation
     ./run-test-suite.py 10-configure-mce-environment -e name_prefix=xyz
     ./run-test-suite.py 10-configure-mce-environment --dry-run
+    ./run-test-suite.py 10-configure-mce-environment -vv  # Verbose output
     ./run-test-suite.py --all
     ./run-test-suite.py --tag rosa-hcp
     ./run-test-suite.py --list
@@ -52,7 +53,7 @@ class Colors:
 class TestSuiteRunner:
     """Main test suite runner class."""
 
-    def __init__(self, base_dir: Path = Path.cwd(), extra_vars: Optional[Dict[str, str]] = None, dry_run: bool = False):
+    def __init__(self, base_dir: Path = Path.cwd(), extra_vars: Optional[Dict[str, str]] = None, dry_run: bool = False, verbosity: int = 0):
         self.base_dir = base_dir
         self.test_suites_dir = base_dir / "test-suites"
         self.results_dir = base_dir / "test-results"
@@ -63,6 +64,7 @@ class TestSuiteRunner:
             self.extra_vars.update(extra_vars)
 
         self.dry_run = dry_run
+        self.verbosity = verbosity
         self.results = {
             "start_time": None,
             "end_time": None,
@@ -133,6 +135,10 @@ class TestSuiteRunner:
         try:
             # Build ansible-playbook command
             cmd = ["ansible-playbook", str(playbook_path)]
+
+            # Add verbosity flags
+            if self.verbosity > 0:
+                cmd.append("-" + "v" * min(self.verbosity, 4))  # Max -vvvv
 
             # Merge playbook vars with extra vars (extra vars take precedence)
             all_vars = {}
@@ -754,6 +760,13 @@ Examples:
         help="Run in dry-run mode (ansible --check) - no changes will be made"
     )
 
+    parser.add_argument(
+        "-v", "--verbose",
+        action="count",
+        default=0,
+        help="Increase verbosity (-v, -vv, -vvv, or -vvvv for maximum)"
+    )
+
     args = parser.parse_args()
 
     # Parse extra vars from command line
@@ -767,7 +780,7 @@ Examples:
                 print(f"{Colors.YELLOW}Warning: Ignoring invalid extra var format: {var}{Colors.ENDC}")
 
     # Initialize runner
-    runner = TestSuiteRunner(extra_vars=extra_vars, dry_run=args.dry_run)
+    runner = TestSuiteRunner(extra_vars=extra_vars, dry_run=args.dry_run, verbosity=args.verbose)
 
     # List suites if requested
     if args.list:
