@@ -121,7 +121,7 @@ pipeline {
                             '''
                         }
                         // Archive results from both old and new test systems
-                        archiveArtifacts artifacts: 'results/**/*.xml, test-results/**/*.xml', allowEmptyArchive: true, followSymlinks: false, fingerprint: true
+                        archiveArtifacts artifacts: 'capa/results/**/*.xml, capa/test-results/**/*.xml', allowEmptyArchive: true, followSymlinks: false, fingerprint: true
                     }
                     catch (ex) {
                         echo 'CAPI Tests failed ... Continuing with the pipeline'
@@ -134,10 +134,10 @@ pipeline {
             steps {
                 script {
                    // Archive artifacts from both old (results/) and new (test-results/) systems
-                   archiveArtifacts artifacts: 'results/**/*.xml, test-results/**/*.xml', allowEmptyArchive: true, followSymlinks: false
+                   archiveArtifacts artifacts: 'capa/results/**/*.xml, capa/test-results/**/*.xml', allowEmptyArchive: true, followSymlinks: false
 
                    // Publish JUnit test results from both systems
-                   junit allowEmptyResults: true, testResults: 'results/**/*.xml, test-results/**/*.xml'
+                   junit allowEmptyResults: true, testResults: 'capa/results/**/*.xml, capa/test-results/**/*.xml'
                 }
             }
         }
