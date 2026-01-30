@@ -1,0 +1,143 @@
+---
+# ================================================================
+# Disable CAPI/CAPA and Enable Hypershift
+# ================================================================
+# This playbook disables CAPI and CAPA components in MCE and
+# enables Hypershift for hosted control plane management.
+#
+# Usage Examples:
+#
+# 1. Basic usage (disables CAPI, enables Hypershift):
+#    ansible-playbook disable_capi_enable_hypershift.yml
+#
+# 2. Via test suite (recommended):
+#    ./run-test-suite.py 05-disable-capi-enable-hypershift
+#
+# 3. Custom pause duration between steps:
+#    ansible-playbook disable_capi_enable_hypershift.yml \
+#      -e pause_duration=60
+# ================================================================
+
+- name: Disable CAPI/CAPA and enable Hypershift
+  hosts: localhost
+  connection: local
+  any_errors_fatal: true
+  vars_files:
+    - vars/vars.yml
+    - vars/user_vars.yml
+
+  vars:
+    pause_duration: 30  # Seconds to wait between enabling Hypershift and disabling CAPI
+
+  tasks:
+    - name: Set cluster credentials
+      set_fact:
+        ocp_user: "{{ OCP_HUB_CLUSTER_USER }}"
+        ocp_password: "{{ OCP_HUB_CLUSTER_PASSWORD }}"
+        api_url: "{{ OCP_HUB_API_URL }}"
+        mce_namespace: "{{ MCE_NAMESPACE }}"
+
+    - name: Prepare ansible runner host
+      include_tasks: tasks/prepare_ansible_runner.yml
+      when: not skip_ansible_runner | default(false) | bool
+
+    - name: Login to OCP cluster
+      include_tasks: tasks/login_ocp.yml
+
+    - name: Display configuration change
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                                                               ║
+          ║       🔄 Switch from CAPI/CAPA to Hypershift                  ║
+          ║                                                               ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          This operation will:
+
+          Step 1: Enable Hypershift Components
+          • hypershift
+          • hypershift-local-hosting
+
+          Step 2: Disable CAPI/CAPA Components
+          • cluster-api
+          • cluster-api-provider-aws
+
+          Settings:
+          • MCE Namespace: {{ mce_namespace }}
+          • Pause between steps: {{ pause_duration }}s
+
+    - name: Get MCE resource info (name and components)
+      shell: |
+        oc get mce -n {{ mce_namespace }} -o json | jq -r '{name:.items[0].metadata.name, components:(.items[0].spec.overrides.components // [])}'
+      register: mce_info
+      changed_when: false
+
+    - name: Cache MCE name and parse components
+      set_fact:
+        mce_name: "{{ (mce_info.stdout | from_json).name }}"
+        current_components: "{{ (mce_info.stdout | from_json).components }}"
+
+    - name: Display current component status
+      debug:
+        msg: |
+          Current Component Status:
+          • Hypershift: {{ (current_components | selectattr('name', 'eq', 'hypershift') | map(attribute='enabled') | first | default('not configured')) }}
+          • Hypershift-local-hosting: {{ (current_components | selectattr('name', 'eq', 'hypershift-local-hosting') | map(attribute='enabled') | first | default('not configured')) }}
+          • CAPI: {{ (current_components | selectattr('name', 'eq', 'cluster-api') | map(attribute='enabled') | first | default('not configured')) }}
+          • CAPA: {{ (current_components | selectattr('name', 'eq', 'cluster-api-provider-aws') | map(attribute='enabled') | first | default('not configured')) }}
+
+    - name: Disable CAPI and enable Hypershift
+      include_tasks: tasks/enable_hypershift_disable_capi.yml
+
+    - name: Wait for MCE reconciliation to complete
+      shell: |
+        oc get mce {{ mce_name }} -n {{ mce_namespace }} -o jsonpath='{.status.phase}'
+      register: mce_status
+      until: mce_status.stdout == "Available"
+      retries: 30
+      delay: 2
+      changed_when: false
+
+    - name: Verify Hypershift deployments are ready
+      shell: |
+        oc get deployment -n {{ mce_namespace }} hypershift-addon-manager -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0"
+      register: hypershift_ready
+      until: hypershift_ready.stdout | int > 0
+      retries: 15
+      delay: 2
+      changed_when: false
+
+    - name: Get final component status
+      shell: |
+        oc get mce {{ mce_name }} -n {{ mce_namespace }} -o json | jq -r '.spec.overrides.components // []'
+      register: final_components_json
+      changed_when: false
+
+    - name: Parse final components
+      set_fact:
+        final_components: "{{ final_components_json.stdout | from_json }}"
+
+    - name: Configuration complete
+      debug:
+        msg: |
+
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                                                               ║
+          ║           ✅  CONFIGURATION CHANGED!                          ║
+          ║                                                               ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          Final Component Status:
+          • Hypershift: {{ (final_components | selectattr('name', 'eq', 'hypershift') | map(attribute='enabled') | first | default('not configured')) }} {{ '✓' if (final_components | selectattr('name', 'eq', 'hypershift') | map(attribute='enabled') | first) == true else '' }}
+          • Hypershift-local-hosting: {{ (final_components | selectattr('name', 'eq', 'hypershift-local-hosting') | map(attribute='enabled') | first | default('not configured')) }} {{ '✓' if (final_components | selectattr('name', 'eq', 'hypershift-local-hosting') | map(attribute='enabled') | first) == true else '' }}
+          • CAPI: {{ (final_components | selectattr('name', 'eq', 'cluster-api') | map(attribute='enabled') | first | default('not configured')) }} {{ '✓' if (final_components | selectattr('name', 'eq', 'cluster-api') | map(attribute='enabled') | first) == false else '' }}
+          • CAPA: {{ (final_components | selectattr('name', 'eq', 'cluster-api-provider-aws') | map(attribute='enabled') | first | default('not configured')) }} {{ '✓' if (final_components | selectattr('name', 'eq', 'cluster-api-provider-aws') | map(attribute='enabled') | first) == false else '' }}
+
+          Verify Deployments:
+          oc get deployment -n {{ mce_namespace }} | grep -E '(hypershift|cluster-api)'
+
+          Monitor MCE Status:
+          oc get mce {{ mce_name }} -n {{ mce_namespace }} -w
+
+          🎉 MCE is now configured for Hypershift!
