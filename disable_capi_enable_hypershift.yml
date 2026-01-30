@@ -104,7 +104,7 @@
         oc get deployment -n {{ mce_namespace }} hypershift-addon-manager -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0"
       register: hypershift_ready
       until: hypershift_ready.stdout | int > 0
-      retries: 15
+      retries: 60
       delay: 2
       changed_when: false
 
