@@ -6,9 +6,9 @@
   import_role:
     name: configure-capa-environment
   vars:
-    ocm_client_id: "{{ OCM_CLIENT_ID }}"
-    ocm_client_secret: "{{ OCM_CLIENT_SECRET }}"
-    aws_access_key_id: "{{ AWS_ACCESS_KEY_ID }}"
-    aws_secret_access_key: "{{ AWS_SECRET_ACCESS_KEY }}"
-    aws_region: "{{ AWS_REGION }}"
-    mce_namespace: "{{ MCE_NAMESPACE }}"
+    ocm_client_id: "{{ lookup('env', 'OCM_CLIENT_ID') | default(OCM_CLIENT_ID, true) }}"
+    ocm_client_secret: "{{ lookup('env', 'OCM_CLIENT_SECRET') | default(OCM_CLIENT_SECRET, true) }}"
+    aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') | default(AWS_ACCESS_KEY_ID, true) }}"
+    aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') | default(AWS_SECRET_ACCESS_KEY, true) }}"
+    aws_region: "{{ lookup('env', 'AWS_REGION') | default(AWS_REGION, true) }}"
+    mce_namespace: "{{ lookup('env', 'MCE_NAMESPACE') | default(MCE_NAMESPACE, true) }}"
