@@ -180,6 +180,15 @@ class TestSuiteRunner:
                 }
             else:
                 print(f"{Colors.RED}✗ Failed with exit code {result.returncode}{Colors.ENDC}")
+
+                # Print captured output to help with debugging
+                if result.stdout:
+                    print(f"\n{Colors.YELLOW}--- Playbook Output ---{Colors.ENDC}")
+                    print(result.stdout)
+                if result.stderr:
+                    print(f"\n{Colors.RED}--- Error Output ---{Colors.ENDC}")
+                    print(result.stderr)
+
                 return {
                     "name": playbook_name,
                     "description": playbook.get("description", ""),
