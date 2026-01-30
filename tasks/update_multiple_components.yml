@@ -1,12 +1,17 @@
 - name: Update multiple MCE components in a single atomic operation
   block:
-  - name: Get name of MCE
+  - name: Get name of MCE (if not already cached)
     shell: oc get mce -n multicluster-engine -ojson | jq -r '.items[].metadata.name'
-    register: mce_name
+    register: mce_name_query
+    when: mce_name is not defined
+
+  - name: Use cached or queried MCE name
+    set_fact:
+      mce_resource_name: "{{ mce_name | default(mce_name_query.stdout) }}"
 
   - name: Get current components array
     shell: |
-      oc get mce {{ mce_name.stdout }} -n multicluster-engine -ojson | jq -c '.spec.overrides.components // []'
+      oc get mce {{ mce_resource_name }} -n multicluster-engine -ojson | jq -c '.spec.overrides.components // []'
     register: current_components
 
   - name: Build list of component names to update
@@ -32,7 +37,7 @@
 
   - name: Apply updated components array to MCE (atomic patch)
     shell: |
-      oc patch mce {{ mce_name.stdout }} -n multicluster-engine --type=merge -p '{"spec":{"overrides":{"components":{{ updated_components.stdout }}}}}'
+      oc patch mce {{ mce_resource_name }} -n multicluster-engine --type=merge -p '{"spec":{"overrides":{"components":{{ updated_components.stdout }}}}}'
     changed_when: true
     register: patch_status
 

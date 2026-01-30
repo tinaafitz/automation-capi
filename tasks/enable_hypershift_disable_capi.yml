@@ -11,9 +11,14 @@
           enabled: true
 
   # Wait for MCE to reconcile Hypershift components before proceeding
-  - name: Wait for reconciliation
-    pause:
-      seconds: 5
+  - name: Wait for MCE to accept Hypershift configuration
+    shell: |
+      oc get mce {{ mce_name }} -n {{ mce_namespace }} -o jsonpath='{.spec.overrides.components[?(@.name=="hypershift")].enabled}'
+    register: hypershift_config_check
+    until: hypershift_config_check.stdout == "true"
+    retries: 10
+    delay: 1
+    changed_when: false
 
   # Step 2: Disable BOTH CAPI components in a single atomic patch
   - name: Disable both CAPI components atomically
