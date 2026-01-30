@@ -170,6 +170,16 @@ class TestSuiteRunner:
 
             if result.returncode == 0:
                 print(f"{Colors.GREEN}✓ Completed successfully ({self._format_duration(duration)}){Colors.ENDC}")
+
+                # Print verbose output if verbosity is enabled
+                if self.verbosity > 0:
+                    if result.stdout:
+                        print(f"\n{Colors.YELLOW}--- Playbook Output ---{Colors.ENDC}")
+                        print(result.stdout)
+                    if result.stderr:
+                        print(f"\n{Colors.YELLOW}--- Warnings/Info ---{Colors.ENDC}")
+                        print(result.stderr)
+
                 return {
                     "name": playbook_name,
                     "description": playbook.get("description", ""),
