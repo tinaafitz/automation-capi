@@ -18,40 +18,32 @@
     capa_enabled: "{{ component_enabled.stdout | bool }}"
 
 # CAPI and HyperShift are mutually exclusive - disable HyperShift components first
+# Optimization: Disable BOTH Hypershift components in a single atomic patch
 # Skip if both CAPI and CAPA are already enabled (Hypershift should already be disabled)
-- block:
-  - set_fact:
-      component: "hypershift"
-
-  - name: Disable hypershift
-    include_tasks: "{{ AUTOMATION_PATH }}/tasks/update_enabled_flag.yml"
-    vars:
-      enable: "false"
-
-  - set_fact:
-      component: "hypershift-local-hosting"
-
-  - name: Disable hypershift-local-hosting
-    include_tasks: "{{ AUTOMATION_PATH }}/tasks/update_enabled_flag.yml"
-    vars:
-      enable: "false"
+- name: Disable both Hypershift components atomically
+  include_tasks: "{{ AUTOMATION_PATH }}/tasks/update_multiple_components.yml"
+  vars:
+    components_to_update:
+      - name: "hypershift"
+        enabled: false
+      - name: "hypershift-local-hosting"
+        enabled: false
   when: not (capi_enabled and capa_enabled)
 
-# Now enable CAPI components (only if needed)
-- set_fact:
-    component: "cluster-api"
+# Now enable CAPI components atomically
+# Optimization: Enable BOTH CAPI components in a single atomic patch
+# Only update components that aren't already enabled
+- name: Build list of CAPI components to enable
+  set_fact:
+    capi_components_to_enable: >-
+      {{
+        ([] +
+        ([{'name': 'cluster-api', 'enabled': true}] if not capi_enabled else []) +
+        ([{'name': 'cluster-api-provider-aws', 'enabled': true}] if not capa_enabled else []))
+      }}
 
-- name: Enable capi
-  include_tasks: "{{ AUTOMATION_PATH }}/tasks/update_enabled_flag.yml"
+- name: Enable CAPI components atomically
+  include_tasks: "{{ AUTOMATION_PATH }}/tasks/update_multiple_components.yml"
   vars:
-    enable: "true"
-  when: not capi_enabled
-
-- set_fact:
-    component: "cluster-api-provider-aws"
-
-- name: Enable capa
-  include_tasks: "{{ AUTOMATION_PATH }}/tasks/update_enabled_flag.yml"
-  vars:
-    enable: "true"
-  when: not capa_enabled
+    components_to_update: "{{ capi_components_to_enable }}"
+  when: capi_components_to_enable | length > 0
