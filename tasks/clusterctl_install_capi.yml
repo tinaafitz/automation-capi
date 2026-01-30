@@ -13,9 +13,9 @@
       clusterawsadm bootstrap credentials encode-as-profile
     register: aws_b64_creds
     environment:
-      AWS_REGION: "{{ AWS_REGION }}"
-      AWS_ACCESS_KEY_ID: "{{ AWS_ACCESS_KEY_ID }}"
-      AWS_SECRET_ACCESS_KEY: "{{ AWS_SECRET_ACCESS_KEY }}"
+      AWS_REGION: "{{ lookup('env', 'AWS_REGION') | default(AWS_REGION, true) }}"
+      AWS_ACCESS_KEY_ID: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') | default(AWS_ACCESS_KEY_ID, true) }}"
+      AWS_SECRET_ACCESS_KEY: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') | default(AWS_SECRET_ACCESS_KEY, true) }}"
     no_log: true
 
   - name: Display custom CAPA image information
@@ -118,9 +118,9 @@
   - name: Create AWS credentials secret in capa-system
     shell: |
       kubectl create secret generic capa-manager-bootstrap-credentials \
-        --from-literal=AWS_ACCESS_KEY_ID="{{ AWS_ACCESS_KEY_ID }}" \
-        --from-literal=AWS_SECRET_ACCESS_KEY="{{ AWS_SECRET_ACCESS_KEY }}" \
-        --from-literal=AWS_REGION="{{ AWS_REGION }}" \
+        --from-literal=AWS_ACCESS_KEY_ID="{{ lookup('env', 'AWS_ACCESS_KEY_ID') | default(AWS_ACCESS_KEY_ID, true) }}" \
+        --from-literal=AWS_SECRET_ACCESS_KEY="{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') | default(AWS_SECRET_ACCESS_KEY, true) }}" \
+        --from-literal=AWS_REGION="{{ lookup('env', 'AWS_REGION') | default(AWS_REGION, true) }}" \
         -n capa-system \
         --dry-run=client -o yaml | kubectl apply -f -
     register: aws_secret
@@ -129,8 +129,8 @@
   - name: Create ROSA credentials secret in capa-system
     shell: |
       kubectl create secret generic rosa-creds-secret \
-        --from-literal=ocmClientID="{{ OCM_CLIENT_ID }}" \
-        --from-literal=ocmClientSecret="{{ OCM_CLIENT_SECRET }}" \
+        --from-literal=ocmClientID="{{ lookup('env', 'OCM_CLIENT_ID') | default(OCM_CLIENT_ID, true) }}" \
+        --from-literal=ocmClientSecret="{{ lookup('env', 'OCM_CLIENT_SECRET') | default(OCM_CLIENT_SECRET, true) }}" \
         --from-literal=ocmApiUrl="https://api.stage.openshift.com" \
         -n capa-system \
         --dry-run=client -o yaml | kubectl apply -f -
@@ -140,8 +140,8 @@
   - name: Create ROSA credentials secret in ns-rosa-hcp
     shell: |
       kubectl create secret generic rosa-creds-secret \
-        --from-literal=ocmClientID="{{ OCM_CLIENT_ID }}" \
-        --from-literal=ocmClientSecret="{{ OCM_CLIENT_SECRET }}" \
+        --from-literal=ocmClientID="{{ lookup('env', 'OCM_CLIENT_ID') | default(OCM_CLIENT_ID, true) }}" \
+        --from-literal=ocmClientSecret="{{ lookup('env', 'OCM_CLIENT_SECRET') | default(OCM_CLIENT_SECRET, true) }}" \
         --from-literal=ocmApiUrl="https://api.stage.openshift.com" \
         -n ns-rosa-hcp \
         --dry-run=client -o yaml | kubectl apply -f -
