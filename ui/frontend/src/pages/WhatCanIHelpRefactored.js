@@ -101,6 +101,27 @@ const EnvironmentSelector = ({ onResetLayout }) => {
 
         {/* Right side buttons */}
         <div className="flex items-center gap-3">
+          {/* Storage Cabinet */}
+          <FilingCabinet
+            hiddenSections={app.hiddenSections}
+            onRestoreSection={(sectionId) => {
+              dispatch({ type: AppActionTypes.RESTORE_SECTION, payload: sectionId });
+            }}
+            onClearAll={() => {
+              dispatch({ type: AppActionTypes.RESTORE_ALL_SECTIONS });
+            }}
+            theme={app.selectedEnvironment}
+            isExpanded={app.showFilingCabinet}
+            onToggle={() => {
+              dispatch({ type: AppActionTypes.TOGGLE_FILING_CABINET });
+            }}
+            isMinimized={app.filingCabinetMinimized}
+            onMinimize={() => {
+              dispatch({ type: AppActionTypes.TOGGLE_FILING_CABINET_MINIMIZE });
+            }}
+            horizontal={true}
+          />
+
           {/* Reset Layout Button */}
           <button
             onClick={onResetLayout}
@@ -643,9 +664,14 @@ const EnvironmentContent = () => {
   };
 
   return (
-    <div>
-      {/* Environment Selector with Reset Layout */}
-      <EnvironmentSelector onResetLayout={resetSectionOrder} />
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragEnd={handleDragEnd}
+    >
+      <div>
+        {/* Environment Selector with Reset Layout */}
+        <EnvironmentSelector onResetLayout={resetSectionOrder} />
 
       {/* Show Minikube setup section when Minikube is selected BUT not yet verified */}
       {app.selectedEnvironment === 'minikube' && !minikube.verifiedMinikubeClusterInfo && (
@@ -675,13 +701,8 @@ const EnvironmentContent = () => {
       {/* Draggable sections when environment is properly configured */}
       {shouldShowSections && (
         <div className="relative">
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            {/* Main Sections Area */}
-            <SortableContext items={app.sectionOrder} strategy={verticalListSortingStrategy}>
+          {/* Main Sections Area */}
+          <SortableContext items={app.sectionOrder} strategy={verticalListSortingStrategy}>
               <div className="space-y-6">
                 {app.sectionOrder.map((sectionId) => {
                   const component = getSectionComponent(sectionId);
@@ -692,30 +713,7 @@ const EnvironmentContent = () => {
                   ) : null;
                 })}
               </div>
-            </SortableContext>
-
-            {/* Filing Cabinet Widget - Fixed Bottom Right (next to AI assistant) - INSIDE DndContext */}
-            <div className="fixed bottom-6 right-24 z-30 w-64">
-              <FilingCabinet
-                hiddenSections={app.hiddenSections}
-                onRestoreSection={(sectionId) => {
-                  dispatch({ type: AppActionTypes.RESTORE_SECTION, payload: sectionId });
-                }}
-                onClearAll={() => {
-                  dispatch({ type: AppActionTypes.RESTORE_ALL_SECTIONS });
-                }}
-                theme={app.selectedEnvironment}
-                isExpanded={app.showFilingCabinet}
-                onToggle={() => {
-                  dispatch({ type: AppActionTypes.TOGGLE_FILING_CABINET });
-                }}
-                isMinimized={app.filingCabinetMinimized}
-                onMinimize={() => {
-                  dispatch({ type: AppActionTypes.TOGGLE_FILING_CABINET_MINIMIZE });
-                }}
-              />
-            </div>
-          </DndContext>
+          </SortableContext>
         </div>
       )}
 
@@ -747,7 +745,8 @@ const EnvironmentContent = () => {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </DndContext>
   );
 };
 

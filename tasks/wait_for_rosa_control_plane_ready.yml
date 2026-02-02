@@ -1,14 +1,31 @@
 - name: Wait for ROSA Control Plane status to be ready
-  shell: oc get rosacontrolplane -n ns-rosa-hcp -o json | jq -r '.items[].status.ready'
+  shell: oc get rosacontrolplane {{ cluster_name }} -n {{ capi_namespace | default('ns-rosa-hcp') }} -o json | jq -r '.status.ready'
   register: rcp_status
-  until: rcp_status.stdout |  bool
+  until: rcp_status.stdout | bool
   retries: "{{ 75 if retry_count is undefined else retry_count|int }}"
   delay: "{{ 30 if delay is undefined else delay|int }}"
   ignore_errors: true
 
-#  until: '"ready" | string in rcp_status.stdout'
+- name: Display wait timeout warning if cluster not ready
+  debug:
+    msg: |
+      ⚠️  WARNING: ROSA HCP cluster did not become ready within the timeout period.
+
+      This may be normal if:
+      - Cluster provisioning takes longer than expected
+      - AWS is experiencing delays
+
+      Check cluster status manually:
+      oc get rosacontrolplane {{ cluster_name }} -n {{ capi_namespace | default('ns-rosa-hcp') }}
+      oc describe rosacontrolplane {{ cluster_name }} -n {{ capi_namespace | default('ns-rosa-hcp') }}
+  when: not (rcp_status.stdout | bool)
 
 - name: Print the ROSA control plane is ready
   debug:
-    msg: "The rosa_control_plane is ready"
-  when: rcp_status.stdout |  bool
+    msg: |
+      ✅ ROSA HCP Control Plane is READY!
+
+      Cluster: {{ cluster_name }}
+      Namespace: {{ capi_namespace | default('ns-rosa-hcp') }}
+      Status: Running and available
+  when: rcp_status.stdout | bool

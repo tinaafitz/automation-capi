@@ -1,6 +1,6 @@
 {
   "name": "ROSA HCP Cluster Provisioning",
-  "description": "Provision a ROSA HCP cluster with automated network and role configuration",
+  "description": "Provision a ROSA HCP cluster with automated network and role configuration, including wait for cluster readiness (RHACM4K-61815)",
   "version": "1.0.0",
   "tags": ["rosa", "hcp", "provisioning", "network-automation", "role-automation"],
   "environment": "mce",
@@ -9,6 +9,7 @@
       "name": "Create ROSA HCP Cluster",
       "file": "create_rosa_hcp_cluster.yml",
       "description": "Provisions a ROSA HCP cluster with optional ROSANetwork and ROSARoleConfig automation",
+      "test_case_id": "RHACM4K-61815",
       "extra_vars": {
         "cluster_name": "test-rosa-hcp-{{ 999999 | random }}",
         "domain_prefix": "rosa-test",
@@ -65,13 +66,17 @@
       "ROSARoleConfig resource created (if enabled) with IAM roles and OIDC",
       "ROSAControlPlane resource applied successfully",
       "Cluster appears in CAPI resources",
-      "Cluster provisioning begins in AWS"
+      "Cluster provisioning begins in AWS",
+      "Playbook waits for ROSAControlPlane status.ready to become true (STEP 4)",
+      "Cluster fully provisioned and ready (max wait: 37.5 minutes)"
     ],
     "monitoring": [
       "oc get rosacontrolplane -n ns-rosa-hcp",
       "oc get rosanetwork -n ns-rosa-hcp",
       "oc get rosaroleconfig -n ns-rosa-hcp",
-      "oc describe rosacontrolplane <cluster-name> -n ns-rosa-hcp"
+      "oc describe rosacontrolplane <cluster-name> -n ns-rosa-hcp",
+      "oc get rosacontrolplane <cluster-name> -n ns-rosa-hcp -o jsonpath='{.status.ready}' - Check cluster ready status",
+      "oc get rosacontrolplane <cluster-name> -n ns-rosa-hcp -w - Watch cluster status changes"
     ]
   }
 }

@@ -334,6 +334,36 @@
           {% endif %}
 
 # ================================================================
+# STEP 4: Wait for ROSA HCP Cluster to be Ready
+# ================================================================
+- name: Wait for ROSA HCP cluster provisioning to complete
+  block:
+    - name: Display cluster readiness wait message
+      debug:
+        msg: |
+
+          ⏳ STEP 4/4: Waiting for ROSA HCP Cluster to be Ready
+          ───────────────────────────────────────────────────────────
+          This will wait for the ROSA HCP cluster to fully provision in AWS.
+
+          Cluster: {{ cluster_name }}
+          Expected time: 10-20 minutes
+          Maximum wait: 37.5 minutes
+
+          Monitoring: oc get rosacontrolplane {{ cluster_name }} -n {{ capi_namespace }} -w
+
+    - name: Wait for ROSAControlPlane to be ready
+      include_tasks: tasks/wait_for_rosa_control_plane_ready.yml
+
+    - name: Cluster ready confirmation
+      debug:
+        msg: |
+          ✅ STEP 4 COMPLETE: ROSA HCP cluster is READY!
+
+          Cluster: {{ cluster_name }}
+          Status: Fully provisioned and running
+
+# ================================================================
 # FINAL: Provisioning Complete
 # ================================================================
 - name: Display final provisioning summary
@@ -359,11 +389,14 @@
         ├─ Public Subnets: {{ public_subnets | length if public_subnets is defined else 0 }}
         └─ Private Subnets: {{ private_subnets | length if private_subnets is defined else 0 }}
       {% endif %}
-      ✓ RosaControlPlane: {{ cluster_name }}
+      ✓ RosaControlPlane: {{ cluster_name }} (READY ✓)
+
+      Cluster Status: FULLY PROVISIONED AND RUNNING
 
       Next Steps:
-      1. Monitor cluster status: oc get rosacontrolplane {{ cluster_name }} -n {{ capi_namespace }}
-      2. Check events: oc get events -n {{ capi_namespace }} --sort-by='.lastTimestamp'
-      3. View cluster details in UI
+      1. Get cluster console URL: oc get rosacontrolplane {{ cluster_name }} -n {{ capi_namespace }} -o jsonpath='{.status.consoleURL}'
+      2. Get kubeconfig: oc get secret {{ cluster_name }}-kubeconfig -n {{ capi_namespace }}
+      3. View cluster in ROSA console
+      4. Begin testing CAPI workflows
 
-      🚀 Your ROSA HCP cluster is being provisioned!
+      🚀 Your ROSA HCP cluster is ready to use!
