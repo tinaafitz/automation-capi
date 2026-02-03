@@ -44,56 +44,8 @@ metadata:
     automation.acm.redhat.com/network-automation: "true"
     automation.acm.redhat.com/role-automation: "true"
 spec: {}
----
-# ROSANetwork for automated VPC and subnet creation
-# FIXED: Removed unsupported credentialsSecretRef, changed tags to stackTags, added required stackName and region
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
-kind: ROSANetwork
-metadata:
-  name: {{ cluster_name }}-network
-  namespace: {{ capi_namespace }}
-  labels:
-    cluster.x-k8s.io/cluster-name: {{ cluster_name }}
-    automation.acm.redhat.com/test-case: "ACM-21174-Combined"
-    automation.acm.redhat.com/created-by: "ansible-automation"
-spec:
-  identityRef:
-    kind: AWSClusterControllerIdentity
-    name: {{ rosa_network_config.identity_name | default('default') }}
-  region: {{ aws_region }}
-  cidrBlock: {{ rosa_network_config.cidr_block | default('10.0.0.0/16') }}
-  stackName: {{ cluster_name }}-network-stack
-  availabilityZones:
-  {% for az in rosa_network_config.availability_zones -%}
-  - {{ az }}
-  {% endfor -%}
-  stackTags:
-    Environment: {{ environment_tag | default('test') }}
-    TestCase: "ACM-21174-Combined"
-    CreatedBy: "ansible-automation"
-    Purpose: "combined-automation-testing"
----
-# ROSARoleConfig for automated AWS IAM role creation
-# FIXED: Removed unsupported credentialsSecretRef field
-# Default: ALWAYS CREATED for automated role management
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
-kind: ROSARoleConfig
-metadata:
-  name: {{ cluster_name }}-roles
-  namespace: {{ capi_namespace }}
-  labels:
-    cluster.x-k8s.io/cluster-name: {{ cluster_name }}
-    automation.acm.redhat.com/test-case: "ACM-21174-Combined"
-    automation.acm.redhat.com/created-by: "ansible-automation"
-spec:
-  identityRef:
-    kind: AWSClusterControllerIdentity
-    name: {{ rosa_role_config.identity_name | default('default') }}
-  accountRoleConfig:
-    prefix: "{{ (rosa_role_config.prefix | default(domain_prefix))[:4] | regex_replace('-$', '') }}"
-    version: "{{ rcp_version | default(openshift_version) | default('4.20.10') }}"
-  operatorRoleConfig:
-    prefix: "{{ (rosa_role_config.prefix | default(domain_prefix))[:4] | regex_replace('-$', '') }}"
+# Note: ROSANetwork and ROSARoleConfig are created separately in STEP 1 and STEP 2
+# This template only references them, does not create them
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1beta2
 kind: ROSAControlPlane
@@ -224,7 +176,7 @@ metadata:
     automation.acm.redhat.com/network-automation: "true"
     automation.acm.redhat.com/role-automation: "true"
 spec:
-  nodePoolName: {{ machine_pool.node_pool_name | default((rosa_role_prefix | default(domain_prefix) | default('test'))[:4] + '-np') }}
+  nodePoolName: {{ (rosa_role_prefix | default(domain_prefix) | default('test'))[:4] | regex_replace('-$', '') }}-np
   instanceType: {{ machine_pool.instance_type | default('m5.xlarge') }}
   version: {{ openshift_version }}
   # Note: subnet assignment will be automatic via ROSANetwork
