@@ -108,13 +108,29 @@
 - name: Get AWS account ID from STS
   when: create_rosa_roles | bool or create_rosa_network | bool
   block:
-    - name: Get AWS caller identity
+    - name: Get AWS caller identity using boto3
       shell: |
-        if [ -n "$AWS_ACCESS_KEY_ID" ]; then
-          aws sts get-caller-identity --query Account --output text
-        else
-          echo "NO_AWS_CREDS"
-        fi
+        python3 -c "
+        import sys
+        import os
+
+        # Check if credentials are provided
+        if not os.environ.get('AWS_ACCESS_KEY_ID'):
+            print('NO_AWS_CREDS')
+            sys.exit(0)
+
+        try:
+            import boto3
+            sts = boto3.client('sts')
+            identity = sts.get_caller_identity()
+            print(identity['Account'])
+        except ImportError:
+            print('ERROR: boto3 not available')
+            sys.exit(1)
+        except Exception as e:
+            print(f'ERROR: {str(e)}')
+            sys.exit(1)
+        "
       environment:
         AWS_ACCESS_KEY_ID: "{{ AWS_ACCESS_KEY_ID | default('') }}"
         AWS_SECRET_ACCESS_KEY: "{{ AWS_SECRET_ACCESS_KEY | default('') }}"
@@ -129,6 +145,7 @@
       when:
         - aws_account_result.rc == 0
         - aws_account_result.stdout != "NO_AWS_CREDS"
+        - not aws_account_result.stdout.startswith('ERROR:')
         - aws_account_result.stdout | trim != ""
 
     - name: Fail if AWS credentials are invalid or missing
@@ -138,7 +155,7 @@
 
           RosaRoleConfig and ROSANetwork require valid AWS credentials.
 
-          Current error: {{ aws_account_result.stderr | default('No AWS credentials found') }}
+          Current error: {{ aws_account_result.stdout if aws_account_result.stdout.startswith('ERROR:') else 'No AWS credentials found' }}
 
           To use automation features, ensure AWS credentials are configured:
           1. Set environment variables:
@@ -146,9 +163,8 @@
              - AWS_SECRET_ACCESS_KEY
              - AWS_REGION (optional, defaults to us-west-2)
 
-          2. Or configure AWS CLI: aws configure
-
-          3. Verify credentials: aws sts get-caller-identity
+          2. Verify credentials with Python boto3:
+             python3 -c "import boto3; print(boto3.client('sts').get_caller_identity())"
 
           Alternatively, disable automation and provide existing infrastructure:
           - Uncheck "Create RosaRoleConfig"
@@ -157,6 +173,7 @@
       when:
         - (aws_account_result.rc != 0) or
           (aws_account_result.stdout == "NO_AWS_CREDS") or
+          (aws_account_result.stdout.startswith('ERROR:')) or
           (aws_account_result.stdout | trim == "")
 
 # ================================================================
