@@ -18,6 +18,7 @@ const FilingCabinet = ({
   onClose,
   isMinimized,
   onMinimize,
+  horizontal = false,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: 'filing-cabinet-dropzone',
@@ -62,9 +63,113 @@ const FilingCabinet = ({
     'test-suite-runner': { name: 'Test Automation', icon: '🔬' },
     'task-detail': { name: 'Task Detail', icon: '📄' },
     'minikube-environment': { name: 'Minikube Environment', icon: '⚡' },
-    'minikube-terminal': { name: 'Minikube Terminal', icon: '💻' },
+    'minikube-terminal': { name: 'Terminal', icon: '💻' },
     'helm-chart-tests': { name: 'Helm Chart Tests', icon: '📦' },
   };
+
+  // Horizontal mode for header placement
+  if (horizontal) {
+    return (
+      <div className="relative" ref={setNodeRef}>
+        {/* Compact Header Button - Drop Zone */}
+        <button
+          onClick={onToggle}
+          className={`flex items-center gap-2 px-4 py-2 bg-gradient-to-r ${colors.gradient} text-white rounded-lg hover:shadow-lg transition-all duration-200 ${
+            isOver
+              ? 'ring-4 ring-yellow-400 ring-opacity-50 scale-105'
+              : hiddenSections.length > 0
+                ? 'shadow-md'
+                : 'opacity-50'
+          }`}
+        >
+          <ArchiveBoxIcon className="h-5 w-5" />
+          <span className="font-semibold text-sm">Storage</span>
+          {hiddenSections.length > 0 && (
+            <div className="bg-white/30 backdrop-blur-sm rounded-full px-2 py-0.5">
+              <span className="text-xs font-bold">{hiddenSections.length}</span>
+            </div>
+          )}
+        </button>
+
+        {/* Horizontal Dropdown Panel */}
+        {isExpanded && hiddenSections.length > 0 && (
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 z-40"
+              onClick={onToggle}
+            />
+
+            {/* Dropdown Panel */}
+            <div
+              className={`absolute top-full mt-2 left-1/2 transform -translate-x-1/2 bg-white rounded-xl shadow-2xl border-2 ${colors.border} z-50 min-w-max`}
+            >
+              {/* Header */}
+              <div className={`bg-gradient-to-r ${colors.gradient} p-4 rounded-t-xl flex items-center justify-between`}>
+                <div className="flex items-center gap-3">
+                  <ArchiveBoxIcon className="h-6 w-6 text-white" />
+                  <div>
+                    <h3 className="font-bold text-white">Widget Storage</h3>
+                    <p className="text-xs text-white/80">
+                      {hiddenSections.length} section{hiddenSections.length !== 1 ? 's' : ''} stored
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={onToggle}
+                  className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+                >
+                  <XMarkIcon className="h-5 w-5 text-white" />
+                </button>
+              </div>
+
+              {/* Horizontal Items Grid */}
+              <div className="p-4 grid grid-cols-3 gap-3 max-w-3xl">
+                {hiddenSections.map((sectionId) => {
+                  const metadata = sectionMetadata[sectionId] || { name: sectionId, icon: '📦' };
+                  return (
+                    <div
+                      key={sectionId}
+                      className={`border-2 ${colors.border} rounded-lg p-3 bg-gradient-to-br ${colors.lightBg} hover:shadow-lg transition-all duration-200 cursor-pointer group`}
+                      onClick={() => onRestoreSection(sectionId)}
+                    >
+                      <div className="text-center mb-2">
+                        <div className="text-3xl mb-1">{metadata.icon}</div>
+                        <p className="text-xs font-bold text-gray-900 truncate">{metadata.name}</p>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRestoreSection(sectionId);
+                        }}
+                        className={`w-full flex items-center justify-center gap-1 px-2 py-1.5 ${colors.bg} text-white rounded-md ${colors.hoverBg} transition-all duration-200 text-xs font-medium`}
+                      >
+                        <ArrowUturnLeftIcon className="h-3 w-3" />
+                        Restore
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Restore All Button */}
+              {hiddenSections.length > 1 && (
+                <div className="p-4 pt-0">
+                  <button
+                    onClick={onClearAll}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
+                  >
+                    <PlusIcon className="h-4 w-4" />
+                    Restore All Sections
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -182,14 +287,11 @@ const FilingCabinet = ({
                 <div className="space-y-1.5">
                   {hiddenSections.map((sectionId, index) => {
                     const metadata = sectionMetadata[sectionId] || { name: sectionId, icon: '📦' };
-                    // Alternate drawer colors for visual interest
-                    const drawerGradient =
-                      index % 2 === 0 ? `${colors.gradient}` : 'from-indigo-500 to-purple-600';
 
                     return (
                       <div
                         key={sectionId}
-                        className={`bg-gradient-to-r ${drawerGradient} rounded-lg shadow-md border border-white/20 p-2 hover:scale-105 hover:shadow-lg transition-all duration-200 cursor-pointer group`}
+                        className={`bg-gradient-to-r ${colors.gradient} rounded-lg shadow-md border border-white/20 p-2 hover:scale-105 hover:shadow-lg transition-all duration-200 cursor-pointer group`}
                         onClick={(e) => {
                           e.stopPropagation();
                           onRestoreSection(sectionId);
@@ -357,6 +459,7 @@ FilingCabinet.propTypes = {
   onClose: PropTypes.func,
   isMinimized: PropTypes.bool,
   onMinimize: PropTypes.func,
+  horizontal: PropTypes.bool,
 };
 
 export default FilingCabinet;

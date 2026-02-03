@@ -9129,6 +9129,106 @@ async def get_mce_environment(cluster_name: str):
         raise HTTPException(status_code=500, detail=f"Error getting environment: {str(e)}")
 
 
+@app.post("/api/mce-environments")
+async def save_mce_environment(request: Request):
+    """
+    Save current MCE environment connection details for future use.
+
+    Request body:
+    {
+        "clusterName": "qe6-vmware-ibm",
+        "apiUrl": "https://api.qe6-vmware-ibm.install.dev09.red-chesterfield.com:6443",
+        "username": "kubeadmin",
+        "password": "xxxxx",
+        "platform": "VMware",
+        "ocpVersion": "4.20.11",
+        "mceVersion": "2.11.0-239",
+        "acmVersion": "2.16.0-xxx",
+        "consoleUrl": "https://console-openshift-console.apps.qe6-vmware-ibm..."
+    }
+    """
+    try:
+        import sys
+        from datetime import datetime
+
+        scripts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "scripts")
+        sys.path.insert(0, scripts_dir)
+
+        from mce_env_manager import MCEEnvManager
+
+        data = await request.json()
+
+        # Extract cluster name from API URL if not provided
+        cluster_name = data.get("clusterName")
+        if not cluster_name:
+            api_url = data.get("apiUrl", "")
+            # Extract from URL like https://api.qe6-vmware-ibm.install.dev09.red-chesterfield.com:6443
+            import re
+            match = re.search(r'api\.([^.]+)', api_url)
+            if match:
+                cluster_name = match.group(1)
+            else:
+                return {"success": False, "message": "Could not determine cluster name"}
+
+        # Build environment data structure
+        env_data = {
+            "cluster_name": cluster_name,
+            "platform": data.get("platform", "Unknown"),
+            "added_date": datetime.now().isoformat(),
+            "last_accessed": datetime.now().isoformat(),
+            "status": "unknown",
+            "notes": "Added from UI",
+            "data": {
+                "cluster": {
+                    "platform": data.get("platform", "Unknown"),
+                    "hub_cluster": cluster_name,
+                    "ocp_version": data.get("ocpVersion", ""),
+                    "mce_version": data.get("mceVersion", ""),
+                    "acm_version": data.get("acmVersion", ""),
+                    "status": "Running",
+                    "password": data.get("password", ""),
+                    "console_url": data.get("consoleUrl", ""),
+                    "api_url": data.get("apiUrl", ""),
+                    "username": data.get("username", "kubeadmin")
+                },
+                "notification": {
+                    "title": f"MCE Environment - {cluster_name}",
+                    "mce_version": data.get("mceVersion", ""),
+                    "acm_version": data.get("acmVersion", ""),
+                    "hub_cluster": cluster_name
+                }
+            }
+        }
+
+        manager = MCEEnvManager()
+
+        # Check if environment already exists
+        existing = manager.get_environment(cluster_name)
+        if existing:
+            # Update last_accessed time
+            manager.update_last_accessed(cluster_name)
+            message = f"Environment {cluster_name} already exists - updated last accessed time"
+        else:
+            # Add new environment
+            manager.add_environment(env_data)
+            message = f"Environment {cluster_name} saved successfully"
+
+        return {
+            "success": True,
+            "message": message,
+            "clusterName": cluster_name
+        }
+
+    except Exception as e:
+        print(f"❌ Error saving MCE environment: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "message": f"Error saving environment: {str(e)}"
+        }
+
+
 @app.post("/api/mce-environments/{cluster_name}/status")
 async def update_mce_environment_status(cluster_name: str, request: Request):
     """

@@ -145,6 +145,9 @@ const MCEEnvironment = () => {
         // Store successful verification in localStorage for persistence
         localStorage.setItem('mce-environment-verified', 'true');
 
+        // Save environment to history
+        await saveEnvironmentToHistory();
+
         // Refresh status after successful verification
         await refreshAllStatus();
       } else {
@@ -278,6 +281,68 @@ Once logged in, click "Verify" again to retry.`
   // Handle credentials action
   const handleCredentials = () => {
     dispatch({ type: AppActionTypes.SHOW_CREDENTIALS_MODAL, payload: true });
+  };
+
+  // Save environment to history
+  const saveEnvironmentToHistory = async () => {
+    try {
+      // Get credentials from API
+      const credsResponse = await fetch('/api/credentials');
+      const credsData = await credsResponse.json();
+
+      // Get MCE features/versions
+      const featuresResponse = await fetch('/api/mce/features');
+      const featuresData = await featuresResponse.json();
+
+      // Extract cluster name from API URL
+      const apiUrl = ocpStatus?.api_url || '';
+      const clusterMatch = apiUrl.match(/api\.([^.]+)/);
+      const clusterName = clusterMatch ? clusterMatch[1] : '';
+
+      if (!clusterName) {
+        console.warn('Could not extract cluster name from API URL:', apiUrl);
+        return;
+      }
+
+      // Detect platform from API URL
+      let platform = 'Unknown';
+      if (apiUrl.includes('rdr-ppcloud') || apiUrl.includes('ibm')) {
+        platform = 'IBM Power';
+      } else if (apiUrl.includes('dev09.red-chesterfield')) {
+        platform = 'VMware';
+      } else if (apiUrl.includes('aws')) {
+        platform = 'AWS';
+      }
+
+      // Build console URL
+      const consoleUrl = apiUrl.replace('api.', 'console-openshift-console.apps.');
+
+      // Save to backend
+      const saveResponse = await fetch('/api/mce-environments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clusterName,
+          apiUrl,
+          username: credsData.ocp_username || 'kubeadmin',
+          password: credsData.ocp_password || '',
+          platform,
+          ocpVersion: featuresData.versions?.openshift || '',
+          mceVersion: featuresData.versions?.mce || '',
+          acmVersion: featuresData.versions?.acm || '',
+          consoleUrl
+        })
+      });
+
+      const saveData = await saveResponse.json();
+      if (saveData.success) {
+        console.log(`✅ Environment saved: ${saveData.message}`);
+      } else {
+        console.warn(`⚠️ Could not save environment: ${saveData.message}`);
+      }
+    } catch (error) {
+      console.error('Error saving environment to history:', error);
+    }
   };
 
   // Handle refresh action
