@@ -55,6 +55,9 @@
         api_url: "{{ OCP_HUB_API_URL }}"
         mce_namespace: "{{ MCE_NAMESPACE }}"
 
+    - name: Login to OpenShift Hub Cluster
+      include_tasks: tasks/login_ocp.yml
+
     - name: Derive cluster name and domain prefix from name_prefix
       set_fact:
         cluster_name: "{{ name_prefix }}-rosa-hcp"
