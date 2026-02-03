@@ -116,8 +116,8 @@ pipeline {
                         ]) {
                             sh '''
                                 cd capa
-                                # Execute the CAPI/CAPA configuration test suite (RHACM4K-61722)
-                                ./run-test-suite.py 10-configure-mce-environment --format junit -vv
+                                # Execute the CAPI/CAPA configuration test suite (RHACM4K-61722) with maximum verbosity
+                                ./run-test-suite.py 10-configure-mce-environment --format all -vvv
                             '''
                         }
                         // Archive results from both old and new test systems
@@ -152,8 +152,8 @@ pipeline {
                         ]) {
                             sh '''
                                 cd capa
-                                # Execute the ROSA HCP provisioning test suite
-                                ./run-test-suite.py 20-rosa-hcp-provision --format junit -vv
+                                # Execute the ROSA HCP provisioning test suite with maximum verbosity
+                                ./run-test-suite.py 20-rosa-hcp-provision --format all -vvv
                             '''
                         }
                         // Archive provisioning test results
