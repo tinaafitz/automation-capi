@@ -14,15 +14,19 @@
 //   30-rosa-hcp-delete            - Delete ROSA HCP cluster (manual/separate)
 //   05-verify-mce-environment     - Verify MCE environment (manual/separate)
 //
-// Credentials Required (Jenkins credentials):
-//   - OCP_HUB_API_URL           : OpenShift cluster API URL (parameter)
-//   - OCP_HUB_CLUSTER_USER      : OpenShift username (parameter, default: kubeadmin)
-//   - OCP_HUB_CLUSTER_PASSWORD  : OpenShift password (parameter)
-//   - CAPI_AWS_ACCESS_KEY_ID    : AWS access key (credential)
-//   - CAPI_AWS_SECRET_ACCESS_KEY: AWS secret key (credential)
-//   - OCM_CLIENT_ID             : OCM client ID (credential, for ROSA)
-//   - OCM_CLIENT_SECRET         : OCM client secret (credential, for ROSA)
-//   - MCE_NAMESPACE             : MCE namespace (parameter, default: multicluster-engine)
+// Credentials Required:
+//   Parameters (passed when running job):
+//   - OCP_HUB_API_URL           : OpenShift cluster API URL
+//   - OCP_HUB_CLUSTER_USER      : OpenShift username (default: kubeadmin)
+//   - OCP_HUB_CLUSTER_PASSWORD  : OpenShift password
+//   - OCM_CLIENT_ID             : OCM client ID (for ROSA provisioning)
+//   - OCM_CLIENT_SECRET         : OCM client secret (for ROSA provisioning)
+//   - MCE_NAMESPACE             : MCE namespace (default: multicluster-engine)
+//   - TEST_GIT_BRANCH           : Git branch to test (default: main)
+//
+//   Jenkins Credentials (configured in Jenkins):
+//   - CAPI_AWS_ACCESS_KEY_ID    : AWS access key
+//   - CAPI_AWS_SECRET_ACCESS_KEY: AWS secret key
 //
 // Pipeline Behavior:
 //   - Stage 1 (Configure): If fails → pipeline stops
@@ -64,6 +68,8 @@ pipeline {
         string(name:'OCP_HUB_CLUSTER_USER', defaultValue: 'kubeadmin', description: 'Hub OCP username')
         string(name:'OCP_HUB_CLUSTER_PASSWORD', defaultValue: '', description: 'Hub cluster password')
         string(name:'MCE_NAMESPACE', defaultValue: 'multicluster-engine', description: 'The Namespace where MCE is installed')
+        string(name:'OCM_CLIENT_ID', defaultValue: '', description: 'OCM client ID for ROSA provisioning')
+        string(name:'OCM_CLIENT_SECRET', defaultValue: '', description: 'OCM client secret for ROSA provisioning')
         string(name:'TEST_GIT_BRANCH', defaultValue: 'main', description: 'CAPI test Git branch')
     }
     stages {
@@ -140,15 +146,15 @@ pipeline {
                 OCP_HUB_CLUSTER_USER = "${params.OCP_HUB_CLUSTER_USER}"
                 OCP_HUB_CLUSTER_PASSWORD = "${params.OCP_HUB_CLUSTER_PASSWORD}"
                 MCE_NAMESPACE = "${params.MCE_NAMESPACE}"
+                OCM_CLIENT_ID = "${params.OCM_CLIENT_ID}"
+                OCM_CLIENT_SECRET = "${params.OCM_CLIENT_SECRET}"
             }
             steps {
                 script {
                     try {
                         withCredentials([
                             string(credentialsId: 'CAPI_AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
-                            string(credentialsId: 'CAPI_AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY'),
-                            string(credentialsId: 'OCM_CLIENT_ID', variable: 'OCM_CLIENT_ID'),
-                            string(credentialsId: 'OCM_CLIENT_SECRET', variable: 'OCM_CLIENT_SECRET')
+                            string(credentialsId: 'CAPI_AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
                         ]) {
                             sh '''
                                 cd capa
