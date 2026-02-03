@@ -127,7 +127,7 @@ spec:
   defaultMachinePoolSpec:
     instanceType: {{ machine_pool.instance_type | default('m5.xlarge') }}
     autoscaling:
-      maxReplicas: {{ machine_pool.max_replicas | default(3) }}
+      maxReplicas: {{ machine_pool.max_replicas | default(4) }}
       minReplicas: {{ machine_pool.min_replicas | default(2) }}
 
   additionalTags:
@@ -224,7 +224,8 @@ metadata:
     automation.acm.redhat.com/network-automation: "true"
     automation.acm.redhat.com/role-automation: "true"
 spec:
-  nodePoolName: {{ machine_pool.node_pool_name | default(cluster_name + '-nodepool') }}
+  nodePoolName: {{ machine_pool.node_pool_name | default((rosa_role_prefix | default(domain_prefix) | default('test'))[:4] + '-np') }}
   instanceType: {{ machine_pool.instance_type | default('m5.xlarge') }}
   version: {{ openshift_version }}
   # Note: subnet assignment will be automatic via ROSANetwork
+  # nodePoolName uses 4-char prefix + '-np' to stay under 15-byte limit
