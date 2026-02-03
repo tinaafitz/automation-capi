@@ -2,37 +2,37 @@
 @Library('ci-shared-lib') _
 
 // ============================================================================
-// CAPI/CAPA Test Pipeline - Supports Both Test Systems
+// CAPI/CAPA Test Pipeline - E2E ROSA HCP Testing
 // ============================================================================
-// Old System: ./run-automation.sh cap-enable-test.yml → results/
-// New System: ./run-test-suite.py <suite-id> → test-results/
+// Pipeline Flow:
+//   1. Configure MCE Environment (suite 10) - Enable CAPI/CAPA
+//   2. Provision ROSA HCP Cluster (suite 20) - Only runs if configuration passes
 //
-// Available Test Suites (New System):
+// Test Suites:
 //   10-configure-mce-environment  - Configure CAPI/CAPA (RHACM4K-61722)
-//   20-rosa-hcp-provision         - Provision ROSA HCP cluster
-//   30-rosa-hcp-delete            - Delete ROSA HCP cluster
-//   05-verify-mce-environment     - Verify MCE environment
+//   20-rosa-hcp-provision         - Provision ROSA HCP cluster (runs if 10 passes)
+//   30-rosa-hcp-delete            - Delete ROSA HCP cluster (manual/separate)
+//   05-verify-mce-environment     - Verify MCE environment (manual/separate)
 //
-// Credentials Required (set as environment variables or in vars/user_vars.yml):
-//   - OCP_HUB_API_URL           : OpenShift cluster API URL
-//   - OCP_HUB_CLUSTER_USER      : OpenShift username (default: kubeadmin)
-//   - OCP_HUB_CLUSTER_PASSWORD  : OpenShift password
-//   - AWS_ACCESS_KEY_ID         : AWS access key (from Jenkins credentials)
-//   - AWS_SECRET_ACCESS_KEY     : AWS secret key (from Jenkins credentials)
-//   - OCM_CLIENT_ID             : OCM client ID (from Jenkins credentials)
-//   - OCM_CLIENT_SECRET         : OCM client secret (from Jenkins credentials)
-//   - MCE_NAMESPACE             : MCE namespace (default: multicluster-engine)
+// Credentials Required (Jenkins credentials):
+//   - OCP_HUB_API_URL           : OpenShift cluster API URL (parameter)
+//   - OCP_HUB_CLUSTER_USER      : OpenShift username (parameter, default: kubeadmin)
+//   - OCP_HUB_CLUSTER_PASSWORD  : OpenShift password (parameter)
+//   - CAPI_AWS_ACCESS_KEY_ID    : AWS access key (credential)
+//   - CAPI_AWS_SECRET_ACCESS_KEY: AWS secret key (credential)
+//   - OCM_CLIENT_ID             : OCM client ID (credential, for ROSA)
+//   - OCM_CLIENT_SECRET         : OCM client secret (credential, for ROSA)
+//   - MCE_NAMESPACE             : MCE namespace (parameter, default: multicluster-engine)
 //
-// Example Usage in Stage (with environment variables):
-//   sh """
-//     export OCP_HUB_API_URL=${params.OCP_HUB_API_URL}
-//     export OCP_HUB_CLUSTER_USER=${params.OCP_HUB_CLUSTER_USER}
-//     export OCP_HUB_CLUSTER_PASSWORD=${params.OCP_HUB_CLUSTER_PASSWORD}
-//     export AWS_ACCESS_KEY_ID=${CAPI_AWS_ACCESS_KEY_ID}
-//     export AWS_SECRET_ACCESS_KEY=${CAPI_AWS_SECRET_ACCESS_KEY}
-//     export MCE_NAMESPACE=${params.MCE_NAMESPACE}
-//     ./run-test-suite.py 10-configure-mce-environment
-//   """
+// Pipeline Behavior:
+//   - Stage 1 (Configure): If fails → pipeline stops
+//   - Stage 2 (Provision): Only runs if Stage 1 succeeds
+//   - All test results archived as JUnit XML for Jenkins reporting
+//
+// Test Results:
+//   - JUnit XML: capa/test-results/**/*.xml
+//   - HTML Reports: capa/test-results/**/*.html
+//   - JSON Results: capa/test-results/**/*.json
 // ============================================================================
 
 pipeline {
@@ -100,7 +100,7 @@ pipeline {
                 error ('OCP_HUB_CLUSTER_API_URL, OCP_HUB_CLUSTER_PASSWORD must be set to run the pipeline!')
             }
         }
-        stage('Run CAPI Tests') {
+        stage('Run CAPI Configuration Tests') {
             environment {
                 OCP_HUB_API_URL = "${params.OCP_HUB_API_URL}"
                 OCP_HUB_CLUSTER_USER = "${params.OCP_HUB_CLUSTER_USER}"
@@ -124,7 +124,43 @@ pipeline {
                         archiveArtifacts artifacts: 'capa/results/**/*.xml, capa/test-results/**/*.xml', allowEmptyArchive: true, followSymlinks: false, fingerprint: true
                     }
                     catch (ex) {
-                        echo 'CAPI Tests failed ... Continuing with the pipeline'
+                        echo 'CAPI Configuration Tests failed ... Marking build as FAILURE'
+                        currentBuild.result = 'FAILURE'
+                        error('Configuration test suite failed - stopping pipeline')
+                    }
+                }
+            }
+        }
+        stage('Run ROSA HCP Provisioning Tests') {
+            when {
+                expression { currentBuild.result != 'FAILURE' }
+            }
+            environment {
+                OCP_HUB_API_URL = "${params.OCP_HUB_API_URL}"
+                OCP_HUB_CLUSTER_USER = "${params.OCP_HUB_CLUSTER_USER}"
+                OCP_HUB_CLUSTER_PASSWORD = "${params.OCP_HUB_CLUSTER_PASSWORD}"
+                MCE_NAMESPACE = "${params.MCE_NAMESPACE}"
+            }
+            steps {
+                script {
+                    try {
+                        withCredentials([
+                            string(credentialsId: 'CAPI_AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+                            string(credentialsId: 'CAPI_AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY'),
+                            string(credentialsId: 'OCM_CLIENT_ID', variable: 'OCM_CLIENT_ID'),
+                            string(credentialsId: 'OCM_CLIENT_SECRET', variable: 'OCM_CLIENT_SECRET')
+                        ]) {
+                            sh '''
+                                cd capa
+                                # Execute the ROSA HCP provisioning test suite
+                                ./run-test-suite.py 20-rosa-hcp-provision --format junit -vv
+                            '''
+                        }
+                        // Archive provisioning test results
+                        archiveArtifacts artifacts: 'capa/test-results/**/*.xml, capa/test-results/**/*.html, capa/test-results/**/*.json', allowEmptyArchive: true, followSymlinks: false, fingerprint: true
+                    }
+                    catch (ex) {
+                        echo 'ROSA HCP Provisioning Tests failed'
                         currentBuild.result = 'FAILURE'
                     }
                 }
