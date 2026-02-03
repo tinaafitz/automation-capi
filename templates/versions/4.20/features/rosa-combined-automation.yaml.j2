@@ -100,11 +100,11 @@ kind: ROSAControlPlane
 metadata:
   name: {{ cluster_name }}
   namespace: {{ capi_namespace }}
+  {% if cluster_description is defined and cluster_description -%}
   annotations:
-    {% if cluster_description is defined and cluster_description %}
     cluster.x-k8s.io/description: |
 {{ cluster_description | indent(6, first=True) }}
-    {% endif %}
+  {% endif -%}
   labels:
     automation.acm.redhat.com/test-case: "ACM-21174-Combined"
     automation.acm.redhat.com/network-automation: "true"
