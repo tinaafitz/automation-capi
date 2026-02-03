@@ -1,0 +1,140 @@
+---
+# ================================================================
+# Delete ROSA HCP Cluster with Automation Resources
+# ================================================================
+# This playbook deletes a ROSA HCP cluster and its optional
+# ROSANetwork and ROSARoleConfig resources.
+#
+# Usage Examples:
+#
+# 1. Delete by name_prefix (recommended - matches provisioning):
+#    ansible-playbook delete_rosa_hcp_cluster.yml \
+#      -e name_prefix=qe6
+#
+# 2. Delete by explicit cluster name:
+#    ansible-playbook delete_rosa_hcp_cluster.yml \
+#      -e cluster_name=my-cluster
+#
+# 3. Delete with custom namespace:
+#    ansible-playbook delete_rosa_hcp_cluster.yml \
+#      -e name_prefix=qe6 \
+#      -e capi_namespace=custom-namespace
+#
+# 4. Delete only specific resources:
+#    ansible-playbook delete_rosa_hcp_cluster.yml \
+#      -e cluster_name=my-cluster \
+#      -e delete_network=false \
+#      -e delete_roles=false
+#
+# 5. Via test suite (recommended):
+#    ./run-test-suite.py 04-rosa-hcp-delete -e name_prefix=qe6
+# ================================================================
+
+- name: Delete ROSA HCP cluster and automation resources
+  hosts: localhost
+  connection: local
+  any_errors_fatal: true
+  vars_files:
+    - vars/vars.yml
+    - vars/user_vars.yml
+
+  vars:
+    # These will be set by extra_vars from test suite or command line
+    delete_network: true
+    delete_roles: true
+    wait_for_deletion: true
+    deletion_timeout: 2400  # 40 minutes (AWS resource cleanup can be slow)
+
+  tasks:
+    - name: Set cluster credentials
+      set_fact:
+        ocp_user: "{{ OCP_HUB_CLUSTER_USER }}"
+        ocp_password: "{{ OCP_HUB_CLUSTER_PASSWORD }}"
+        api_url: "{{ OCP_HUB_API_URL }}"
+        mce_namespace: "{{ MCE_NAMESPACE }}"
+
+    - name: Derive cluster_name from name_prefix if provided
+      set_fact:
+        cluster_name: "{{ name_prefix }}-rosa-hcp"
+      when: name_prefix is defined
+
+    - name: Validate cluster name is provided
+      fail:
+        msg: |
+          ❌ ERROR: cluster_name or name_prefix must be provided!
+
+          Usage:
+            ansible-playbook delete_rosa_hcp_cluster.yml -e name_prefix=qe6
+            OR
+            ansible-playbook delete_rosa_hcp_cluster.yml -e cluster_name=my-cluster
+      when: cluster_name is not defined
+
+    - name: Set default capi namespace
+      set_fact:
+        capi_namespace: "ns-rosa-hcp"
+      when: capi_namespace is not defined
+
+    - name: Set derived resource names
+      set_fact:
+        rosa_network_name: "{{ cluster_name }}-network"
+        rosa_role_config_name: "{{ cluster_name }}-roles"
+        machine_pool_name: "{{ cluster_name }}"
+
+    - name: Prepare ansible runner host
+      include_tasks: tasks/prepare_ansible_runner.yml
+      when: not skip_ansible_runner | default(false) | bool
+
+    - name: Login to OCP cluster
+      include_tasks: tasks/login_ocp.yml
+
+    - name: Display deletion configuration
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                                                               ║
+          ║       🗑️  ROSA HCP Cluster Deletion                          ║
+          ║                                                               ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          Deletion Configuration:
+          • Cluster Name: {{ cluster_name }}
+          • Namespace: {{ capi_namespace }}
+
+          Resources to Delete:
+          • ROSAControlPlane: ✓ Yes
+          • ROSAMachinePool: ✓ Yes (if exists)
+          • ROSANetwork: {{ '✓ Yes' if (delete_network | bool) else '✗ No' }}
+          • ROSARoleConfig: {{ '✓ Yes' if (delete_roles | bool) else '✗ No' }}
+          • Core Cluster: ✓ Yes (if exists)
+
+          Settings:
+          • Wait for Deletion: {{ '✓ Yes' if (wait_for_deletion | bool) else '✗ No' }}
+          • Timeout: {{ deletion_timeout }}s ({{ (deletion_timeout / 60) | int }} minutes)
+
+    - name: Delete ROSA HCP cluster resources
+      include_tasks: tasks/delete_rosa_hcp_resources.yml
+
+    - name: Deletion complete
+      debug:
+        msg: |
+
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                                                               ║
+          ║           ✅  DELETION COMPLETE!                              ║
+          ║                                                               ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          Cluster Deletion Summary:
+          • Cluster: {{ cluster_name }}
+          • Namespace: {{ capi_namespace }}
+
+          Resources Deleted:
+          {{ deletion_summary | default('See task output above') }}
+
+          Verify Deletion:
+          oc get rosacontrolplane,rosamachinepool,rosanetwork,rosaroleconfig -n {{ capi_namespace }}
+
+          Check AWS Cleanup:
+          rosa list clusters --region {{ aws_region | default('us-west-2') }}
+
+          🎉 Cleanup successful!
