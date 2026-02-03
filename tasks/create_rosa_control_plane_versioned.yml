@@ -38,15 +38,21 @@
       - Template Source: {{ template_source }}
       - Template Path: {{ resolved_template_path }}
       - Output File: {{ output_dir }}/{{ cluster_name }}-rosa-control-plane.yaml
+      {% if version_defaults is defined and version_defaults.cluster_type is defined %}
       - Cluster Type: {{ version_defaults.cluster_type }}
+      {% endif %}
 
 - name: Show available features for selected version
   debug:
     msg: |
       Available features for OpenShift {{ openshift_version }}:
+      {% if current_version_features is defined and current_version_features.supported_features is defined %}
       {% for feature in current_version_features.supported_features %}
       - {{ feature }}
       {% endfor %}
+      {% else %}
+      - (Feature list not available)
+      {% endif %}
 
 - name: Apply ROSA control plane configuration
   shell: |

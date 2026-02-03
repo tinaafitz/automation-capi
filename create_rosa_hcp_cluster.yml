@@ -55,6 +55,13 @@
         api_url: "{{ OCP_HUB_API_URL }}"
         mce_namespace: "{{ MCE_NAMESPACE }}"
 
+    - name: Derive cluster name and domain prefix from name_prefix
+      set_fact:
+        cluster_name: "{{ name_prefix }}-rosa-hcp"
+        domain_prefix: "{{ name_prefix }}"
+        cluster_name_prefix: "{{ name_prefix }}"
+      when: name_prefix is defined and name_prefix != ""
+
     - name: Set default cluster name
       set_fact:
         cluster_name: "test-rosa-hcp-{{ 999999 | random }}"
@@ -93,14 +100,15 @@
         aws_region: "{{ AWS_REGION | default('us-west-2') }}"
         channel_group: "stable"
         private_network: false
-        additional_tags: ""
+        additional_tags:
+          automation-type: "capa_automation"
       when: aws_region is not defined
 
     - name: Set derived values
       set_fact:
         network_cidr: "{{ vpc_cidr_block }}"
         create_rosa_roles: "{{ create_rosa_role_config }}"
-        rosa_role_prefix: "{{ role_prefix if role_prefix else cluster_name }}"
+        rosa_role_prefix: "{{ role_prefix | default(domain_prefix) }}"
         rosa_role_config_name: "{{ cluster_name }}-roles"
         rosa_network_name: "{{ cluster_name }}-network"
 

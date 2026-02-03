@@ -10,7 +10,7 @@ metadata:
 spec:
   hubAcceptsClient: true
 ---
-apiVersion: cluster.x-k8s.io/v1beta2
+apiVersion: cluster.x-k8s.io/v1beta1
 kind: Cluster
 metadata:
   name: {{ cluster_name }}
@@ -64,9 +64,9 @@ spec:
   cidrBlock: {{ rosa_network_config.cidr_block | default('10.0.0.0/16') }}
   stackName: {{ cluster_name }}-network-stack
   availabilityZones:
-    {% for az in rosa_network_config.availability_zones %}
-    - {{ az }}
-    {% endfor %}
+  {% for az in rosa_network_config.availability_zones -%}
+  - {{ az }}
+  {% endfor -%}
   stackTags:
     Environment: {{ environment_tag | default('test') }}
     TestCase: "ACM-21174-Combined"
@@ -90,10 +90,10 @@ spec:
     kind: AWSClusterControllerIdentity
     name: {{ rosa_role_config.identity_name | default('default') }}
   accountRoleConfig:
-    prefix: "{{ rosa_role_config.prefix | default(cluster_name_prefix) }}"
-    version: {{ rosa_role_config.version | default(openshift_version) }}
+    prefix: "{{ (rosa_role_config.prefix | default(domain_prefix))[:4] | regex_replace('-$', '') }}"
+    version: "{{ rcp_version | default(openshift_version) | default('4.20.10') }}"
   operatorRoleConfig:
-    prefix: "{{ rosa_role_config.prefix | default(cluster_name_prefix) }}"
+    prefix: "{{ (rosa_role_config.prefix | default(domain_prefix))[:4] | regex_replace('-$', '') }}"
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1beta2
 kind: ROSAControlPlane
@@ -119,8 +119,8 @@ spec:
     name: {{ cluster_name }}-roles
 
   rosaClusterName: {{ cluster_name }}
-  domainPrefix: {{ domain_prefix | default('rosa-' + cluster_name_prefix) }}
-  version: {{ openshift_version }}
+  domainPrefix: {{ domain_prefix }}
+  version: "{{ rcp_version | default(openshift_version) | default('4.20.10') }}"
   region: {{ aws_region }}
   channelGroup: {{ channel_group | default('stable') }}
 

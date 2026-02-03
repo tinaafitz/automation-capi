@@ -12,7 +12,7 @@
 # ======================================================
 - name: Verify OCP context is set (from login)
   fail:
-    msg: "🔑 OpenShift login needed - Click 'Credentials' button to update cluster connection details"
+    msg: "ℹ️  Not connected to OpenShift cluster yet - Click the 'Credentials' button to connect to your hub cluster"
   when: ocp_context is not defined or ocp_context == ''
 
 - name: OCP Login Check
@@ -32,7 +32,7 @@
 
 - name: Fail if CAPI controller not found
   fail:
-    msg: "⚙️ Configuration needed - Click 'Configure' button in Components card to set up CAPI/CAPA"
+    msg: "ℹ️  Environment not configured yet - Ready to set up! Click the 'Configure' button in the Components card to install CAPI/CAPA controllers (~2 minutes)"
   when: capi_controller_manager.stdout | length == 0
 
 - name: CAPI Controller Check
@@ -49,7 +49,7 @@
 
 - name: Fail if CAPA controller not found
   fail:
-    msg: "⚙️ AWS provider needed - Click 'Configure' button to add cluster-api-provider-aws (CAPA)"
+    msg: "ℹ️  AWS provider not configured yet - Click the 'Configure' button to add cluster-api-provider-aws (CAPA) for ROSA HCP support"
   when: capa_controller_manager.stdout | length == 0
 
 - name: CAPA Controller Check

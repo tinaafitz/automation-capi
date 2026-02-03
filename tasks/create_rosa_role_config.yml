@@ -11,6 +11,10 @@
     template_extension: ".yaml.j2"
     template_debug: true
 
+- name: Debug openshift_version before template
+  debug:
+    msg: "openshift_version = {{ openshift_version }}"
+
 - name: Validate required variables for ROSARoleConfig
   fail:
     msg: "Required variable {{ item }} is not defined"
