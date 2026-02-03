@@ -10,7 +10,7 @@ metadata:
 spec:
   hubAcceptsClient: true
 ---
-apiVersion: cluster.x-k8s.io/v1beta2
+apiVersion: cluster.x-k8s.io/v1beta1
 kind: Cluster
 metadata:
   name: {{ cluster_name }}
@@ -64,9 +64,9 @@ spec:
   cidrBlock: {{ rosa_network_config.cidr_block | default('10.0.0.0/16') }}
   stackName: {{ cluster_name }}-network-stack
   availabilityZones:
-    {% for az in rosa_network_config.availability_zones %}
-    - {{ az }}
-    {% endfor %}
+  {% for az in rosa_network_config.availability_zones -%}
+  - {{ az }}
+  {% endfor -%}
   stackTags:
     Environment: {{ environment_tag | default('test') }}
     TestCase: "ACM-21174-Combined"
@@ -100,11 +100,11 @@ kind: ROSAControlPlane
 metadata:
   name: {{ cluster_name }}
   namespace: {{ capi_namespace }}
+  {% if cluster_description is defined and cluster_description -%}
   annotations:
-    {% if cluster_description is defined and cluster_description %}
     cluster.x-k8s.io/description: |
 {{ cluster_description | indent(6, first=True) }}
-    {% endif %}
+  {% endif -%}
   labels:
     automation.acm.redhat.com/test-case: "ACM-21174-Combined"
     automation.acm.redhat.com/network-automation: "true"

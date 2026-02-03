@@ -142,8 +142,8 @@ class TestSuiteRunner:
 
             # Merge playbook vars with extra vars (extra vars take precedence)
             all_vars = {}
-            if "vars" in playbook:
-                all_vars.update(playbook["vars"])
+            if "extra_vars" in playbook:
+                all_vars.update(playbook["extra_vars"])
             all_vars.update(self.extra_vars)  # Command-line overrides JSON
 
             # Add dry_run variable for playbooks to use

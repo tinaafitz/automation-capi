@@ -17,7 +17,7 @@
         namespace: "{{ capi_namespace }}"
         wait: true
         wait_condition:
-          type: Ready
+          type: ROSANetworkReady
           status: "True"
         wait_timeout: "{{ rosa_network_creation_timeout | default(900) }}"
       register: network_ready
@@ -30,59 +30,55 @@
     - name: Display network creation progress
       debug:
         msg:
-          - "ROSANetwork Status: {{ network_status.phase | default('Unknown') }}"
+          - "ROSANetwork Condition Ready: {{ 'Yes' if (network_status.conditions | selectattr('type', 'equalto', 'ROSANetworkReady') | selectattr('status', 'equalto', 'True') | list | length > 0) else 'No' }}"
           - "Conditions: {{ network_status.conditions | default([]) | length }}"
-          - "VPC Ready: {{ 'Yes' if network_status.vpcId is defined and network_status.vpcId != '' else 'No' }}"
-          - "Subnets Ready: {{ 'Yes' if network_status.publicSubnets is defined and network_status.publicSubnets | length > 0 else 'No' }}"
-          - "CloudFormation Stack: {{ network_status.stackName | default('Not available') }}"
+          - "CloudFormation Resources: {{ network_status.resources | default([]) | length }}"
+          - "Subnets Configured: {{ network_status.subnets | default([]) | length }} AZs"
 
     - name: Verify all network components are ready
       assert:
         that:
-          - network_status.ready | default(false) == true
-          - network_status.vpcId is defined
-          - network_status.vpcId != ""
-          - network_status.publicSubnets is defined
-          - network_status.publicSubnets | length > 0
-          - network_status.privateSubnets is defined
-          - network_status.privateSubnets | length > 0
+          - network_status.conditions | selectattr('type', 'equalto', 'ROSANetworkReady') | selectattr('status', 'equalto', 'True') | list | length > 0
+          - network_status.subnets is defined
+          - network_status.subnets | length > 0
+          - network_status.resources is defined
+          - network_status.resources | length > 0
         fail_msg: "Not all network components are ready"
         success_msg: "All network components are ready"
 
+    - name: Extract VPC ID from resources
+      set_fact:
+        vpc_resource: "{{ network_status.resources | selectattr('logicalId', 'equalto', 'VPC') | first }}"
+
     - name: Display detailed network resource information
       debug:
-        msg:
-          - "✓ ROSANetwork Ready Status:"
-          - "VPC ID: {{ network_status.vpcId }}"
-          - "Public Subnets:"
-          - "{% for subnet in network_status.publicSubnets %}"
-          - "  - {{ subnet.subnetId }} ({{ subnet.availabilityZone }}) - {{ subnet.cidrBlock }}"
-          - "{% endfor %}"
-          - "Private Subnets:"
-          - "{% for subnet in network_status.privateSubnets %}"
-          - "  - {{ subnet.subnetId }} ({{ subnet.availabilityZone }}) - {{ subnet.cidrBlock }}"
-          - "{% endfor %}"
+        msg: |
+          ✓ ROSANetwork Ready Status:
+          VPC ID: {{ vpc_resource.physicalId }}
+          Subnets by Availability Zone:
+          {% for subnet in network_status.subnets %}
+            - {{ subnet.availabilityZone }}: Public={{ subnet.publicSubnet }}, Private={{ subnet.privateSubnet }}
+          {% endfor %}
+          Total CloudFormation Resources: {{ network_status.resources | length }}
 
     - name: Wait additional time for AWS resource propagation
       pause:
         seconds: "{{ aws_network_propagation_delay | default(30) }}"
-      when: network_status.phase == "Ready"
+      when: network_status.conditions | selectattr('type', 'equalto', 'ROSANetworkReady') | selectattr('status', 'equalto', 'True') | list | length > 0
 
     - name: Final validation - check all required resources are available
       assert:
         that:
-          - network_status.vpcId is defined
-          - network_status.publicSubnets | length >= 2
-          - network_status.privateSubnets | length >= 2
-          - network_status.ready == true
+          - vpc_resource.physicalId is defined
+          - network_status.subnets | length >= 1
+          - network_status.conditions | selectattr('type', 'equalto', 'ROSANetworkReady') | selectattr('status', 'equalto', 'True') | list | length > 0
         fail_msg: "Network resources are not properly configured"
         success_msg: "All network resources are available for cluster creation"
 
     - name: Set network facts for cluster creation
       set_fact:
-        rosa_network_vpc_id: "{{ network_status.vpcId }}"
-        rosa_network_public_subnets: "{{ network_status.publicSubnets }}"
-        rosa_network_private_subnets: "{{ network_status.privateSubnets }}"
+        rosa_network_vpc_id: "{{ vpc_resource.physicalId }}"
+        rosa_network_subnets: "{{ network_status.subnets }}"
         rosa_network_ready: true
 
     - name: Display network readiness confirmation
@@ -90,8 +86,7 @@
         msg:
           - "✓ ROSANetwork is ready for cluster creation"
           - "✓ VPC: {{ rosa_network_vpc_id }}"
-          - "✓ Public subnets: {{ rosa_network_public_subnets | length }}"
-          - "✓ Private subnets: {{ rosa_network_private_subnets | length }}"
+          - "✓ Availability Zones: {{ rosa_network_subnets | length }}"
           - "✓ Network automation completed successfully"
 
   rescue:
