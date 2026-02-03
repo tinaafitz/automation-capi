@@ -123,7 +123,10 @@ pipeline {
                             sh '''
                                 cd capa
                                 # Execute the CAPI/CAPA configuration test suite (RHACM4K-61722) with maximum verbosity
-                                ./run-test-suite.py 10-configure-mce-environment --format all -vvv
+                                # Pass AWS credentials as Ansible extra vars
+                                ./run-test-suite.py 10-configure-mce-environment --format all -vvv \
+                                  -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
+                                  -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}"
                             '''
                         }
                         // Archive results from both old and new test systems
@@ -159,14 +162,16 @@ pipeline {
                             sh '''
                                 cd capa
                                 # Execute the ROSA HCP provisioning test suite with maximum verbosity
-                                # Pass Jenkins parameters as Ansible extra vars
+                                # Pass Jenkins parameters and credentials as Ansible extra vars
                                 ./run-test-suite.py 20-rosa-hcp-provision --format all -vvv \
                                   -e OCP_HUB_API_URL="${OCP_HUB_API_URL}" \
                                   -e OCP_HUB_CLUSTER_USER="${OCP_HUB_CLUSTER_USER}" \
                                   -e OCP_HUB_CLUSTER_PASSWORD="${OCP_HUB_CLUSTER_PASSWORD}" \
                                   -e MCE_NAMESPACE="${MCE_NAMESPACE}" \
                                   -e OCM_CLIENT_ID="${OCM_CLIENT_ID}" \
-                                  -e OCM_CLIENT_SECRET="${OCM_CLIENT_SECRET}"
+                                  -e OCM_CLIENT_SECRET="${OCM_CLIENT_SECRET}" \
+                                  -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
+                                  -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}"
                             '''
                         }
                         // Archive provisioning test results
