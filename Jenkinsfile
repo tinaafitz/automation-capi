@@ -159,7 +159,14 @@ pipeline {
                             sh '''
                                 cd capa
                                 # Execute the ROSA HCP provisioning test suite with maximum verbosity
-                                ./run-test-suite.py 20-rosa-hcp-provision --format all -vvv
+                                # Pass Jenkins parameters as Ansible extra vars
+                                ./run-test-suite.py 20-rosa-hcp-provision --format all -vvv \
+                                  -e OCP_HUB_API_URL="${OCP_HUB_API_URL}" \
+                                  -e OCP_HUB_CLUSTER_USER="${OCP_HUB_CLUSTER_USER}" \
+                                  -e OCP_HUB_CLUSTER_PASSWORD="${OCP_HUB_CLUSTER_PASSWORD}" \
+                                  -e MCE_NAMESPACE="${MCE_NAMESPACE}" \
+                                  -e OCM_CLIENT_ID="${OCM_CLIENT_ID}" \
+                                  -e OCM_CLIENT_SECRET="${OCM_CLIENT_SECRET}"
                             '''
                         }
                         // Archive provisioning test results
