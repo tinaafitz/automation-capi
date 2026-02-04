@@ -22,7 +22,7 @@ spec:
         cpu: 50m
         memory: 256Mi
   - name: capa-container
-    image: 'quay.io/vboulos/acmqe-automation/pics:ubi9'
+    image: 'quay.io/vboulos/acmqe-automation/pics:ubi9-python'
     registry: docker.io
     # imagePullSecrets: 'agent-image-secret'
     tty: true
