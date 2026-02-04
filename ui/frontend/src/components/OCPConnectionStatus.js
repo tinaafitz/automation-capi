@@ -4,7 +4,6 @@ import {
   ExclamationTriangleIcon,
   XCircleIcon,
   ArrowPathIcon,
-  ServerIcon,
   KeyIcon,
   GlobeAltIcon,
 } from '@heroicons/react/24/outline';
@@ -102,10 +101,6 @@ export function OCPConnectionStatus({ compact = false, showRefresh = true, statu
       default:
         return 'yellow';
     }
-  };
-
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
   };
 
   if (compact) {

@@ -330,8 +330,8 @@ Once logged in, click "Verify" again to retry.`
           ocpVersion: featuresData.versions?.openshift || '',
           mceVersion: featuresData.versions?.mce || '',
           acmVersion: featuresData.versions?.acm || '',
-          consoleUrl
-        })
+          consoleUrl,
+        }),
       });
 
       const saveData = await saveResponse.json();

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import ReactFlow, { Background, Controls, MiniMap, useNodesState, useEdgesState } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -283,8 +283,8 @@ const ProvisioningFlowDiagram = ({ resources = [] }) => {
     return { initialNodes: nodes, initialEdges: edges };
   }, [resources]);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, , onNodesChange] = useNodesState(initialNodes);
+  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
 
   return (
     <div className="w-full h-[500px] bg-gradient-to-br from-purple-50 via-white to-pink-50 rounded-lg border-2 border-purple-200 shadow-lg">

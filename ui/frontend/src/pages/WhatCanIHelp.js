@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -5,44 +7,30 @@ import {
   WrenchScrewdriverIcon,
   ChartBarIcon,
   UserIcon,
-  RocketLaunchIcon,
-  PlusIcon,
   Cog6ToothIcon,
-  EllipsisHorizontalIcon,
   CheckCircleIcon,
-  PowerIcon,
   CubeIcon,
   ArrowUpIcon,
   TrashIcon,
   CommandLineIcon,
-  BookOpenIcon,
-  CloudIcon,
-  ShieldCheckIcon,
   KeyIcon,
   ArrowPathIcon,
   DocumentTextIcon,
-  IdentificationIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   ClockIcon,
   DocumentDuplicateIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
-import { ROSAStatus } from '../components/ROSAStatus';
-import { ConfigStatus } from '../components/ConfigStatus';
-import { OCPConnectionStatus } from '../components/OCPConnectionStatus';
-import ResourceConnectionsCard from '../components/ResourceConnectionsCard';
 import { MinikubeClusterModal } from '../components/MinikubeClusterModal';
 import { MinikubeTerminalModal } from '../components/MinikubeTerminalModal';
 import { MCETerminalModal } from '../components/MCETerminalModal';
-import TestEnvironmentCard from '../components/TestEnvironmentCard';
-import TestActivityFeed from '../components/TestActivityFeed';
 import { RosaProvisionModal } from '../components/RosaProvisionModal';
 import { YamlEditorModal } from '../components/YamlEditorModal';
-import CredentialsModal from '../components/modals/CredentialsModal';
 import { useApp } from '../store/AppContext';
 
 // Helper function to calculate age from ISO timestamp
+// eslint-disable-next-line no-unused-vars
 function calculateAge(isoTimestamp) {
   if (!isoTimestamp) return '';
 
@@ -66,6 +54,7 @@ function calculateAge(isoTimestamp) {
 }
 
 // Extract timestamp from MCE component debug output
+// eslint-disable-next-line no-unused-vars
 function extractMCEComponentTimestamp(output, debugPattern) {
   try {
     // Look for the debug pattern followed by JSON containing created or creationTimestamp

@@ -9164,7 +9164,8 @@ async def save_mce_environment(request: Request):
             api_url = data.get("apiUrl", "")
             # Extract from URL like https://api.qe6-vmware-ibm.install.dev09.red-chesterfield.com:6443
             import re
-            match = re.search(r'api\.([^.]+)', api_url)
+
+            match = re.search(r"api\.([^.]+)", api_url)
             if match:
                 cluster_name = match.group(1)
             else:
@@ -9189,15 +9190,15 @@ async def save_mce_environment(request: Request):
                     "password": data.get("password", ""),
                     "console_url": data.get("consoleUrl", ""),
                     "api_url": data.get("apiUrl", ""),
-                    "username": data.get("username", "kubeadmin")
+                    "username": data.get("username", "kubeadmin"),
                 },
                 "notification": {
                     "title": f"MCE Environment - {cluster_name}",
                     "mce_version": data.get("mceVersion", ""),
                     "acm_version": data.get("acmVersion", ""),
-                    "hub_cluster": cluster_name
-                }
-            }
+                    "hub_cluster": cluster_name,
+                },
+            },
         }
 
         manager = MCEEnvManager()
@@ -9213,20 +9214,14 @@ async def save_mce_environment(request: Request):
             manager.add_environment(env_data)
             message = f"Environment {cluster_name} saved successfully"
 
-        return {
-            "success": True,
-            "message": message,
-            "clusterName": cluster_name
-        }
+        return {"success": True, "message": message, "clusterName": cluster_name}
 
     except Exception as e:
         print(f"❌ Error saving MCE environment: {str(e)}")
         import traceback
+
         traceback.print_exc()
-        return {
-            "success": False,
-            "message": f"Error saving environment: {str(e)}"
-        }
+        return {"success": False, "message": f"Error saving environment: {str(e)}"}
 
 
 @app.post("/api/mce-environments/{cluster_name}/status")

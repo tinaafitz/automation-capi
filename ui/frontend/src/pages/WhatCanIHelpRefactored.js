@@ -664,45 +664,41 @@ const EnvironmentContent = () => {
   };
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragEnd={handleDragEnd}
-    >
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <div>
         {/* Environment Selector with Reset Layout */}
         <EnvironmentSelector onResetLayout={resetSectionOrder} />
 
-      {/* Show Minikube setup section when Minikube is selected BUT not yet verified */}
-      {app.selectedEnvironment === 'minikube' && !minikube.verifiedMinikubeClusterInfo && (
-        <MinikubeSetupSection />
-      )}
+        {/* Show Minikube setup section when Minikube is selected BUT not yet verified */}
+        {app.selectedEnvironment === 'minikube' && !minikube.verifiedMinikubeClusterInfo && (
+          <MinikubeSetupSection />
+        )}
 
-      {/* Show connection message for MCE if not connected */}
-      {app.selectedEnvironment === 'mce' && !shouldShowMCE && (
-        <div className="mb-6">
-          <div className="text-center py-12 bg-gradient-to-br from-cyan-50 to-blue-50 rounded-2xl border-2 border-cyan-200">
-            <div className="max-w-md mx-auto">
-              <span className="text-6xl mb-4 block">🎯</span>
-              <h3 className="text-xl font-bold text-cyan-900 mb-2">
-                MCE Environment Setup Required
-              </h3>
-              <p className="text-gray-600 mb-6">
-                Please establish your OpenShift Hub connection to continue.
-              </p>
-              <div className="text-sm text-gray-500">
-                Configure your credentials and connection settings above.
+        {/* Show connection message for MCE if not connected */}
+        {app.selectedEnvironment === 'mce' && !shouldShowMCE && (
+          <div className="mb-6">
+            <div className="text-center py-12 bg-gradient-to-br from-cyan-50 to-blue-50 rounded-2xl border-2 border-cyan-200">
+              <div className="max-w-md mx-auto">
+                <span className="text-6xl mb-4 block">🎯</span>
+                <h3 className="text-xl font-bold text-cyan-900 mb-2">
+                  MCE Environment Setup Required
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  Please establish your OpenShift Hub connection to continue.
+                </p>
+                <div className="text-sm text-gray-500">
+                  Configure your credentials and connection settings above.
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Draggable sections when environment is properly configured */}
-      {shouldShowSections && (
-        <div className="relative">
-          {/* Main Sections Area */}
-          <SortableContext items={app.sectionOrder} strategy={verticalListSortingStrategy}>
+        {/* Draggable sections when environment is properly configured */}
+        {shouldShowSections && (
+          <div className="relative">
+            {/* Main Sections Area */}
+            <SortableContext items={app.sectionOrder} strategy={verticalListSortingStrategy}>
               <div className="space-y-6">
                 {app.sectionOrder.map((sectionId) => {
                   const component = getSectionComponent(sectionId);
@@ -713,38 +709,38 @@ const EnvironmentContent = () => {
                   ) : null;
                 })}
               </div>
-          </SortableContext>
-        </div>
-      )}
+            </SortableContext>
+          </div>
+        )}
 
-      {/* Notification Settings Modal */}
-      <NotificationSettingsModal
-        isOpen={showNotificationSettings}
-        onClose={() => setShowNotificationSettings(false)}
-      />
+        {/* Notification Settings Modal */}
+        <NotificationSettingsModal
+          isOpen={showNotificationSettings}
+          onClose={() => setShowNotificationSettings(false)}
+        />
 
-      {/* MCE Environments Modal */}
-      {showMCEEnvironmentsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-2xl max-w-7xl w-full max-h-[95vh] overflow-hidden">
-            {/* Modal Header */}
-            <div className="sticky top-0 bg-gradient-to-r from-cyan-600 to-cyan-700 text-white p-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold">MCE Test Environments</h2>
-              <button
-                onClick={() => setShowMCEEnvironmentsModal(false)}
-                className="text-white hover:text-gray-200 text-2xl font-bold px-3 py-1 rounded hover:bg-white/20 transition-colors"
-              >
-                ×
-              </button>
-            </div>
+        {/* MCE Environments Modal */}
+        {showMCEEnvironmentsModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-2xl max-w-7xl w-full max-h-[95vh] overflow-hidden">
+              {/* Modal Header */}
+              <div className="sticky top-0 bg-gradient-to-r from-cyan-600 to-cyan-700 text-white p-4 flex justify-between items-center">
+                <h2 className="text-xl font-bold">MCE Test Environments</h2>
+                <button
+                  onClick={() => setShowMCEEnvironmentsModal(false)}
+                  className="text-white hover:text-gray-200 text-2xl font-bold px-3 py-1 rounded hover:bg-white/20 transition-colors"
+                >
+                  ×
+                </button>
+              </div>
 
-            {/* Modal Content */}
-            <div className="overflow-y-auto max-h-[85vh] p-6">
-              <MCEEnvironmentSelector onUseCredentials={handleUseEnvironmentCredentials} />
+              {/* Modal Content */}
+              <div className="overflow-y-auto max-h-[85vh] p-6">
+                <MCEEnvironmentSelector onUseCredentials={handleUseEnvironmentCredentials} />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
       </div>
     </DndContext>
   );

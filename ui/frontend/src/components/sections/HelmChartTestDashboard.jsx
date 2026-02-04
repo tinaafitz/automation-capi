@@ -21,11 +21,9 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
   const [testMatrix, setTestMatrix] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selectedCell, setSelectedCell] = useState(null);
-  const [showTrendModal, setShowTrendModal] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState(null);
   const [expandedProviders, setExpandedProviders] = useState(new Set()); // Start with all collapsed
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [refreshInterval, setRefreshInterval] = useState(5000); // 5 seconds
+  const [refreshInterval] = useState(5000); // 5 seconds
 
   // Git source configuration
   const [chartSource, setChartSource] = useState('git'); // 'helm_repo' or 'git'
@@ -200,9 +198,6 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
   };
 
   const handleRunTest = async (providerId, env, testTypeId) => {
-    const providerInfo = providers.find((p) => p.id === providerId);
-    const testTypeInfo = testTypes.find((t) => t.id === testTypeId);
-
     // Generate a unique ID for this test run
     const testRunId = `helm-test-${Date.now()}`;
     const envDisplay = env === 'OpenShift' ? 'mce' : 'minikube';
@@ -269,8 +264,6 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
   };
 
   const handleRunAllTests = async (providerId) => {
-    const providerInfo = providers.find((p) => p.id === providerId);
-
     try {
       const response = await axios.post('http://localhost:8000/api/helm-tests/run-all', {
         provider: providerId,
