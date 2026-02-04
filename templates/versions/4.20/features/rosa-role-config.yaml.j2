@@ -17,6 +17,11 @@ metadata:
     automation.acm.redhat.com/timestamp: "{{ ansible_date_time.iso8601 }}"
     automation.acm.redhat.com/version: "{{ openshift_version | default('4.20') }}"
 spec:
+  # AWS Identity Reference (required for authentication)
+  identityRef:
+    kind: AWSClusterControllerIdentity
+    name: default
+
   # Account Role Configuration (account-wide IAM roles)
   accountRoleConfig:
     prefix: "{{ (rosa_role_prefix | default(domain_prefix) | default('test'))[:4] | regex_replace('-$', '') }}"
