@@ -19,14 +19,17 @@
 //   - OCP_HUB_API_URL           : OpenShift cluster API URL
 //   - OCP_HUB_CLUSTER_USER      : OpenShift username (default: kubeadmin)
 //   - OCP_HUB_CLUSTER_PASSWORD  : OpenShift password
-//   - OCM_CLIENT_ID             : OCM client ID (for ROSA provisioning)
-//   - OCM_CLIENT_SECRET         : OCM client secret (for ROSA provisioning)
+//   - OCM_CLIENT_ID             : OCM client ID (optional, uses vault if not provided)
+//   - OCM_CLIENT_SECRET         : OCM client secret (optional, uses vault if not provided)
 //   - MCE_NAMESPACE             : MCE namespace (default: multicluster-engine)
 //   - TEST_GIT_BRANCH           : Git branch to test (default: main)
 //
 //   Jenkins Credentials (configured in Jenkins):
 //   - CAPI_AWS_ACCESS_KEY_ID    : AWS access key
 //   - CAPI_AWS_SECRET_ACCESS_KEY: AWS secret key
+//   - CAPI_AWS_ACCOUNT_ID       : AWS account ID
+//   - CAPI_OCM_CLIENT_ID        : OCM client ID for ROSA provisioning
+//   - CAPI_OCM_CLIENT_SECRET    : OCM client secret for ROSA provisioning
 //
 // Pipeline Behavior:
 //   - Stage 1 (Configure): If fails → pipeline stops
@@ -118,7 +121,8 @@ pipeline {
                     try {
                         withCredentials([
                             string(credentialsId: 'CAPI_AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
-                            string(credentialsId: 'CAPI_AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                            string(credentialsId: 'CAPI_AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY'),
+                            string(credentialsId: 'CAPI_AWS_ACCOUNT_ID', variable: 'AWS_ACCOUNT_ID')
                         ]) {
                             sh '''
                                 cd capa
@@ -127,7 +131,7 @@ pipeline {
                                 ./run-test-suite.py 10-configure-mce-environment --format all -vvv \
                                   -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
                                   -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-                                  -e aws_account_id="471112697682"
+                                  -e aws_account_id="${AWS_ACCOUNT_ID}"
                             '''
                         }
                         // Archive results from both old and new test systems
@@ -150,20 +154,21 @@ pipeline {
                 OCP_HUB_CLUSTER_USER = "${params.OCP_HUB_CLUSTER_USER}"
                 OCP_HUB_CLUSTER_PASSWORD = "${params.OCP_HUB_CLUSTER_PASSWORD}"
                 MCE_NAMESPACE = "${params.MCE_NAMESPACE}"
-                OCM_CLIENT_ID = "${params.OCM_CLIENT_ID}"
-                OCM_CLIENT_SECRET = "${params.OCM_CLIENT_SECRET}"
             }
             steps {
                 script {
                     try {
                         withCredentials([
                             string(credentialsId: 'CAPI_AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
-                            string(credentialsId: 'CAPI_AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                            string(credentialsId: 'CAPI_AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY'),
+                            string(credentialsId: 'CAPI_AWS_ACCOUNT_ID', variable: 'AWS_ACCOUNT_ID'),
+                            string(credentialsId: 'CAPI_OCM_CLIENT_ID', variable: 'OCM_CLIENT_ID'),
+                            string(credentialsId: 'CAPI_OCM_CLIENT_SECRET', variable: 'OCM_CLIENT_SECRET')
                         ]) {
                             sh '''
                                 cd capa
                                 # Execute the ROSA HCP provisioning test suite with maximum verbosity
-                                # Pass Jenkins parameters, credentials, and AWS account ID as Ansible extra vars
+                                # Pass Jenkins parameters and credentials as Ansible extra vars
                                 ./run-test-suite.py 20-rosa-hcp-provision --format all -vvv \
                                   -e OCP_HUB_API_URL="${OCP_HUB_API_URL}" \
                                   -e OCP_HUB_CLUSTER_USER="${OCP_HUB_CLUSTER_USER}" \
@@ -173,7 +178,7 @@ pipeline {
                                   -e OCM_CLIENT_SECRET="${OCM_CLIENT_SECRET}" \
                                   -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
                                   -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-                                  -e aws_account_id="471112697682" \
+                                  -e aws_account_id="${AWS_ACCOUNT_ID}" \
                                   -e name_prefix="tst"
                             '''
                         }
