@@ -1,0 +1,39 @@
+---
+# Static Test Configuration for ROSARoleConfig v1beta2
+# This file provides a complete test scenario for validating ROSARoleConfig v1beta2 functionality
+# Used for automated testing and development validation
+
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSARoleConfig
+metadata:
+  name: test-rosa-hcp-roles-v1beta2
+  namespace: ns-rosa-hcp
+  labels:
+    cluster.x-k8s.io/cluster-name: test-rosa-hcp-cluster
+    automation.acm.redhat.com/created-by: "ansible-automation"
+  annotations:
+    automation.acm.redhat.com/description: "Automated ROSARoleConfig v1beta2 test"
+    automation.acm.redhat.com/timestamp: "2026-02-04T19:00:00Z"
+spec:
+  # AWS Identity Reference (required for authentication)
+  identityRef:
+    kind: AWSClusterControllerIdentity
+    name: default
+
+  # Account-wide IAM roles configuration
+  accountRoleConfig:
+    prefix: "test"
+    version: "4.19.10"
+    sharedVPCConfig: {}
+
+  # Cluster-specific operator IAM roles configuration
+  operatorRoleConfig:
+    prefix: "test"
+    sharedVPCConfig: {}
+
+  # OIDC Provider Type (Managed or Unmanaged)
+  oidcProviderType: Managed
+
+  # AWS Credentials Secret Reference
+  credentialsSecretRef:
+    name: rosa-creds-secret
