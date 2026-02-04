@@ -173,7 +173,8 @@ pipeline {
                                   -e OCM_CLIENT_SECRET="${OCM_CLIENT_SECRET}" \
                                   -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
                                   -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-                                  -e aws_account_id="471112697682"
+                                  -e aws_account_id="471112697682" \
+                                  -e name_prefix="tst"
                             '''
                         }
                         // Archive provisioning test results
