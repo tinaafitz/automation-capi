@@ -15,7 +15,6 @@ const FilingCabinet = ({
   theme = 'mce',
   isExpanded,
   onToggle,
-  onClose,
   isMinimized,
   onMinimize,
   horizontal = false,
@@ -95,17 +94,16 @@ const FilingCabinet = ({
         {isExpanded && hiddenSections.length > 0 && (
           <>
             {/* Backdrop */}
-            <div
-              className="fixed inset-0 z-40"
-              onClick={onToggle}
-            />
+            <div className="fixed inset-0 z-40" onClick={onToggle} />
 
             {/* Dropdown Panel */}
             <div
               className={`absolute top-full mt-2 left-1/2 transform -translate-x-1/2 bg-white rounded-xl shadow-2xl border-2 ${colors.border} z-50 min-w-max`}
             >
               {/* Header */}
-              <div className={`bg-gradient-to-r ${colors.gradient} p-4 rounded-t-xl flex items-center justify-between`}>
+              <div
+                className={`bg-gradient-to-r ${colors.gradient} p-4 rounded-t-xl flex items-center justify-between`}
+              >
                 <div className="flex items-center gap-3">
                   <ArchiveBoxIcon className="h-6 w-6 text-white" />
                   <div>
@@ -285,7 +283,7 @@ const FilingCabinet = ({
               {/* Drawers for Each Section */}
               {hiddenSections.length > 0 && !isOver && (
                 <div className="space-y-1.5">
-                  {hiddenSections.map((sectionId, index) => {
+                  {hiddenSections.map((sectionId) => {
                     const metadata = sectionMetadata[sectionId] || { name: sectionId, icon: '📦' };
 
                     return (

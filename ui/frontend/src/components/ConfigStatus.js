@@ -4,8 +4,6 @@ import {
   ExclamationTriangleIcon,
   XCircleIcon,
   ArrowPathIcon,
-  DocumentTextIcon,
-  CogIcon,
   ClipboardDocumentIcon,
 } from '@heroicons/react/24/outline';
 
