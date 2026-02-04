@@ -103,78 +103,49 @@
       ═══════════════════════════════════════════════════════════════
 
 # ================================================================
-# PRE-STEP: Get AWS Account ID (if automation is enabled)
+# PRE-STEP: Verify AWS Credentials are Present (if automation enabled)
 # ================================================================
-- name: Get AWS account ID from STS
+- name: Verify AWS credentials are configured
   when: create_rosa_roles | bool or create_rosa_network | bool
   block:
-    - name: Get AWS caller identity using boto3
-      shell: |
-        python3 -c "
-        import sys
-        import os
+    - name: Check if AWS credentials are provided
+      debug:
+        msg: |
+          🔍 Checking AWS credentials...
+          AWS_ACCESS_KEY_ID: {{ 'Set ✓' if AWS_ACCESS_KEY_ID is defined and AWS_ACCESS_KEY_ID != '' else 'Missing ✗' }}
+          AWS_SECRET_ACCESS_KEY: {{ 'Set ✓' if AWS_SECRET_ACCESS_KEY is defined and AWS_SECRET_ACCESS_KEY != '' else 'Missing ✗' }}
 
-        # Check if credentials are provided
-        if not os.environ.get('AWS_ACCESS_KEY_ID'):
-            print('NO_AWS_CREDS')
-            sys.exit(0)
-
-        try:
-            import boto3
-            sts = boto3.client('sts')
-            identity = sts.get_caller_identity()
-            print(identity['Account'])
-        except ImportError:
-            print('ERROR: boto3 not available')
-            sys.exit(1)
-        except Exception as e:
-            print(f'ERROR: {str(e)}')
-            sys.exit(1)
-        "
-      environment:
-        AWS_ACCESS_KEY_ID: "{{ AWS_ACCESS_KEY_ID | default('') }}"
-        AWS_SECRET_ACCESS_KEY: "{{ AWS_SECRET_ACCESS_KEY | default('') }}"
-        AWS_REGION: "{{ AWS_REGION | default('us-west-2') }}"
-      register: aws_account_result
-      changed_when: false
-      failed_when: false
-
-    - name: Set AWS account ID fact
-      set_fact:
-        aws_account_id: "{{ aws_account_result.stdout | trim }}"
-      when:
-        - aws_account_result.rc == 0
-        - aws_account_result.stdout != "NO_AWS_CREDS"
-        - not aws_account_result.stdout.startswith('ERROR:')
-        - aws_account_result.stdout | trim != ""
-
-    - name: Fail if AWS credentials are invalid or missing
+    - name: Fail if AWS credentials are missing
       fail:
         msg: |
-          ❌ AWS Automation Failed: Invalid or missing AWS credentials
+          ❌ AWS Automation Failed: Missing AWS credentials
 
           RosaRoleConfig and ROSANetwork require valid AWS credentials.
 
-          Current error: {{ aws_account_result.stdout if aws_account_result.stdout.startswith('ERROR:') else 'No AWS credentials found' }}
-
           To use automation features, ensure AWS credentials are configured:
-          1. Set environment variables:
+          1. Set environment variables or Ansible extra vars:
              - AWS_ACCESS_KEY_ID
              - AWS_SECRET_ACCESS_KEY
              - AWS_REGION (optional, defaults to us-west-2)
 
-          2. Verify credentials with Python boto3:
-             python3 -c "import boto3; print(boto3.client('sts').get_caller_identity())"
+          2. In Jenkins, these should be passed via the Jenkinsfile:
+             -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}"
+             -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}"
+
+          Note: Credentials will be validated when AWS resources are created.
+          If credentials are invalid, you'll see specific AWS API errors.
 
           Alternatively, disable automation and provide existing infrastructure:
           - Uncheck "Create RosaRoleConfig"
           - Uncheck "Create ROSANetwork"
           - Manually provide AWS IAM roles, OIDC, and VPC/subnets
       when:
-        - (aws_account_result.rc != 0) or
-          (aws_account_result.stdout == "NO_AWS_CREDS") or
-          (aws_account_result.stdout.startswith('ERROR:')) or
-          (aws_account_result.stdout | trim == "")
+        - (AWS_ACCESS_KEY_ID is not defined or AWS_ACCESS_KEY_ID == '') or
+          (AWS_SECRET_ACCESS_KEY is not defined or AWS_SECRET_ACCESS_KEY == '')
+
+    - name: Credentials check passed
+      debug:
+        msg: "✅ AWS credentials are present and will be validated during resource creation"
 
 # ================================================================
 # STEP 1: Create RosaRoleConfig (if requested)
