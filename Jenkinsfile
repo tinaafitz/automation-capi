@@ -27,6 +27,7 @@
 //   Jenkins Credentials (configured in Jenkins):
 //   - CAPI_AWS_ACCESS_KEY_ID    : AWS access key
 //   - CAPI_AWS_SECRET_ACCESS_KEY: AWS secret key
+//   - CAPI_AWS_ACCOUNT_ID       : AWS account ID (required for ROSARoleConfig)
 //
 // Pipeline Behavior:
 //   - Stage 1 (Configure): If fails → pipeline stops
@@ -118,7 +119,8 @@ pipeline {
                     try {
                         withCredentials([
                             string(credentialsId: 'CAPI_AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
-                            string(credentialsId: 'CAPI_AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                            string(credentialsId: 'CAPI_AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY'),
+                            string(credentialsId: 'CAPI_AWS_ACCOUNT_ID', variable: 'AWS_ACCOUNT_ID')
                         ]) {
                             sh '''
                                 cd capa
@@ -126,7 +128,8 @@ pipeline {
                                 # Pass AWS credentials as Ansible extra vars
                                 ./run-test-suite.py 10-configure-mce-environment --format all -vvv \
                                   -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
-                                  -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}"
+                                  -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+                                  -e AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID}"
                             '''
                         }
                         // Archive results from both old and new test systems
@@ -157,7 +160,8 @@ pipeline {
                     try {
                         withCredentials([
                             string(credentialsId: 'CAPI_AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
-                            string(credentialsId: 'CAPI_AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                            string(credentialsId: 'CAPI_AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY'),
+                            string(credentialsId: 'CAPI_AWS_ACCOUNT_ID', variable: 'AWS_ACCOUNT_ID')
                         ]) {
                             sh '''
                                 cd capa
@@ -171,7 +175,8 @@ pipeline {
                                   -e OCM_CLIENT_ID="${OCM_CLIENT_ID}" \
                                   -e OCM_CLIENT_SECRET="${OCM_CLIENT_SECRET}" \
                                   -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
-                                  -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}"
+                                  -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+                                  -e AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID}"
                             '''
                         }
                         // Archive provisioning test results
