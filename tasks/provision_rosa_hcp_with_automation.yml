@@ -148,6 +148,52 @@
         msg: "✅ AWS credentials are present and will be validated during resource creation"
 
 # ================================================================
+# PRE-STEP: Verify AWS Account ID (required for ROSARoleConfig)
+# ================================================================
+- name: Verify AWS account ID is provided for ROSARoleConfig
+  when: create_rosa_roles | bool
+  block:
+    - name: Check if AWS account ID is provided
+      debug:
+        msg: |
+          🔍 Checking AWS account ID...
+          AWS_ACCOUNT_ID: {{ 'Set ✓' if AWS_ACCOUNT_ID is defined and AWS_ACCOUNT_ID != '' else 'Missing ✗' }}
+
+    - name: Set aws_account_id fact if provided
+      set_fact:
+        aws_account_id: "{{ AWS_ACCOUNT_ID }}"
+      when: AWS_ACCOUNT_ID is defined and AWS_ACCOUNT_ID != ''
+
+    - name: Fail if AWS account ID is missing
+      fail:
+        msg: |
+          ❌ ROSARoleConfig Creation Failed: Missing AWS account ID
+
+          Creating ROSARoleConfig requires the AWS account ID to build IAM role ARNs.
+
+          To use ROSARoleConfig automation, provide your AWS account ID:
+          1. Set as environment variable or Ansible extra var:
+             - AWS_ACCOUNT_ID
+
+          2. In Jenkins, pass it via the Jenkinsfile:
+             -e AWS_ACCOUNT_ID="471112697682"
+
+          You can find your AWS account ID by:
+          - AWS Console: Click your username → Account ID
+          - AWS CLI: aws sts get-caller-identity --query Account --output text
+          - boto3: boto3.client('sts').get_caller_identity()['Account']
+
+          Alternatively, disable ROSARoleConfig automation:
+          - Uncheck "Create RosaRoleConfig"
+          - Manually create AWS IAM roles and OIDC provider
+          - Provide role ARNs directly to ROSAControlPlane
+      when: aws_account_id is not defined or aws_account_id == ''
+
+    - name: AWS account ID check passed
+      debug:
+        msg: "✅ AWS account ID is set: {{ aws_account_id }}"
+
+# ================================================================
 # STEP 1: Create RosaRoleConfig (if requested)
 # ================================================================
 - name: Create RosaRoleConfig for automated AWS role creation
