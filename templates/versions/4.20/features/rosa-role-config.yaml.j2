@@ -42,3 +42,14 @@ spec:
 {% if permission_boundary is defined %}
     permissionsBoundaryARN: "{{ permission_boundary }}"
 {% endif %}
+
+  # OIDC Provider Type (Managed or Unmanaged)
+{% if oidc_provider_type is defined %}
+  oidcProviderType: {{ oidc_provider_type }}
+{% else %}
+  oidcProviderType: Managed
+{% endif %}
+
+  # AWS Credentials Secret Reference (REQUIRED for authentication)
+  credentialsSecretRef:
+    name: {{ rosa_creds_secret | default('rosa-creds-secret') }}
