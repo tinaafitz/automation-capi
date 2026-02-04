@@ -14,6 +14,11 @@ metadata:
     automation.acm.redhat.com/description: "Automated ROSARoleConfig for {{ cluster_name }}"
     automation.acm.redhat.com/timestamp: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
 spec:
+  # AWS Identity Reference (required for authentication)
+  identityRef:
+    kind: AWSClusterControllerIdentity
+    name: default
+
   # Account-wide IAM roles configuration
   accountRoleConfig:
     prefix: "{{ (rosa_role_prefix | default(domain_prefix) | default('test'))[:4] | regex_replace('-$', '') }}"
