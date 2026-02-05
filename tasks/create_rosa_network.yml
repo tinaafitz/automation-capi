@@ -41,7 +41,7 @@
 
     - name: Check if existing ROSANetwork is ready
       set_fact:
-        rosa_network_exists: "{{ (existing_rosa_network.stdout | from_json | json_query('metadata.name') | default('') | default('')) != '' }}"
+        rosa_network_exists: "{{ (existing_rosa_network.stdout | from_json | json_query('metadata.name') | default('', true)) != '' }}"
         rosa_network_is_ready: false
 
     - name: Check existing network ready status
