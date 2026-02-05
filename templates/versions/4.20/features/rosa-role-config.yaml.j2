@@ -49,3 +49,12 @@ spec:
 {% else %}
   oidcProviderType: Managed
 {% endif %}
+
+  # AWS Credentials Secret Reference (REQUIRED to prevent CAPA controller nil pointer crashes)
+{% if credentials_secret_name is defined %}
+  credentialsSecretRef:
+    name: {{ credentials_secret_name }}
+{% else %}
+  credentialsSecretRef:
+    name: rosa-creds-secret
+{% endif %}
