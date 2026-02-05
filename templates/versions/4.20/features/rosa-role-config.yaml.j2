@@ -49,7 +49,3 @@ spec:
 {% else %}
   oidcProviderType: Managed
 {% endif %}
-
-  # AWS Credentials Secret Reference (REQUIRED for authentication)
-  credentialsSecretRef:
-    name: {{ rosa_creds_secret | default('rosa-creds-secret') }}
