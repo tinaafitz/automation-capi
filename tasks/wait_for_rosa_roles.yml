@@ -25,7 +25,7 @@
     name: "{{ rosa_role_config_name }}"
     namespace: "{{ capi_namespace }}"
   register: rosa_role_config_check
-  until: rosa_role_config_check.resources | length > 0
+  until: rosa_role_config_check.resources | default([]) | length > 0
   retries: 20
   delay: 15
 
@@ -39,7 +39,7 @@
         namespace: "{{ capi_namespace }}"
       register: rosa_role_config_status
       until:
-        - rosa_role_config_status.resources | length > 0
+        - rosa_role_config_status.resources | default([]) | length > 0
         - rosa_role_config_status.resources[0].status is defined
         - rosa_role_config_status.resources[0].status.conditions is defined
         - rosa_role_config_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True') | list | length > 0
@@ -73,7 +73,7 @@
       debug:
         msg: |
           Current ROSARoleConfig Status:
-          {% if failed_rosa_role_config_status.resources | length > 0 %}
+          {% if failed_rosa_role_config_status.resources | default([]) | length > 0 %}
           - Conditions:
           {% for condition in failed_rosa_role_config_status.resources[0].status.conditions | default([]) %}
             * Type: {{ condition.type }}
@@ -113,12 +113,12 @@
       debug:
         msg: |
           Recent Events for ROSARoleConfig {{ rosa_role_config_name }}:
-          {% for event in rosa_role_config_events.resources | sort(attribute='firstTimestamp') | reverse %}
+          {% for event in rosa_role_config_events.resources | default([]) | sort(attribute='firstTimestamp') | reverse %}
           - {{ event.firstTimestamp | default(event.eventTime) }}: {{ event.reason }} - {{ event.message }}
             Source: {{ event.source.component | default('Unknown') }}
             Type: {{ event.type | default('Normal') }}
           {% endfor %}
-      when: rosa_role_config_events.resources is defined and rosa_role_config_events.resources | length > 0
+      when: rosa_role_config_events.resources | default([]) | length > 0
 
     - name: Check CAPA controller status
       kubernetes.core.k8s_info:
@@ -133,7 +133,7 @@
       debug:
         msg: |
           CAPA Controller Status:
-          {% if capa_controller_status.resources | length > 0 %}
+          {% if capa_controller_status.resources | default([]) | length > 0 %}
           - Available Replicas: {{ capa_controller_status.resources[0].status.availableReplicas | default(0) }}
           - Ready Replicas: {{ capa_controller_status.resources[0].status.readyReplicas | default(0) }}
           - Desired Replicas: {{ capa_controller_status.resources[0].spec.replicas | default(1) }}
@@ -181,7 +181,7 @@
       fail:
         msg: |
           ROSARoleConfig {{ rosa_role_config_name }} did not become ready within {{ max_wait_time }} seconds.
-          Current phase: {{ failed_rosa_role_config_status.resources[0].status.phase | default('Unknown') if failed_rosa_role_config_status.resources | length > 0 else 'Not Found' }}
+          Current phase: {{ failed_rosa_role_config_status.resources[0].status.phase | default('Unknown') if failed_rosa_role_config_status.resources | default([]) | length > 0 else 'Not Found' }}
           Please check the troubleshooting guidance above.
 
 - name: Display success information
