@@ -48,7 +48,8 @@
       set_fact:
         rosa_network_is_ready: true
       when:
-        - (existing_rosa_network.stdout | from_json | json_query('status.conditions[?type==`ROSANetworkReady` && status==`True`]') | default([])) | length > 0
+        - rosa_network_exists | default(false) | bool
+        - (existing_rosa_network.stdout | from_json | json_query('status.conditions[?type==`ROSANetworkReady` && status==`True`]') | default([]) | default([])) | length > 0
 
     - name: Display existing ROSANetwork status
       debug:
@@ -88,7 +89,7 @@
         oc get rosanetwork {{ rosa_network_config_name | default(cluster_name + '-network') }} -n {{ capi_namespace }} -o json 2>/dev/null || echo '{}'
       register: network_ready_status
       until:
-        - network_ready_status.stdout | from_json | json_query('status.conditions[?type==`ROSANetworkReady` && status==`True`]') | default([]) | length > 0
+        - network_ready_status.stdout | from_json | json_query('status.conditions[?type==`ROSANetworkReady` && status==`True`]') | default([]) | default([]) | length > 0
       retries: "{{ (rosa_network_ready_timeout | default(1200) / 30) | int }}"
       delay: 30
       changed_when: false
