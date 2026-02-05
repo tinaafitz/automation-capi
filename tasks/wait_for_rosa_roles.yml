@@ -19,37 +19,30 @@
       - Start time: {{ ansible_date_time.iso8601 }}
 
 - name: Wait for ROSARoleConfig to exist
-  kubernetes.core.k8s_info:
-    api_version: infrastructure.cluster.x-k8s.io/v1beta2
-    kind: ROSARoleConfig
-    name: "{{ rosa_role_config_name }}"
-    namespace: "{{ capi_namespace }}"
+  shell: |
+    oc get rosaroleconfig {{ rosa_role_config_name }} -n {{ capi_namespace }} -o json 2>/dev/null || echo '{"items":[]}'
   register: rosa_role_config_check
-  until: rosa_role_config_check.resources | default([]) | length > 0
+  until: rosa_role_config_check.stdout | from_json | json_query('metadata.name') | default('') != ''
   retries: 20
   delay: 15
+  changed_when: false
 
 - name: Monitor ROSARoleConfig status until ready
   block:
     - name: Wait for ROSARoleConfig to be ready
-      kubernetes.core.k8s_info:
-        api_version: infrastructure.cluster.x-k8s.io/v1beta2
-        kind: ROSARoleConfig
-        name: "{{ rosa_role_config_name }}"
-        namespace: "{{ capi_namespace }}"
+      shell: |
+        oc get rosaroleconfig {{ rosa_role_config_name }} -n {{ capi_namespace }} -o json 2>/dev/null || echo '{}'
       register: rosa_role_config_status
       until:
-        - rosa_role_config_status.resources | default([]) | length > 0
-        - rosa_role_config_status.resources[0].status is defined
-        - rosa_role_config_status.resources[0].status.conditions is defined
-        - rosa_role_config_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True') | list | length > 0
+        - rosa_role_config_status.stdout | from_json | json_query('status.conditions[?type==`Ready` && status==`True`]') | default([]) | length > 0
       retries: "{{ (max_wait_time | int / poll_interval | int) | int }}"
       delay: "{{ poll_interval | int }}"
+      changed_when: false
 
     - name: Set successful completion facts
       set_fact:
         rosa_roles_ready: true
-        rosa_role_config_resource: "{{ rosa_role_config_status.resources[0] }}"
+        rosa_role_config_resource: "{{ rosa_role_config_status.stdout | from_json }}"
         current_time: "{{ ansible_date_time.epoch | int }}"
         wait_duration: "{{ (ansible_date_time.epoch | int) - (start_time | int) }}"
 
@@ -61,13 +54,24 @@
           Investigating current status...
 
     - name: Get current ROSARoleConfig status for debugging
-      kubernetes.core.k8s_info:
-        api_version: infrastructure.cluster.x-k8s.io/v1beta2
-        kind: ROSARoleConfig
-        name: "{{ rosa_role_config_name }}"
-        namespace: "{{ capi_namespace }}"
-      register: failed_rosa_role_config_status
+      shell: |
+        oc get rosaroleconfig {{ rosa_role_config_name }} -n {{ capi_namespace }} -o json 2>/dev/null || echo '{"items":[]}'
+      register: failed_rosa_role_config_status_raw
       failed_when: false
+      changed_when: false
+
+    - name: Parse ROSARoleConfig status for debugging
+      set_fact:
+        failed_rosa_role_config_status:
+          resources:
+            - "{{ failed_rosa_role_config_status_raw.stdout | from_json }}"
+      when: failed_rosa_role_config_status_raw.stdout | from_json | json_query('metadata.name') | default('') != ''
+
+    - name: Set empty resources if not found
+      set_fact:
+        failed_rosa_role_config_status:
+          resources: []
+      when: failed_rosa_role_config_status_raw.stdout | from_json | json_query('metadata.name') | default('') == ''
 
     - name: Display current status and conditions
       debug:
@@ -99,15 +103,16 @@
           {% endif %}
 
     - name: Get related events for debugging
-      kubernetes.core.k8s_info:
-        api_version: v1
-        kind: Event
-        namespace: "{{ capi_namespace }}"
-        field_selectors:
-          - involvedObject.name={{ rosa_role_config_name }}
-          - involvedObject.kind=ROSARoleConfig
-      register: rosa_role_config_events
+      shell: |
+        oc get events -n {{ capi_namespace }} --field-selector involvedObject.name={{ rosa_role_config_name }},involvedObject.kind=ROSARoleConfig -o json 2>/dev/null || echo '{"items":[]}'
+      register: rosa_role_config_events_raw
       failed_when: false
+      changed_when: false
+
+    - name: Parse events for debugging
+      set_fact:
+        rosa_role_config_events:
+          resources: "{{ (rosa_role_config_events_raw.stdout | from_json).items | default([]) }}"
 
     - name: Display recent events
       debug:
@@ -121,13 +126,24 @@
       when: rosa_role_config_events.resources | default([]) | length > 0
 
     - name: Check CAPA controller status
-      kubernetes.core.k8s_info:
-        api_version: apps/v1
-        kind: Deployment
-        name: capa-controller-manager
-        namespace: "{{ capa_system_namespace }}"
-      register: capa_controller_status
+      shell: |
+        oc get deployment capa-controller-manager -n {{ capa_system_namespace }} -o json 2>/dev/null || echo '{"items":[]}'
+      register: capa_controller_status_raw
       failed_when: false
+      changed_when: false
+
+    - name: Parse CAPA controller status
+      set_fact:
+        capa_controller_status:
+          resources:
+            - "{{ capa_controller_status_raw.stdout | from_json }}"
+      when: capa_controller_status_raw.stdout | from_json | json_query('metadata.name') | default('') != ''
+
+    - name: Set empty CAPA controller status if not found
+      set_fact:
+        capa_controller_status:
+          resources: []
+      when: capa_controller_status_raw.stdout | from_json | json_query('metadata.name') | default('') == ''
 
     - name: Display CAPA controller information
       debug:
