@@ -179,7 +179,7 @@ pipeline {
                                   -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
                                   -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
                                   -e aws_account_id="${AWS_ACCOUNT_ID}" \
-                                  -e name_prefix="tst"
+                                  -e name_prefix="jen"
                             '''
                         }
                         // Archive provisioning test results
