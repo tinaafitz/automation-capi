@@ -4,8 +4,8 @@
 - name: Set cluster creation variables
   set_fact:
     cluster_name: "{{ cluster_name | default('rosa-hcp-cluster') }}"
-    template_name: "rosa-control-plane"
-    template_category: "cluster-configs"
+    template_name: "{{ template_name | default('rosa-control-plane') }}"
+    template_category: "{{ template_category | default('cluster-configs') }}"
     template_extension: ".yaml.j2"
     template_debug: true
 
