@@ -266,12 +266,8 @@
     - name: Determine which template to use
       set_fact:
         cluster_template_name: >-
-          {%- if (create_rosa_roles | bool) and (create_rosa_network | bool) -%}
-          rosa-combined-automation
-          {%- elif (create_rosa_roles | bool) -%}
-          rosa-capi-roles-cluster
-          {%- elif (create_rosa_network | bool) -%}
-          rosa-capi-network-cluster
+          {%- if (create_rosa_roles | bool) or (create_rosa_network | bool) -%}
+          rosa-controlplane-only
           {%- else -%}
           rosa-control-plane
           {%- endif -%}
