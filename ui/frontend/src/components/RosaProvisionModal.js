@@ -61,6 +61,43 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
   const [logForwardingConfigAvailable, setLogForwardingConfigAvailable] = useState(null);
   const [loadingLogForwardingConfig, setLoadingLogForwardingConfig] = useState(false);
 
+  // State for available ROSA versions
+  const [availableVersions, setAvailableVersions] = useState([]);
+  const [loadingVersions, setLoadingVersions] = useState(false);
+
+  // Fetch available ROSA versions when modal opens
+  useEffect(() => {
+    const fetchVersions = async () => {
+      if (!isOpen) return;
+
+      try {
+        setLoadingVersions(true);
+        const response = await fetch(buildApiUrl(API_ENDPOINTS.VERSIONS));
+        const data = await response.json();
+
+        if (data.versions && data.versions.length > 0) {
+          setAvailableVersions(data.versions);
+
+          // Update default version if current version is outdated
+          if (data.default_version && config.openShiftVersion === '4.20.8') {
+            setConfig((prev) => ({ ...prev, openShiftVersion: data.default_version }));
+          }
+        } else {
+          // Fallback to hardcoded versions if API fails
+          setAvailableVersions(['4.21.0', '4.20.12', '4.20.11', '4.20.10', '4.20.8', '4.19.22', '4.19.21']);
+        }
+      } catch (error) {
+        console.error('Error fetching ROSA versions:', error);
+        // Fallback to hardcoded versions
+        setAvailableVersions(['4.21.0', '4.20.12', '4.20.11', '4.20.10', '4.20.8', '4.19.22', '4.19.21']);
+      } finally {
+        setLoadingVersions(false);
+      }
+    };
+
+    fetchVersions();
+  }, [isOpen]);
+
   // Check for log forwarding config when cluster name changes
   useEffect(() => {
     const checkLogForwardingConfig = async () => {
@@ -355,58 +392,26 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
               value={config.openShiftVersion}
               onChange={(e) => handleChange('openShiftVersion', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              disabled={loadingVersions}
             >
-              {/* MCE 2.10+ supports OpenShift 4.20+ */}
-              {supportsLogForwarding && (
+              {loadingVersions ? (
+                <option>Loading versions...</option>
+              ) : availableVersions.length > 0 ? (
+                availableVersions.map((version, index) => (
+                  <option key={version} value={version}>
+                    {version}
+                    {index === 0 ? ' (Latest)' : index === 1 ? ' (Recommended)' : ''}
+                  </option>
+                ))
+              ) : (
                 <>
-                  <option value="4.20.8">4.20.8 (Latest - Recommended)</option>
-                  <option value="4.20.6">4.20.6</option>
-                  <option value="4.20.5">4.20.5</option>
-                  <option value="4.20.4">4.20.4</option>
-                  <option value="4.20.3">4.20.3</option>
-                  <option value="4.20.2">4.20.2</option>
-                  <option value="4.20.1">4.20.1</option>
-                  <option value="4.20.0">4.20.0</option>
+                  <option value="4.21.0">4.21.0 (Latest)</option>
+                  <option value="4.20.12">4.20.12 (Recommended)</option>
+                  <option value="4.20.11">4.20.11</option>
+                  <option value="4.20.10">4.20.10</option>
+                  <option value="4.20.8">4.20.8</option>
+                  <option value="4.19.22">4.19.22</option>
                   <option value="4.19.21">4.19.21</option>
-                  <option value="4.19.20">4.19.20</option>
-                  <option value="4.19.10">4.19.10</option>
-                  <option value="4.19.9">4.19.9</option>
-                  <option value="4.19.8">4.19.8</option>
-                  <option value="4.19.7">4.19.7</option>
-                  <option value="4.19.0">4.19.0</option>
-                </>
-              )}
-
-              {/* MCE 2.9+ supports OpenShift 4.18-4.19 */}
-              {supportsNetworkRoleConfig && (
-                <>
-                  {!supportsLogForwarding && (
-                    <>
-                      <option value="4.19.10">4.19.10 (Recommended)</option>
-                      <option value="4.19.9">4.19.9</option>
-                      <option value="4.19.8">4.19.8</option>
-                      <option value="4.19.7">4.19.7</option>
-                      <option value="4.19.0">4.19.0</option>
-                    </>
-                  )}
-                  <option value="4.18.9">4.18.9</option>
-                  <option value="4.18.8">4.18.8</option>
-                  <option value="4.18.0">4.18.0</option>
-                </>
-              )}
-
-              {/* MCE < 2.9 supports OpenShift 4.15-4.18 */}
-              {!supportsNetworkRoleConfig && (
-                <>
-                  <option value="4.18.9">4.18.9 (Recommended)</option>
-                  <option value="4.18.8">4.18.8</option>
-                  <option value="4.18.0">4.18.0</option>
-                  <option value="4.17.9">4.17.9</option>
-                  <option value="4.17.0">4.17.0</option>
-                  <option value="4.16.9">4.16.9</option>
-                  <option value="4.16.0">4.16.0</option>
-                  <option value="4.15.9">4.15.9</option>
-                  <option value="4.15.0">4.15.0</option>
                 </>
               )}
             </select>
