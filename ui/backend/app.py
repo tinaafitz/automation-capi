@@ -407,42 +407,62 @@ async def get_supported_versions():
             ["rosa", "list", "versions", "--channel-group", "stable"],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
         )
 
         if result.returncode != 0:
             # Fallback to hardcoded versions if rosa command fails
             return {
-                "versions": ["4.21.0", "4.20.12", "4.20.11", "4.20.10", "4.20.8", "4.19.22", "4.19.21"],
+                "versions": [
+                    "4.21.0",
+                    "4.20.12",
+                    "4.20.11",
+                    "4.20.10",
+                    "4.20.8",
+                    "4.19.22",
+                    "4.19.21",
+                ],
                 "default_version": "4.20.12",
-                "latest_version": "4.21.0"
+                "latest_version": "4.21.0",
             }
 
         # Parse the output to extract version numbers
         versions = []
-        for line in result.stdout.split('\n'):
+        for line in result.stdout.split("\n"):
             # Skip header and empty lines
-            if line.strip() and not line.startswith('VERSION') and not line.startswith('WARN'):
+            if line.strip() and not line.startswith("VERSION") and not line.startswith("WARN"):
                 parts = line.split()
                 if parts and parts[0]:
                     version = parts[0]
                     # Validate it's a version string (x.y.z format)
-                    if len(version.split('.')) == 3 and all(p.isdigit() for p in version.split('.')):
+                    if len(version.split(".")) == 3 and all(
+                        p.isdigit() for p in version.split(".")
+                    ):
                         versions.append(version)
 
         if not versions:
             # Fallback if parsing failed
             return {
-                "versions": ["4.21.0", "4.20.12", "4.20.11", "4.20.10", "4.20.8", "4.19.22", "4.19.21"],
+                "versions": [
+                    "4.21.0",
+                    "4.20.12",
+                    "4.20.11",
+                    "4.20.10",
+                    "4.20.8",
+                    "4.19.22",
+                    "4.19.21",
+                ],
                 "default_version": "4.20.12",
-                "latest_version": "4.21.0"
+                "latest_version": "4.21.0",
             }
 
         # Return the versions with the latest as default
         return {
             "versions": versions,
-            "default_version": versions[1] if len(versions) > 1 else versions[0],  # Second version is usually latest stable
-            "latest_version": versions[0] if versions else "4.21.0"
+            "default_version": (
+                versions[1] if len(versions) > 1 else versions[0]
+            ),  # Second version is usually latest stable
+            "latest_version": versions[0] if versions else "4.21.0",
         }
 
     except Exception as e:
@@ -451,7 +471,7 @@ async def get_supported_versions():
         return {
             "versions": ["4.21.0", "4.20.12", "4.20.11", "4.20.10", "4.20.8", "4.19.22", "4.19.21"],
             "default_version": "4.20.12",
-            "latest_version": "4.21.0"
+            "latest_version": "4.21.0",
         }
 
 
