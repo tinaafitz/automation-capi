@@ -75,7 +75,7 @@ spec:
   {% endif %}
 
   rosaClusterName: {{ cluster_name }}
-  domainPrefix: {{ domain_prefix }}
+  domainPrefix: {{ domain_prefix | default(rosa_role_prefix) | default(cluster_name) }}
   version: "{{ rcp_version | default(openshift_version) | default('4.20.10') }}"
   region: {{ aws_region }}
   channelGroup: {{ channel_group | default('stable') }}

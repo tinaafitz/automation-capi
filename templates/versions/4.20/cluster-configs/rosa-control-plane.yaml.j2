@@ -14,7 +14,7 @@ spec:
   region: "{{ aws_region }}"
 
   # Domain prefix (required, max 15 chars)
-  domainPrefix: "{{ domain_prefix }}"
+  domainPrefix: "{{ domain_prefix | default(rosa_role_prefix) | default(cluster_name) }}"
 
   # Channel group
   channelGroup: "{{ channel_group }}"
