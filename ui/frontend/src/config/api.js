@@ -49,6 +49,9 @@ export const API_ENDPOINTS = {
 
   // CAPI endpoints
   CAPI_COMPONENT_VERSIONS: '/api/capi/component-versions',
+
+  // Version endpoints
+  VERSIONS: '/api/versions',
 };
 
 // Helper function to build full URL
