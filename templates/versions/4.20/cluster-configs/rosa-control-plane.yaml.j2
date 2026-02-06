@@ -1,0 +1,87 @@
+apiVersion: controlplane.cluster.x-k8s.io/v1beta2
+kind: ROSAControlPlane
+metadata:
+  name: "{{ cluster_name }}"
+  namespace: "{{ capi_namespace }}"
+spec:
+  # ROSA cluster name (required)
+  rosaClusterName: "{{ cluster_name }}"
+
+  # OpenShift version
+  version: "{{ rcp_version }}"
+
+  # Region
+  region: "{{ aws_region }}"
+
+  # Domain prefix (required, max 15 chars)
+  domainPrefix: "{{ domain_prefix }}"
+
+  # Channel group
+  channelGroup: "{{ channel_group }}"
+
+  # Network configuration
+  network:
+    machineCIDR: "{{ cluster_network.machine_cidr }}"
+    podCIDR: "{{ cluster_network.pod_cidr }}"
+    serviceCIDR: "{{ cluster_network.service_cidr }}"
+    hostPrefix: 23
+
+{% if manual_subnets and manual_subnets|length > 0 %}
+  # Manual subnet configuration
+  subnets:
+{% for subnet in manual_subnets %}
+    - "{{ subnet }}"
+{% endfor %}
+
+  # Availability zones (derived from subnets)
+  availabilityZones:
+    - "{{ aws_region }}a"
+    - "{{ aws_region }}b"
+{% endif %}
+
+{% if manual_oidc_config_id %}
+  # External OIDC configuration
+  oidcID: "{{ manual_oidc_config_id }}"
+{% endif %}
+
+{% if manual_roles and manual_roles.installer %}
+  # Top-level IAM role ARNs
+  installerRoleARN: "{{ manual_roles.installer }}"
+{% endif %}
+{% if manual_roles and manual_roles.support %}
+  supportRoleARN: "{{ manual_roles.support }}"
+{% endif %}
+{% if manual_roles and manual_roles.worker %}
+  workerRoleARN: "{{ manual_roles.worker }}"
+{% endif %}
+
+{% if manual_roles and manual_roles.control_plane_operator %}
+  # Operator-specific roles
+  rolesRef:
+    prefix: "{{ role_prefix | default('ManagedOpenShift', true) }}"
+    controlPlaneOperatorARN: "{{ manual_roles.control_plane_operator }}"
+{% if manual_roles.kms_provider %}
+    kmsProviderARN: "{{ manual_roles.kms_provider }}"
+{% endif %}
+{% if manual_roles.network %}
+    networkARN: "{{ manual_roles.network }}"
+{% endif %}
+{% if manual_roles.ingress %}
+    ingressARN: "{{ manual_roles.ingress }}"
+{% endif %}
+{% if manual_roles.image_registry %}
+    imageRegistryARN: "{{ manual_roles.image_registry }}"
+{% endif %}
+{% if manual_roles.kube_cloud_controller %}
+    kubeCloudControllerARN: "{{ manual_roles.kube_cloud_controller }}"
+{% endif %}
+{% if manual_roles.node_pool_management %}
+    nodePoolManagementARN: "{{ manual_roles.node_pool_management }}"
+{% endif %}
+{% if manual_roles.storage %}
+    storageARN: "{{ manual_roles.storage }}"
+{% endif %}
+{% endif %}
+
+  # Endpoint access
+  endpointAccess: "Public"
