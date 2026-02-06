@@ -10,22 +10,64 @@
           - "Timeout: {{ rosa_network_creation_timeout | default(900) }} seconds"
 
     - name: Wait for ROSANetwork to complete network creation
-      kubernetes.core.k8s_info:
-        api_version: infrastructure.cluster.x-k8s.io/v1beta2
-        kind: ROSANetwork
-        name: "{{ rosa_network_config_name | default(cluster_name + '-network') }}"
-        namespace: "{{ capi_namespace }}"
-        wait: true
-        wait_condition:
-          type: ROSANetworkReady
-          status: "True"
-        wait_timeout: "{{ rosa_network_creation_timeout | default(900) }}"
-      register: network_ready
+      shell: |
+        set -e
+        NETWORK_NAME="{{ rosa_network_config_name | default(cluster_name + '-network') }}"
+        NAMESPACE="{{ capi_namespace }}"
+        TIMEOUT="{{ rosa_network_creation_timeout | default(900) }}"
+        START_TIME=$(date +%s)
+
+        echo "Waiting for ROSANetwork ${NETWORK_NAME} in namespace ${NAMESPACE} to be Ready..."
+
+        while true; do
+          CURRENT_TIME=$(date +%s)
+          ELAPSED=$((CURRENT_TIME - START_TIME))
+
+          if [ $ELAPSED -gt $TIMEOUT ]; then
+            echo "ERROR: Timeout after ${TIMEOUT} seconds waiting for ROSANetwork to be Ready"
+            exit 1
+          fi
+
+          # Check if ROSANetwork exists
+          if ! oc get rosanetwork "${NETWORK_NAME}" -n "${NAMESPACE}" &>/dev/null; then
+            echo "Waiting for ROSANetwork to be created... (${ELAPSED}s elapsed)"
+            sleep 5
+            continue
+          fi
+
+          # Check Ready condition
+          READY_STATUS=$(oc get rosanetwork "${NETWORK_NAME}" -n "${NAMESPACE}" \
+            -o jsonpath='{.status.conditions[?(@.type=="ROSANetworkReady")].status}' 2>/dev/null || echo "")
+
+          if [ "$READY_STATUS" = "True" ]; then
+            echo "✓ ROSANetwork is Ready after ${ELAPSED} seconds"
+
+            # Get full status for output
+            oc get rosanetwork "${NETWORK_NAME}" -n "${NAMESPACE}" -o json > /tmp/rosanetwork_status.json
+            exit 0
+          else
+            READY_REASON=$(oc get rosanetwork "${NETWORK_NAME}" -n "${NAMESPACE}" \
+              -o jsonpath='{.status.conditions[?(@.type=="ROSANetworkReady")].reason}' 2>/dev/null || echo "Unknown")
+            echo "Waiting for Ready condition... Status: ${READY_STATUS:-Pending} Reason: ${READY_REASON} (${ELAPSED}s elapsed)"
+            sleep 10
+          fi
+        done
+      args:
+        executable: /bin/bash
+      register: network_wait_result
+
+    - name: Load ROSANetwork status from file
+      shell: cat /tmp/rosanetwork_status.json
+      register: network_status_json
+      changed_when: false
+
+    - name: Parse network status
+      set_fact:
+        network_ready_parsed: "{{ network_status_json.stdout | from_json }}"
 
     - name: Extract network status information
       set_fact:
-        network_status: "{{ network_ready.resources[0].status }}"
-      when: network_ready.resources | length > 0
+        network_status: "{{ network_ready_parsed.status }}"
 
     - name: Display network creation progress
       debug:
@@ -89,50 +131,76 @@
           - "✓ Availability Zones: {{ rosa_network_subnets | length }}"
           - "✓ Network automation completed successfully"
 
+    - name: Cleanup temporary file
+      file:
+        path: /tmp/rosanetwork_status.json
+        state: absent
+      changed_when: false
+
   rescue:
     - name: Handle network readiness timeout
       debug:
         msg: "ROSANetwork readiness check timed out or failed"
 
     - name: Get current ROSANetwork status for debugging
-      kubernetes.core.k8s_info:
-        api_version: infrastructure.cluster.x-k8s.io/v1beta2
-        kind: ROSANetwork
-        name: "{{ rosa_network_config_name | default(cluster_name + '-network') }}"
-        namespace: "{{ capi_namespace }}"
-      register: debug_network_status
+      shell: |
+        oc get rosanetwork "{{ rosa_network_config_name | default(cluster_name + '-network') }}" \
+          -n "{{ capi_namespace }}" -o json 2>/dev/null || echo '{"error": "Resource not found"}'
+      register: debug_network_status_raw
+      changed_when: false
       ignore_errors: true
+
+    - name: Parse debug network status
+      set_fact:
+        debug_network_status: "{{ debug_network_status_raw.stdout | from_json }}"
+      when: debug_network_status_raw.stdout is defined
 
     - name: Display current status for debugging
       debug:
-        var: debug_network_status.resources[0].status
-      when: debug_network_status.resources | length > 0
+        var: debug_network_status.status
+      when:
+        - debug_network_status is defined
+        - debug_network_status.status is defined
 
     - name: Get ROSANetwork events for troubleshooting
-      kubernetes.core.k8s_info:
-        api_version: v1
-        kind: Event
-        namespace: "{{ capi_namespace }}"
-        field_selectors:
-          - involvedObject.name={{ rosa_network_config_name | default(cluster_name + '-network') }}
-      register: network_events
+      shell: |
+        oc get events -n "{{ capi_namespace }}" --field-selector \
+          involvedObject.name="{{ rosa_network_config_name | default(cluster_name + '-network') }}" \
+          -o json 2>/dev/null || echo '{"items": []}'
+      register: network_events_raw
+      changed_when: false
       ignore_errors: true
+
+    - name: Parse network events
+      set_fact:
+        network_events: "{{ network_events_raw.stdout | from_json }}"
+      when: network_events_raw.stdout is defined
 
     - name: Display events for troubleshooting
       debug:
-        var: network_events.resources
-      when: network_events.resources | length > 0
+        var: network_events.items
+      when:
+        - network_events is defined
+        - network_events.items is defined
+        - network_events.items | length > 0
 
     - name: Provide troubleshooting guidance
       debug:
         msg:
           - "ROSANetwork Troubleshooting Steps:"
           - "1. Check CAPA controller logs:"
-          - "   kubectl logs -n capa-system deployment/capa-controller-manager"
+          - "   oc logs -n multicluster-engine deployment/capa-controller-manager"
           - "2. Verify AWS credentials and permissions"
           - "3. Check CloudFormation stack status in AWS console"
           - "4. Verify network CRDs are properly installed"
           - "5. Check for AWS service limits or region issues"
+
+    - name: Cleanup temporary file on error
+      file:
+        path: /tmp/rosanetwork_status.json
+        state: absent
+      changed_when: false
+      ignore_errors: true
 
     - name: Fail the task
       fail:
