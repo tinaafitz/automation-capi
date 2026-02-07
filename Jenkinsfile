@@ -227,6 +227,10 @@ pipeline {
                                       -e OCP_HUB_CLUSTER_USER="${OCP_HUB_CLUSTER_USER}" \
                                       -e OCP_HUB_CLUSTER_PASSWORD="${OCP_HUB_CLUSTER_PASSWORD}" \
                                       -e MCE_NAMESPACE="${MCE_NAMESPACE}" \
+                                      -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
+                                      -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+                                      -e OCM_CLIENT_ID="${OCM_CLIENT_ID}" \
+                                      -e OCM_CLIENT_SECRET="${OCM_CLIENT_SECRET}" \
                                       -e name_prefix="${NAME_PREFIX}"
                                 '''
                             }
