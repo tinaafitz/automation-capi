@@ -78,7 +78,7 @@ pipeline {
         booleanParam(name:'CLEANUP_AFTER_TEST', defaultValue: true, description: 'Delete cluster after successful provisioning (E2E test)')
     }
     stages {
-        stage('Clone the capi/capa repo') {
+        stage('Clone the CAPI/CAPA Repository') {
             steps {
                 retry(count: 3) {
                     script{
@@ -101,7 +101,7 @@ pipeline {
                 }
             }
         }
-        stage ('Build: Ensure required variables are set') {
+        stage ('Verify OCP Credentials') {
             when {
                 expression {
                     return (params.OCP_HUB_CLUSTER_API_URL == '' || params.OCP_HUB_CLUSTER_PASSWORD == '')
@@ -111,7 +111,7 @@ pipeline {
                 error ('OCP_HUB_CLUSTER_API_URL, OCP_HUB_CLUSTER_PASSWORD must be set to run the pipeline!')
             }
         }
-        stage('Run CAPI Configuration Tests') {
+        stage('Configure CAPI/CAPA Environment') {
             environment {
                 OCP_HUB_API_URL = "${params.OCP_HUB_API_URL}"
                 OCP_HUB_CLUSTER_USER = "${params.OCP_HUB_CLUSTER_USER}"
@@ -147,7 +147,7 @@ pipeline {
                 }
             }
         }
-        stage('Run ROSA HCP Provisioning Tests') {
+        stage('Provision a ROSA HCP Cluster') {
             when {
                 expression { currentBuild.result != 'FAILURE' }
             }
@@ -194,7 +194,7 @@ pipeline {
                 }
             }
         }
-        stage('Delete ROSA HCP Cluster') {
+        stage('Delete the ROSA HCP Cluster') {
             when {
                 allOf {
                     expression { currentBuild.result != 'FAILURE' }
@@ -238,7 +238,7 @@ pipeline {
                 }
             }
         }
-        stage('Archive CAPI artifacts') {
+        stage('Archive the CAPI/CAPA Artifacts') {
             steps {
                 script {
                    // Archive artifacts from both old (results/) and new (test-results/) systems
