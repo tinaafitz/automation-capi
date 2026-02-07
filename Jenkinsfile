@@ -74,6 +74,7 @@ pipeline {
         string(name:'OCM_CLIENT_ID', defaultValue: '', description: 'OCM client ID for ROSA provisioning')
         string(name:'OCM_CLIENT_SECRET', defaultValue: '', description: 'OCM client secret for ROSA provisioning')
         string(name:'TEST_GIT_BRANCH', defaultValue: 'main', description: 'CAPI test Git branch')
+        string(name:'NAME_PREFIX', defaultValue: 'jnk', description: 'Cluster name prefix (creates {prefix}-rosa-hcp)')
         booleanParam(name:'CLEANUP_AFTER_TEST', defaultValue: true, description: 'Delete cluster after successful provisioning (E2E test)')
     }
     stages {
@@ -180,7 +181,7 @@ pipeline {
                                   -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
                                   -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
                                   -e aws_account_id="${AWS_ACCOUNT_ID}" \
-                                  -e name_prefix="jnk"
+                                  -e name_prefix="${NAME_PREFIX}"
                             '''
                         }
                         // Archive provisioning test results
@@ -220,9 +221,9 @@ pipeline {
                                 sh '''
                                     cd capa
                                     # Execute the ROSA HCP deletion test suite
-                                    # Use same cluster_name that was created during provisioning
+                                    # Use same name_prefix that was used for provisioning
                                     ./run-test-suite.py 30-rosa-hcp-delete --format junit -vvv \
-                                      -e cluster_name="jnk-rosa-hcp"
+                                      -e name_prefix="${NAME_PREFIX}"
                                 '''
                             }
                         }
