@@ -220,9 +220,9 @@ pipeline {
                                 sh '''
                                     cd capa
                                     # Execute the ROSA HCP deletion test suite
-                                    # Use same name_prefix that was used for provisioning
+                                    # Use same cluster_name that was created during provisioning
                                     ./run-test-suite.py 30-rosa-hcp-delete --format junit -vvv \
-                                      -e name_prefix="jnk"
+                                      -e cluster_name="jnk-rosa-hcp"
                                 '''
                             }
                         }
