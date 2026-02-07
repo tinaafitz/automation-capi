@@ -215,3 +215,60 @@
 
       Deletion Summary:
       {{ deletion_summary }}
+
+# ================================================================
+# Safety Cleanup Section
+# ================================================================
+# Force-delete any remaining resources that may be stuck
+# (e.g., if VPC deletion failed, ROSANetwork may have finalizers)
+# ================================================================
+
+- name: Check for any remaining stuck resources
+  shell: |
+    echo "Checking for stuck resources..."
+    oc get rosanetwork {{ rosa_network_name }} -n {{ capi_namespace }} -o json 2>/dev/null | jq -r '.metadata.deletionTimestamp // "none"'
+  register: check_stuck_rn
+  failed_when: false
+  changed_when: false
+
+- name: Check for stuck ROSARoleConfig
+  shell: |
+    oc get rosaroleconfig {{ rosa_role_config_name }} -n {{ capi_namespace }} -o json 2>/dev/null | jq -r '.metadata.deletionTimestamp // "none"'
+  register: check_stuck_rrc
+  failed_when: false
+  changed_when: false
+
+- name: Force-cleanup ROSANetwork if stuck in deletion
+  shell: |
+    echo "ROSANetwork is stuck with deletionTimestamp, force-removing finalizers..."
+    oc patch rosanetwork {{ rosa_network_name }} -n {{ capi_namespace }} -p '{"metadata":{"finalizers":[]}}' --type=merge
+  register: force_cleanup_rn
+  when:
+    - check_stuck_rn.stdout != "none"
+    - check_stuck_rn.stdout != ""
+  failed_when: false
+
+- name: Force-cleanup ROSARoleConfig if stuck in deletion
+  shell: |
+    echo "ROSARoleConfig is stuck with deletionTimestamp, force-removing finalizers..."
+    oc patch rosaroleconfig {{ rosa_role_config_name }} -n {{ capi_namespace }} -p '{"metadata":{"finalizers":[]}}' --type=merge
+  register: force_cleanup_rrc
+  when:
+    - check_stuck_rrc.stdout != "none"
+    - check_stuck_rrc.stdout != ""
+  failed_when: false
+
+- name: Display force cleanup results
+  debug:
+    msg: |
+      Safety Cleanup Results:
+      {% if force_cleanup_rn is defined and force_cleanup_rn.changed %}
+      • ROSANetwork: ✅ Force-cleaned (finalizers removed)
+      {% endif %}
+      {% if force_cleanup_rrc is defined and force_cleanup_rrc.changed %}
+      • ROSARoleConfig: ✅ Force-cleaned (finalizers removed)
+      {% endif %}
+      {% if (force_cleanup_rn is not defined or not force_cleanup_rn.changed) and (force_cleanup_rrc is not defined or not force_cleanup_rrc.changed) %}
+      • No stuck resources detected - cleanup complete
+      {% endif %}
+  when: force_cleanup_rn is defined or force_cleanup_rrc is defined
