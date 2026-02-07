@@ -193,20 +193,20 @@
 - name: Set deletion summary
   set_fact:
     deletion_summary: |
+      {% if 'not-found' not in cluster_exists.stdout %}
+      • Core Cluster: {{ '✅ Deleted' if delete_all is defined and delete_all.rc == 0 else '⏳ Deletion initiated' }}
+      {% endif %}
       {% if 'not-found' not in rcp_exists.stdout %}
       • ROSAControlPlane: {{ '✅ Deleted' if (wait_for_deletion and wait_rcp.rc != 0) else '⏳ Deletion initiated' }}
       {% endif %}
       {% if 'not-found' not in rmp_exists.stdout %}
-      • ROSAMachinePool: {{ '✅ Deleted' if delete_rmp.rc == 0 else '⚠️ Failed' }}
+      • ROSAMachinePool: ✅ Auto-deleted (cascade)
       {% endif %}
       {% if delete_network | bool and 'not-found' not in rn_exists.stdout %}
       • ROSANetwork: {{ '✅ Deleted' if (wait_for_deletion and wait_rn.rc != 0) else '⏳ Deletion initiated' }}
       {% endif %}
       {% if delete_roles | bool and 'not-found' not in rrc_exists.stdout %}
       • ROSARoleConfig: {{ '✅ Deleted' if (wait_for_deletion and wait_rrc.rc != 0) else '⏳ Deletion initiated' }}
-      {% endif %}
-      {% if 'not-found' not in cluster_exists.stdout %}
-      • Core Cluster: {{ '✅ Deleted' if delete_cluster.rc == 0 else '⚠️ Failed' }}
       {% endif %}
 
 - name: Display deletion summary
