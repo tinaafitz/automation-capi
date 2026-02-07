@@ -99,7 +99,7 @@
     - name: Use existing ready ROSANetwork
       set_fact:
         network_ready_status:
-          stdout: "{{ existing_rosa_network.stdout | tojson }}"
+          stdout: "{{ existing_rosa_network.stdout }}"
       when:
         - rosa_network_exists | default(false) | bool
         - rosa_network_is_ready | default(false) | bool
