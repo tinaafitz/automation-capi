@@ -5,8 +5,8 @@ metadata:
   namespace: {{ capi_namespace }}
   labels:
     automation.acm.redhat.com/test-case: "ACM-21174-ControlPlane"
-    automation.acm.redhat.com/network-automation: "{{ 'true' if create_rosa_network | default(false) else 'false' }}"
-    automation.acm.redhat.com/role-automation: "{{ 'true' if create_rosa_roles | default(false) else 'false' }}"
+    automation.acm.redhat.com/network-automation: "true"
+    automation.acm.redhat.com/role-automation: "true"
 spec:
   hubAcceptsClient: true
 ---
@@ -17,12 +17,12 @@ metadata:
   namespace: {{ capi_namespace }}
   labels:
     automation.acm.redhat.com/test-case: "ACM-21174-ControlPlane"
-    automation.acm.redhat.com/network-automation: "{{ 'true' if create_rosa_network | default(false) else 'false' }}"
-    automation.acm.redhat.com/role-automation: "{{ 'true' if create_rosa_roles | default(false) else 'false' }}"
+    automation.acm.redhat.com/network-automation: "true"
+    automation.acm.redhat.com/role-automation: "true"
 spec:
   clusterNetwork:
     pods:
-      cidrBlocks: ["{{ cluster_network.pod_cidr | default('192.168.0.0/16') }}"]
+      cidrBlocks: ["{{ cluster_network.pod_cidr | default('10.128.0.0/14') }}"]
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
     kind: ROSACluster
@@ -41,8 +41,8 @@ metadata:
   namespace: {{ capi_namespace }}
   labels:
     automation.acm.redhat.com/test-case: "ACM-21174-ControlPlane"
-    automation.acm.redhat.com/network-automation: "{{ 'true' if create_rosa_network | default(false) else 'false' }}"
-    automation.acm.redhat.com/role-automation: "{{ 'true' if create_rosa_roles | default(false) else 'false' }}"
+    automation.acm.redhat.com/network-automation: "true"
+    automation.acm.redhat.com/role-automation: "true"
 spec: {}
 ---
 # ROSAControlPlane references separately created ROSANetwork and ROSARoleConfig
@@ -59,20 +59,16 @@ metadata:
   {% endif -%}
   labels:
     automation.acm.redhat.com/test-case: "ACM-21174-ControlPlane"
-    automation.acm.redhat.com/network-automation: "{{ 'true' if create_rosa_network | default(false) else 'false' }}"
-    automation.acm.redhat.com/role-automation: "{{ 'true' if create_rosa_roles | default(false) else 'false' }}"
+    automation.acm.redhat.com/network-automation: "true"
+    automation.acm.redhat.com/role-automation: "true"
 spec:
-  # Network automation reference (if enabled)
-  {% if create_rosa_network | default(false) %}
+  # Network automation reference
   rosaNetworkRef:
     name: {{ cluster_name }}-network
-  {% endif %}
 
-  # Role automation reference (if enabled)
-  {% if create_rosa_roles | default(false) %}
+  # Role automation reference
   rosaRoleConfigRef:
     name: {{ cluster_name }}-roles
-  {% endif %}
 
   rosaClusterName: {{ cluster_name }}
   domainPrefix: {{ domain_prefix | default(rosa_role_prefix) | default(cluster_name) }}
@@ -90,8 +86,8 @@ spec:
     env: {{ environment_tag | default('test') }}
     purpose: {{ purpose_tag | default('rosa-hcp-automation-testing') }}
     automated: "true"
-    network-automation: "{{ 'true' if create_rosa_network | default(false) else 'false' }}"
-    role-automation: "{{ 'true' if create_rosa_roles | default(false) else 'false' }}"
+    network-automation: "true"
+    role-automation: "true"
 
   network:
     machineCIDR: {{ cluster_network.machine_cidr | default('10.0.0.0/16') }}
@@ -154,8 +150,8 @@ metadata:
   namespace: {{ capi_namespace }}
   labels:
     automation.acm.redhat.com/test-case: "ACM-21174-ControlPlane"
-    automation.acm.redhat.com/network-automation: "{{ 'true' if create_rosa_network | default(false) else 'false' }}"
-    automation.acm.redhat.com/role-automation: "{{ 'true' if create_rosa_roles | default(false) else 'false' }}"
+    automation.acm.redhat.com/network-automation: "true"
+    automation.acm.redhat.com/role-automation: "true"
 spec:
   clusterName: {{ cluster_name }}
   replicas: {{ machine_pool.replicas | default(2) }}
@@ -177,8 +173,8 @@ metadata:
   namespace: {{ capi_namespace }}
   labels:
     automation.acm.redhat.com/test-case: "ACM-21174-ControlPlane"
-    automation.acm.redhat.com/network-automation: "{{ 'true' if create_rosa_network | default(false) else 'false' }}"
-    automation.acm.redhat.com/role-automation: "{{ 'true' if create_rosa_roles | default(false) else 'false' }}"
+    automation.acm.redhat.com/network-automation: "true"
+    automation.acm.redhat.com/role-automation: "true"
 spec:
   nodePoolName: {{ (rosa_role_prefix | default(domain_prefix) | default('test'))[:4] | regex_replace('-$', '') }}-np
   instanceType: {{ machine_pool.instance_type | default('m5.xlarge') }}
