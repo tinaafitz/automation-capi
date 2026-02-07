@@ -221,8 +221,12 @@ pipeline {
                                 sh '''
                                     cd capa
                                     # Execute the ROSA HCP deletion test suite
-                                    # Use same name_prefix that was used for provisioning
+                                    # Pass all required credentials and parameters (same as provisioning)
                                     ./run-test-suite.py 30-rosa-hcp-delete --format junit -vvv \
+                                      -e OCP_HUB_API_URL="${OCP_HUB_API_URL}" \
+                                      -e OCP_HUB_CLUSTER_USER="${OCP_HUB_CLUSTER_USER}" \
+                                      -e OCP_HUB_CLUSTER_PASSWORD="${OCP_HUB_CLUSTER_PASSWORD}" \
+                                      -e MCE_NAMESPACE="${MCE_NAMESPACE}" \
                                       -e name_prefix="${NAME_PREFIX}"
                                 '''
                             }
