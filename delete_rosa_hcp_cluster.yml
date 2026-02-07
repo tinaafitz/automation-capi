@@ -109,7 +109,7 @@
 
           Settings:
           • Wait for Deletion: {{ '✓ Yes' if (wait_for_deletion | bool) else '✗ No' }}
-          • Timeout: {{ deletion_timeout }}s ({{ (deletion_timeout / 60) | int }} minutes)
+          • Timeout: {{ deletion_timeout }}s ({{ (deletion_timeout | int / 60) | int }} minutes)
 
     - name: Delete ROSA HCP cluster resources
       include_tasks: tasks/delete_rosa_hcp_resources.yml

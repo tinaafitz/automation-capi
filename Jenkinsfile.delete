@@ -1,0 +1,206 @@
+
+@Library('ci-shared-lib') _
+
+// ============================================================================
+// ROSA HCP Cluster Deletion Pipeline
+// ============================================================================
+// This pipeline deletes a ROSA HCP cluster and cleans up automation resources
+//
+// Test Suite: 30-rosa-hcp-delete
+//
+// What Gets Deleted:
+//   - ROSA HCP cluster (via OCM)
+//   - ROSAControlPlane resource
+//   - ROSAMachinePool resources
+//   - ROSANetwork automation resource
+//   - ROSARoleConfig automation resource
+//   - CAPI Cluster resource
+//   - AWS infrastructure (VPC, subnets, NAT gateways, etc.)
+//
+// Credentials Required:
+//   - OCP_HUB_API_URL           : OpenShift cluster API URL
+//   - OCP_HUB_CLUSTER_USER      : OpenShift username (default: kubeadmin)
+//   - OCP_HUB_CLUSTER_PASSWORD  : OpenShift password
+//   - AWS_ACCESS_KEY_ID         : AWS access key
+//   - AWS_SECRET_ACCESS_KEY     : AWS secret key
+//   - OCM_CLIENT_ID             : OCM client ID (for ROSA)
+//   - OCM_CLIENT_SECRET         : OCM client secret (for ROSA)
+//
+// Parameters:
+//   - cluster_name              : Full cluster name to delete (e.g., qe6-rosa-hcp-test)
+//
+// Example: ./run-test-suite.py 30-rosa-hcp-delete -e cluster_name=qe6-rosa-hcp-test
+// ============================================================================
+
+pipeline {
+    options {
+        // This rotates the logs every month
+        buildDiscarder(logRotator(daysToKeepStr: '30'))
+        // This stops the automatic, failing checkout
+        skipDefaultCheckout()
+        // Add timeout for deletion (can take 20+ minutes)
+        timeout(time: 60, unit: 'MINUTES')
+    }
+    agent {
+        kubernetes {
+            defaultContainer 'capa-container'
+            yamlFile 'picsAgentPod_capa.yaml'
+            // ITUP Prod
+            cloud 'remote-ocp-cluster-itup-prod'
+            // ITUP PreProd
+            // cloud 'remote-ocp-cluster-itup-pre-prod'
+        }
+    }
+
+    environment {
+        CI = 'true'
+        CAPI_AWS_ACCESS_KEY_ID = credentials('CAPI_AWS_ACCESS_KEY_ID')
+        CAPI_AWS_SECRET_ACCESS_KEY = credentials('CAPI_AWS_SECRET_ACCESS_KEY')
+        CAPI_OCM_CLIENT_ID = credentials('CAPI_OCM_CLIENT_ID')
+        CAPI_OCM_CLIENT_SECRET = credentials('CAPI_OCM_CLIENT_SECRET')
+    }
+    parameters {
+        // Hub cluster connection
+        string(name:'OCP_HUB_API_URL', defaultValue: '', description: 'Hub OCP API url')
+        string(name:'OCP_HUB_CLUSTER_USER', defaultValue: 'kubeadmin', description: 'Hub OCP username')
+        string(name:'OCP_HUB_CLUSTER_PASSWORD', defaultValue: '', description: 'Hub cluster password')
+        string(name:'MCE_NAMESPACE', defaultValue: 'multicluster-engine', description: 'The Namespace where MCE is installed')
+
+        // Cluster deletion parameters
+        string(name:'CLUSTER_NAME', defaultValue: '', description: 'Full cluster name to delete (e.g., qe6-rosa-hcp-test)')
+        string(name:'NAMESPACE', defaultValue: 'ns-rosa-hcp', description: 'Namespace where cluster resources are deployed')
+
+        // Git and test configuration
+        string(name:'TEST_GIT_BRANCH', defaultValue: 'main', description: 'CAPI test Git branch')
+        choice(name:'VERBOSITY', choices: ['', '-v', '-vv', '-vvv'], description: 'Ansible verbosity level')
+
+        // Safety confirmation
+        booleanParam(name:'CONFIRM_DELETE', defaultValue: false, description: 'REQUIRED: Confirm cluster deletion (check to proceed)')
+    }
+    stages {
+        stage('Clone the capi/capa repo') {
+            steps {
+                retry(count: 3) {
+                    script{
+                        def capa_repo = "tinaafitz/automation-capi.git"
+                        def git_branch = params.TEST_GIT_BRANCH
+                        withCredentials([string(credentialsId: 'vincent-github-token', variable: 'GITHUB_TOKEN')]) {
+                            sh '''
+                                rm -rf capa
+
+                                # Configure Git to use the token for this command only via a secure header.
+                                git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $(echo -n x-oauth-basic:${GITHUB_TOKEN} | base64)" \
+                                    -c http.sslVerify=false \
+                                    clone \
+                                    -b "''' + git_branch + '''" \
+                                    "https://github.com/''' + capa_repo + '''" \
+                                    capa/
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+        stage ('Validate: Ensure required variables are set') {
+            when {
+                expression {
+                    return (params.OCP_HUB_API_URL == '' || params.OCP_HUB_CLUSTER_PASSWORD == '' || params.CLUSTER_NAME == '')
+                }
+            }
+            steps {
+                error ('OCP_HUB_API_URL, OCP_HUB_CLUSTER_PASSWORD, and CLUSTER_NAME must be set to run the pipeline!')
+            }
+        }
+        stage ('Safety Check: Confirm Deletion') {
+            when {
+                expression {
+                    return !params.CONFIRM_DELETE
+                }
+            }
+            steps {
+                error ('⚠️  CONFIRM_DELETE must be checked to proceed with cluster deletion!')
+            }
+        }
+        stage('Delete ROSA HCP Cluster') {
+            environment {
+                OCP_HUB_API_URL = "${params.OCP_HUB_API_URL}"
+                OCP_HUB_CLUSTER_USER = "${params.OCP_HUB_CLUSTER_USER}"
+                OCP_HUB_CLUSTER_PASSWORD = "${params.OCP_HUB_CLUSTER_PASSWORD}"
+                MCE_NAMESPACE = "${params.MCE_NAMESPACE}"
+            }
+            steps {
+                script {
+                    try {
+                        withCredentials([
+                            string(credentialsId: 'CAPI_AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+                            string(credentialsId: 'CAPI_AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY'),
+                            string(credentialsId: 'CAPI_OCM_CLIENT_ID', variable: 'OCM_CLIENT_ID'),
+                            string(credentialsId: 'CAPI_OCM_CLIENT_SECRET', variable: 'OCM_CLIENT_SECRET')
+                        ]) {
+                            sh '''
+                                cd capa
+
+                                # Log parameters (without sensitive data)
+                                echo "========================================="
+                                echo "ROSA HCP Cluster Deletion"
+                                echo "========================================="
+                                echo "⚠️  WARNING: This will DELETE the cluster!"
+                                echo "Cluster Name: ${CLUSTER_NAME}"
+                                echo "Namespace: ${NAMESPACE}"
+                                echo "Hub Cluster: ${OCP_HUB_API_URL}"
+                                echo "========================================="
+                                echo ""
+                                echo "Starting deletion in 5 seconds..."
+                                sleep 5
+
+                                # Execute the ROSA HCP deletion test suite
+                                ./run-test-suite.py 30-rosa-hcp-delete \
+                                    --format all \
+                                    -e cluster_name=${CLUSTER_NAME} \
+                                    -e capi_namespace=${NAMESPACE} \
+                                    ${VERBOSITY}
+                            '''
+                        }
+                    }
+                    catch (ex) {
+                        echo "ROSA HCP Deletion failed: ${ex.message}"
+                        currentBuild.result = 'FAILURE'
+                        throw ex
+                    }
+                }
+            }
+        }
+        stage('Archive Deletion Results') {
+            steps {
+                script {
+                   // Archive test results (JSON, HTML, JUnit XML)
+                   archiveArtifacts artifacts: 'capa/test-results/**/*', allowEmptyArchive: true, followSymlinks: false, fingerprint: true
+
+                   // Publish JUnit test results
+                   junit allowEmptyResults: true, testResults: 'capa/test-results/**/*.xml'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                // Display summary
+                echo "========================================="
+                echo "ROSA HCP Deletion Pipeline Summary"
+                echo "========================================="
+                echo "Build Result: ${currentBuild.result ?: 'SUCCESS'}"
+                echo "Cluster Name: ${params.CLUSTER_NAME}"
+                echo "Namespace: ${params.NAMESPACE}"
+                echo "========================================="
+            }
+        }
+        success {
+            echo "✅ ROSA HCP cluster deleted successfully!"
+        }
+        failure {
+            echo "❌ ROSA HCP cluster deletion failed. Check logs and manual cleanup may be required."
+        }
+    }
+}
