@@ -22,7 +22,7 @@
   shell: |
     oc get rosaroleconfig {{ rosa_role_config_name }} -n {{ capi_namespace }} -o json 2>/dev/null || echo '{"items":[]}'
   register: rosa_role_config_check
-  until: rosa_role_config_check.stdout | from_json | json_query('metadata.name') | default('') != ''
+  until: (rosa_role_config_check.stdout if rosa_role_config_check.stdout is mapping else (rosa_role_config_check.stdout | from_json)) | json_query('metadata.name') | default('') != ''
   retries: 20
   delay: 15
   changed_when: false
@@ -34,7 +34,7 @@
         oc get rosaroleconfig {{ rosa_role_config_name }} -n {{ capi_namespace }} -o json 2>/dev/null || echo '{}'
       register: rosa_role_config_status
       until:
-        - rosa_role_config_status.stdout | from_json | json_query('status.conditions[?type==`Ready` && status==`True`]') | default([]) | length > 0
+        - (rosa_role_config_status.stdout if rosa_role_config_status.stdout is mapping else (rosa_role_config_status.stdout | from_json)) | json_query('status.conditions[?type==`Ready` && status==`True`]') | default([]) | length > 0
       retries: "{{ (max_wait_time | int / poll_interval | int) | int }}"
       delay: "{{ poll_interval | int }}"
       changed_when: false
@@ -64,14 +64,14 @@
       set_fact:
         failed_rosa_role_config_status:
           resources:
-            - "{{ failed_rosa_role_config_status_raw.stdout | from_json }}"
-      when: failed_rosa_role_config_status_raw.stdout | from_json | json_query('metadata.name') | default('') != ''
+            - "{{ failed_rosa_role_config_status_raw.stdout if failed_rosa_role_config_status_raw.stdout is mapping else (failed_rosa_role_config_status_raw.stdout | from_json) }}"
+      when: (failed_rosa_role_config_status_raw.stdout if failed_rosa_role_config_status_raw.stdout is mapping else (failed_rosa_role_config_status_raw.stdout | from_json)) | json_query('metadata.name') | default('') != ''
 
     - name: Set empty resources if not found
       set_fact:
         failed_rosa_role_config_status:
           resources: []
-      when: failed_rosa_role_config_status_raw.stdout | from_json | json_query('metadata.name') | default('') == ''
+      when: (failed_rosa_role_config_status_raw.stdout if failed_rosa_role_config_status_raw.stdout is mapping else (failed_rosa_role_config_status_raw.stdout | from_json)) | json_query('metadata.name') | default('') == ''
 
     - name: Display current status and conditions
       debug:
@@ -136,14 +136,14 @@
       set_fact:
         capa_controller_status:
           resources:
-            - "{{ capa_controller_status_raw.stdout | from_json }}"
-      when: capa_controller_status_raw.stdout | from_json | json_query('metadata.name') | default('') != ''
+            - "{{ capa_controller_status_raw.stdout if capa_controller_status_raw.stdout is mapping else (capa_controller_status_raw.stdout | from_json) }}"
+      when: (capa_controller_status_raw.stdout if capa_controller_status_raw.stdout is mapping else (capa_controller_status_raw.stdout | from_json)) | json_query('metadata.name') | default('') != ''
 
     - name: Set empty CAPA controller status if not found
       set_fact:
         capa_controller_status:
           resources: []
-      when: capa_controller_status_raw.stdout | from_json | json_query('metadata.name') | default('') == ''
+      when: (capa_controller_status_raw.stdout if capa_controller_status_raw.stdout is mapping else (capa_controller_status_raw.stdout | from_json)) | json_query('metadata.name') | default('') == ''
 
     - name: Display CAPA controller information
       debug:
