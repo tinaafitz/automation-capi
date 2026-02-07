@@ -110,6 +110,32 @@
     - wait_for_deletion | bool
     - "'not-found' not in rcp_exists.stdout"
 
+- name: Delete ROSANetwork (after ROSAControlPlane deletion completes)
+  shell: |
+    oc delete rosanetwork {{ rosa_network_name }} -n {{ capi_namespace }}
+  register: delete_rn
+  failed_when: false
+  when:
+    - delete_network | bool
+    - "'not-found' not in rn_exists.stdout"
+
+- name: Delete ROSARoleConfig (after ROSAControlPlane deletion completes)
+  shell: |
+    oc delete rosaroleconfig {{ rosa_role_config_name }} -n {{ capi_namespace }}
+  register: delete_rrc
+  failed_when: false
+  when:
+    - delete_roles | bool
+    - "'not-found' not in rrc_exists.stdout"
+
+- name: Delete ManagedCluster (if exists)
+  shell: |
+    oc delete managedcluster {{ cluster_name }}
+  register: delete_mc
+  failed_when: false
+  ignore_errors: true
+  when: true
+
 - name: Wait for ROSANetwork deletion to complete
   shell: |
     oc get rosanetwork {{ rosa_network_name }} -n {{ capi_namespace }} 2>/dev/null
