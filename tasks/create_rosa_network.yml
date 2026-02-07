@@ -41,7 +41,7 @@
 
     - name: Check if existing ROSANetwork is ready
       set_fact:
-        rosa_network_exists: "{{ (existing_rosa_network.stdout | from_json | json_query('metadata.name') | default('', true)) != '' }}"
+        rosa_network_exists: "{{ ((existing_rosa_network.stdout if existing_rosa_network.stdout is mapping else (existing_rosa_network.stdout | from_json)) | json_query('metadata.name') | default('', true)) != '' }}"
         rosa_network_is_ready: false
 
     - name: Check existing network ready status
@@ -49,7 +49,7 @@
         rosa_network_is_ready: true
       when:
         - rosa_network_exists | default(false) | bool
-        - (existing_rosa_network.stdout | from_json | json_query('status.conditions[?type==`ROSANetworkReady` && status==`True`]') | default([], true)) | length > 0
+        - ((existing_rosa_network.stdout if existing_rosa_network.stdout is mapping else (existing_rosa_network.stdout | from_json)) | json_query('status.conditions[?type==`ROSANetworkReady` && status==`True`]') | default([], true)) | length > 0
 
     - name: Display existing ROSANetwork status
       debug:
@@ -89,7 +89,7 @@
         oc get rosanetwork {{ rosa_network_config_name | default(cluster_name + '-network') }} -n {{ capi_namespace }} -o json 2>/dev/null || echo '{}'
       register: network_ready_status
       until:
-        - network_ready_status.stdout | from_json | json_query('status.conditions[?type==`ROSANetworkReady` && status==`True`]') | default([], true) | length > 0
+        - (network_ready_status.stdout if network_ready_status.stdout is mapping else (network_ready_status.stdout | from_json)) | json_query('status.conditions[?type==`ROSANetworkReady` && status==`True`]') | default([], true) | length > 0
       retries: "{{ (rosa_network_ready_timeout | default(1200) / 30) | int }}"
       delay: 30
       changed_when: false
@@ -106,10 +106,10 @@
 
     - name: Extract network information from status
       set_fact:
-        vpc_id: "{{ ((network_ready_status.stdout | from_json | json_query('status.resources') | default([]) | selectattr('logicalId', 'equalto', 'VPC') | map(attribute='physicalId') | list | first)) | default('') }}"
-        subnet_info: "{{ network_ready_status.stdout | from_json | json_query('status.subnets') | default([]) }}"
-        network_resources: "{{ network_ready_status.stdout | from_json | json_query('status.resources') | default([]) }}"
-        network_ready_condition: "{{ (network_ready_status.stdout | from_json | json_query('status.conditions') | default([]) | selectattr('type', 'equalto', 'ROSANetworkReady') | selectattr('status', 'equalto', 'True') | list | length) > 0 }}"
+        vpc_id: "{{ (((network_ready_status.stdout if network_ready_status.stdout is mapping else (network_ready_status.stdout | from_json)) | json_query('status.resources') | default([]) | selectattr('logicalId', 'equalto', 'VPC') | map(attribute='physicalId') | list | first)) | default('') }}"
+        subnet_info: "{{ (network_ready_status.stdout if network_ready_status.stdout is mapping else (network_ready_status.stdout | from_json)) | json_query('status.subnets') | default([]) }}"
+        network_resources: "{{ (network_ready_status.stdout if network_ready_status.stdout is mapping else (network_ready_status.stdout | from_json)) | json_query('status.resources') | default([]) }}"
+        network_ready_condition: "{{ ((network_ready_status.stdout if network_ready_status.stdout is mapping else (network_ready_status.stdout | from_json)) | json_query('status.conditions') | default([]) | selectattr('type', 'equalto', 'ROSANetworkReady') | selectattr('status', 'equalto', 'True') | list | length) > 0 }}"
 
     - name: Validate network creation success
       assert:
@@ -145,7 +145,7 @@
     - name: Display ROSANetwork status for debugging
       debug:
         var: debug_network_status.stdout
-      when: (debug_network_status.stdout | from_json | json_query('metadata.name') | default('')) != ''
+      when: ((debug_network_status.stdout if debug_network_status.stdout is mapping else (debug_network_status.stdout | from_json)) | json_query('metadata.name') | default('')) != ''
 
     - name: Get ROSANetwork events for troubleshooting
       shell: |
@@ -157,7 +157,7 @@
     - name: Display ROSANetwork events for troubleshooting
       debug:
         var: network_events.stdout
-      when: (network_events.stdout | from_json | json_query('items') | default([])) | length > 0
+      when: ((network_events.stdout if network_events.stdout is mapping else (network_events.stdout | from_json)) | json_query('items') | default([])) | length > 0
 
     - name: Fail the task
       fail:
