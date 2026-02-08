@@ -921,51 +921,31 @@ const CAPADashboardContent = () => {
                 </button>
               </div>
 
-              {/* Hypershift Components List */}
-              <div className="mb-4">
+              {/* Components Lists - Side by Side */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Hypershift Components List */}
+                <div>
                 <h3 className="text-sm font-semibold text-gray-700 mb-2">Hypershift</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                <div className="space-y-2 max-h-40 overflow-y-auto">
                   {(() => {
-                    const hypershiftComponents = mceFeatures.filter(component =>
-                      component.name?.includes('hypershift')
-                    );
+                    const hypershiftComponents = mceFeatures
+                      .filter(component => component.name?.includes('hypershift'))
+                      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
                     return hypershiftComponents.length === 0 ? (
-                      <div className="col-span-full text-center py-4 text-gray-500">
-                        <p className="text-xs">No Hypershift components configured</p>
+                      <div className="text-center py-8 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg">
+                        <p className="text-sm text-gray-600">No Hypershift components configured</p>
                       </div>
                     ) : (
                       hypershiftComponents.map((component, index) => (
                         <div
                           key={index}
-                          className="border border-gray-200 rounded-lg p-2 hover:border-cyan-300 transition-colors"
+                          className="flex items-center justify-between py-1 px-2 text-xs hover:bg-gray-50"
                         >
-                          <div className="flex items-center justify-between mb-1">
-                            <h3 className="font-semibold text-gray-900 text-xs truncate">
-                              {component.name}
-                            </h3>
-                            <span className={`text-base ${component.enabled ? 'text-green-600' : 'text-red-600'}`}>
-                              {component.enabled ? '✓' : '✕'}
-                            </span>
-                          </div>
-
-                          {/* Deployment Information */}
-                          {component.enabled && (
-                            <div className="grid grid-cols-2 gap-1 text-[10px] mt-1">
-                              <div className="bg-gray-50 p-1 rounded">
-                                <div className="text-gray-500">Pods</div>
-                                <div className="font-mono text-gray-900">
-                                  {component.pods || 'N/A'}
-                                </div>
-                              </div>
-                              <div className="bg-gray-50 p-1 rounded">
-                                <div className="text-gray-500">Replicas</div>
-                                <div className="font-mono text-gray-900">
-                                  {component.replicas || 'N/A'}
-                                </div>
-                              </div>
-                            </div>
-                          )}
+                          <span className="truncate">{component.name}</span>
+                          <span className={`ml-2 ${component.enabled ? 'text-green-600' : 'text-red-600'}`}>
+                            {component.enabled ? '✓' : '✕'}
+                          </span>
                         </div>
                       ))
                     );
@@ -976,54 +956,35 @@ const CAPADashboardContent = () => {
               {/* CAPI/CAPA Components List */}
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 mb-2">CAPI/CAPA</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                <div className="space-y-2 max-h-40 overflow-y-auto">
                   {(() => {
-                    const capiComponents = mceFeatures.filter(component =>
-                      component.name === 'cluster-api' ||
-                      component.name?.startsWith('cluster-api-provider-')
-                    );
+                    const capiComponents = mceFeatures
+                      .filter(component =>
+                        component.name === 'cluster-api' ||
+                        component.name?.startsWith('cluster-api-provider-')
+                      )
+                      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
                     return capiComponents.length === 0 ? (
-                      <div className="col-span-full text-center py-4 text-gray-500">
-                        <p className="text-xs">No CAPI components configured</p>
+                      <div className="text-center py-8 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg">
+                        <p className="text-sm text-gray-600">No CAPI components configured</p>
                       </div>
                     ) : (
                       capiComponents.map((component, index) => (
                         <div
                           key={index}
-                          className="border border-gray-200 rounded-lg p-2 hover:border-cyan-300 transition-colors"
+                          className="flex items-center justify-between py-1 px-2 text-xs hover:bg-gray-50"
                         >
-                          <div className="flex items-center justify-between mb-1">
-                            <h3 className="font-semibold text-gray-900 text-xs truncate">
-                              {component.name}
-                            </h3>
-                            <span className={`text-base ${component.enabled ? 'text-green-600' : 'text-red-600'}`}>
-                              {component.enabled ? '✓' : '✕'}
-                            </span>
-                          </div>
-
-                          {/* Deployment Information */}
-                          {component.enabled && (
-                            <div className="grid grid-cols-2 gap-1 text-[10px] mt-1">
-                              <div className="bg-gray-50 p-1 rounded">
-                                <div className="text-gray-500">Pods</div>
-                                <div className="font-mono text-gray-900">
-                                  {component.pods || 'N/A'}
-                                </div>
-                              </div>
-                              <div className="bg-gray-50 p-1 rounded">
-                                <div className="text-gray-500">Replicas</div>
-                                <div className="font-mono text-gray-900">
-                                  {component.replicas || 'N/A'}
-                                </div>
-                              </div>
-                            </div>
-                          )}
+                          <span className="truncate">{component.name}</span>
+                          <span className={`ml-2 ${component.enabled ? 'text-green-600' : 'text-red-600'}`}>
+                            {component.enabled ? '✓' : '✕'}
+                          </span>
                         </div>
                       ))
                     );
                   })()}
                 </div>
+              </div>
               </div>
             </div>
 
@@ -1170,18 +1131,7 @@ const CAPADashboardContent = () => {
         );
 
       case 'rosa-hcp-clusters':
-        return (
-          <div className="space-y-6">
-            {/* Header */}
-            <div className="bg-white rounded-lg shadow p-4 border-t-4 border-green-500">
-              <h2 className="text-2xl font-bold text-blue-900">CAPI-Managed ROSA HCP Clusters</h2>
-              <p className="text-gray-600 mt-2">View and manage your CAPI-managed ROSA HCP clusters</p>
-            </div>
-
-            {/* ROSA HCP Clusters Section */}
-            <RosaHcpClustersSection />
-          </div>
-        );
+        return <RosaHcpClustersSection />;
 
       case 'resources':
         return (
@@ -1203,13 +1153,16 @@ const CAPADashboardContent = () => {
         return (
           <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-500">
             <h2 className="text-2xl font-bold text-blue-900 mb-4">Credentials Management</h2>
-            <p className="text-gray-600 mb-6">Configure OpenShift, AWS, and OCM credentials.</p>
-            <button
-              onClick={handleCredentials}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
-            >
-              🔑 Manage Credentials
-            </button>
+
+            <CredentialsModal
+              isOpen={true}
+              inline={true}
+              onClose={() => {}}
+              theme="mce"
+              onSave={() => {
+                refreshAllStatus();
+              }}
+            />
           </div>
         );
 
