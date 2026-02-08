@@ -3,7 +3,7 @@ import { XMarkIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import { buildApiUrl } from '../../config/api';
 import PropTypes from 'prop-types';
 
-const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave }) => {
+const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave, inline = false }) => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showPasswords, setShowPasswords] = useState({
@@ -92,7 +92,9 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave }) => {
     }));
   };
 
-  if (!isOpen) return null;
+  // For modal mode, don't render when closed
+  // For inline mode, always render
+  if (!inline && !isOpen) return null;
 
   const themeColors =
     theme === 'mce'
@@ -111,32 +113,28 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave }) => {
           button: 'bg-purple-600 hover:bg-purple-700',
         };
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      {/* Backdrop */}
-      <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={onClose} />
-
-      {/* Modal */}
-      <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-          {/* Header */}
-          <div
-            className={`bg-gradient-to-r ${themeColors.gradient} px-6 py-4 flex items-center justify-between`}
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">🔑</span>
-              <h2 className="text-xl font-bold text-white">Manage Credentials</h2>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
-            >
-              <XMarkIcon className="h-6 w-6" />
-            </button>
+  const formContent = (
+    <div className={inline ? "w-full" : "relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden"}>
+      {/* Header - Only show in modal mode */}
+      {!inline && (
+        <div
+          className={`bg-gradient-to-r ${themeColors.gradient} px-6 py-4 flex items-center justify-between`}
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🔑</span>
+            <h2 className="text-xl font-bold text-white">Manage Credentials</h2>
           </div>
+          <button
+            onClick={onClose}
+            className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
+          >
+            <XMarkIcon className="h-6 w-6" />
+          </button>
+        </div>
+      )}
 
-          {/* Content */}
-          <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+      {/* Content */}
+      <div className={inline ? "space-y-6" : "p-6 overflow-y-auto max-h-[calc(90vh-140px)]"}>
             {loading ? (
               <div className="text-center py-12">
                 <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600"></div>
@@ -330,44 +328,50 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave }) => {
                     </div>
                   </div>
                 )}
-
-                {/* Info box - Always shown */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-800">
-                    <strong>Note:</strong> Credentials are stored in{' '}
-                    <code className="bg-blue-100 px-1 rounded">vars/user_vars.yml</code>. Make sure
-                    this file is properly secured and not committed to version control.
-                  </p>
-                </div>
               </div>
             )}
           </div>
 
-          {/* Footer */}
-          <div className="border-t border-gray-200 px-6 py-4 flex justify-end gap-3">
-            <button
-              onClick={onClose}
-              disabled={saving}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving || loading}
-              className={`px-4 py-2 ${themeColors.button} text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2`}
-            >
-              {saving ? (
-                <>
-                  <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Saving...
-                </>
-              ) : (
-                '💾 Save Credentials'
-              )}
-            </button>
-          </div>
-        </div>
+      {/* Footer */}
+      <div className={inline ? "flex justify-end gap-3 pt-4 border-t" : "border-t border-gray-200 px-6 py-4 flex justify-end gap-3"}>
+        <button
+          onClick={onClose}
+          disabled={saving}
+          className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={saving || loading}
+          className={`px-4 py-2 ${themeColors.button} text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2`}
+        >
+          {saving ? (
+            <>
+              <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              Saving...
+            </>
+          ) : (
+            '💾 Save Credentials'
+          )}
+        </button>
+      </div>
+    </div>
+  );
+
+  // Return inline form or wrapped in modal overlay
+  if (inline) {
+    return formContent;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={onClose} />
+
+      {/* Modal */}
+      <div className="flex min-h-full items-center justify-center p-4">
+        {formContent}
       </div>
     </div>
   );
@@ -378,6 +382,7 @@ CredentialsModal.propTypes = {
   onClose: PropTypes.func.isRequired,
   theme: PropTypes.string,
   onSave: PropTypes.func,
+  inline: PropTypes.bool,
 };
 
 export default CredentialsModal;

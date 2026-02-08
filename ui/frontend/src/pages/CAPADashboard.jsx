@@ -1113,8 +1113,6 @@ const CAPADashboardContent = () => {
           <div className="space-y-6">
             {/* Provision Form - Inline (not modal) */}
             <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-500">
-              <h2 className="text-2xl font-bold text-blue-900 mb-6">Provision ROSA HCP Cluster</h2>
-
               {/* Render the provision form content inline */}
               <RosaProvisionModal
                 isOpen={true}
@@ -1152,8 +1150,6 @@ const CAPADashboardContent = () => {
       case 'credentials':
         return (
           <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-500">
-            <h2 className="text-2xl font-bold text-blue-900 mb-4">Credentials Management</h2>
-
             <CredentialsModal
               isOpen={true}
               inline={true}

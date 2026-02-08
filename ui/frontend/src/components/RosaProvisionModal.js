@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { buildApiUrl, API_ENDPOINTS } from '../config/api';
 
-export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceInfo }) {
+export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceInfo, inline = false }) {
   // Capture initial MCE info when modal opens to prevent mid-form changes
   const initialMceInfoRef = useRef(null);
   const hasSetInitialMceInfo = useRef(false);
@@ -242,7 +242,9 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
     });
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  // For modal mode, don't render when closed
+  // For inline mode, always render
+  if (!inline && !isOpen) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -285,31 +287,33 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
   const supportsNetworkRoleConfig = isMinikube || isMceVersionAtLeast(mceVersion, '2.9.0');
   const supportsLogForwarding = isMinikube || isMceVersionAtLeast(mceVersion, '2.10.0');
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto m-4">
-        {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-violet-600 text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🚀</span>
-            <div>
-              <h2 className="text-xl font-bold">Provision ROSA HCP Cluster</h2>
-              {testSuite && (
-                <div className="text-cyan-100 text-sm mt-1">
-                  Test Suite: {testSuite.name} ({testSuite.category})
-                </div>
-              )}
+  // Render inline or as modal based on inline prop
+  const formContent = (
+    <div className={inline ? "w-full" : "bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto m-4"}>
+        {/* Header - Only show in modal mode */}
+        {!inline && (
+          <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-violet-600 text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🚀</span>
+              <div>
+                <h2 className="text-xl font-bold">Provision ROSA HCP Cluster</h2>
+                {testSuite && (
+                  <div className="text-cyan-100 text-sm mt-1">
+                    Test Suite: {testSuite.name} ({testSuite.category})
+                  </div>
+                )}
+              </div>
             </div>
+            <button
+              onClick={onClose}
+              className="text-white hover:bg-white/20 rounded-full p-1 transition-colors"
+            >
+              <XMarkIcon className="h-6 w-6" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="text-white hover:bg-white/20 rounded-full p-1 transition-colors"
-          >
-            <XMarkIcon className="h-6 w-6" />
-          </button>
-        </div>
+        )}
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className={inline ? "space-y-6" : "p-6 space-y-6"}>
           {/* Test Suite Information */}
           {testSuite && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -1137,6 +1141,16 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
           </div>
         </form>
       </div>
+  );
+
+  // Return inline form or wrapped in modal overlay
+  if (inline) {
+    return formContent;
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      {formContent}
     </div>
   );
 }
@@ -1156,4 +1170,5 @@ RosaProvisionModal.propTypes = {
     name: PropTypes.string,
     version: PropTypes.string,
   }),
+  inline: PropTypes.bool,
 };
