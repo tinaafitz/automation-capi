@@ -12,6 +12,7 @@ import {
   ClipboardDocumentIcon,
   ArrowPathIcon,
   KeyIcon,
+  PlusIcon,
 } from '@heroicons/react/24/outline';
 
 const STATUS_CONFIG = {
@@ -68,6 +69,18 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
   const [showFilters, setShowFilters] = useState(false);
   const [stats, setStats] = useState(null);
   const [copiedCommand, setCopiedCommand] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newEnv, setNewEnv] = useState({
+    clusterName: '',
+    platform: '',
+    ocpVersion: '',
+    consoleUrl: '',
+    username: '',
+    password: '',
+    jira: '',
+    polarion: '',
+    notes: '',
+  });
 
   // Fetch environments on mount
   useEffect(() => {
@@ -201,6 +214,42 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
     }
   };
 
+  const handleAddEnvironment = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/mce-environments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newEnv),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Reset form
+        setNewEnv({
+          clusterName: '',
+          platform: '',
+          ocpVersion: '',
+          consoleUrl: '',
+          username: '',
+          password: '',
+          jira: '',
+          polarion: '',
+          notes: '',
+        });
+        setShowAddModal(false);
+        // Refresh environments
+        await fetchEnvironments();
+        await fetchStats();
+      } else {
+        alert(`Failed to add environment: ${data.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error adding environment:', error);
+      alert(`Failed to add environment: ${error.message}`);
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     try {
@@ -231,31 +280,8 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
 
   return (
     <div className="space-y-6">
-      {/* Header with Stats */}
-      <div className="bg-gradient-to-r from-cyan-600 to-cyan-700 rounded-lg shadow-lg p-6 text-white">
-        <h2 className="text-2xl font-bold mb-4">MCE Test Environments</h2>
-
-        {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white/10 rounded-lg p-3">
-              <div className="text-cyan-200 text-sm">Total Environments</div>
-              <div className="text-3xl font-bold">{stats.total}</div>
-            </div>
-
-            {Object.entries(stats.byStatus || {}).map(([status, count]) => {
-              const config = STATUS_CONFIG[status];
-              return (
-                <div key={status} className="bg-white/10 rounded-lg p-3">
-                  <div className="text-cyan-200 text-sm flex items-center gap-1">
-                    {config?.emoji} {config?.label}
-                  </div>
-                  <div className="text-3xl font-bold">{count}</div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      {/* Title */}
+      <h2 className="text-2xl font-bold text-blue-900">MCE Test Environments</h2>
 
       {/* Search and Filters */}
       <div className="bg-white rounded-lg shadow p-4 space-y-4">
@@ -292,6 +318,15 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
             <ArrowPathIcon className="w-5 h-5" />
             Refresh
           </button>
+
+          {/* Add Environment */}
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+          >
+            <PlusIcon className="w-5 h-5" />
+            Add
+          </button>
         </div>
 
         {/* Filter Options */}
@@ -325,6 +360,163 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
                 <option value="in_progress">⏳ In Progress</option>
                 <option value="unknown">❓ Unknown</option>
               </select>
+            </div>
+          </div>
+        )}
+
+        {/* Add Environment Form - Inline */}
+        {showAddModal && (
+          <div className="pt-4 border-t mt-4">
+            <h3 className="text-lg font-semibold text-green-700 mb-4">Add New Environment</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Cluster Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Cluster Name
+                </label>
+                <input
+                  type="text"
+                  value={newEnv.clusterName}
+                  onChange={(e) => setNewEnv({ ...newEnv, clusterName: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  placeholder="e.g., cqu-2135-zup"
+                />
+              </div>
+
+              {/* Platform */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Platform
+                </label>
+                <select
+                  value={newEnv.platform}
+                  onChange={(e) => setNewEnv({ ...newEnv, platform: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="">Select platform...</option>
+                  <option value="AWS">AWS x86</option>
+                  <option value="AWS-ARM">AWS ARM</option>
+                  <option value="IBM Power">IBM Power</option>
+                  <option value="IBM Z">IBM Z</option>
+                  <option value="Azure">Azure</option>
+                  <option value="GCP">GCP</option>
+                </select>
+              </div>
+
+              {/* OCP Version */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  OCP Version
+                </label>
+                <input
+                  type="text"
+                  value={newEnv.ocpVersion}
+                  onChange={(e) => setNewEnv({ ...newEnv, ocpVersion: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  placeholder="e.g., 4.19.21"
+                />
+              </div>
+
+              {/* Console URL */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Console URL *
+                </label>
+                <input
+                  type="text"
+                  value={newEnv.consoleUrl}
+                  onChange={(e) => setNewEnv({ ...newEnv, consoleUrl: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  placeholder="https://console-openshift-console.apps..."
+                />
+              </div>
+
+              {/* Username */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Username *
+                </label>
+                <input
+                  type="text"
+                  value={newEnv.username}
+                  onChange={(e) => setNewEnv({ ...newEnv, username: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  placeholder="kubeadmin"
+                />
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Password *
+                </label>
+                <input
+                  type="password"
+                  value={newEnv.password}
+                  onChange={(e) => setNewEnv({ ...newEnv, password: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  placeholder="kubeadmin password"
+                />
+              </div>
+
+              {/* Jira */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Jira Ticket
+                </label>
+                <input
+                  type="text"
+                  value={newEnv.jira}
+                  onChange={(e) => setNewEnv({ ...newEnv, jira: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  placeholder="e.g., ACM-24815"
+                />
+              </div>
+
+              {/* Polarion */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Polarion Test Plan
+                </label>
+                <input
+                  type="text"
+                  value={newEnv.polarion}
+                  onChange={(e) => setNewEnv({ ...newEnv, polarion: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  placeholder="e.g., RHACM4K-12345"
+                />
+              </div>
+
+              {/* Notes - Full Width */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notes
+                </label>
+                <textarea
+                  value={newEnv.notes}
+                  onChange={(e) => setNewEnv({ ...newEnv, notes: e.target.value })}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  placeholder="Any additional notes about this environment..."
+                />
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddEnvironment}
+                disabled={!newEnv.consoleUrl || !newEnv.username || !newEnv.password}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add Environment
+              </button>
             </div>
           </div>
         )}
