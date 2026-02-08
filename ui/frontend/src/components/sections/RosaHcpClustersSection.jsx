@@ -193,126 +193,72 @@ const RosaHcpClustersSection = ({ theme = 'mce' }) => {
   }, [ocpStatus?.connected]);
 
   return (
-    <div className="mb-6">
-      <div
-        className="bg-white rounded-xl shadow-lg border-2 border-cyan-200 overflow-hidden"
-        data-section-id="capi-rosa-hcp-clusters"
-      >
-        <div
-          onClick={toggleClusterSection}
-          className={`flex items-center justify-between p-4 cursor-pointer bg-gradient-to-r ${colors.headerGradient} ${colors.hoverGradient} transition-colors`}
-        >
-          <div className="flex items-center gap-3">
-            <div className="bg-white/20 rounded-full p-2">
-              <ChartBarIcon className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-white">CAPI-Managed ROSA HCP Clusters</h3>
-            </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                fetchClusters();
-              }}
-              className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition-colors duration-200 flex items-center space-x-2 text-sm font-medium"
-              disabled={clustersLoading}
-            >
-              <ArrowPathIcon className={`h-4 w-4 ${clustersLoading ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
-            </button>
-            <div className="p-0.5">
-              {getClusterSectionCollapsedState() ? (
-                <ChevronDownIcon className="h-5 w-5 text-white" />
-              ) : (
-                <ChevronUpIcon className="h-5 w-5 text-white" />
-              )}
-            </div>
-          </div>
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-500">
+        {/* Title and Refresh Button */}
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-blue-900">ROSA HCP Clusters</h2>
+          <button
+            onClick={fetchClusters}
+            disabled={clustersLoading}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium flex items-center gap-2"
+          >
+            <ArrowPathIcon className={`h-4 w-4 ${clustersLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
         </div>
 
-        {!getClusterSectionCollapsedState() && (
-          <div className="p-6">
-            {clustersError ? (
-              <div className="text-center py-8 text-red-600">
-                <p className="text-sm">Failed to load clusters</p>
-                <p className="text-xs mt-2">{clustersError}</p>
-              </div>
-            ) : clustersLoading ? (
-              <div className="text-center py-8 text-gray-500">
-                <ArrowPathIcon className="h-8 w-8 animate-spin mx-auto mb-2" />
-                <p className="text-sm">Loading clusters...</p>
-              </div>
-            ) : clusters.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <p className="text-sm">No ROSA HCP clusters found</p>
-                <p className="text-xs mt-2">Clusters will appear here when provisioned</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {clusters.map((cluster, idx) => (
+        {/* Cluster List */}
+        {clustersError ? (
+          <div className="text-center py-8 text-red-600">
+            <p className="text-sm">Failed to load clusters</p>
+            <p className="text-xs mt-2">{clustersError}</p>
+          </div>
+        ) : clustersLoading ? (
+          <div className="text-center py-8 text-gray-500">
+            <ArrowPathIcon className="h-8 w-8 animate-spin mx-auto mb-2" />
+            <p className="text-sm">Loading clusters...</p>
+          </div>
+        ) : clusters.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <p className="text-sm">No ROSA HCP clusters found</p>
+            <p className="text-xs mt-2">Clusters will appear here when provisioned</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {clusters.map((cluster, idx) => (
+              <div
+                key={cluster.name || idx}
+                className="flex items-center justify-between p-3 bg-gray-50 rounded border border-gray-200 hover:bg-gray-100 transition-colors"
+              >
+                <div className="flex items-center gap-2 flex-1 min-w-0">
                   <div
-                    key={cluster.name || idx}
-                    className={`flex items-center justify-between p-4 bg-gradient-to-r ${colors.lightBg} rounded-lg border ${colors.lightBorder} transition-all duration-200 hover:shadow-md`}
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                      cluster.status === 'ready'
+                        ? 'bg-green-500'
+                        : cluster.status === 'provisioning'
+                          ? 'bg-yellow-500 animate-pulse'
+                          : 'bg-red-500'
+                    }`}
+                  ></div>
+                  <div className="font-semibold text-gray-900">{cluster.name}</div>
+                  <div className="text-sm text-gray-600">State: {cluster.status || 'Unknown'}</div>
+                  {cluster.version && (
+                    <div className="text-xs text-gray-500">Version: {cluster.version}</div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="text-xs text-gray-500">{cluster.region || 'N/A'}</div>
+                  <button
+                    onClick={() => handleDeleteCluster(cluster.name, cluster.namespace)}
+                    className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    title={`Delete cluster ${cluster.name}`}
                   >
-                    <div className="flex items-center space-x-3 flex-1 min-w-0">
-                      <div
-                        className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                          cluster.status === 'ready'
-                            ? 'bg-green-500'
-                            : cluster.status === 'provisioning'
-                              ? 'bg-yellow-500 animate-pulse'
-                              : 'bg-red-500'
-                        }`}
-                      ></div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-cyan-900 truncate">{cluster.name}</div>
-                        <div className="text-sm text-cyan-700 mt-1">
-                          State: {cluster.status || 'Unknown'}
-                          {cluster.status === 'provisioning' && cluster.progress !== undefined && (
-                            <span className="ml-2 font-medium">({cluster.progress}%)</span>
-                          )}
-                        </div>
-                        {cluster.version && (
-                          <div className="text-xs text-gray-600 mt-1">
-                            Version: {cluster.version}
-                          </div>
-                        )}
-                        {/* Display error message for failed clusters */}
-                        {cluster.status === 'failed' && cluster.error_message && (
-                          <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs">
-                            <div className="font-semibold text-red-800 mb-1">
-                              ❌ {cluster.error_reason || 'Error'}
-                            </div>
-                            <div className="text-red-700">{cluster.error_message}</div>
-                          </div>
-                        )}
-                        {/* Progress bar for provisioning clusters */}
-                        {cluster.status === 'provisioning' && cluster.progress !== undefined && (
-                          <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-                              style={{ width: `${cluster.progress}%` }}
-                            ></div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3 flex-shrink-0">
-                      <div className="text-xs text-cyan-600">{cluster.region || 'N/A'}</div>
-                      <button
-                        onClick={() => handleDeleteCluster(cluster.name, cluster.namespace)}
-                        className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                        title={`Delete cluster ${cluster.name}`}
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-            )}
+            ))}
           </div>
         )}
       </div>
