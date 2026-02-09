@@ -58,7 +58,7 @@
       "delete_network": "Delete ROSANetwork resources (VPC, subnets) - true or false (default: true)",
       "delete_roles": "Delete ROSARoleConfig resources (IAM roles, OIDC) - true or false (default: true)",
       "wait_for_deletion": "Wait for resources to be fully deleted - true or false (default: true)",
-      "deletion_timeout": "Timeout in seconds for waiting (default: 600 = 10 minutes)"
+      "deletion_timeout": "Timeout in seconds for waiting (default: 2400 = 40 minutes)"
     },
     "deletion_order": [
       "1. ROSAMachinePool - Delete worker node pools first",
