@@ -65,6 +65,7 @@ class TestSuiteRunner:
 
         self.dry_run = dry_run
         self.verbosity = verbosity
+        self.suite_label = None  # For generating descriptive filenames
         self.results = {
             "start_time": None,
             "end_time": None,
@@ -236,11 +237,44 @@ class TestSuiteRunner:
                 "duration": duration
             }
 
+    def _extract_suite_label(self, suite_id: str) -> str:
+        """Extract a short descriptive label from suite ID for filenames.
+
+        Examples:
+            10-configure-mce-environment -> configure
+            20-rosa-hcp-provision -> provision
+            30-rosa-hcp-delete -> delete
+            23-rosa-hcp-full-lifecycle -> lifecycle
+        """
+        # Remove leading numbers and hyphens
+        label = suite_id.lstrip('0123456789-')
+
+        # Extract key terms for common patterns
+        if 'configure' in label:
+            return 'configure'
+        elif 'provision' in label or 'creation' in label:
+            return 'provision'
+        elif 'delete' in label or 'deletion' in label:
+            return 'delete'
+        elif 'lifecycle' in label:
+            return 'lifecycle'
+        elif 'verify' in label:
+            return 'verify'
+        elif 'enable' in label or 'disable' in label:
+            return 'toggle'
+        else:
+            # Fallback: use first significant word
+            words = label.replace('-', ' ').split()
+            return words[0] if words else 'test'
+
     def run_test_suite(self, suite_id: str) -> bool:
         """Execute a complete test suite."""
         suite_data = self.load_test_suite(suite_id)
         if not suite_data:
             return False
+
+        # Set suite label for filename generation
+        self.suite_label = self._extract_suite_label(suite_id)
 
         # Print suite header
         self._print_suite_header(suite_data)
@@ -292,6 +326,12 @@ class TestSuiteRunner:
         """Run all test suites, optionally filtered by tag."""
         suites = self.list_test_suites()
 
+        # Set suite label for filename generation
+        if tag_filter:
+            self.suite_label = f"tag-{tag_filter}"
+        else:
+            self.suite_label = "multi"
+
         # Apply tag filter if specified
         if tag_filter:
             suites = [s for s in suites if tag_filter in s.get("tags", [])]
@@ -303,10 +343,14 @@ class TestSuiteRunner:
 
         print(f"{Colors.BOLD}Found {len(suites)} test suite(s){Colors.ENDC}\n")
 
-        # Run each suite
+        # Run each suite (note: suite_label remains as set above for all suites)
         all_passed = True
         for suite in suites:
+            # Temporarily save the multi/tag label
+            saved_label = self.suite_label
             success = self.run_test_suite(suite["id"])
+            # Restore the multi/tag label for filename generation
+            self.suite_label = saved_label
             if not success:
                 all_passed = False
 
@@ -318,35 +362,41 @@ class TestSuiteRunner:
         results_date_dir = self.results_dir / datetime.now().strftime("%Y-%m-%d")
         results_date_dir.mkdir(exist_ok=True)
 
+        # Generate filename with suite label for better identification
+        # Examples: test-run-provision-20260208_145017.xml
+        #           test-run-delete-20260208_150612.xml
+        #           test-run-configure-20260208_151015.xml
+        label_part = f"-{self.suite_label}" if self.suite_label else ""
+
         if format == "json":
-            output_file = results_date_dir / f"test-run-{timestamp}.json"
+            output_file = results_date_dir / f"test-run{label_part}-{timestamp}.json"
             with open(output_file, 'w') as f:
                 json.dump(self.results, f, indent=2)
 
-            # Also save as latest.json
-            latest_file = self.results_dir / "latest.json"
+            # Also save as latest.json (with label)
+            latest_file = self.results_dir / f"latest{label_part}.json"
             with open(latest_file, 'w') as f:
                 json.dump(self.results, f, indent=2)
 
         elif format == "html":
-            output_file = results_date_dir / f"test-run-{timestamp}.html"
+            output_file = results_date_dir / f"test-run{label_part}-{timestamp}.html"
             html_content = self._generate_html_report()
             with open(output_file, 'w') as f:
                 f.write(html_content)
 
-            # Also save as latest.html
-            latest_file = self.results_dir / "latest.html"
+            # Also save as latest.html (with label)
+            latest_file = self.results_dir / f"latest{label_part}.html"
             with open(latest_file, 'w') as f:
                 f.write(html_content)
 
         elif format == "junit":
-            output_file = results_date_dir / f"test-run-{timestamp}.xml"
+            output_file = results_date_dir / f"test-run{label_part}-{timestamp}.xml"
             junit_content = self._generate_junit_xml()
             with open(output_file, 'w') as f:
                 f.write(junit_content)
 
-            # Also save as latest.xml
-            latest_file = self.results_dir / "latest.xml"
+            # Also save as latest.xml (with label)
+            latest_file = self.results_dir / f"latest{label_part}.xml"
             with open(latest_file, 'w') as f:
                 f.write(junit_content)
 
