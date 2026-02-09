@@ -17,7 +17,6 @@ import { useJobHistory } from '../../hooks/useJobHistory';
 const HelmChartTestDashboard = ({ theme = 'mce' }) => {
   const recentOps = useRecentOperationsContext();
   const { fetchJobHistory } = useJobHistory();
-  const [isExpanded, setIsExpanded] = useState(true);
   const [testMatrix, setTestMatrix] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selectedCell, setSelectedCell] = useState(null);
@@ -78,14 +77,12 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
   const environments = theme === 'mce' ? ['OpenShift'] : ['Kubernetes'];
 
   useEffect(() => {
-    if (isExpanded) {
-      loadTestMatrix();
-    }
-  }, [isExpanded]);
+    loadTestMatrix();
+  }, []);
 
   // Auto-refresh effect - polls for updates when tests are running
   useEffect(() => {
-    if (!isExpanded || !autoRefresh || !testMatrix) {
+    if (!autoRefresh || !testMatrix) {
       return;
     }
 
@@ -105,7 +102,7 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
     }, refreshInterval);
 
     return () => clearInterval(intervalId);
-  }, [isExpanded, autoRefresh, testMatrix, refreshInterval]);
+  }, [autoRefresh, testMatrix, refreshInterval]);
 
   const loadTestMatrix = async () => {
     try {
@@ -286,73 +283,44 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
   };
 
   return (
-    <div className="mb-6">
-      <div className={`bg-white rounded-xl shadow-lg border-2 ${colors.border} overflow-hidden`}>
-        {/* Section Header */}
-        <div
-          className={`flex items-center justify-between p-4 cursor-pointer bg-gradient-to-r ${colors.headerGradient} ${colors.hoverGradient} transition-colors`}
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          <div className="flex items-center gap-3">
-            <div className="bg-white/20 rounded-full p-2">
-              <ChartBarIcon className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-white">Helm Chart Test Matrix</h3>
-              <p className="text-sm text-white/80">
-                Installation, compliance, and functionality tests across all providers
-              </p>
-            </div>
-          </div>
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-500">
+        {/* Toolbar */}
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
             {/* Git Source Indicator */}
             <div
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowSourceConfig(!showSourceConfig);
-              }}
-              className="px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors text-sm font-medium text-white cursor-pointer"
+              onClick={() => setShowSourceConfig(!showSourceConfig)}
+              className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors text-sm font-medium text-gray-700 cursor-pointer"
               title="Configure chart source"
             >
               {chartSource === 'git' ? `📦 Git: ${gitBranch}` : '📦 Helm Repo'}
             </div>
 
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setAutoRefresh(!autoRefresh);
-              }}
+              onClick={() => setAutoRefresh(!autoRefresh)}
               className={`px-3 py-1.5 rounded-lg transition-colors text-sm font-medium ${
                 autoRefresh
-                  ? 'bg-white/30 text-white'
-                  : 'bg-white/10 text-white/60 hover:bg-white/20'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
               title={autoRefresh ? 'Auto-refresh enabled' : 'Auto-refresh disabled'}
             >
               {autoRefresh ? '🔄 Auto' : '⏸️ Manual'}
             </button>
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                loadTestMatrix();
-              }}
-              className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+              onClick={loadTestMatrix}
+              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-sm font-medium text-gray-700 flex items-center gap-2"
               title="Refresh test results"
             >
-              <ArrowPathIcon className="h-5 w-5 text-white" />
+              <ArrowPathIcon className="h-4 w-4" />
+              Refresh
             </button>
-            <div>
-              {isExpanded ? (
-                <ChevronUpIcon className="h-5 w-5 text-white" />
-              ) : (
-                <ChevronDownIcon className="h-5 w-5 text-white" />
-              )}
-            </div>
           </div>
         </div>
 
         {/* Chart Source Configuration Panel */}
-        {showSourceConfig && isExpanded && (
+        {showSourceConfig && (
           <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200 p-4">
             <div className="max-w-4xl mx-auto">
               <h4 className="text-sm font-semibold text-gray-700 mb-3">
@@ -400,16 +368,14 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
           </div>
         )}
 
-        {/* Section Content */}
-        {isExpanded && (
-          <div className="p-6">
-            {loading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600 mx-auto"></div>
-                <p className="mt-4 text-gray-600">Loading test matrix...</p>
-              </div>
-            ) : (
-              <div className="space-y-6">
+        {/* Test Matrix Content */}
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading test matrix...</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
                 {/* Legend */}
                 <div className="flex items-center gap-4 text-sm bg-gray-50 p-3 rounded-lg">
                   <span className="font-medium text-gray-700">Status:</span>
@@ -542,8 +508,6 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
                     );
                   })
                 )}
-              </div>
-            )}
           </div>
         )}
       </div>

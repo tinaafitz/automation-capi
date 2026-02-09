@@ -10,6 +10,9 @@ import CredentialsModal from '../components/modals/CredentialsModal';
 import MCEEnvironmentSelector from '../components/MCEEnvironmentSelector';
 import { YamlEditorModal } from '../components/YamlEditorModal';
 import { RosaProvisionModal } from '../components/RosaProvisionModal';
+import TestSuiteDashboard from '../components/sections/TestSuiteDashboard';
+import TestSuiteSection from '../components/sections/TestSuiteSection';
+import HelmChartTestDashboard from '../components/sections/HelmChartTestDashboard';
 import {
   AppProvider,
   useApiStatusContext,
@@ -114,14 +117,7 @@ const TerminalInline = () => {
 
   return (
     <div>
-      {/* Header */}
-      <div className="mb-4">
-        <div className="flex items-center space-x-3">
-          <span className="text-2xl">💻</span>
-          <h2 className="text-2xl font-bold text-blue-900">MCE Terminal</h2>
-        </div>
-        <p className="text-gray-600 mt-2">Execute commands directly on your MCE environment.</p>
-      </div>
+      <p className="text-gray-600 mb-4">Execute commands directly on your MCE environment.</p>
 
       {/* Terminal - Full width */}
       <div className="flex flex-col h-[calc(100vh-250px)]">
@@ -280,20 +276,7 @@ const NotificationSettingsInline = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">🔔</span>
-          <div>
-            <h2 className="text-2xl font-bold text-blue-900">Notification Settings</h2>
-            <p className="text-gray-600 text-sm mt-1">
-              Configure email and Slack notifications for provisioning jobs
-            </p>
-          </div>
-        </div>
-      </div>
-
+    <div>
       {loading ? (
         <div className="text-center py-12">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600"></div>
@@ -329,7 +312,7 @@ const NotificationSettingsInline = () => {
           {activeTab === 'email' && (
             <div className="space-y-4">
               {/* Enable Email */}
-              <div className="flex items-center justify-between p-4 bg-cyan-50 rounded-lg border border-cyan-200">
+              <div className="flex items-center justify-between py-3">
                 <div>
                   <h3 className="font-semibold text-gray-900">Enable Email Notifications</h3>
                   <p className="text-sm text-gray-600">Send notifications via email for provisioning jobs</p>
@@ -442,7 +425,7 @@ const NotificationSettingsInline = () => {
           {activeTab === 'slack' && (
             <div className="space-y-4">
               {/* Enable Slack */}
-              <div className="flex items-center justify-between p-4 bg-cyan-50 rounded-lg border border-cyan-200">
+              <div className="flex items-center justify-between py-3">
                 <div>
                   <h3 className="font-semibold text-gray-900">Enable Slack Notifications</h3>
                   <p className="text-sm text-gray-600">Send notifications to Slack for provisioning jobs</p>
@@ -847,6 +830,9 @@ const CAPADashboardContent = () => {
     onEnvironmentsClick: () => setActiveSection('environments'),
     onCredentialsClick: () => setActiveSection('credentials'),
     onTestClick: () => setActiveSection('test'),
+    onTestSuiteDashboardClick: () => setActiveSection('test-suite-dashboard'),
+    onTestAutomationClick: () => setActiveSection('test-automation'),
+    onHelmChartMatrixClick: () => setActiveSection('helm-chart-matrix'),
     onTerminalClick: () => setActiveSection('terminal'),
     onNotificationsClick: () => setActiveSection('notifications'),
   };
@@ -860,58 +846,46 @@ const CAPADashboardContent = () => {
       case 'verify':
         return (
           <div className="space-y-6">
-            {/* Verification Status Card */}
-            <div className="bg-white rounded-lg shadow p-6 border-t-4 border-cyan-500">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold text-blue-900">Verify Environment</h2>
-                <button
-                  onClick={handleMceVerification}
-                  disabled={apiLoading}
-                  className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium flex items-center gap-2"
-                >
-                  {apiLoading ? (
-                    <>
-                      <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      Verifying...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircleIcon className="h-5 w-5" />
-                      Run Verification
-                    </>
-                  )}
-                </button>
-              </div>
+            {/* Title */}
+            <h2 className="text-2xl font-bold text-blue-900">Verify Environment</h2>
 
-              <p className="text-gray-600 mb-6">
-                Run comprehensive verification checks on your MCE environment and CAPI/CAPA components.
-              </p>
+            <p className="text-gray-600 mb-6">
+              Run comprehensive verification checks on your MCE environment and CAPI/CAPA components.
+            </p>
 
-              {/* Last Verification Info */}
-              {mceLastVerified && (
-                <div className="bg-cyan-50 border border-cyan-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckCircleIcon className="h-5 w-5 text-cyan-600" />
-                    <h3 className="font-semibold text-cyan-900">Last Verification</h3>
-                  </div>
-                  <div className="text-sm text-gray-700">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">Time:</span>
-                      <span>{new Date(mceLastVerified).toLocaleString()}</span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="font-medium">Status:</span>
-                      <span className="text-green-600 font-medium">✅ Passed</span>
-                    </div>
-                  </div>
-                </div>
+            <button
+              onClick={handleMceVerification}
+              disabled={apiLoading}
+              className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium flex items-center gap-2"
+            >
+              {apiLoading ? (
+                <>
+                  <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Verifying...
+                </>
+              ) : (
+                <>
+                  <CheckCircleIcon className="h-5 w-5" />
+                  Run Verification
+                </>
               )}
-            </div>
+            </button>
+
+            {/* Last Verification Info */}
+            {mceLastVerified && (
+              <div className="text-sm text-gray-600">
+                <div className="flex items-center gap-2">
+                  <CheckCircleIcon className="h-4 w-4 text-green-600" />
+                  <span>Last verified: {new Date(mceLastVerified).toLocaleString()}</span>
+                  <span className="text-green-600 font-medium">✅ Passed</span>
+                </div>
+              </div>
+            )}
 
             {/* CAPI/CAPA Components Section */}
-            <div className="bg-white rounded-lg shadow p-4 border-t-4 border-blue-500">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-bold text-blue-900">Components</h2>
+                <h3 className="text-lg font-semibold text-gray-900">Components</h3>
                 <button
                   onClick={handleRefresh}
                   disabled={apiLoading}
@@ -992,12 +966,12 @@ const CAPADashboardContent = () => {
             {(() => {
               console.log('🔍 Rendering verify section, verificationResults:', verificationResults);
               return verificationResults && (
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="flex items-center gap-2 mb-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
                     {verificationResults.success ? (
-                      <CheckCircleIcon className="h-6 w-6 text-green-600" />
+                      <CheckCircleIcon className="h-5 w-5 text-green-600" />
                     ) : (
-                      <span className="text-2xl">❌</span>
+                      <span className="text-xl">❌</span>
                     )}
                     <h3 className="text-lg font-semibold text-gray-900">
                       {verificationResults.success ? 'Verification Passed' : 'Verification Failed'}
@@ -1022,49 +996,40 @@ const CAPADashboardContent = () => {
       case 'configure':
         return (
           <div className="space-y-6">
-            {/* Configuration Card */}
-            <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-500">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold text-blue-900">Configure CAPI/CAPA</h2>
-                <button
-                  onClick={handleConfigure}
-                  disabled={apiLoading}
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium flex items-center gap-2"
-                >
-                  {apiLoading ? (
-                    <>
-                      <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      Configuring...
-                    </>
-                  ) : (
-                    <>
-                      <Cog6ToothIcon className="h-5 w-5" />
-                      Start Configuration
-                    </>
-                  )}
-                </button>
-              </div>
+            {/* Title */}
+            <h2 className="text-2xl font-bold text-blue-900">Configure CAPI/CAPA</h2>
 
+            {/* Configuration Card */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <p className="text-gray-600 mb-6">
                 Enable and configure CAPI/CAPA components on your MCE environment.
               </p>
 
+              <button
+                onClick={handleConfigure}
+                disabled={apiLoading}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium flex items-center gap-2"
+              >
+                {apiLoading ? (
+                  <>
+                    <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Configuring...
+                  </>
+                ) : (
+                  <>
+                    <Cog6ToothIcon className="h-5 w-5" />
+                    Start Configuration
+                  </>
+                )}
+              </button>
+
               {/* Last Configuration Info */}
               {mceLastConfigured && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Cog6ToothIcon className="h-5 w-5 text-blue-600" />
-                    <h3 className="font-semibold text-blue-900">Last Configuration</h3>
-                  </div>
-                  <div className="text-sm text-gray-700">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">Time:</span>
-                      <span>{new Date(mceLastConfigured).toLocaleString()}</span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="font-medium">Status:</span>
-                      <span className="text-green-600 font-medium">✅ Completed</span>
-                    </div>
+                <div className="text-sm text-gray-600 mt-4">
+                  <div className="flex items-center gap-2">
+                    <Cog6ToothIcon className="h-4 w-4 text-blue-600" />
+                    <span>Last configured: {new Date(mceLastConfigured).toLocaleString()}</span>
+                    <span className="text-green-600 font-medium">✅ Completed</span>
                   </div>
                 </div>
               )}
@@ -1111,9 +1076,11 @@ const CAPADashboardContent = () => {
       case 'provision':
         return (
           <div className="space-y-6">
+            {/* Title */}
+            <h2 className="text-2xl font-bold text-blue-900">Provision ROSA HCP Cluster</h2>
+
             {/* Provision Form - Inline (not modal) */}
-            <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-500">
-              {/* Render the provision form content inline */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <RosaProvisionModal
                 isOpen={true}
                 inline={true}
@@ -1133,10 +1100,14 @@ const CAPADashboardContent = () => {
 
       case 'resources':
         return (
-          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-500">
-            <h2 className="text-2xl font-bold text-blue-900 mb-4">Provision Resources</h2>
-            <p className="text-gray-600 mb-4">View and manage CAPI/CAPA Kubernetes resources.</p>
-            <div className="text-sm text-gray-500">Resources section coming soon...</div>
+          <div className="space-y-6">
+            {/* Title */}
+            <h2 className="text-2xl font-bold text-blue-900">Provision Resources</h2>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <p className="text-gray-600 mb-4">View and manage CAPI/CAPA Kubernetes resources.</p>
+              <div className="text-sm text-gray-500">Resources section coming soon...</div>
+            </div>
           </div>
         );
 
@@ -1149,50 +1120,83 @@ const CAPADashboardContent = () => {
 
       case 'credentials':
         return (
-          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-500">
-            <CredentialsModal
-              isOpen={true}
-              inline={true}
-              onClose={() => {}}
-              theme="mce"
-              onSave={() => {
-                refreshAllStatus();
-              }}
-            />
+          <div className="space-y-6">
+            {/* Title */}
+            <h2 className="text-2xl font-bold text-blue-900">Credentials</h2>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <CredentialsModal
+                isOpen={true}
+                inline={true}
+                onClose={() => {}}
+                theme="mce"
+                onSave={() => {
+                  refreshAllStatus();
+                }}
+              />
+            </div>
           </div>
         );
 
       case 'test':
         return (
           <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow p-6 border-t-4 border-cyan-500">
-              <h2 className="text-2xl font-bold text-blue-900 mb-4">Test Suites</h2>
+            {/* Title */}
+            <h2 className="text-2xl font-bold text-blue-900">Test Suites</h2>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <p className="text-gray-600 mb-4">Run and manage CAPI/CAPA test suites.</p>
               <div className="text-sm text-gray-500">Test suite dashboard coming soon...</div>
             </div>
-            {/* Task Summary Section */}
-            <TaskSummarySection theme="mce" environment="mce" />
+            {/* Task Summary Section removed */}
           </div>
         );
 
+      case 'test-suite-dashboard':
+        return (
+          <TestSuiteDashboard
+            theme="mce"
+            onSelectTestSuite={(testSuite) => {
+              console.log('Selected test suite:', testSuite);
+              // You can add modal or navigation logic here
+            }}
+          />
+        );
+
+      case 'test-automation':
+        return <TestSuiteSection theme="mce" />;
+
+      case 'helm-chart-matrix':
+        return <HelmChartTestDashboard theme="mce" />;
+
       case 'terminal':
         return (
-          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-500">
-            <TerminalInline />
+          <div className="space-y-6">
+            {/* Title */}
+            <h2 className="text-2xl font-bold text-blue-900">MCE Terminal</h2>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <TerminalInline />
+            </div>
           </div>
         );
 
       case 'notifications':
         return (
-          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-cyan-500">
-            <NotificationSettingsInline />
+          <div className="space-y-6">
+            {/* Title */}
+            <h2 className="text-2xl font-bold text-blue-900">Notification Settings</h2>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <NotificationSettingsInline />
+            </div>
           </div>
         );
 
       default:
         return (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            <h2 className="text-2xl font-bold text-blue-900 mb-4">
               {activeSection.charAt(0).toUpperCase() + activeSection.slice(1)}
             </h2>
             <p className="text-gray-600">Content for {activeSection} section coming soon...</p>

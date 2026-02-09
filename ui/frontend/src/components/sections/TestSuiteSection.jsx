@@ -13,7 +13,6 @@ import { useJobHistory } from '../../hooks/useJobHistory';
 import { RosaProvisionModal } from '../RosaProvisionModal';
 
 const TestSuiteSection = ({ theme = 'mce' }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
   const [suites, setSuites] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showProvisionModal, setShowProvisionModal] = useState(false);
@@ -65,10 +64,8 @@ const TestSuiteSection = ({ theme = 'mce' }) => {
   };
 
   useEffect(() => {
-    if (isExpanded) {
-      loadSuites();
-    }
-  }, [isExpanded]);
+    loadSuites();
+  }, []);
 
   const loadSuites = async () => {
     try {
@@ -134,36 +131,8 @@ const TestSuiteSection = ({ theme = 'mce' }) => {
   };
 
   return (
-    <div className="mb-6">
-      <div className={`bg-white rounded-xl shadow-lg border-2 ${colors.border} overflow-hidden`}>
-        {/* Section Header */}
-        <div
-          className={`flex items-center justify-between p-4 cursor-pointer bg-gradient-to-r ${colors.headerGradient} ${colors.hoverGradient} transition-colors`}
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          <div className="flex items-center gap-3">
-            <div className="bg-white/20 rounded-full p-2">
-              <BeakerIcon className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-white">Test Automation</h3>
-              <p className="text-sm text-white/80">
-                Run automated playbooks for CAPI/CAPA testing and configuration
-              </p>
-            </div>
-          </div>
-          <div>
-            {isExpanded ? (
-              <ChevronUpIcon className="h-5 w-5 text-white" />
-            ) : (
-              <ChevronDownIcon className="h-5 w-5 text-white" />
-            )}
-          </div>
-        </div>
-
-        {/* Section Content */}
-        {isExpanded && (
-          <div className="p-6">
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-500">
             {loading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600 mx-auto"></div>
@@ -172,9 +141,7 @@ const TestSuiteSection = ({ theme = 'mce' }) => {
             ) : (
               <div>
                 <p className="text-sm text-gray-600 mb-4">
-                  🧪 Run automated playbooks to configure and test CAPI/CAPA functionality. Progress
-                  and logs will appear in <strong>Task Summary</strong> and{' '}
-                  <strong>Task Detail</strong> sections below.
+                  🧪 Run automated playbooks to configure and test CAPI/CAPA functionality.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {suites.map((suite) => {
@@ -224,8 +191,6 @@ const TestSuiteSection = ({ theme = 'mce' }) => {
                 </div>
               </div>
             )}
-          </div>
-        )}
       </div>
 
       {/* ROSA Provisioning Modal */}

@@ -33,12 +33,16 @@ const JenkinsSidebar = ({
   onEnvironmentsClick,
   onCredentialsClick,
   onTestClick,
+  onTestSuiteDashboardClick,
+  onTestAutomationClick,
+  onHelmChartMatrixClick,
   onTerminalClick,
   onNotificationsClick,
   activeSection = 'environments'
 }) => {
   const [isRecentTestsExpanded, setIsRecentTestsExpanded] = useState(true);
   const [isProvisionExpanded, setIsProvisionExpanded] = useState(false);
+  const [isTestExpanded, setIsTestExpanded] = useState(false);
   const recentOps = useRecentOperationsContext();
   const apiStatus = useApiStatusContext();
 
@@ -146,6 +150,9 @@ const JenkinsSidebar = ({
                   if (item.id === 'provision') {
                     setIsProvisionExpanded(!isProvisionExpanded);
                     item.onClick();
+                  } else if (item.id === 'test') {
+                    setIsTestExpanded(!isTestExpanded);
+                    item.onClick();
                   } else {
                     item.onClick();
                   }
@@ -153,20 +160,25 @@ const JenkinsSidebar = ({
                 className={`
                   w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm
                   transition-colors
-                  ${activeSection === item.id || (item.id === 'provision' && activeSection === 'resources')
+                  ${activeSection === item.id ||
+                    (item.id === 'provision' && activeSection === 'resources') ||
+                    (item.id === 'test' && ['test-suite-dashboard', 'test-automation', 'helm-chart-matrix', 'test'].includes(activeSection))
                     ? 'bg-blue-100 text-blue-900 border-l-4 border-blue-600 font-medium'
                     : 'text-gray-700 hover:bg-gray-200'
                   }
                 `}
               >
-                <span className={activeSection === item.id || (item.id === 'provision' && activeSection === 'resources') ? 'text-blue-600' : 'text-gray-500'}>
+                <span className={activeSection === item.id ||
+                  (item.id === 'provision' && activeSection === 'resources') ||
+                  (item.id === 'test' && ['test-suite-dashboard', 'test-automation', 'helm-chart-matrix', 'test'].includes(activeSection))
+                  ? 'text-blue-600' : 'text-gray-500'}>
                   {item.icon}
                 </span>
                 <span className="flex-1">{item.label}</span>
-                {/* Show chevron for Provision */}
-                {item.id === 'provision' && (
+                {/* Show chevron for Provision and Test */}
+                {(item.id === 'provision' || item.id === 'test') && (
                   <span className="text-gray-500">
-                    {isProvisionExpanded ? (
+                    {(item.id === 'provision' && isProvisionExpanded) || (item.id === 'test' && isTestExpanded) ? (
                       <ChevronDownIcon className="h-4 w-4" />
                     ) : (
                       <ChevronRightIcon className="h-4 w-4" />
@@ -198,6 +210,45 @@ const JenkinsSidebar = ({
                     <div className="flex items-center gap-2">
                       <span className="text-base">📄</span>
                       <span className="font-medium">Provision Resources</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Test Submenu */}
+              {item.id === 'test' && isTestExpanded && (
+                <div className="bg-gray-50 border-y border-gray-200">
+                  <div
+                    onClick={onTestSuiteDashboardClick}
+                    className={`px-8 py-2 text-xs hover:bg-gray-100 cursor-pointer border-b border-gray-100 ${
+                      activeSection === 'test-suite-dashboard' ? 'bg-blue-50 text-blue-900 font-medium' : 'text-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <ChartBarIcon className="h-4 w-4" />
+                      <span className="font-medium">Test Suite Dashboard</span>
+                    </div>
+                  </div>
+                  <div
+                    onClick={onTestAutomationClick}
+                    className={`px-8 py-2 text-xs hover:bg-gray-100 cursor-pointer border-b border-gray-100 ${
+                      activeSection === 'test-automation' ? 'bg-blue-50 text-blue-900 font-medium' : 'text-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <ArrowPathIcon className="h-4 w-4" />
+                      <span className="font-medium">Test Automation</span>
+                    </div>
+                  </div>
+                  <div
+                    onClick={onHelmChartMatrixClick}
+                    className={`px-8 py-2 text-xs hover:bg-gray-100 cursor-pointer border-b border-gray-100 ${
+                      activeSection === 'helm-chart-matrix' ? 'bg-blue-50 text-blue-900 font-medium' : 'text-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">📊</span>
+                      <span className="font-medium">Helm Chart Test Matrix</span>
                     </div>
                   </div>
                 </div>
