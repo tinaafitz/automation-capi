@@ -3,7 +3,6 @@ import PropTypes from 'prop-types';
 import { BeakerIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 
 const TestSuiteDashboard = ({ theme = 'mce', onSelectTestSuite }) => {
-  const [testSuiteCollapsed, setTestSuiteCollapsed] = useState(true);
   const [selectedVersion, setSelectedVersion] = useState('4.21');
   const [expandedItems, setExpandedItems] = useState({});
   const [testItems, setTestItems] = useState([
@@ -263,38 +262,8 @@ const TestSuiteDashboard = ({ theme = 'mce', onSelectTestSuite }) => {
   };
 
   return (
-    <div
-      className={`bg-white rounded-xl shadow-lg border-2 ${themeColors.border} overflow-hidden mb-6`}
-    >
-      <div
-        className={`bg-gradient-to-r ${themeColors.headerGradient} px-6 py-4 cursor-pointer ${themeColors.hoverGradient} transition-all`}
-        onClick={() => setTestSuiteCollapsed(!testSuiteCollapsed)}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="bg-white/20 rounded-full p-2">
-              <BeakerIcon className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-white">Test Suite Dashboard</h3>
-            </div>
-          </div>
-          <div className="flex items-center space-x-4">
-            <div className="text-right mr-4">
-              <div className="text-white/70 text-xs uppercase tracking-wide">Version</div>
-              <div className="text-white font-bold text-2xl tracking-tight">{selectedVersion}</div>
-            </div>
-            {testSuiteCollapsed ? (
-              <ChevronDownIcon className="h-6 w-6 text-white" />
-            ) : (
-              <ChevronUpIcon className="h-6 w-6 text-white" />
-            )}
-          </div>
-        </div>
-      </div>
-
-      {!testSuiteCollapsed && (
-        <div className="p-6">
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-500">
           {/* Action Buttons */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -442,7 +411,6 @@ const TestSuiteDashboard = ({ theme = 'mce', onSelectTestSuite }) => {
             ))}
           </div>
         </div>
-      )}
     </div>
   );
 };

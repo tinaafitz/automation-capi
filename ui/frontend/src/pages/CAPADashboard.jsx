@@ -10,6 +10,9 @@ import CredentialsModal from '../components/modals/CredentialsModal';
 import MCEEnvironmentSelector from '../components/MCEEnvironmentSelector';
 import { YamlEditorModal } from '../components/YamlEditorModal';
 import { RosaProvisionModal } from '../components/RosaProvisionModal';
+import TestSuiteDashboard from '../components/sections/TestSuiteDashboard';
+import TestSuiteSection from '../components/sections/TestSuiteSection';
+import HelmChartTestDashboard from '../components/sections/HelmChartTestDashboard';
 import {
   AppProvider,
   useApiStatusContext,
@@ -847,6 +850,9 @@ const CAPADashboardContent = () => {
     onEnvironmentsClick: () => setActiveSection('environments'),
     onCredentialsClick: () => setActiveSection('credentials'),
     onTestClick: () => setActiveSection('test'),
+    onTestSuiteDashboardClick: () => setActiveSection('test-suite-dashboard'),
+    onTestAutomationClick: () => setActiveSection('test-automation'),
+    onHelmChartMatrixClick: () => setActiveSection('helm-chart-matrix'),
     onTerminalClick: () => setActiveSection('terminal'),
     onNotificationsClick: () => setActiveSection('notifications'),
   };
@@ -1174,6 +1180,23 @@ const CAPADashboardContent = () => {
             <TaskSummarySection theme="mce" environment="mce" />
           </div>
         );
+
+      case 'test-suite-dashboard':
+        return (
+          <TestSuiteDashboard
+            theme="mce"
+            onSelectTestSuite={(testSuite) => {
+              console.log('Selected test suite:', testSuite);
+              // You can add modal or navigation logic here
+            }}
+          />
+        );
+
+      case 'test-automation':
+        return <TestSuiteSection theme="mce" />;
+
+      case 'helm-chart-matrix':
+        return <HelmChartTestDashboard theme="mce" />;
 
       case 'terminal':
         return (
