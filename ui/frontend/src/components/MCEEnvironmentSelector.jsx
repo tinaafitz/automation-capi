@@ -32,14 +32,6 @@ const STATUS_CONFIG = {
     borderColor: 'border-red-200',
     icon: XCircleIcon,
   },
-  blocked: {
-    emoji: '🚫',
-    label: 'Blocked',
-    color: 'text-orange-600',
-    bgColor: 'bg-orange-50',
-    borderColor: 'border-orange-200',
-    icon: ExclamationCircleIcon,
-  },
   in_progress: {
     emoji: '⏳',
     label: 'In Progress',
@@ -47,14 +39,6 @@ const STATUS_CONFIG = {
     bgColor: 'bg-blue-50',
     borderColor: 'border-blue-200',
     icon: ClockIcon,
-  },
-  unknown: {
-    emoji: '❓',
-    label: 'Unknown',
-    color: 'text-gray-600',
-    bgColor: 'bg-gray-50',
-    borderColor: 'border-gray-200',
-    icon: QuestionMarkCircleIcon,
   },
 };
 
@@ -265,7 +249,11 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
   };
 
   const StatusBadge = ({ status }) => {
-    const config = STATUS_CONFIG[status] || STATUS_CONFIG.unknown;
+    const config = STATUS_CONFIG[status];
+
+    // Don't render badge if status is not in our config
+    if (!config) return null;
+
     const Icon = config.icon;
 
     return (
@@ -281,10 +269,19 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
   return (
     <div className="space-y-6">
       {/* Title */}
-      <h2 className="text-2xl font-bold text-blue-900">MCE Test Environments</h2>
+      <h2 className="text-2xl font-bold text-blue-900">
+        {selectedEnv ? 'MCE Test Environment' : 'MCE Test Environments'}
+        {selectedEnv && (
+          <>
+            <span className="text-gray-400 mx-2">›</span>
+            <span className="text-cyan-600">{selectedEnv.clusterName}</span>
+          </>
+        )}
+      </h2>
 
-      {/* Search and Filters */}
-      <div className="bg-white rounded-lg shadow p-4 space-y-4">
+      {/* Search and Filters - Hidden when viewing single environment */}
+      {!selectedEnv && (
+        <div className="bg-white rounded-lg shadow p-4 space-y-4">
         <div className="flex flex-col md:flex-row gap-4">
           {/* Search */}
           <div className="flex-1 relative">
@@ -356,9 +353,7 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
                 <option value="all">All Statuses</option>
                 <option value="pass">✅ Pass</option>
                 <option value="fail">❌ Fail</option>
-                <option value="blocked">🚫 Blocked</option>
                 <option value="in_progress">⏳ In Progress</option>
-                <option value="unknown">❓ Unknown</option>
               </select>
             </div>
           </div>
@@ -520,102 +515,102 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
             </div>
           </div>
         )}
-      </div>
+        </div>
+      )}
 
-      {/* Environments List */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-gray-500">
-            <ArrowPathIcon className="w-8 h-8 mx-auto mb-2 animate-spin" />
-            Loading environments...
-          </div>
-        ) : filteredEnvironments.length === 0 ? (
-          <div className="p-12 text-center text-gray-500">
-            <QuestionMarkCircleIcon className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-            <p>No environments found</p>
-            <p className="text-sm mt-2">Try adjusting your search or filters</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-200">
-            {filteredEnvironments.map((env) => (
-              <div
-                key={env.clusterName}
-                onClick={() => selectEnvironment(env.clusterName)}
-                className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900">{env.clusterName}</h3>
-                      <StatusBadge status={env.status} />
+      {/* Environments List or Selected Environment */}
+      {!selectedEnv ? (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          {loading ? (
+            <div className="p-12 text-center text-gray-500">
+              <ArrowPathIcon className="w-8 h-8 mx-auto mb-2 animate-spin" />
+              Loading environments...
+            </div>
+          ) : filteredEnvironments.length === 0 ? (
+            <div className="p-12 text-center text-gray-500">
+              <QuestionMarkCircleIcon className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+              <p>No environments found</p>
+              <p className="text-sm mt-2">Try adjusting your search or filters</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {filteredEnvironments.map((env) => (
+                <div
+                  key={env.clusterName}
+                  className="py-2 px-6 hover:bg-blue-50 transition-colors"
+                >
+                  {/* Cluster Name and Status - Jenkins style */}
+                  <div className="flex items-center gap-3 mb-1">
+                    <button
+                      onClick={() => selectEnvironment(env.clusterName)}
+                      className="text-blue-600 hover:text-blue-800 font-medium text-base hover:underline"
+                    >
+                      {env.clusterName}
+                    </button>
+                    <StatusBadge status={env.status} />
+                  </div>
+
+                  {/* Metadata as simple bullet list - Jenkins style */}
+                  <div className="ml-1">
+                    <div className="flex items-start gap-2 text-sm text-gray-700">
+                      <span className="text-gray-400 mt-1">•</span>
+                      <span>
+                        <span className="text-gray-600">Platform:</span>{' '}
+                        <span className="text-gray-900">{env.platform || 'unknown'}</span>
+                        {env.ocpVersion && (
+                          <>
+                            <span className="text-gray-400 mx-2">|</span>
+                            <span className="text-gray-600">OCP:</span>{' '}
+                            <span className="text-gray-900">{env.ocpVersion}</span>
+                          </>
+                        )}
+                        {env.jira && (
+                          <>
+                            <span className="text-gray-400 mx-2">|</span>
+                            <span className="text-gray-600">Jira:</span>{' '}
+                            <span className="text-gray-900">{env.jira}</span>
+                          </>
+                        )}
+                      </span>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
-                      <div>
-                        <span className="font-medium">Platform:</span> {env.platform}
-                      </div>
-                      <div>
-                        <span className="font-medium">OCP:</span> {env.ocpVersion || 'N/A'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Jira:</span> {env.jira || 'N/A'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Last Used:</span>{' '}
-                        {formatDate(env.lastAccessed)}
-                      </div>
-                    </div>
-
-                    {env.notes && (
-                      <div className="mt-2 text-sm text-gray-600 bg-gray-50 p-2 rounded">
-                        <span className="font-medium">Notes:</span> {env.notes}
+                    {env.notes && !env.notes.includes('PRE-UPGRADE') && !env.notes.includes('POST-UPGRADE') && !env.notes.includes('total failures') && (
+                      <div className="flex items-start gap-2 text-sm text-gray-700">
+                        <span className="text-gray-400 mt-1">•</span>
+                        <span>
+                          <span className="text-gray-600">Notes:</span>{' '}
+                          <span className="text-gray-800">{env.notes}</span>
+                        </span>
                       </div>
                     )}
-                  </div>
 
-                  <div className="text-gray-400">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
+                    <div className="flex items-start gap-2 text-sm text-gray-500">
+                      <span className="text-gray-400 mt-1">•</span>
+                      <span>
+                        <span className="text-gray-600">Last Used:</span>{' '}
+                        {formatDate(env.lastAccessed)}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Selected Environment Details Modal */}
-      {selectedEnv && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-gradient-to-r from-cyan-600 to-cyan-700 text-white p-6 rounded-t-lg">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h2 className="text-2xl font-bold mb-2">{selectedEnv.clusterName}</h2>
-                  <div className="flex items-center gap-2">
-                    <StatusBadge status={selectedEnv.status} />
-                    <span className="text-cyan-100">{selectedEnv.platform}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSelectedEnv(null)}
-                  className="text-white hover:text-gray-200 text-2xl"
-                >
-                  ×
-                </button>
-              </div>
+              ))}
             </div>
-
-            <div className="p-6 space-y-6">
+          )}
+        </div>
+      ) : (
+        /* Selected Environment Details - Replaces List */
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="p-4 space-y-3">
+              {/* Back Button */}
+              <button
+                onClick={() => setSelectedEnv(null)}
+                className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium mb-4"
+              >
+                ← Back to Environments
+              </button>
               {/* Connection Info */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
+              <div className="bg-gray-50 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
                   <h3 className="font-semibold text-gray-900">Connection Details</h3>
                   {onUseCredentials && (
                     <button
@@ -630,107 +625,42 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
                 <div className="space-y-2 text-sm">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <span className="text-gray-600">Status:</span>
-                      <span className="ml-2 font-medium">{selectedEnv.clusterStatus}</span>
+                      <span className="text-gray-600">Platform:</span>
+                      <span className="ml-2 font-medium">{selectedEnv.platform}</span>
                     </div>
                     <div>
                       <span className="text-gray-600">OCP Version:</span>
                       <span className="ml-2 font-medium">{selectedEnv.ocpVersion}</span>
                     </div>
+                    <div>
+                      <span className="text-gray-600">Status:</span>
+                      <span className="ml-2 font-medium">{selectedEnv.clusterStatus}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Last Used:</span>
+                      <span className="ml-2 font-medium">{formatDate(selectedEnv.lastAccessed)}</span>
+                    </div>
                   </div>
 
                   <div className="pt-3 border-t">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-gray-600 font-medium">Login Command:</span>
+                      <span className="text-gray-600 font-medium text-sm">Login Command</span>
                       <button
                         onClick={() => copyLoginCommand(selectedEnv.loginCommand)}
-                        className="flex items-center gap-1 px-3 py-1 bg-cyan-600 hover:bg-cyan-700 text-white text-xs rounded transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 hover:border-cyan-500 text-gray-700 text-xs rounded-md transition-all"
                       >
-                        <ClipboardDocumentIcon className="w-4 h-4" />
+                        <ClipboardDocumentIcon className="w-3.5 h-3.5" />
                         {copiedCommand ? 'Copied!' : 'Copy'}
                       </button>
                     </div>
-                    <code className="block bg-gray-900 text-green-400 p-3 rounded text-xs overflow-x-auto">
-                      {selectedEnv.loginCommand}
-                    </code>
+                    <div className="relative bg-slate-50 border border-slate-200 rounded-md p-3 hover:border-slate-300 transition-colors">
+                      <code className="block font-mono text-xs text-slate-700 overflow-x-auto whitespace-nowrap">
+                        {selectedEnv.loginCommand}
+                      </code>
+                    </div>
                   </div>
                 </div>
               </div>
-
-              {/* Test Info */}
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-3">Test Information</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-600">Jira:</span>
-                    <span className="ml-2 font-medium">{selectedEnv.jira || 'N/A'}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Polarion:</span>
-                    <span className="ml-2 font-medium">{selectedEnv.polarion || 'N/A'}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Total Failures:</span>
-                    <span className="ml-2 font-medium">{selectedEnv.totalFailures}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Added:</span>
-                    <span className="ml-2 font-medium">{formatDate(selectedEnv.addedDate)}</span>
-                  </div>
-                </div>
-
-                {selectedEnv.notes && (
-                  <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded p-3">
-                    <span className="font-medium text-gray-900">Notes:</span>
-                    <p className="text-sm text-gray-700 mt-1">{selectedEnv.notes}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Update Status */}
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-3">Update Test Status</h3>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(STATUS_CONFIG).map(([status, config]) => (
-                    <button
-                      key={status}
-                      onClick={() => {
-                        const notes = prompt(
-                          `Update status to "${config.label}". Add notes (optional):`
-                        );
-                        if (notes !== null) {
-                          updateStatus(selectedEnv.clusterName, status, notes);
-                        }
-                      }}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all ${config.borderColor} ${config.bgColor} ${config.color} hover:shadow-md`}
-                    >
-                      {config.emoji} {config.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Component Failures */}
-              {selectedEnv.components && Object.keys(selectedEnv.components).length > 0 && (
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">Component Failures</h3>
-                  <div className="space-y-2">
-                    {Object.entries(selectedEnv.components).map(([component, data]) => (
-                      <div
-                        key={component}
-                        className="flex justify-between items-center p-3 bg-gray-50 rounded"
-                      >
-                        <span className="font-medium">{component}</span>
-                        <div className="text-right">
-                          <div className="text-red-600 font-bold">{data.failures} failures</div>
-                          <div className="text-sm text-gray-600">{data.owner}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
         </div>
       )}
