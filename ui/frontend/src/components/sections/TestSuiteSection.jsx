@@ -141,9 +141,7 @@ const TestSuiteSection = ({ theme = 'mce' }) => {
             ) : (
               <div>
                 <p className="text-sm text-gray-600 mb-4">
-                  🧪 Run automated playbooks to configure and test CAPI/CAPA functionality. Progress
-                  and logs will appear in <strong>Task Summary</strong> and{' '}
-                  <strong>Task Detail</strong> sections below.
+                  🧪 Run automated playbooks to configure and test CAPI/CAPA functionality.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {suites.map((suite) => {

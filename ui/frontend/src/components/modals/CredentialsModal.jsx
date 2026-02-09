@@ -144,7 +144,7 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave, inline = fal
               <div className="space-y-6">
                 {/* OpenShift Hub Cluster Credentials - Always shown for MCE */}
                 {theme === 'mce' && (
-                  <div className={`border-2 ${themeColors.border} rounded-lg p-4`}>
+                  <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                       <span>🎯</span>
                       OpenShift Hub Cluster
@@ -214,7 +214,7 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave, inline = fal
 
                 {/* AWS Credentials Section - Hidden for MCE */}
                 {theme !== 'mce' && (
-                  <div className={`border-2 ${themeColors.border} rounded-lg p-4`}>
+                  <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                       <span>☁️</span>
                       AWS Credentials
@@ -280,7 +280,7 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave, inline = fal
 
                 {/* OCM Credentials Section - Hidden for MCE */}
                 {theme !== 'mce' && (
-                  <div className={`border-2 ${themeColors.border} rounded-lg p-4`}>
+                  <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                       <span>🔐</span>
                       OpenShift Cluster Manager (OCM)

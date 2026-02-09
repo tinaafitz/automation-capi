@@ -194,20 +194,20 @@ const RosaHcpClustersSection = ({ theme = 'mce' }) => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-500">
-        {/* Title and Refresh Button */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-blue-900">ROSA HCP Clusters</h2>
-          <button
-            onClick={fetchClusters}
-            disabled={clustersLoading}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium flex items-center gap-2"
-          >
-            <ArrowPathIcon className={`h-4 w-4 ${clustersLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        </div>
+      {/* Title and Refresh Button */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-blue-900">ROSA HCP Clusters</h2>
+        <button
+          onClick={fetchClusters}
+          disabled={clustersLoading}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium flex items-center gap-2"
+        >
+          <ArrowPathIcon className={`h-4 w-4 ${clustersLoading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
+      </div>
 
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         {/* Cluster List */}
         {clustersError ? (
           <div className="text-center py-8 text-red-600">

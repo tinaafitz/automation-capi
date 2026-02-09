@@ -7118,8 +7118,9 @@ export function WhatCanIHelp() {
           )}
         </div>
 
+        {/* Task Summary and Task Detail removed from Test Suites page */}
         {/* Recent Operations and Output - Second Row */}
-        <div className="grid grid-cols-1 gap-6 mt-6">
+        {false && <div className="grid grid-cols-1 gap-6 mt-6">
           {/* Recent Operations */}
           <div className="bg-white rounded-xl shadow-lg border-2 border-cyan-200 overflow-hidden">
             <div
@@ -7305,7 +7306,7 @@ export function WhatCanIHelp() {
               </div>
             )}
           </div>
-        </div>
+        </div>}
       </div>
 
       {/* Main Header with Configure Environment and Right Sidebar */}
