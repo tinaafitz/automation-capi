@@ -14,7 +14,7 @@
         "delete_network": true,
         "delete_roles": true,
         "wait_for_deletion": true,
-        "deletion_timeout": 600
+        "deletion_timeout": 2400
       }
     }
   ],
