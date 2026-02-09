@@ -69,7 +69,7 @@
 
 - name: Delete all ROSA resources with single oc delete command
   shell: |
-    oc delete -n {{ capi_namespace }} {{ resources_to_delete | join(' ') }}
+    oc delete -n {{ capi_namespace }} {{ resources_to_delete | join(' ') }} --wait=false
   register: delete_all
   when: resources_to_delete | length > 0
 
@@ -112,7 +112,7 @@
 
 - name: Delete ROSANetwork (after ROSAControlPlane deletion completes)
   shell: |
-    oc delete rosanetwork {{ rosa_network_name }} -n {{ capi_namespace }}
+    oc delete rosanetwork {{ rosa_network_name }} -n {{ capi_namespace }} --wait=false
   register: delete_rn
   failed_when: false
   when:
@@ -121,7 +121,7 @@
 
 - name: Delete ROSARoleConfig (after ROSAControlPlane deletion completes)
   shell: |
-    oc delete rosaroleconfig {{ rosa_role_config_name }} -n {{ capi_namespace }}
+    oc delete rosaroleconfig {{ rosa_role_config_name }} -n {{ capi_namespace }} --wait=false
   register: delete_rrc
   failed_when: false
   when:
@@ -130,7 +130,7 @@
 
 - name: Delete ManagedCluster (if exists)
   shell: |
-    oc delete managedcluster {{ cluster_name }}
+    oc delete managedcluster {{ cluster_name }} --wait=false
   register: delete_mc
   failed_when: false
   ignore_errors: true
