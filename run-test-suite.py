@@ -157,28 +157,40 @@ class TestSuiteRunner:
             # Set timeout if specified
             timeout = playbook.get("timeout", None)
 
-            # Execute playbook
-            result = subprocess.run(
+            # Execute playbook with real-time output streaming
+            # This prevents Jenkins timeout issues on long-running operations
+            process = subprocess.Popen(
                 cmd,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  # Merge stderr into stdout
                 text=True,
-                timeout=timeout,
+                bufsize=1,  # Line buffered
                 cwd=self.base_dir
             )
 
+            # Capture output while streaming it in real-time
+            output_lines = []
+            try:
+                for line in process.stdout:
+                    # Print immediately (prevents timeout detection in CI/CD)
+                    print(line, end='')
+                    sys.stdout.flush()
+                    # Also store for later use
+                    output_lines.append(line)
+
+                # Wait for process to complete
+                returncode = process.wait(timeout=timeout)
+
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+                raise  # Re-raise to be caught by outer exception handler
+
             duration = time.time() - start_time
+            output = ''.join(output_lines)
 
-            if result.returncode == 0:
+            if returncode == 0:
                 print(f"{Colors.GREEN}✓ Completed successfully ({self._format_duration(duration)}){Colors.ENDC}")
-
-                # Print verbose output if verbosity is enabled
-                if self.verbosity > 0:
-                    if result.stdout:
-                        print(f"\n{Colors.YELLOW}--- Playbook Output ---{Colors.ENDC}")
-                        print(result.stdout)
-                    if result.stderr:
-                        print(f"\n{Colors.YELLOW}--- Warnings/Info ---{Colors.ENDC}")
-                        print(result.stderr)
 
                 return {
                     "name": playbook_name,
@@ -186,27 +198,19 @@ class TestSuiteRunner:
                     "test_case_id": playbook.get("test_case_id", ""),
                     "success": True,
                     "duration": duration,
-                    "output": result.stdout
+                    "output": output
                 }
             else:
-                print(f"{Colors.RED}✗ Failed with exit code {result.returncode}{Colors.ENDC}")
-
-                # Print captured output to help with debugging
-                if result.stdout:
-                    print(f"\n{Colors.YELLOW}--- Playbook Output ---{Colors.ENDC}")
-                    print(result.stdout)
-                if result.stderr:
-                    print(f"\n{Colors.RED}--- Error Output ---{Colors.ENDC}")
-                    print(result.stderr)
+                print(f"{Colors.RED}✗ Failed with exit code {returncode}{Colors.ENDC}")
 
                 return {
                     "name": playbook_name,
                     "description": playbook.get("description", ""),
                     "test_case_id": playbook.get("test_case_id", ""),
                     "success": False,
-                    "error": result.stderr,
+                    "error": output,
                     "duration": duration,
-                    "output": result.stdout
+                    "output": output
                 }
 
         except subprocess.TimeoutExpired:

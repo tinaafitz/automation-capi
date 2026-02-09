@@ -359,31 +359,65 @@ def run_ansible_playbook(playbook: str, config: dict, job_id: str):
 
         # Run the command (use parent directory of ui/ as working directory)
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        result = subprocess.run(
+
+        # Execute playbook with real-time output streaming
+        # This prevents timeout issues and provides better UX with live progress
+        process = subprocess.Popen(
             cmd,
             cwd=project_root,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,  # Merge stderr into stdout
             text=True,
-            timeout=1800,  # 30 minutes timeout
+            bufsize=1,  # Line buffered
         )
 
-        if result.returncode == 0:
+        # Stream output in real-time and update job logs incrementally
+        import sys
+        line_count = 0
+        try:
+            for line in process.stdout:
+                # Append to job logs immediately (visible in UI)
+                jobs[job_id]["logs"].append(line.rstrip())
+
+                # Update progress based on log output
+                line_count += 1
+                if line_count % 10 == 0:  # Update every 10 lines
+                    # Progress from 30% to 95% during execution
+                    current_progress = min(30 + (line_count // 10), 95)
+                    jobs[job_id]["progress"] = current_progress
+
+                # Also print to console for debugging
+                print(line, end='')
+                sys.stdout.flush()
+
+            # Wait for process to complete
+            returncode = process.wait(timeout=3600)  # 60 minutes timeout (matches Jenkins deletion timeout)
+
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+            raise  # Re-raise to be caught by outer exception handler
+
+        if returncode == 0:
             jobs[job_id]["status"] = "completed"
             jobs[job_id]["progress"] = 100
             jobs[job_id]["message"] = "Cluster creation completed successfully"
         else:
             jobs[job_id]["status"] = "failed"
-            jobs[job_id]["message"] = f"Playbook failed: {result.stderr}"
+            jobs[job_id]["message"] = f"Playbook failed with exit code {returncode}"
 
-        jobs[job_id]["logs"].extend(result.stdout.split("\n"))
         jobs[job_id]["completed_at"] = datetime.now()
 
     except subprocess.TimeoutExpired:
         jobs[job_id]["status"] = "failed"
-        jobs[job_id]["message"] = "Job timed out after 30 minutes"
+        jobs[job_id]["message"] = "Job timed out after 60 minutes"
+        jobs[job_id]["logs"].append("ERROR: Process timed out after 60 minutes")
+        jobs[job_id]["completed_at"] = datetime.now()
     except Exception as e:
         jobs[job_id]["status"] = "failed"
         jobs[job_id]["message"] = f"Error: {str(e)}"
+        jobs[job_id]["logs"].append(f"ERROR: {str(e)}")
+        jobs[job_id]["completed_at"] = datetime.now()
 
 
 # API Routes
@@ -4529,42 +4563,67 @@ def run_playbook_background(playbook: str, extra_vars: dict, job_id: str, descri
 
         print(f"Using KUBECONFIG: {env.get('KUBECONFIG')}")
 
-        # Run the command
-        result = subprocess.run(
+        # Execute playbook with real-time output streaming
+        # This prevents timeout issues and provides better UX with live progress
+        import sys
+        process = subprocess.Popen(
             cmd,
             cwd=project_root,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,  # Merge stderr into stdout
             text=True,
-            timeout=1800,  # 30 minutes timeout for playbooks (AutoNode can take a while)
+            bufsize=1,  # Line buffered
             env=env,
         )
 
-        print(f"Ansible playbook completed with return code: {result.returncode}")
-        print(f"STDOUT: {result.stdout}")
-        if result.stderr:
-            print(f"STDERR: {result.stderr}")
+        # Stream output in real-time and update job logs incrementally
+        line_count = 0
+        try:
+            for line in process.stdout:
+                # Append to job logs immediately (visible in UI)
+                jobs[job_id]["logs"].append(line.rstrip())
 
-        if result.returncode == 0:
+                # Update progress based on log output
+                line_count += 1
+                if line_count % 10 == 0:  # Update every 10 lines
+                    # Progress from 30% to 95% during execution
+                    current_progress = min(30 + (line_count // 10), 95)
+                    jobs[job_id]["progress"] = current_progress
+
+                # Also print to console for debugging
+                print(line, end='')
+                sys.stdout.flush()
+
+            # Wait for process to complete
+            returncode = process.wait(timeout=3600)  # 60 minutes timeout (matches Jenkins deletion timeout)
+
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+            raise  # Re-raise to be caught by outer exception handler
+
+        print(f"Ansible playbook completed with return code: {returncode}")
+
+        if returncode == 0:
             jobs[job_id]["status"] = "completed"
             jobs[job_id]["progress"] = 100
             jobs[job_id]["message"] = "Playbook completed successfully"
         else:
             jobs[job_id]["status"] = "failed"
-            jobs[job_id]["message"] = f"Playbook failed with return code {result.returncode}"
+            jobs[job_id]["message"] = f"Playbook failed with return code {returncode}"
 
-        jobs[job_id]["logs"].extend(result.stdout.split("\n") if result.stdout else [])
-        if result.stderr:
-            jobs[job_id]["logs"].extend(["", "STDERR:", *result.stderr.split("\n")])
         jobs[job_id]["completed_at"] = datetime.now()
-        jobs[job_id]["return_code"] = result.returncode
+        jobs[job_id]["return_code"] = returncode
 
     except subprocess.TimeoutExpired:
         jobs[job_id]["status"] = "failed"
-        jobs[job_id]["message"] = "Playbook timed out after 30 minutes"
+        jobs[job_id]["message"] = "Playbook timed out after 60 minutes"
+        jobs[job_id]["logs"].append("ERROR: Process timed out after 60 minutes")
         jobs[job_id]["completed_at"] = datetime.now()
     except Exception as e:
         jobs[job_id]["status"] = "failed"
         jobs[job_id]["message"] = f"Error: {str(e)}"
+        jobs[job_id]["logs"].append(f"ERROR: {str(e)}")
         jobs[job_id]["completed_at"] = datetime.now()
 
 
