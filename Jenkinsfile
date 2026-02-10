@@ -78,26 +78,19 @@ pipeline {
         booleanParam(name:'CLEANUP_AFTER_TEST', defaultValue: true, description: 'Delete cluster after successful provisioning (E2E test)')
     }
     stages {
-        stage('Clone the CAPI/CAPA Repository') {
+        stage('Setup CAPI/CAPA Workspace') {
             steps {
-                retry(count: 3) {
-                    script{
-                        def capa_repo = "tinaafitz/test-automation-capa.git"
-                        def git_branch = params.TEST_GIT_BRANCH
-                        withCredentials([string(credentialsId: 'vincent-github-token', variable: 'GITHUB_TOKEN')]) {
-                            sh '''
-                                rm -rf capa
+                script{
+                    sh '''
+                        # Create capa directory as symlink to current workspace
+                        # All test files are already in this repo
+                        rm -rf capa
+                        ln -s . capa
 
-                                # Configure Git to use the token for this command only via a secure header.
-                                git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $(echo -n x-oauth-basic:${GITHUB_TOKEN} | base64)" \
-                                    -c http.sslVerify=false \
-                                    clone \
-                                    -b "''' + git_branch + '''" \
-                                    "https://github.com/''' + capa_repo + '''" \
-                                    capa/
-                            '''
-                        }
-                    }
+                        echo "Using integrated test automation files from automation-capi repo"
+                        echo "Branch: ${GIT_BRANCH}"
+                        ls -la
+                    '''
                 }
             }
         }

@@ -1,0 +1,371 @@
+
+@Library('ci-shared-lib') _
+
+// ============================================================================
+// ROSA HCP End-to-End Lifecycle Pipeline
+// ============================================================================
+// This pipeline runs the complete ROSA HCP cluster lifecycle:
+//   1. Configure MCE/CAPI environment (test suite 10)
+//   2. Provision ROSA HCP cluster (test suite 20)
+//   3. Delete ROSA HCP cluster (test suite 30)
+//
+// Each stage only runs if the previous stage succeeds.
+//
+// Test Suites:
+//   10-configure-mce-environment  - Configure CAPI/CAPA (RHACM4K-61722)
+//   20-rosa-hcp-provision         - Provision ROSA HCP cluster (RHACM4K-61815)
+//   30-rosa-hcp-delete            - Delete ROSA HCP cluster
+//
+// Credentials Required:
+//   - OCP_HUB_API_URL           : OpenShift cluster API URL
+//   - OCP_HUB_CLUSTER_USER      : OpenShift username (default: kubeadmin)
+//   - OCP_HUB_CLUSTER_PASSWORD  : OpenShift password
+//   - AWS_ACCESS_KEY_ID         : AWS access key
+//   - AWS_SECRET_ACCESS_KEY     : AWS secret key
+//   - OCM_CLIENT_ID             : OCM client ID (for ROSA)
+//   - OCM_CLIENT_SECRET         : OCM client secret (for ROSA)
+//
+// Parameters:
+//   - name_prefix               : Cluster name prefix - MAX 3 CHARACTERS (e.g., qe6, e2e, ci1)
+//   - aws_region                : AWS region (default: us-west-2)
+//   - rosa_version              : ROSA/OCP version (default: 4.20.10)
+//
+// Example: Full end-to-end test with automatic cleanup
+// ============================================================================
+
+pipeline {
+    options {
+        // This rotates the logs every month
+        buildDiscarder(logRotator(daysToKeepStr: '30'))
+        // This stops the automatic, failing checkout
+        skipDefaultCheckout()
+        // E2E can take a long time (configure: 10min, provision: 40min, delete: 40min)
+        timeout(time: 120, unit: 'MINUTES')
+    }
+    agent {
+        kubernetes {
+            defaultContainer 'capa-container'
+            yamlFile 'picsAgentPod_capa.yaml'
+            // ITUP Prod
+            cloud 'remote-ocp-cluster-itup-prod'
+            // ITUP PreProd
+            // cloud 'remote-ocp-cluster-itup-pre-prod'
+        }
+    }
+
+    environment {
+        CI = 'true'
+        CAPI_AWS_ACCESS_KEY_ID = credentials('CAPI_AWS_ACCESS_KEY_ID')
+        CAPI_AWS_SECRET_ACCESS_KEY = credentials('CAPI_AWS_SECRET_ACCESS_KEY')
+        CAPI_OCM_CLIENT_ID = credentials('CAPI_OCM_CLIENT_ID')
+        CAPI_OCM_CLIENT_SECRET = credentials('CAPI_OCM_CLIENT_SECRET')
+
+        // Track cluster name across stages
+        CLUSTER_NAME = ''
+    }
+    parameters {
+        // Hub cluster connection
+        string(name:'OCP_HUB_API_URL', defaultValue: '', description: 'Hub OCP API url')
+        string(name:'OCP_HUB_CLUSTER_USER', defaultValue: 'kubeadmin', description: 'Hub OCP username')
+        string(name:'OCP_HUB_CLUSTER_PASSWORD', defaultValue: '', description: 'Hub cluster password')
+        string(name:'MCE_NAMESPACE', defaultValue: 'multicluster-engine', description: 'The Namespace where MCE is installed')
+
+        // Cluster provisioning parameters
+        string(name:'NAME_PREFIX', defaultValue: 'e2e', description: 'Cluster name prefix - MAX 3 CHARACTERS (e.g., qe6, e2e, ci1)')
+        string(name:'AWS_REGION', defaultValue: 'us-west-2', description: 'AWS region for cluster')
+        string(name:'ROSA_VERSION', defaultValue: '4.20.10', description: 'ROSA/OpenShift version')
+
+        // Test behavior options
+        booleanParam(name:'SKIP_CONFIGURE', defaultValue: false, description: 'Skip MCE configuration (if already configured)')
+        booleanParam(name:'SKIP_DELETE', defaultValue: false, description: 'Skip cluster deletion (leave cluster running for debugging)')
+
+        // Git and test configuration
+        string(name:'TEST_GIT_BRANCH', defaultValue: 'main', description: 'CAPI test Git branch')
+        choice(name:'VERBOSITY', choices: ['', '-v', '-vv', '-vvv'], description: 'Ansible verbosity level')
+    }
+    stages {
+        stage('Setup CAPI/CAPA Workspace') {
+            steps {
+                script{
+                    sh '''
+                        # Create capa directory as symlink to current workspace
+                        # All test files are already in this repo
+                        rm -rf capa
+                        ln -s . capa
+
+                        echo "Using integrated test automation files from automation-capi repo"
+                        echo "Branch: ${GIT_BRANCH}"
+                        ls -la
+                    '''
+                }
+            }
+        }
+        stage ('Validate: Ensure required variables are set') {
+            when {
+                expression {
+                    return (params.OCP_HUB_API_URL == '' || params.OCP_HUB_CLUSTER_PASSWORD == '')
+                }
+            }
+            steps {
+                error ('OCP_HUB_API_URL and OCP_HUB_CLUSTER_PASSWORD must be set to run the pipeline!')
+            }
+        }
+        stage ('Validate: Check name prefix length') {
+            when {
+                expression {
+                    return (params.NAME_PREFIX.length() > 3)
+                }
+            }
+            steps {
+                error ("❌ NAME_PREFIX must be 3 characters or less! Current value: '${params.NAME_PREFIX}' (${params.NAME_PREFIX.length()} characters)\n\nValid examples: qe6, e2e, ci1, tst")
+            }
+        }
+        stage('STEP 1: Configure MCE/CAPI Environment') {
+            when {
+                expression {
+                    return !params.SKIP_CONFIGURE
+                }
+            }
+            environment {
+                OCP_HUB_API_URL = "${params.OCP_HUB_API_URL}"
+                OCP_HUB_CLUSTER_USER = "${params.OCP_HUB_CLUSTER_USER}"
+                OCP_HUB_CLUSTER_PASSWORD = "${params.OCP_HUB_CLUSTER_PASSWORD}"
+                MCE_NAMESPACE = "${params.MCE_NAMESPACE}"
+            }
+            steps {
+                script {
+                    try {
+                        withCredentials([
+                            string(credentialsId: 'CAPI_AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+                            string(credentialsId: 'CAPI_AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY'),
+                            string(credentialsId: 'CAPI_OCM_CLIENT_ID', variable: 'OCM_CLIENT_ID'),
+                            string(credentialsId: 'CAPI_OCM_CLIENT_SECRET', variable: 'OCM_CLIENT_SECRET')
+                        ]) {
+                            sh '''
+                                cd capa
+
+                                echo "========================================="
+                                echo "STEP 1/3: Configure MCE/CAPI Environment"
+                                echo "========================================="
+                                echo "Hub Cluster: ${OCP_HUB_API_URL}"
+                                echo "MCE Namespace: ${MCE_NAMESPACE}"
+                                echo "Test Case: RHACM4K-61722"
+                                echo "========================================="
+                                echo ""
+
+                                # Execute MCE configuration test suite
+                                ./run-test-suite.py 10-configure-mce-environment \
+                                    --format all \
+                                    ${VERBOSITY}
+                            '''
+                        }
+                    }
+                    catch (ex) {
+                        echo "❌ MCE Configuration failed: ${ex.message}"
+                        currentBuild.result = 'FAILURE'
+                        throw ex
+                    }
+                }
+            }
+        }
+        stage('STEP 2: Provision ROSA HCP Cluster') {
+            environment {
+                OCP_HUB_API_URL = "${params.OCP_HUB_API_URL}"
+                OCP_HUB_CLUSTER_USER = "${params.OCP_HUB_CLUSTER_USER}"
+                OCP_HUB_CLUSTER_PASSWORD = "${params.OCP_HUB_CLUSTER_PASSWORD}"
+                MCE_NAMESPACE = "${params.MCE_NAMESPACE}"
+            }
+            steps {
+                script {
+                    try {
+                        withCredentials([
+                            string(credentialsId: 'CAPI_AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+                            string(credentialsId: 'CAPI_AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY'),
+                            string(credentialsId: 'CAPI_OCM_CLIENT_ID', variable: 'OCM_CLIENT_ID'),
+                            string(credentialsId: 'CAPI_OCM_CLIENT_SECRET', variable: 'OCM_CLIENT_SECRET')
+                        ]) {
+                            sh '''
+                                cd capa
+
+                                echo ""
+                                echo "========================================="
+                                echo "STEP 2/3: Provision ROSA HCP Cluster"
+                                echo "========================================="
+                                echo "Cluster Prefix: ${NAME_PREFIX}"
+                                echo "AWS Region: ${AWS_REGION}"
+                                echo "ROSA Version: ${ROSA_VERSION}"
+                                echo "Test Case: RHACM4K-61815"
+                                echo "========================================="
+                                echo ""
+
+                                # Execute ROSA HCP provisioning test suite
+                                ./run-test-suite.py 20-rosa-hcp-provision \
+                                    --format all \
+                                    -e name_prefix=${NAME_PREFIX} \
+                                    -e aws_region=${AWS_REGION} \
+                                    -e openshift_version=${ROSA_VERSION} \
+                                    ${VERBOSITY}
+
+                                # Capture cluster name for deletion stage
+                                CLUSTER_NAME="${NAME_PREFIX}-rosa-hcp"
+                                echo "CLUSTER_NAME=${CLUSTER_NAME}" > cluster_info.env
+                                echo ""
+                                echo "Provisioned Cluster: ${CLUSTER_NAME}"
+                            '''
+
+                            // Load cluster name into environment for next stage
+                            def props = readProperties file: 'capa/cluster_info.env'
+                            env.CLUSTER_NAME = props.CLUSTER_NAME
+                        }
+                    }
+                    catch (ex) {
+                        echo "❌ ROSA HCP Provisioning failed: ${ex.message}"
+                        currentBuild.result = 'FAILURE'
+                        throw ex
+                    }
+                }
+            }
+        }
+        stage('STEP 3: Delete ROSA HCP Cluster') {
+            when {
+                expression {
+                    return !params.SKIP_DELETE && env.CLUSTER_NAME != ''
+                }
+            }
+            environment {
+                OCP_HUB_API_URL = "${params.OCP_HUB_API_URL}"
+                OCP_HUB_CLUSTER_USER = "${params.OCP_HUB_CLUSTER_USER}"
+                OCP_HUB_CLUSTER_PASSWORD = "${params.OCP_HUB_CLUSTER_PASSWORD}"
+                MCE_NAMESPACE = "${params.MCE_NAMESPACE}"
+            }
+            steps {
+                script {
+                    try {
+                        withCredentials([
+                            string(credentialsId: 'CAPI_AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+                            string(credentialsId: 'CAPI_AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY'),
+                            string(credentialsId: 'CAPI_OCM_CLIENT_ID', variable: 'OCM_CLIENT_ID'),
+                            string(credentialsId: 'CAPI_OCM_CLIENT_SECRET', variable: 'OCM_CLIENT_SECRET')
+                        ]) {
+                            sh '''
+                                cd capa
+
+                                echo ""
+                                echo "========================================="
+                                echo "STEP 3/3: Delete ROSA HCP Cluster"
+                                echo "========================================="
+                                echo "⚠️  WARNING: This will DELETE the cluster!"
+                                echo "Cluster Name: ${CLUSTER_NAME}"
+                                echo "Namespace: ns-rosa-hcp"
+                                echo "========================================="
+                                echo ""
+                                echo "Starting deletion in 5 seconds..."
+                                sleep 5
+
+                                # Execute ROSA HCP deletion test suite
+                                ./run-test-suite.py 30-rosa-hcp-delete \
+                                    --format all \
+                                    -e cluster_name=${CLUSTER_NAME} \
+                                    -e namespace=ns-rosa-hcp \
+                                    ${VERBOSITY}
+                            '''
+                        }
+                    }
+                    catch (ex) {
+                        echo "❌ ROSA HCP Deletion failed: ${ex.message}"
+                        echo "⚠️  WARNING: Cluster ${env.CLUSTER_NAME} may still exist in AWS!"
+                        echo "Manual cleanup may be required."
+                        currentBuild.result = 'FAILURE'
+                        throw ex
+                    }
+                }
+            }
+        }
+        stage('Archive All Test Results') {
+            steps {
+                script {
+                   // Archive test results from all stages (JSON, HTML, JUnit XML)
+                   archiveArtifacts artifacts: 'capa/test-results/**/*', allowEmptyArchive: true, followSymlinks: false, fingerprint: true
+
+                   // Publish JUnit test results
+                   junit allowEmptyResults: true, testResults: 'capa/test-results/**/*.xml'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                // Display comprehensive summary
+                echo "========================================="
+                echo "ROSA HCP E2E Pipeline Summary"
+                echo "========================================="
+                echo "Build Result: ${currentBuild.result ?: 'SUCCESS'}"
+                echo "Hub Cluster: ${params.OCP_HUB_API_URL}"
+                echo "Cluster Prefix: ${params.NAME_PREFIX}"
+                if (env.CLUSTER_NAME) {
+                    echo "Cluster Name: ${env.CLUSTER_NAME}"
+                }
+                echo "AWS Region: ${params.AWS_REGION}"
+                echo "ROSA Version: ${params.ROSA_VERSION}"
+                echo "========================================="
+                echo ""
+                echo "Test Stages:"
+                echo "  1. Configure MCE: ${params.SKIP_CONFIGURE ? 'SKIPPED' : 'RAN'}"
+                echo "  2. Provision Cluster: RAN"
+                echo "  3. Delete Cluster: ${params.SKIP_DELETE ? 'SKIPPED' : 'RAN'}"
+                echo "========================================="
+            }
+        }
+        success {
+            echo "✅ ✅ ✅ END-TO-END PIPELINE SUCCESSFUL! ✅ ✅ ✅"
+            echo ""
+            echo "All stages completed successfully:"
+            if (!params.SKIP_CONFIGURE) {
+                echo "  ✓ MCE/CAPI environment configured"
+            }
+            echo "  ✓ ROSA HCP cluster provisioned"
+            if (!params.SKIP_DELETE) {
+                echo "  ✓ ROSA HCP cluster deleted and cleaned up"
+            } else {
+                echo "  ⚠️  Cluster ${env.CLUSTER_NAME} was NOT deleted (SKIP_DELETE=true)"
+                echo "     To delete manually, run:"
+                echo "     ./run-test-suite.py 30-rosa-hcp-delete -e cluster_name=${env.CLUSTER_NAME}"
+            }
+            echo ""
+            echo "Test Results: Archived in Jenkins artifacts"
+        }
+        failure {
+            echo "❌ END-TO-END PIPELINE FAILED"
+            echo ""
+            echo "Failed at stage: ${env.STAGE_NAME}"
+            echo ""
+            if (env.CLUSTER_NAME && !params.SKIP_DELETE) {
+                echo "⚠️  IMPORTANT: Cluster may still exist in AWS!"
+                echo "Cluster Name: ${env.CLUSTER_NAME}"
+                echo ""
+                echo "To clean up manually:"
+                echo "  1. Check if cluster exists:"
+                echo "     oc get rosacontrolplane ${env.CLUSTER_NAME} -n ns-rosa-hcp"
+                echo ""
+                echo "  2. Delete cluster:"
+                echo "     ./run-test-suite.py 30-rosa-hcp-delete -e cluster_name=${env.CLUSTER_NAME}"
+                echo ""
+                echo "  3. Or run Jenkinsfile.delete with CLUSTER_NAME=${env.CLUSTER_NAME}"
+            }
+            echo ""
+            echo "Troubleshooting:"
+            echo "  1. Check test results in archived artifacts"
+            echo "  2. Review stage logs above for error details"
+            echo "  3. Verify credentials are correct"
+            echo "  4. Check MCE operator logs if configuration failed"
+        }
+        cleanup {
+            script {
+                // Optional: Additional cleanup steps
+                echo "Pipeline cleanup complete"
+            }
+        }
+    }
+}
