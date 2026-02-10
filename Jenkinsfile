@@ -83,7 +83,7 @@ pipeline {
                 retry(count: 3) {
                     script{
                         def capa_repo = "tinaafitz/test-automation-capa.git"
-                        def git_branch = params.TEST_GIT_BRANCH
+                        def git_branch = "main"  // Always use main branch from test-automation-capa repo
                         withCredentials([string(credentialsId: 'vincent-github-token', variable: 'GITHUB_TOKEN')]) {
                             sh '''
                                 rm -rf capa
