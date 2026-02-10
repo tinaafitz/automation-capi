@@ -7,7 +7,7 @@
   "playbooks": [
     {
       "name": "Enable CAPI/CAPA and Disable Hypershift",
-      "file": "enable_capi_disable_hypershift.yml",
+      "file": "playbooks/enable_capi_disable_hypershift.yml",
       "description": "Enables CAPI and CAPA components in MCE and disables Hypershift components",
       "extra_vars": {
         "pause_duration": 30

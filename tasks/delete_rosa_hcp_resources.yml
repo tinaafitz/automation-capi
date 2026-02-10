@@ -92,7 +92,7 @@
   until: wait_rcp.rc != 0
   retries: "{{ (deletion_timeout | int / 10) | int }}"
   delay: 10
-  failed_when: false
+  failed_when: wait_rcp.rc == 0
   when:
     - wait_for_deletion | bool
     - "'not-found' not in rcp_exists.stdout"
@@ -143,7 +143,7 @@
   until: wait_rn.rc != 0
   retries: "{{ (deletion_timeout | int / 10) | int }}"
   delay: 10
-  failed_when: false
+  failed_when: wait_rn.rc == 0
   when:
     - wait_for_deletion | bool
     - delete_network | bool
@@ -170,7 +170,7 @@
   until: wait_rrc.rc != 0
   retries: "{{ (deletion_timeout | int / 10) | int }}"
   delay: 10
-  failed_when: false
+  failed_when: wait_rrc.rc == 0
   when:
     - wait_for_deletion | bool
     - delete_roles | bool

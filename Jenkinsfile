@@ -82,7 +82,7 @@ pipeline {
             steps {
                 retry(count: 3) {
                     script{
-                        def capa_repo = "tinaafitz/automation-capi.git"
+                        def capa_repo = "tinaafitz/test-automation-capa.git"
                         def git_branch = params.TEST_GIT_BRANCH
                         withCredentials([string(credentialsId: 'vincent-github-token', variable: 'GITHUB_TOKEN')]) {
                             sh '''
@@ -133,7 +133,7 @@ pipeline {
                                 ./run-test-suite.py 10-configure-mce-environment --format junit -vvv \
                                   -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
                                   -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-                                  -e aws_account_id="${AWS_ACCOUNT_ID}"
+                                  -e AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID}"
                             '''
                         }
                         // Archive results from both old and new test systems
@@ -180,7 +180,7 @@ pipeline {
                                   -e OCM_CLIENT_SECRET="${OCM_CLIENT_SECRET}" \
                                   -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
                                   -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-                                  -e aws_account_id="${AWS_ACCOUNT_ID}" \
+                                  -e AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID}" \
                                   -e name_prefix="${NAME_PREFIX}"
                             '''
                         }
