@@ -139,7 +139,7 @@ pipeline {
                                   -e MCE_NAMESPACE="${MCE_NAMESPACE}" \
                                   -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
                                   -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-                                  -e aws_account_id="${AWS_ACCOUNT_ID}" \
+                                  -e AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID}" \
                                   -e OCM_CLIENT_ID="${OCM_CLIENT_ID}" \
                                   -e OCM_CLIENT_SECRET="${OCM_CLIENT_SECRET}"
                             '''
@@ -188,7 +188,7 @@ pipeline {
                                   -e OCM_CLIENT_SECRET="${OCM_CLIENT_SECRET}" \
                                   -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
                                   -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-                                  -e aws_account_id="${AWS_ACCOUNT_ID}" \
+                                  -e AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID}" \
                                   -e name_prefix="${NAME_PREFIX}"
                             '''
                         }
