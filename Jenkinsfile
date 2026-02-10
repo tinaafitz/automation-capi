@@ -124,7 +124,9 @@ pipeline {
                         withCredentials([
                             string(credentialsId: 'CAPI_AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
                             string(credentialsId: 'CAPI_AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY'),
-                            string(credentialsId: 'CAPI_AWS_ACCOUNT_ID', variable: 'AWS_ACCOUNT_ID')
+                            string(credentialsId: 'CAPI_AWS_ACCOUNT_ID', variable: 'AWS_ACCOUNT_ID'),
+                            string(credentialsId: 'CAPI_OCM_CLIENT_ID', variable: 'OCM_CLIENT_ID'),
+                            string(credentialsId: 'CAPI_OCM_CLIENT_SECRET', variable: 'OCM_CLIENT_SECRET')
                         ]) {
                             sh '''
                                 cd capa
@@ -137,7 +139,9 @@ pipeline {
                                   -e MCE_NAMESPACE="${MCE_NAMESPACE}" \
                                   -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
                                   -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-                                  -e aws_account_id="${AWS_ACCOUNT_ID}"
+                                  -e aws_account_id="${AWS_ACCOUNT_ID}" \
+                                  -e OCM_CLIENT_ID="${OCM_CLIENT_ID}" \
+                                  -e OCM_CLIENT_SECRET="${OCM_CLIENT_SECRET}"
                             '''
                         }
                         // Archive results from both old and new test systems
