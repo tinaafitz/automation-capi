@@ -189,6 +189,7 @@ pipeline {
                                   -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
                                   -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
                                   -e AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID}" \
+                                  -e AWS_REGION="us-west-2" \
                                   -e name_prefix="${NAME_PREFIX}"
                             '''
                         }
@@ -237,6 +238,7 @@ pipeline {
                                       -e MCE_NAMESPACE="${MCE_NAMESPACE}" \
                                       -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
                                       -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+                                      -e AWS_REGION="us-west-2" \
                                       -e OCM_CLIENT_ID="${OCM_CLIENT_ID}" \
                                       -e OCM_CLIENT_SECRET="${OCM_CLIENT_SECRET}" \
                                       -e name_prefix="${NAME_PREFIX}"
