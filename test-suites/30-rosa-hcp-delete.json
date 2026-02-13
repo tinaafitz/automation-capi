@@ -1,5 +1,5 @@
 {
-  "name": "CAPA Cluster Deletion",
+  "name": "Delete a ROSA HCP Cluster",
   "description": "Delete a ROSA HCP cluster and its CAPA automation resources (ROSANetwork, ROSARoleConfig)",
   "version": "1.0.0",
   "tags": ["rosa", "hcp", "deletion", "cleanup", "lifecycle"],

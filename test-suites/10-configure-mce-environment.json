@@ -1,6 +1,6 @@
 {
   "name": "Configure MCE Environment",
-  "description": "Set up MCE environment for CAPI/CAPA cluster provisioning",
+  "description": "Configure MCE environment for CAPI/CAPA cluster provisioning",
   "execution": "sequential",
   "stopOnFailure": true,
   "notifyOnComplete": true,

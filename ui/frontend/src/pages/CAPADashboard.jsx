@@ -8,6 +8,7 @@ import RosaHcpClustersSection from '../components/sections/RosaHcpClustersSectio
 import NotificationSettingsModal from '../components/modals/NotificationSettingsModal';
 import CredentialsModal from '../components/modals/CredentialsModal';
 import MCEEnvironmentSelector from '../components/MCEEnvironmentSelector';
+import ActiveEnvironmentBanner from '../components/ActiveEnvironmentBanner';
 import { YamlEditorModal } from '../components/YamlEditorModal';
 import { RosaProvisionModal } from '../components/RosaProvisionModal';
 import TestSuiteDashboard from '../components/sections/TestSuiteDashboard';
@@ -120,11 +121,11 @@ const TerminalInline = () => {
       <p className="text-gray-600 mb-4">Execute commands directly on your MCE environment.</p>
 
       {/* Terminal - Full width */}
-      <div className="flex flex-col h-[calc(100vh-250px)]">
+      <div className="flex flex-col">
           {/* Terminal Output */}
           <div
             ref={outputRef}
-            className="bg-black text-green-400 font-mono text-sm p-4 rounded-lg flex-1 overflow-y-auto mb-4"
+            className="bg-black text-green-400 font-mono text-sm p-4 rounded-lg h-96 overflow-y-auto mb-4"
             style={{ fontFamily: 'Monaco, Courier, monospace' }}
           >
             <pre className="whitespace-pre-wrap">{output}</pre>
@@ -143,13 +144,17 @@ const TerminalInline = () => {
                 onKeyDown={handleKeyDown}
                 placeholder="Enter command... (↑/↓ for history)"
                 disabled={executing}
-                className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent font-mono text-sm disabled:bg-gray-100"
+                className="w-full pl-8 pr-4 py-3 border rounded focus:ring-2 focus:border-transparent font-mono text-sm disabled:bg-gray-100"
+                style={{ borderColor: '#2684FF' }}
               />
             </div>
             <button
               onClick={executeCommand}
               disabled={executing || !command.trim()}
-              className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:from-cyan-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              className="px-6 py-3 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              style={!executing && command.trim() ? { backgroundColor: '#2684FF' } : {}}
+              onMouseEnter={(e) => !executing && command.trim() && (e.currentTarget.style.backgroundColor = '#0065FF')}
+              onMouseLeave={(e) => !executing && command.trim() && (e.currentTarget.style.backgroundColor = '#2684FF')}
             >
               {executing ? 'Running...' : 'Execute'}
             </button>
@@ -158,7 +163,7 @@ const TerminalInline = () => {
                 setOutput('Terminal cleared.\n');
                 setCommand('');
               }}
-              className="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              className="px-4 py-3 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
               title="Clear Terminal"
             >
               🗑️ Clear
@@ -819,6 +824,34 @@ const CAPADashboardContent = () => {
     await refreshAllStatus();
   };
 
+  const handleUseEnvironmentCredentials = async (credentials) => {
+    try {
+      // Save the credentials to the backend
+      const response = await fetch(buildApiUrl('/api/credentials'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ credentials }),
+      });
+
+      if (response.ok) {
+        // Show success message
+        alert(
+          `✅ Credentials set successfully for ${credentials.clusterName}!\n\nYou can now verify or configure the environment.`
+        );
+
+        // Refresh API status to reflect the new credentials
+        await refreshAllStatus();
+      } else {
+        const error = await response.json();
+        alert(`Failed to save credentials: ${error.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      alert(`Failed to save credentials: ${error.message}`);
+    }
+  };
+
   // Sidebar navigation handlers
   const sidebarHandlers = {
     onComponentsClick: () => setActiveSection('components'),
@@ -856,7 +889,10 @@ const CAPADashboardContent = () => {
             <button
               onClick={handleMceVerification}
               disabled={apiLoading}
-              className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium flex items-center gap-2"
+              className="px-6 py-3 text-white rounded transition-colors disabled:opacity-50 font-medium flex items-center gap-2"
+              style={!apiLoading ? { backgroundColor: '#2684FF' } : {}}
+              onMouseEnter={(e) => !apiLoading && (e.currentTarget.style.backgroundColor = '#0065FF')}
+              onMouseLeave={(e) => !apiLoading && (e.currentTarget.style.backgroundColor = '#2684FF')}
             >
               {apiLoading ? (
                 <>
@@ -889,7 +925,10 @@ const CAPADashboardContent = () => {
                 <button
                   onClick={handleRefresh}
                   disabled={apiLoading}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 text-xs flex items-center gap-1.5"
+                  className="px-3 py-1.5 text-white rounded transition-colors disabled:opacity-50 text-xs flex items-center gap-1.5"
+                  style={!apiLoading ? { backgroundColor: '#2684FF' } : {}}
+                  onMouseEnter={(e) => !apiLoading && (e.currentTarget.style.backgroundColor = '#0065FF')}
+                  onMouseLeave={(e) => !apiLoading && (e.currentTarget.style.backgroundColor = '#2684FF')}
                 >
                   🔄 Refresh
                 </button>
@@ -1008,7 +1047,10 @@ const CAPADashboardContent = () => {
               <button
                 onClick={handleConfigure}
                 disabled={apiLoading}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium flex items-center gap-2"
+                className="px-6 py-3 text-white rounded transition-colors disabled:opacity-50 font-medium flex items-center gap-2"
+                style={!apiLoading ? { backgroundColor: '#2684FF' } : {}}
+                onMouseEnter={(e) => !apiLoading && (e.currentTarget.style.backgroundColor = '#0065FF')}
+                onMouseLeave={(e) => !apiLoading && (e.currentTarget.style.backgroundColor = '#2684FF')}
               >
                 {apiLoading ? (
                   <>
@@ -1089,9 +1131,6 @@ const CAPADashboardContent = () => {
                 mceInfo={mceInfo}
               />
             </div>
-
-            {/* ROSA HCP Clusters Section */}
-            <RosaHcpClustersSection />
           </div>
         );
 
@@ -1114,7 +1153,7 @@ const CAPADashboardContent = () => {
       case 'environments':
         return (
           <div>
-            <MCEEnvironmentSelector />
+            <MCEEnvironmentSelector onUseCredentials={handleUseEnvironmentCredentials} />
           </div>
         );
 
@@ -1132,6 +1171,7 @@ const CAPADashboardContent = () => {
                 theme="mce"
                 onSave={() => {
                   refreshAllStatus();
+                  setActiveSection('environments');
                 }}
               />
             </div>
@@ -1226,6 +1266,9 @@ const CAPADashboardContent = () => {
         </div>
 
         <div className="p-6">
+          {/* Active Environment Banner */}
+          <ActiveEnvironmentBanner />
+
           {/* Main Content */}
           {renderMainContent()}
         </div>

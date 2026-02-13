@@ -898,7 +898,10 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
                       <button
                         type="button"
                         onClick={loadLogForwardingConfig}
-                        className="mt-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors font-medium"
+                        className="mt-2 px-3 py-1.5 text-white text-sm rounded transition-colors font-medium"
+                        style={{ backgroundColor: '#2684FF' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0065FF')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2684FF')}
                       >
                         📋 Load Configuration
                       </button>
@@ -1128,13 +1131,16 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-medium transition-colors"
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 font-medium transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-md hover:from-purple-700 hover:to-violet-700 font-medium transition-colors shadow-md"
+              className="flex-1 px-4 py-2 text-white rounded transition-colors font-medium"
+              style={{ backgroundColor: '#2684FF' }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0065FF')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2684FF')}
             >
               Preview & Provision
             </button>

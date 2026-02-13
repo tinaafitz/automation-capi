@@ -263,25 +263,32 @@ const TestSuiteDashboard = ({ theme = 'mce', onSelectTestSuite }) => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-500">
-          {/* Action Buttons */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">Version:</span>
-              <select
-                value={selectedVersion}
-                onChange={(e) => setSelectedVersion(e.target.value)}
-                className="px-3 py-1 border border-gray-300 rounded-lg text-sm font-semibold"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <option value="4.21">4.21</option>
-                <option value="4.20">4.20</option>
-                <option value="4.19">4.19</option>
-                <option value="4.18">4.18</option>
-              </select>
-            </div>
+      {/* Page Title */}
+      <div>
+        <h2 className="text-2xl font-bold text-blue-900">Test Suite Dashboard</h2>
+        <p className="text-gray-600 mt-2">
+          🧪 Manage and execute comprehensive ROSA HCP test suites for cluster lifecycle testing.
+        </p>
+      </div>
 
+      <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
+          {/* Action Buttons - Compact */}
+          <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-200">
             <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-gray-600">Version:</span>
+                <select
+                  value={selectedVersion}
+                  onChange={(e) => setSelectedVersion(e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded text-xs font-semibold"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <option value="4.21">4.21</option>
+                  <option value="4.20">4.20</option>
+                  <option value="4.19">4.19</option>
+                  <option value="4.18">4.18</option>
+                </select>
+              </div>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -293,120 +300,147 @@ const TestSuiteDashboard = ({ theme = 'mce', onSelectTestSuite }) => {
                     }))
                   );
                 }}
-                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors text-sm font-medium"
+                className="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors text-xs font-medium"
               >
                 {testItems.every((item) => item.selected) ? 'Deselect All' : 'Select All'}
               </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleProvisionSelected();
-                }}
-                disabled={testItems.filter((item) => item.selected).length === 0}
-                className={`px-6 py-2 bg-gradient-to-r ${themeColors.headerGradient} ${themeColors.hoverGradient} text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-md`}
-              >
-                🚀 Provision & Test Selected
-              </button>
             </div>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleProvisionSelected();
+              }}
+              disabled={testItems.filter((item) => item.selected).length === 0}
+              className="px-4 py-1.5 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
+              style={testItems.filter((item) => item.selected).length > 0 ? { backgroundColor: '#2684FF' } : {}}
+              onMouseEnter={(e) => testItems.filter((item) => item.selected).length > 0 && (e.currentTarget.style.backgroundColor = '#0065FF')}
+              onMouseLeave={(e) => testItems.filter((item) => item.selected).length > 0 && (e.currentTarget.style.backgroundColor = '#2684FF')}
+            >
+              🚀 Provision & Test Selected
+            </button>
           </div>
 
-          {/* Test Suite Grid - Compact Tiles */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Test Suite List */}
+          <div className="divide-y divide-gray-200">
             {testItems.map((item) => (
               <div
                 key={item.id}
-                className={`border-2 rounded-lg transition-all ${
-                  item.selected
-                    ? `${themeColors.border} ${themeColors.bg} shadow-md`
-                    : 'border-gray-200'
+                className={`p-4 hover:bg-gray-50 transition-colors ${
+                  item.selected ? 'bg-blue-50' : ''
                 }`}
               >
-                {/* Tile Header - Clickable for selection */}
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setTestItems((prev) =>
-                      prev.map((test) =>
-                        test.id === item.id ? { ...test, selected: !test.selected } : test
-                      )
-                    );
-                  }}
-                  className="p-4 cursor-pointer hover:bg-gray-50"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-2 flex-1">
-                      <input
-                        type="checkbox"
-                        checked={item.selected}
-                        onChange={() => {}}
-                        className="mt-1"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-semibold text-gray-900 text-sm leading-tight">
-                            {item.name}
-                          </h4>
-                          {item.requiresSetup && (
-                            <span
-                              className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded font-medium"
-                              title="Requires AWS prerequisite setup"
-                            >
-                              Setup Required
-                            </span>
-                          )}
-                        </div>
+                <div className="flex items-center justify-between gap-4">
+                  {/* Left side - Test suite info with checkbox */}
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={item.selected}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        setTestItems((prev) =>
+                          prev.map((test) =>
+                            test.id === item.id ? { ...test, selected: !test.selected } : test
+                          )
+                        );
+                      }}
+                      className="mt-1"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <h3 className="text-base font-semibold text-gray-900">
+                          {item.name}
+                        </h3>
+                        {item.requiresSetup && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                            Setup Required
+                          </span>
+                        )}
+                        <div className="ml-auto">{getStatusIcon(item.status)}</div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap text-xs">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                          {item.category}
+                        </span>
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                          {item.priority}
+                        </span>
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                          {item.phase}
+                        </span>
+                        {item.jira && item.jira.length > 0 && (
+                          <span className="text-gray-500">
+                            {item.jira.length} JIRA {item.jira.length === 1 ? 'ticket' : 'tickets'}
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <div className="ml-2">{getStatusIcon(item.status)}</div>
+                  </div>
+
+                  {/* Right side - Expand/Collapse button */}
+                  <div className="flex-shrink-0">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedItems((prev) => ({
+                          ...prev,
+                          [item.id]: !prev[item.id],
+                        }));
+                      }}
+                      className="flex items-center gap-1 px-3 py-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                    >
+                      {expandedItems[item.id] ? (
+                        <>
+                          <ChevronUpIcon className="h-4 w-4" />
+                          Hide
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDownIcon className="h-4 w-4" />
+                          Details
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
 
                 {/* Expandable Details Section */}
-                <div className="px-4 pb-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setExpandedItems((prev) => ({
-                        ...prev,
-                        [item.id]: !prev[item.id],
-                      }));
-                    }}
-                    className="text-xs text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1"
-                  >
-                    {expandedItems[item.id] ? (
-                      <>
-                        <ChevronUpIcon className="h-3 w-3" />
-                        Hide details
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDownIcon className="h-3 w-3" />
-                        Show details
-                      </>
-                    )}
-                  </button>
-
-                  {expandedItems[item.id] && (
-                    <div className="mt-3 pb-2 space-y-2">
-                      <p className="text-xs text-gray-600">{item.description}</p>
-
-                      <div className="flex flex-wrap gap-1.5 text-xs text-gray-500">
+                {expandedItems[item.id] && (
+                  <div className="mt-3 pt-3 ml-10 pl-4 border-t border-l-2 border-blue-200 space-y-2">
+                    <div>
+                      <h4 className="text-xs font-semibold text-gray-700 mb-1">Description:</h4>
+                      <p className="text-sm text-gray-600 mb-3">{item.description}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-semibold text-gray-700 mb-1">Components:</h4>
+                      <div className="flex flex-wrap gap-1.5">
                         {item.components.map((comp, idx) => (
-                          <button
+                          <span
                             key={idx}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              console.log('Component clicked:', comp);
-                            }}
-                            className="hover:text-blue-600 hover:underline transition-colors"
+                            className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800"
                           >
                             {comp}
-                          </button>
+                          </span>
                         ))}
                       </div>
                     </div>
-                  )}
-                </div>
+                    {item.jira && item.jira.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-semibold text-gray-700 mb-1">JIRA Tickets:</h4>
+                        <div className="flex flex-wrap gap-1.5">
+                          {item.jira.map((ticket, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200"
+                            >
+                              {ticket}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

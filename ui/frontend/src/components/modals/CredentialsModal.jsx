@@ -160,7 +160,8 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave, inline = fal
                           value={credentials.OCP_HUB_API_URL}
                           onChange={(e) => handleInputChange('OCP_HUB_API_URL', e.target.value)}
                           placeholder="https://api.example.com:6443"
-                          className={`w-full px-3 py-2 border ${themeColors.border} rounded-lg focus:outline-none focus:ring-2 ${themeColors.focusRing}`}
+                          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2"
+                          style={{ borderColor: '#2684FF' }}
                         />
                       </div>
 
@@ -176,7 +177,8 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave, inline = fal
                               handleInputChange('OCP_HUB_CLUSTER_USER', e.target.value)
                             }
                             placeholder="kubeadmin"
-                            className={`w-full px-3 py-2 border ${themeColors.border} rounded-lg focus:outline-none focus:ring-2 ${themeColors.focusRing}`}
+                            className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2"
+                            style={{ borderColor: '#2684FF' }}
                           />
                         </div>
 
@@ -192,7 +194,8 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave, inline = fal
                                 handleInputChange('OCP_HUB_CLUSTER_PASSWORD', e.target.value)
                               }
                               placeholder="••••••••"
-                              className={`w-full px-3 py-2 pr-10 border ${themeColors.border} rounded-lg focus:outline-none focus:ring-2 ${themeColors.focusRing}`}
+                              className="w-full px-3 py-2 pr-10 border rounded focus:outline-none focus:ring-2"
+                              style={{ borderColor: '#2684FF' }}
                             />
                             <button
                               type="button"
@@ -230,7 +233,8 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave, inline = fal
                           value={credentials.AWS_REGION}
                           onChange={(e) => handleInputChange('AWS_REGION', e.target.value)}
                           placeholder="us-west-2"
-                          className={`w-full px-3 py-2 border ${themeColors.border} rounded-lg focus:outline-none focus:ring-2 ${themeColors.focusRing}`}
+                          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2"
+                          style={{ borderColor: '#2684FF' }}
                         />
                       </div>
 
@@ -243,7 +247,8 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave, inline = fal
                           value={credentials.AWS_ACCESS_KEY_ID}
                           onChange={(e) => handleInputChange('AWS_ACCESS_KEY_ID', e.target.value)}
                           placeholder="AKIAIOSFODNN7EXAMPLE"
-                          className={`w-full px-3 py-2 border ${themeColors.border} rounded-lg focus:outline-none focus:ring-2 ${themeColors.focusRing} font-mono text-sm`}
+                          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 font-mono text-sm"
+                          style={{ borderColor: '#2684FF' }}
                         />
                       </div>
 
@@ -259,7 +264,8 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave, inline = fal
                               handleInputChange('AWS_SECRET_ACCESS_KEY', e.target.value)
                             }
                             placeholder="••••••••••••••••••••••••••••••••••••••••"
-                            className={`w-full px-3 py-2 pr-10 border ${themeColors.border} rounded-lg focus:outline-none focus:ring-2 ${themeColors.focusRing} font-mono text-sm`}
+                            className="w-full px-3 py-2 pr-10 border rounded focus:outline-none focus:ring-2 font-mono text-sm"
+                            style={{ borderColor: '#2684FF' }}
                           />
                           <button
                             type="button"
@@ -296,7 +302,8 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave, inline = fal
                           value={credentials.OCM_CLIENT_ID}
                           onChange={(e) => handleInputChange('OCM_CLIENT_ID', e.target.value)}
                           placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                          className={`w-full px-3 py-2 border ${themeColors.border} rounded-lg focus:outline-none focus:ring-2 ${themeColors.focusRing} font-mono text-sm`}
+                          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 font-mono text-sm"
+                          style={{ borderColor: '#2684FF' }}
                         />
                       </div>
 
@@ -310,7 +317,8 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave, inline = fal
                             value={credentials.OCM_CLIENT_SECRET}
                             onChange={(e) => handleInputChange('OCM_CLIENT_SECRET', e.target.value)}
                             placeholder="••••••••••••••••••••••••••••••••"
-                            className={`w-full px-3 py-2 pr-10 border ${themeColors.border} rounded-lg focus:outline-none focus:ring-2 ${themeColors.focusRing} font-mono text-sm`}
+                            className="w-full px-3 py-2 pr-10 border rounded focus:outline-none focus:ring-2 font-mono text-sm"
+                            style={{ borderColor: '#2684FF' }}
                           />
                           <button
                             type="button"
@@ -337,14 +345,17 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave, inline = fal
         <button
           onClick={onClose}
           disabled={saving}
-          className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+          className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
         >
           Cancel
         </button>
         <button
           onClick={handleSave}
           disabled={saving || loading}
-          className={`px-4 py-2 ${themeColors.button} text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2`}
+          className="px-4 py-2 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2"
+          style={!(saving || loading) ? { backgroundColor: '#2684FF' } : {}}
+          onMouseEnter={(e) => !(saving || loading) && (e.currentTarget.style.backgroundColor = '#0065FF')}
+          onMouseLeave={(e) => !(saving || loading) && (e.currentTarget.style.backgroundColor = '#2684FF')}
         >
           {saving ? (
             <>

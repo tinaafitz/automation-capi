@@ -132,65 +132,91 @@ const TestSuiteSection = ({ theme = 'mce' }) => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-500">
-            {loading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600 mx-auto"></div>
-                <p className="mt-4 text-gray-600">Loading playbooks...</p>
-              </div>
-            ) : (
-              <div>
-                <p className="text-sm text-gray-600 mb-4">
-                  🧪 Run automated playbooks to configure and test CAPI/CAPA functionality.
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {suites.map((suite) => {
-                    const running = isPlaybookRunning(suite.id);
-                    return (
-                      <div
-                        key={suite.id}
-                        className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition bg-gradient-to-br from-white to-gray-50"
-                      >
-                        <h5 className="font-semibold text-sm mb-1">{suite.config.name}</h5>
-                        <p className="text-xs text-gray-600 mb-2">{suite.config.description}</p>
-                        <div className="text-xs text-gray-500 mb-3 space-y-1">
-                          <div>📦 {suite.config.playbooks.length} playbooks</div>
-                          <div>🏷️ {suite.config.tags.join(', ')}</div>
+      {/* Page Title */}
+      <div>
+        <h2 className="text-2xl font-bold text-blue-900">Test Automation</h2>
+        <p className="text-gray-600 mt-2">
+          ✅ Run automated playbooks to configure and test CAPI/CAPA functionality.
+        </p>
+      </div>
+
+      {/* Test Suites List */}
+      <div className="bg-white rounded-lg shadow border border-gray-200">
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading playbooks...</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-200">
+            {suites.map((suite) => {
+              const running = isPlaybookRunning(suite.id);
+              return (
+                <div
+                  key={suite.id}
+                  className="p-4 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    {/* Left side - Suite info */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base font-semibold text-gray-900 mb-1">
+                        {suite.config.name}
+                      </h3>
+                      <p className="text-sm text-gray-600 mb-2">
+                        {suite.config.description}
+                      </p>
+                      <div className="flex items-center gap-2 flex-wrap text-xs">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {suite.config.tags.map((tag, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                            >
+                              {tag}
+                            </span>
+                          ))}
                         </div>
-                        <button
-                          onClick={() => handleSuiteClick(suite)}
-                          disabled={running}
-                          className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded text-sm font-medium transition ${
-                            running
-                              ? 'bg-gray-400 text-white cursor-not-allowed opacity-60'
-                              : needsProvisioningOptions(suite)
-                                ? `bg-gradient-to-r ${colors.buttonGradient} text-white ${colors.buttonGradientHover}`
-                                : `${colors.buttonBg} text-white ${colors.buttonHover}`
-                          }`}
-                        >
-                          {running ? (
-                            <>
-                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                              Running...
-                            </>
-                          ) : needsProvisioningOptions(suite) ? (
-                            <>
-                              <Cog6ToothIcon className="w-4 h-4" />
-                              Configure & Provision
-                            </>
-                          ) : (
-                            <>
-                              <PlayIcon className="w-4 h-4" />
-                              Run Playbook
-                            </>
-                          )}
-                        </button>
+                        {suite.config.playbooks?.[0]?.test_case_id && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                            {suite.config.playbooks[0].test_case_id}
+                          </span>
+                        )}
                       </div>
-                    );
-                  })}
+                    </div>
+
+                    {/* Right side - Action button */}
+                    <div className="flex-shrink-0">
+                      <button
+                        onClick={() => handleSuiteClick(suite)}
+                        disabled={running}
+                        className={`flex items-center gap-2 px-4 py-2 rounded text-sm font-medium transition-colors ${
+                          running
+                            ? 'bg-gray-400 text-white cursor-not-allowed opacity-60'
+                            : 'text-white hover:bg-[#0065FF]'
+                        }`}
+                        style={!running ? { backgroundColor: '#2684FF' } : {}}
+                        onMouseEnter={(e) => !running && (e.currentTarget.style.backgroundColor = '#0065FF')}
+                        onMouseLeave={(e) => !running && (e.currentTarget.style.backgroundColor = '#2684FF')}
+                      >
+                        {running ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Running...
+                          </>
+                        ) : (
+                          <>
+                            <PlayIcon className="w-4 h-4" />
+                            Run Playbook
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* ROSA Provisioning Modal */}

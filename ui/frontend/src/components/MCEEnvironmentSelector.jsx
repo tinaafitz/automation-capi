@@ -184,17 +184,21 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
     setTimeout(() => setCopiedCommand(false), 2000);
   };
 
-  const handleUseCredentials = () => {
+  const handleUseCredentials = async () => {
     if (selectedEnv && onUseCredentials) {
       // Extract API URL from console URL
       const apiUrl = `https://api.${selectedEnv.consoleUrl.split('apps.')[1].replace(/\/$/, '')}:6443`;
 
-      onUseCredentials({
+      // Call the parent handler and wait for it to complete
+      await onUseCredentials({
         OCP_HUB_API_URL: apiUrl,
         OCP_HUB_CLUSTER_USER: 'kubeadmin',
         OCP_HUB_CLUSTER_PASSWORD: selectedEnv.password,
         clusterName: selectedEnv.clusterName,
       });
+
+      // Return to the environments list after saving
+      setSelectedEnv(null);
     }
   };
 
@@ -291,14 +295,15 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
               placeholder="Search by cluster, platform, Jira, Polarion..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border rounded focus:ring-2 focus:border-transparent"
+              style={{ borderColor: '#2684FF' }}
             />
           </div>
 
           {/* Filter Toggle */}
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
           >
             <FunnelIcon className="w-5 h-5" />
             Filters
@@ -310,7 +315,10 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
               fetchEnvironments();
               fetchStats();
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-white rounded transition-colors"
+            style={{ backgroundColor: '#2684FF' }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0065FF')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2684FF')}
           >
             <ArrowPathIcon className="w-5 h-5" />
             Refresh
@@ -319,7 +327,10 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
           {/* Add Environment */}
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-white rounded transition-colors"
+            style={{ backgroundColor: '#2684FF' }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0065FF')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2684FF')}
           >
             <PlusIcon className="w-5 h-5" />
             Add
@@ -501,14 +512,17 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
             <div className="flex justify-end gap-3 mt-4">
               <button
                 onClick={() => setShowAddModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddEnvironment}
                 disabled={!newEnv.consoleUrl || !newEnv.username || !newEnv.password}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={newEnv.consoleUrl && newEnv.username && newEnv.password ? { backgroundColor: '#2684FF' } : {}}
+                onMouseEnter={(e) => newEnv.consoleUrl && newEnv.username && newEnv.password && (e.currentTarget.style.backgroundColor = '#0065FF')}
+                onMouseLeave={(e) => newEnv.consoleUrl && newEnv.username && newEnv.password && (e.currentTarget.style.backgroundColor = '#2684FF')}
               >
                 Add Environment
               </button>
@@ -615,7 +629,10 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
                   {onUseCredentials && (
                     <button
                       onClick={handleUseCredentials}
-                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white text-sm font-medium rounded-lg shadow-md transition-all transform hover:scale-105"
+                      className="flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded transition-colors"
+                      style={{ backgroundColor: '#2684FF' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0065FF')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2684FF')}
                     >
                       <KeyIcon className="w-4 h-4" />
                       Use These Credentials

@@ -68,9 +68,6 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
   const providers = [
     { id: 'capi', name: 'CAPI (Core)', fullName: 'Cluster API Core' },
     { id: 'capa', name: 'CAPA', fullName: 'Cluster API Provider AWS' },
-    { id: 'capz', name: 'CAPZ', fullName: 'Cluster API Provider Azure' },
-    { id: 'cap-metal3', name: 'CAP-metal3', fullName: 'Cluster API Provider Metal3' },
-    { id: 'capoa', name: 'CAPOA', fullName: 'Cluster API Provider OpenStack' },
   ];
 
   // Environments - filter based on current environment
@@ -284,90 +281,15 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-500">
-        {/* Toolbar */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-4">
-            {/* Git Source Indicator */}
-            <div
-              onClick={() => setShowSourceConfig(!showSourceConfig)}
-              className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors text-sm font-medium text-gray-700 cursor-pointer"
-              title="Configure chart source"
-            >
-              {chartSource === 'git' ? `📦 Git: ${gitBranch}` : '📦 Helm Repo'}
-            </div>
+      {/* Page Title */}
+      <div>
+        <h2 className="text-2xl font-bold text-blue-900">Helm Chart Test Matrix</h2>
+        <p className="text-gray-600 mt-2">
+          📊 Test CAPI/CAPA Helm chart installations across different environments and configurations.
+        </p>
+      </div>
 
-            <button
-              onClick={() => setAutoRefresh(!autoRefresh)}
-              className={`px-3 py-1.5 rounded-lg transition-colors text-sm font-medium ${
-                autoRefresh
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-              title={autoRefresh ? 'Auto-refresh enabled' : 'Auto-refresh disabled'}
-            >
-              {autoRefresh ? '🔄 Auto' : '⏸️ Manual'}
-            </button>
-            <button
-              onClick={loadTestMatrix}
-              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-sm font-medium text-gray-700 flex items-center gap-2"
-              title="Refresh test results"
-            >
-              <ArrowPathIcon className="h-4 w-4" />
-              Refresh
-            </button>
-          </div>
-        </div>
-
-        {/* Chart Source Configuration Panel */}
-        {showSourceConfig && (
-          <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200 p-4">
-            <div className="max-w-4xl mx-auto">
-              <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                Chart Source Configuration
-              </h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Chart Source
-                  </label>
-                  <select
-                    value={chartSource}
-                    onChange={(e) => setChartSource(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="git">Git Repository (stolostron)</option>
-                    <option value="helm_repo">Helm Repository</option>
-                  </select>
-                  <p className="mt-1 text-xs text-gray-500">
-                    {chartSource === 'git'
-                      ? 'Clone charts from GitHub repository'
-                      : 'Use published Helm repository (if available)'}
-                  </p>
-                </div>
-
-                {chartSource === 'git' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Git Branch
-                    </label>
-                    <input
-                      type="text"
-                      value={gitBranch}
-                      onChange={(e) => setGitBranch(e.target.value)}
-                      placeholder="main"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                    <p className="mt-1 text-xs text-gray-500">
-                      Repository: stolostron/cluster-api-installer
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
+      <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
         {/* Test Matrix Content */}
         {loading ? (
           <div className="text-center py-12">
@@ -432,7 +354,10 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
                                 e.stopPropagation(); // Prevent toggling when clicking button
                                 handleRunAllTests(provider.id);
                               }}
-                              className={`flex items-center gap-2 px-4 py-2 ${colors.buttonBg} text-white rounded-lg ${colors.buttonHover} transition-colors text-sm font-medium`}
+                              className="flex items-center gap-2 px-4 py-2 text-white rounded transition-colors text-sm font-medium"
+                              style={{ backgroundColor: '#2684FF' }}
+                              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0065FF')}
+                              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2684FF')}
                             >
                               <PlayIcon className="w-4 h-4" />
                               Run All Tests
@@ -582,7 +507,10 @@ ${selectedCell.data.status === 'pass' ? '✅ All checks passed\n\nTest Summary:\
                     );
                     setSelectedCell(null);
                   }}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 ${colors.buttonBg} text-white rounded-lg ${colors.buttonHover} transition-colors font-medium`}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-white rounded transition-colors font-medium"
+                  style={{ backgroundColor: '#2684FF' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0065FF')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2684FF')}
                 >
                   <PlayIcon className="w-5 h-5" />
                   Re-run Test
