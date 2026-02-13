@@ -1,0 +1,15 @@
+slack_enabled: false
+slack_webhook_url: ''
+email_enabled: true
+smtp_server: smtp.gmail.com
+smtp_port: 587
+smtp_username: tina.fitzgerald2@gmail.com
+smtp_password: myhj acht yhaw udnu
+from_email: tina.fitzgerald2@gmail.com
+to_emails:
+- tina.fitzgerald2@gmail.com
+use_tls: true
+app_url: http://localhost:3000
+notify_on_start: true
+notify_on_complete: true
+notify_on_failure: true

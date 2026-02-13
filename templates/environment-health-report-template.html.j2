@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCE Environment Health Report - {{ lookup('pipe', 'date +"%B %d, %Y"') }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+            line-height: 1.5;
+            color: #333;
+            background: #f8f9fa;
+            padding: 15px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            color: white;
+            padding: 25px 30px;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .header .subtitle {
+            font-size: 0.95em;
+            opacity: 0.95;
+        }
+
+        .content {
+            padding: 25px 30px;
+        }
+
+        .summary-section {
+            background: #f0fdf4;
+            border-left: 4px solid #10b981;
+            padding: 20px;
+            border-radius: 4px;
+            margin-bottom: 30px;
+        }
+
+        .summary-section.has-issues {
+            background: #fef2f2;
+            border-left-color: #ef4444;
+        }
+
+        .summary-section.has-warnings {
+            background: #fffbeb;
+            border-left-color: #f59e0b;
+        }
+
+        .summary-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: #f9fafb;
+            border-left: 3px solid #6b7280;
+            padding: 15px;
+            border-radius: 4px;
+        }
+
+        .stat-card.healthy {
+            border-left-color: #10b981;
+            background: #f0fdf4;
+        }
+
+        .stat-card.issues {
+            border-left-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .stat-card.warnings {
+            border-left-color: #f59e0b;
+            background: #fffbeb;
+        }
+
+        .stat-card.unreachable {
+            border-left-color: #6b7280;
+            background: #f3f4f6;
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.85em;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+
+        .section {
+            margin-bottom: 35px;
+        }
+
+        .section-title {
+            font-size: 1.4em;
+            color: #1f2937;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .environment-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-left: 4px solid #10b981;
+            padding: 18px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            transition: box-shadow 0.2s;
+        }
+
+        .environment-card:hover {
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .environment-card.has-issues {
+            border-left-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .environment-card.has-warnings {
+            border-left-color: #f59e0b;
+            background: #fffbeb;
+        }
+
+        .environment-card.unreachable {
+            border-left-color: #6b7280;
+            background: #f9fafb;
+        }
+
+        .env-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .env-name {
+            font-size: 1.2em;
+            font-weight: 700;
+            color: #1f2937;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-badge.healthy {
+            background: #10b981;
+            color: white;
+        }
+
+        .status-badge.issue_detected {
+            background: #ef4444;
+            color: white;
+        }
+
+        .status-badge.unreachable {
+            background: #6b7280;
+            color: white;
+        }
+
+        .env-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 8px;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .meta-item {
+            font-size: 0.85em;
+            color: #4b5563;
+        }
+
+        .meta-label {
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .issues-section {
+            margin-top: 15px;
+        }
+
+        .issue-card {
+            background: white;
+            border-left: 3px solid #ef4444;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+
+        .issue-card.warning {
+            border-left-color: #f59e0b;
+            background: #fffbeb;
+        }
+
+        .issue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .issue-type {
+            font-weight: 600;
+            color: #dc2626;
+            font-size: 0.95em;
+        }
+
+        .issue-type.warning {
+            color: #d97706;
+        }
+
+        .severity-badge {
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-size: 0.7em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .severity-badge.error {
+            background: #dc2626;
+            color: white;
+        }
+
+        .severity-badge.critical {
+            background: #991b1b;
+            color: white;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        .severity-badge.warning {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .issue-description {
+            font-size: 0.9em;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+
+        .issue-details {
+            font-size: 0.8em;
+            color: #6b7280;
+            font-family: 'Courier New', monospace;
+            background: #f9fafb;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 6px;
+        }
+
+        .correlation {
+            font-size: 0.85em;
+            color: #7c3aed;
+            background: #f5f3ff;
+            padding: 6px 10px;
+            border-radius: 4px;
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        .footer {
+            background: #f3f4f6;
+            color: #6b7280;
+            text-align: center;
+            padding: 20px;
+            font-size: 0.9em;
+        }
+
+        .legend {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 25px;
+        }
+
+        .legend-title {
+            font-weight: 600;
+            font-size: 0.9em;
+            color: #374151;
+            margin-bottom: 10px;
+        }
+
+        .legend-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .legend-item {
+            font-size: 0.85em;
+            color: #6b7280;
+        }
+
+        .known-issues-box {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 25px;
+        }
+
+        .known-issues-title {
+            font-weight: 600;
+            color: #1e40af;
+            margin-bottom: 10px;
+        }
+
+        .known-issue-item {
+            font-size: 0.9em;
+            color: #475569;
+            margin: 6px 0;
+            padding-left: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏥 MCE Environment Health Report</h1>
+            <p class="subtitle">Systematic check for known issues across all running environments | Generated: {{ timestamp }}</p>
+        </div>
+
+        <div class="content">
+            <!-- Known Issues Reference -->
+            <div class="known-issues-box">
+                <div class="known-issues-title">🔍 Known Issues Being Checked</div>
+                <div class="known-issue-item">
+                    <strong>CAPI/OCP Version Incompatibility:</strong> OCP 4.20+ requires CAPI v1.5+ for v1beta2 CRD support (CRITICAL)
+                </div>
+                <div class="known-issue-item">
+                    <strong>MCE/CAPI Version Mismatch:</strong> MCE 2.11+ requires CAPI v1.5+ for v1beta2 support (CRITICAL)
+                </div>
+                <div class="known-issue-item">
+                    <strong>RosaNetwork Deletion Stuck:</strong> Resources stuck in Deleting status (observed on cqu-2151-yup, OCP 4.18.30)
+                </div>
+                <div class="known-issue-item">
+                    <strong>CRD v1beta2 Compatibility:</strong> CAPI CRDs missing v1beta2 support (observed on rdr-acm216-hub420, OCP 4.20.10)
+                </div>
+                <div class="known-issue-item">
+                    <strong>RosaControlPlane Deletion Stuck:</strong> Control plane resources not cleaning up properly
+                </div>
+            </div>
+
+            <!-- Summary Statistics -->
+{% set healthy_count = health_check_results | selectattr('status', 'equalto', 'healthy') | list | length %}
+{% set issue_count = health_check_results | selectattr('status', 'equalto', 'issue_detected') | list | length %}
+{% set unreachable_count = health_check_results | selectattr('status', 'equalto', 'unreachable') | list | length %}
+{% set total_issues = health_check_results | sum(attribute='issues', start=[]) | length %}
+{% set total_warnings = health_check_results | sum(attribute='warnings', start=[]) | length %}
+
+            <div class="stats-grid">
+                <div class="stat-card healthy">
+                    <div class="stat-number">{{ healthy_count }}</div>
+                    <div class="stat-label">✅ Healthy</div>
+                </div>
+                <div class="stat-card issues">
+                    <div class="stat-number">{{ issue_count }}</div>
+                    <div class="stat-label">❌ Issues Detected</div>
+                </div>
+                <div class="stat-card warnings">
+                    <div class="stat-number">{{ total_warnings }}</div>
+                    <div class="stat-label">⚠️ Warnings</div>
+                </div>
+                <div class="stat-card unreachable">
+                    <div class="stat-number">{{ unreachable_count }}</div>
+                    <div class="stat-label">🔌 Unreachable</div>
+                </div>
+            </div>
+
+            <!-- Executive Summary -->
+{% if issue_count > 0 %}
+            <div class="summary-section has-issues">
+                <div class="summary-title">⚠️ Action Required</div>
+                <p><strong>{{ issue_count }} environment(s)</strong> have detected issues matching known problems. Review the details below and compare with known issue patterns.</p>
+            </div>
+{% elif total_warnings > 0 %}
+            <div class="summary-section has-warnings">
+                <div class="summary-title">⚠️ Monitoring Recommended</div>
+                <p><strong>{{ total_warnings }} warning(s)</strong> detected across environments. No critical issues found, but monitoring is recommended.</p>
+            </div>
+{% else %}
+            <div class="summary-section">
+                <div class="summary-title">✅ All Clear</div>
+                <p>No known issues detected in any of the <strong>{{ healthy_count }}</strong> checked environments.</p>
+            </div>
+{% endif %}
+
+            <!-- Environments with Issues -->
+{% set envs_with_issues = health_check_results | selectattr('status', 'equalto', 'issue_detected') | list %}
+{% if envs_with_issues | length > 0 %}
+            <div class="section">
+                <h2 class="section-title">❌ Environments with Detected Issues ({{ envs_with_issues | length }})</h2>
+
+{% for env in envs_with_issues %}
+                <div class="environment-card has-issues">
+                    <div class="env-header">
+                        <div class="env-name">{{ env.cluster_name }}</div>
+                        <span class="status-badge issue_detected">{{ env.issues | length }} Issue(s)</span>
+                    </div>
+
+                    <div class="env-meta">
+                        <div class="meta-item">
+                            <span class="meta-label">Platform:</span> {{ env.platform }}
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">OCP:</span> {{ env.ocp_version }}
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">MCE:</span> {{ env.mce_version }}
+                        </div>
+{% if env.versions is defined %}
+                        <div class="meta-item">
+                            <span class="meta-label">CAPI:</span> v{{ env.versions.capi }}
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">CAPA:</span> v{{ env.versions.capa }}
+                        </div>
+{% endif %}
+                        <div class="meta-item">
+                            <span class="meta-label">Checked:</span> {{ env.checked_at }}
+                        </div>
+                    </div>
+
+                    <div class="issues-section">
+{% for issue in env.issues %}
+                        <div class="issue-card">
+                            <div class="issue-header">
+                                <div class="issue-type">{{ issue.type }}</div>
+{% if issue.severity is defined %}
+                                <span class="severity-badge {{ issue.severity }}">{{ issue.severity }}</span>
+{% endif %}
+                            </div>
+                            <div class="issue-description">{{ issue.description }}</div>
+{% if issue.details is defined %}
+                            <div class="issue-details">
+                                <strong>Version Details:</strong><br>
+{% for key, value in issue.details.items() %}
+                                {{ key | replace('_', ' ') | title }}: {{ value }}<br>
+{% endfor %}
+                            </div>
+{% endif %}
+{% if issue.impact is defined %}
+                            <div class="issue-details" style="color: #dc2626; font-weight: 600;">
+                                ⚠️ Impact: {{ issue.impact }}
+                            </div>
+{% endif %}
+{% if issue.resources is defined %}
+                            <div class="issue-details">
+                                Affected resources: {{ issue.resources | join(', ') }}
+                            </div>
+{% endif %}
+{% if issue.crds is defined %}
+                            <div class="issue-details">
+                                Affected CRDs: {{ issue.crds | join(', ') }}
+                            </div>
+{% endif %}
+{% if issue.correlation is defined %}
+                            <div class="correlation">
+                                📊 Correlation: {{ issue.correlation }}
+                            </div>
+{% endif %}
+                        </div>
+{% endfor %}
+                    </div>
+
+{% if env.warnings | length > 0 %}
+                    <div class="issues-section" style="margin-top: 15px;">
+                        <strong style="font-size: 0.9em; color: #d97706;">Additional Warnings:</strong>
+{% for warning in env.warnings %}
+                        <div class="issue-card warning">
+                            <div class="issue-header">
+                                <div class="issue-type warning">{{ warning.type }}</div>
+                            </div>
+                            <div class="issue-description">{{ warning.description }}</div>
+{% if warning.recommendation is defined %}
+                            <div class="correlation">
+                                💡 Recommendation: {{ warning.recommendation }}
+                            </div>
+{% endif %}
+                        </div>
+{% endfor %}
+                    </div>
+{% endif %}
+                </div>
+{% endfor %}
+            </div>
+{% endif %}
+
+            <!-- Healthy Environments -->
+{% set healthy_envs = health_check_results | selectattr('status', 'equalto', 'healthy') | list %}
+{% if healthy_envs | length > 0 %}
+            <div class="section">
+                <h2 class="section-title">✅ Healthy Environments ({{ healthy_envs | length }})</h2>
+
+{% for env in healthy_envs %}
+                <div class="environment-card">
+                    <div class="env-header">
+                        <div class="env-name">{{ env.cluster_name }}</div>
+                        <span class="status-badge healthy">Healthy</span>
+                    </div>
+
+                    <div class="env-meta">
+                        <div class="meta-item">
+                            <span class="meta-label">Platform:</span> {{ env.platform }}
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">OCP:</span> {{ env.ocp_version }}
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">MCE:</span> {{ env.mce_version }}
+                        </div>
+{% if env.versions is defined %}
+                        <div class="meta-item">
+                            <span class="meta-label">CAPI:</span> v{{ env.versions.capi }}
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">CAPA:</span> v{{ env.versions.capa }}
+                        </div>
+{% endif %}
+                        <div class="meta-item">
+                            <span class="meta-label">Checked:</span> {{ env.checked_at }}
+                        </div>
+                    </div>
+
+{% if env.warnings | length > 0 %}
+                    <div class="issues-section" style="margin-top: 10px;">
+                        <strong style="font-size: 0.9em; color: #d97706;">Warnings:</strong>
+{% for warning in env.warnings %}
+                        <div class="issue-card warning">
+                            <div class="issue-header">
+                                <div class="issue-type warning">{{ warning.type }}</div>
+                            </div>
+                            <div class="issue-description">{{ warning.description }}</div>
+{% if warning.recommendation is defined %}
+                            <div class="correlation">
+                                💡 Recommendation: {{ warning.recommendation }}
+                            </div>
+{% endif %}
+{% if warning.resources is defined %}
+                            <div class="issue-details">
+                                Resources: {{ warning.resources | join(', ') }}
+                            </div>
+{% endif %}
+                        </div>
+{% endfor %}
+                    </div>
+{% endif %}
+                </div>
+{% endfor %}
+            </div>
+{% endif %}
+
+            <!-- Unreachable Environments -->
+{% set unreachable_envs = health_check_results | selectattr('status', 'equalto', 'unreachable') | list %}
+{% if unreachable_envs | length > 0 %}
+            <div class="section">
+                <h2 class="section-title">🔌 Unreachable Environments ({{ unreachable_envs | length }})</h2>
+                <p style="margin-bottom: 15px; color: #6b7280; font-size: 0.9em;">These environments could not be accessed for health checking.</p>
+
+{% for env in unreachable_envs %}
+                <div class="environment-card unreachable">
+                    <div class="env-header">
+                        <div class="env-name">{{ env.cluster_name }}</div>
+                        <span class="status-badge unreachable">Unreachable</span>
+                    </div>
+
+                    <div class="env-meta">
+                        <div class="meta-item">
+                            <span class="meta-label">Platform:</span> {{ env.platform }}
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">OCP:</span> {{ env.ocp_version }}
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Attempted:</span> {{ env.checked_at }}
+                        </div>
+                    </div>
+
+                    <div class="issue-description" style="margin-top: 10px; color: #6b7280;">
+                        {{ env.issues[0] if env.issues | length > 0 else 'Could not connect to cluster' }}
+                    </div>
+                </div>
+{% endfor %}
+            </div>
+{% endif %}
+
+            <!-- Legend -->
+            <div class="legend">
+                <div class="legend-title">Report Legend</div>
+                <div class="legend-items">
+                    <div class="legend-item">✅ <strong>Healthy:</strong> No known issues detected</div>
+                    <div class="legend-item">❌ <strong>Issues:</strong> Known problems found</div>
+                    <div class="legend-item">⚠️ <strong>Warnings:</strong> Potential risks identified</div>
+                    <div class="legend-item">🔌 <strong>Unreachable:</strong> Cannot connect</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p><strong>MCE Environment Health Report</strong></p>
+            <p>Generated: {{ timestamp }} | Total Environments Checked: {{ health_check_results | length }}</p>
+            <p style="margin-top: 10px; font-size: 0.9em;">This report checks for known issues across MCE environments to prevent testing delays</p>
+        </div>
+    </div>
+</body>
+</html>

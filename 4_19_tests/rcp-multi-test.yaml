@@ -1,0 +1,90 @@
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: "maryhadalittlelamblittlelamblittlelambmaryhadalit"
+  namespace: "ns-rosa-hcp"
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks: ["192.168.0.0/16"]
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+    kind: ROSACluster
+    name: "maryhadalittlelamblittlelamblittlelambmaryhadalit"
+    namespace: "ns-rosa-hcp"
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta2
+    kind: ROSAControlPlane
+    name: "maryhadalittlelamblittlelamblittlelambmaryhadalit-control-plane"
+    namespace: "ns-rosa-hcp"
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSACluster
+metadata:
+  name: "maryhadalittlelamblittlelamblittlelambmaryhadalit"
+  namespace: "ns-rosa-hcp"
+spec: {}
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta2
+kind: ROSAControlPlane
+metadata:
+  name: "maryhadalittlelamblittlelamblittlelambmaryhadalit-control-plane"
+  namespace: "ns-rosa-hcp"
+spec:
+  rosaClusterName: maryhadalittlelamblittlelamblittlelambmaryhadalit
+  version:  "4.19.0-ec.5"
+  region: "us-west-2"
+  channelGroup: candidate
+  domainPrefix: capi-test
+  additionalTags:
+    env: "demo"
+    profile: "hcp"
+    tagKey: "capi-tag"
+  defaultMachinePoolSpec:
+    instanceType: "m5.xlarge"
+    autoscaling:
+      minReplicas: 2
+      maxReplicas: 3
+  network:
+    machineCIDR: "10.0.0.0/16"
+    podCIDR: "10.128.0.0/14"
+    serviceCIDR: "172.30.0.0/16"
+  rolesRef:
+    ingressARN: "arn:aws:iam::471112697682:role/REPLACE_ME-openshift-ingress-operator-cloud-credentials"
+    imageRegistryARN: "arn:aws:iam::471112697682:role/REPLACE_ME-openshift-image-registry-installer-cloud-credentials"
+    storageARN: "arn:aws:iam::471112697682:role/REPLACE_ME-openshift-cluster-csi-drivers-ebs-cloud-credentials"
+    networkARN: "arn:aws:iam::471112697682:role/REPLACE_ME-openshift-cloud-network-config-controller-cloud-credentials"
+    kubeCloudControllerARN: "arn:aws:iam::471112697682:role/REPLACE_ME-kube-system-kube-controller-manager"
+    nodePoolManagementARN: "arn:aws:iam::471112697682:role/REPLACE_ME-kube-system-capa-controller-manager"
+    controlPlaneOperatorARN: "arn:aws:iam::471112697682:role/REPLACE_ME-kube-system-control-plane-operator"
+    kmsProviderARN: "arn:aws:iam::471112697682:role/REPLACE_ME-kube-system-kms-provider"
+  oidcID: "REPLACE_ME"
+  subnets:
+    - "REPLACE_ME"
+    - "REPLACE_ME"
+  availabilityZones:
+    - "us-west-2b"
+  installerRoleARN: "arn:aws:iam::471112697682:role/REPLACE_ME-HCP-ROSA-Installer-Role"
+  supportRoleARN: "arn:aws:iam::471112697682:role/REPLACE_ME-HCP-ROSA-Support-Role"
+  workerRoleARN: "arn:aws:iam::471112697682:role/REPLACE_ME-HCP-ROSA-Worker-Role"
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: AWSClusterControllerIdentity
+metadata:
+  name: "default"
+spec:
+  allowedNamespaces: { }  # matches all namespaces
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSAMachinePool
+metadata:
+  name: rosa-capi-pool
+spec:
+  nodePoolName: "nodepool-0"
+  instanceType: "m5.xlarge"
+  subnet: "REPLACE_ME" # public subnet
+  version: "4.19.0-ec.5"
+  autoscaling:
+    minReplicas: 1
+    maxReplicas: 2

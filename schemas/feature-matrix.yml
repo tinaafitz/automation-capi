@@ -1,0 +1,121 @@
+# Feature Matrix for OpenShift Versions
+# Defines what features and configurations are available per version
+
+version_features:
+  "4.18":
+    cluster_configs:
+      - basic-networking
+      - standard-machine-pools
+      - basic-security
+      - rosa-control-plane-basic
+    supported_features:
+      - rosa-hcp-basic
+      - aws-integration
+      - single-zone-deployment
+      - basic-autoscaling
+    machine_pool_features:
+      - standard-instance-types
+      - basic-disk-config
+    networking_features:
+      - vpc-basic
+      - subnet-standard
+    deprecated_features: []
+    
+  "4.19":
+    cluster_configs:
+      - external-oidc
+      - cluster-autoscaler-expander
+      - parallel-node-upgrades
+      - image-registry-config
+      - machine-pool-disk-size
+      - private-clusters
+      - multi-test-configurations
+    supported_features:
+      - rosa-hcp-advanced
+      - enhanced-networking
+      - multi-zone-deployment
+      - advanced-autoscaling
+      - external-authentication
+      - custom-machine-pools
+    machine_pool_features:
+      - custom-disk-sizes
+      - advanced-instance-types
+      - spot-instances
+    networking_features:
+      - vpc-advanced
+      - private-subnets
+      - custom-cidrs
+      - no-cni-plugins
+    deprecated_features:
+      - basic-networking-v1
+      
+  "4.20":
+    cluster_configs:
+      - enhanced-security
+      - multi-arch-support
+      - advanced-networking
+      - ai-workload-optimization
+      - edge-computing-config
+    supported_features:
+      - rosa-hcp-premium
+      - edge-computing
+      - ai-workloads
+      - multi-architecture
+      - advanced-security
+      - zero-trust-networking
+    machine_pool_features:
+      - gpu-instances
+      - arm-instances
+      - custom-taints-tolerations
+      - advanced-scheduling
+    networking_features:
+      - service-mesh-integration
+      - advanced-load-balancing
+      - ipv6-support
+      - network-policies-advanced
+    deprecated_features:
+      - legacy-autoscaler
+      - single-zone-only
+
+# Version compatibility matrix
+version_compatibility:
+  upgrade_paths:
+    "4.18": ["4.19"]
+    "4.19": ["4.20"]
+    "4.20": ["4.21"]
+  
+  downgrade_support: false
+  
+  feature_migration:
+    "4.18_to_4.19":
+      automatic:
+        - basic-networking -> enhanced-networking
+        - standard-machine-pools -> custom-machine-pools
+      manual:
+        - security-config-review
+        - networking-policy-update
+    "4.19_to_4.20":
+      automatic:
+        - enhanced-networking -> advanced-networking
+        - custom-machine-pools -> gpu-enabled-pools
+      manual:
+        - multi-arch-compatibility-check
+        - security-policy-upgrade
+
+# Default configurations per version
+default_configs:
+  "4.18":
+    cluster_type: "basic"
+    networking: "standard"
+    machine_pools: "standard"
+    security: "basic"
+  "4.19": 
+    cluster_type: "advanced"
+    networking: "enhanced"
+    machine_pools: "custom"
+    security: "enhanced"
+  "4.20":
+    cluster_type: "premium"
+    networking: "advanced"
+    machine_pools: "gpu-enabled"
+    security: "zero-trust"

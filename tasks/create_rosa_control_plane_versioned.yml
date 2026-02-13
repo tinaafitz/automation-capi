@@ -10,7 +10,7 @@
     template_debug: true
 
 - name: Resolve cluster config template
-  include_tasks: tasks/template_resolver.yml
+  include_tasks: template_resolver.yml
 
 - name: Validate cluster name
   fail:

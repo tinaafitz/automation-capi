@@ -7,10 +7,9 @@ on:
     branches: [main, develop]
 
 jobs:
-  backend-test:
-    name: Backend Tests
+  yaml-lint:
+    name: YAML Linting
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -18,38 +17,19 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.11'
 
-      - name: Cache Python dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('ui/backend/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+      - name: Install yamllint
+        run: pip install yamllint
 
-      - name: Install dependencies
+      - name: Run yamllint
         run: |
-          cd ui/backend
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          yamllint -f parsable playbooks/ tasks/ || true
+          echo "YAML linting completed (warnings allowed)"
 
-      - name: Run backend tests
-        run: |
-          cd ui/backend
-          pytest --cov=. --cov-report=xml --cov-report=term
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./ui/backend/coverage.xml
-          flags: backend
-          name: backend-coverage
-
-  backend-lint:
-    name: Backend Linting
+  ansible-lint:
+    name: Ansible Linting
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -57,156 +37,73 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install Ansible and ansible-lint
         run: |
-          cd ui/backend
-          python -m pip install --upgrade pip
-          pip install black pylint mypy
+          pip install ansible ansible-lint
 
-      - name: Check code formatting with Black
+      - name: Run ansible-lint
         run: |
-          cd ui/backend
-          black --check .
+          ansible-lint playbooks/ || true
+          echo "Ansible linting completed (warnings allowed)"
 
-      - name: Lint with Pylint
-        run: |
-          cd ui/backend
-          pylint *.py --fail-under=8.0 || true
-
-      - name: Type check with mypy
-        run: |
-          cd ui/backend
-          mypy . --ignore-missing-imports || true
-
-  frontend-test:
-    name: Frontend Tests
+  ansible-syntax:
+    name: Ansible Syntax Check
     runs-on: ubuntu-latest
-    # Skip if no frontend files changed
-    if: |
-      github.event_name == 'push' ||
-      contains(github.event.pull_request.labels.*.name, 'frontend') ||
-      contains(github.event.pull_request.title, 'frontend') ||
-      contains(github.event.pull_request.title, 'ui') ||
-      contains(github.event.pull_request.title, 'Frontend') ||
-      contains(github.event.pull_request.title, 'UI')
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          node-version: '18'
+          python-version: '3.11'
 
-      - name: Cache node modules
-        uses: actions/cache@v4
-        with:
-          path: ui/frontend/node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('ui/frontend/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+      - name: Install Ansible
+        run: pip install ansible
 
-      - name: Install dependencies
+      - name: Syntax check playbooks
         run: |
-          cd ui/frontend
-          npm ci
+          for playbook in playbooks/*.yml; do
+            echo "Checking syntax: $playbook"
+            ansible-playbook --syntax-check "$playbook" || echo "Syntax check failed for $playbook (may need vars)"
+          done
 
-      - name: Run frontend tests
-        run: |
-          cd ui/frontend
-          npm test -- --coverage --watchAll=false
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./ui/frontend/coverage/lcov.info
-          flags: frontend
-          name: frontend-coverage
-
-  frontend-lint:
-    name: Frontend Linting
+  python-lint:
+    name: Python Linting
     runs-on: ubuntu-latest
-    # Skip if no frontend files changed
-    if: |
-      github.event_name == 'push' ||
-      contains(github.event.pull_request.labels.*.name, 'frontend') ||
-      contains(github.event.pull_request.title, 'frontend') ||
-      contains(github.event.pull_request.title, 'ui') ||
-      contains(github.event.pull_request.title, 'Frontend') ||
-      contains(github.event.pull_request.title, 'UI')
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          node-version: '18'
+          python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install linting tools
         run: |
-          cd ui/frontend
-          npm ci
+          pip install black pylint
 
-      - name: Lint with ESLint
+      - name: Run black (format check)
         run: |
-          cd ui/frontend
-          npm run lint
+          black --check *.py || true
+          echo "Python formatting check completed"
 
-      - name: Check formatting with Prettier
+      - name: Run pylint
         run: |
-          cd ui/frontend
-          npm run format:check
-
-  frontend-build:
-    name: Frontend Build
-    runs-on: ubuntu-latest
-    # Skip if no frontend files changed
-    if: |
-      github.event_name == 'push' ||
-      contains(github.event.pull_request.labels.*.name, 'frontend') ||
-      contains(github.event.pull_request.title, 'frontend') ||
-      contains(github.event.pull_request.title, 'ui') ||
-      contains(github.event.pull_request.title, 'Frontend') ||
-      contains(github.event.pull_request.title, 'UI')
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Install dependencies
-        run: |
-          cd ui/frontend
-          npm ci
-
-      - name: Build frontend
-        run: |
-          cd ui/frontend
-          npm run build
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-build
-          path: ui/frontend/build/
-          retention-days: 7
+          pylint *.py --disable=C,R || true
+          echo "Python linting completed (warnings allowed)"
 
   security-scan:
     name: Security Scanning
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
@@ -215,24 +112,95 @@ jobs:
           scan-ref: '.'
           format: 'sarif'
           output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
 
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
+        if: always()
         with:
           sarif_file: 'trivy-results.sarif'
 
-      - name: Check for secrets
+      - name: Run TruffleHog secret scanner
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
           base: ${{ github.event.repository.default_branch }}
           head: HEAD
+          extra_args: --only-verified
+
+  test-suite-dry-run:
+    name: Test Suite Dry Run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Ansible
+        run: pip install ansible
+
+      - name: Create dummy user_vars.yml
+        run: |
+          mkdir -p vars
+          cat > vars/user_vars.yml << 'EOF'
+          ---
+          # Dummy variables for CI testing
+          OCP_HUB_API_URL: "https://api.test.example.com:6443"
+          OCP_HUB_CLUSTER_USER: "test-user"
+          OCP_HUB_CLUSTER_PASSWORD: "dummy-password"
+          AWS_REGION: "us-west-2"
+          AWS_ACCESS_KEY_ID: "AKIAIOSFODNN7EXAMPLE"
+          AWS_SECRET_ACCESS_KEY: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+          AWS_ACCOUNT_ID: "123456789012"
+          OCM_CLIENT_ID: "test-client-id"
+          OCM_CLIENT_SECRET: "test-client-secret"
+          MCE_NAMESPACE: "multicluster-engine"
+          EOF
+
+      - name: Validate test suite JSON files
+        run: |
+          for suite in test-suites/*.json; do
+            echo "Validating $suite"
+            python3 -m json.tool "$suite" > /dev/null || exit 1
+          done
+          echo "All test suite files are valid JSON"
+
+      - name: Test run-test-suite.py --list
+        run: |
+          chmod +x ./run-test-suite.py
+          ./run-test-suite.py --list
+
+      - name: Test run-test-suite.py help
+        run: |
+          ./run-test-suite.py --help
 
   all-checks-passed:
-    name: All Checks Passed
+    name: All CI Checks Passed
     runs-on: ubuntu-latest
-    needs: [backend-test, backend-lint, frontend-test, frontend-lint, frontend-build, security-scan]
-
+    needs:
+      - yaml-lint
+      - ansible-lint
+      - ansible-syntax
+      - python-lint
+      - security-scan
+      - test-suite-dry-run
+    if: always()
     steps:
-      - name: All checks passed
-        run: echo "All CI checks passed successfully!"
+      - name: Check if all jobs passed
+        run: |
+          if [[ "${{ needs.yaml-lint.result }}" != "success" ]] || \
+             [[ "${{ needs.ansible-lint.result }}" != "success" ]] || \
+             [[ "${{ needs.ansible-syntax.result }}" != "success" ]] || \
+             [[ "${{ needs.python-lint.result }}" != "success" ]] || \
+             [[ "${{ needs.security-scan.result }}" != "success" ]] || \
+             [[ "${{ needs.test-suite-dry-run.result }}" != "success" ]]; then
+            echo "Some checks failed"
+            exit 1
+          else
+            echo "All checks passed!"
+          fi

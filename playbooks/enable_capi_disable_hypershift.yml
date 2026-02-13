@@ -1,0 +1,195 @@
+---
+# ================================================================
+# Enable CAPI/CAPA and Disable Hypershift
+# ================================================================
+# This playbook enables CAPI and CAPA components in MCE and
+# disables Hypershift for cluster management.
+#
+# Usage Examples:
+#
+# 1. Basic usage (enables CAPI, disables Hypershift):
+#    ansible-playbook enable_capi_disable_hypershift.yml
+#
+# 2. Via test suite (recommended):
+#    ./run-test-suite.py 06-enable-capi-disable-hypershift
+#
+# 3. Custom pause duration between steps:
+#    ansible-playbook enable_capi_disable_hypershift.yml \
+#      -e pause_duration=60
+# ================================================================
+
+- name: Enable CAPI/CAPA and disable Hypershift
+  hosts: localhost
+  connection: local
+  any_errors_fatal: true
+  vars_files:
+    - ../vars/vars.yml
+    - ../vars/user_vars.yml
+
+  vars:
+    pause_duration: 30  # Seconds to wait between steps
+
+  tasks:
+    - name: Set cluster credentials
+      set_fact:
+        ocp_user: "{{ OCP_HUB_CLUSTER_USER }}"
+        ocp_password: "{{ OCP_HUB_CLUSTER_PASSWORD }}"
+        api_url: "{{ OCP_HUB_API_URL }}"
+        mce_namespace: "{{ MCE_NAMESPACE }}"
+
+    - name: Prepare ansible runner host
+      include_tasks: ../tasks/prepare_ansible_runner.yml
+      when: not skip_ansible_runner | default(false) | bool
+
+    - name: Login to OCP cluster
+      include_tasks: ../tasks/login_ocp.yml
+
+    - name: Display configuration change
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                                                               ║
+          ║       🔄 Switch from Hypershift to CAPI/CAPA                  ║
+          ║                                                               ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          This operation will:
+
+          Step 1: Disable Hypershift Components
+          • hypershift
+          • hypershift-local-hosting
+
+          Step 2: Enable CAPI/CAPA Components
+          • cluster-api
+          • cluster-api-provider-aws
+
+          Settings:
+          • MCE Namespace: {{ mce_namespace }}
+          • Pause between steps: {{ pause_duration }}s
+
+    - name: Get current MCE configuration
+      shell: |
+        oc get mce multiclusterengine -n {{ mce_namespace }} -o yaml
+      register: mce_config_before
+      changed_when: false
+
+    - name: Get current component overrides
+      shell: |
+        oc get mce multiclusterengine -n {{ mce_namespace }} -o jsonpath='{.spec.overrides.components}' | jq -c '.'
+      register: current_components
+      changed_when: false
+
+    - name: Filter out Hypershift components
+      shell: |
+        echo '{{ current_components.stdout }}' | jq -c '[.[] | select(.name != "hypershift" and .name != "hypershift-local-hosting")]'
+      register: filtered_components_step1
+      changed_when: false
+
+    - name: Add Hypershift components as disabled
+      shell: |
+        echo '{{ filtered_components_step1.stdout }}' | jq -c '. + [
+          {"name":"hypershift","enabled":false,"configOverrides":{}},
+          {"name":"hypershift-local-hosting","enabled":false,"configOverrides":{}}
+        ]'
+      register: components_with_hypershift_disabled
+      changed_when: false
+
+    - name: Disable Hypershift components
+      shell: |
+        oc patch mce multiclusterengine -n {{ mce_namespace }} --type=merge -p '{
+          "spec": {
+            "overrides": {
+              "components": {{ components_with_hypershift_disabled.stdout }}
+            }
+          }
+        }'
+      register: disable_hypershift
+      changed_when: true
+
+    - name: Wait for MCE to reconcile after disabling Hypershift
+      pause:
+        seconds: "{{ pause_duration }}"
+
+    - name: Get updated component overrides
+      shell: |
+        oc get mce multiclusterengine -n {{ mce_namespace }} -o jsonpath='{.spec.overrides.components}' | jq -c '.'
+      register: current_components_step2
+      changed_when: false
+
+    - name: Filter out CAPI components
+      shell: |
+        echo '{{ current_components_step2.stdout }}' | jq -c '[.[] | select(.name != "cluster-api" and .name != "cluster-api-provider-aws")]'
+      register: filtered_components_step2
+      changed_when: false
+
+    - name: Add CAPI components as enabled
+      shell: |
+        echo '{{ filtered_components_step2.stdout }}' | jq -c '. + [
+          {"name":"cluster-api","enabled":true,"configOverrides":{}},
+          {"name":"cluster-api-provider-aws","enabled":true,"configOverrides":{}}
+        ]'
+      register: components_with_capi_enabled
+      changed_when: false
+
+    - name: Enable CAPI components
+      shell: |
+        oc patch mce multiclusterengine -n {{ mce_namespace }} --type=merge -p '{
+          "spec": {
+            "overrides": {
+              "components": {{ components_with_capi_enabled.stdout }}
+            }
+          }
+        }'
+      register: enable_capi
+      changed_when: true
+
+    - name: Wait for MCE to reconcile
+      pause:
+        seconds: 10
+
+    - name: Get updated MCE configuration
+      shell: |
+        oc get mce multiclusterengine -n {{ mce_namespace }} -o yaml
+      register: mce_config_after
+      changed_when: false
+
+    - name: Verify CAPI components are enabled
+      shell: |
+        oc get mce multiclusterengine -n {{ mce_namespace }} -o jsonpath='{.spec.overrides.components[?(@.name=="cluster-api")].enabled}'
+      register: capi_enabled
+      changed_when: false
+
+    - name: Verify Hypershift components are disabled
+      shell: |
+        oc get mce multiclusterengine -n {{ mce_namespace }} -o jsonpath='{.spec.overrides.components[?(@.name=="hypershift")].enabled}'
+      register: hypershift_disabled
+      changed_when: false
+
+    - name: Configuration complete
+      debug:
+        msg: |
+
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                                                               ║
+          ║           ✅  CONFIGURATION CHANGED!                          ║
+          ║                                                               ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          MCE Component Status:
+          • CAPI: {{ 'Enabled ✓' if capi_enabled.stdout == 'true' else 'Not enabled ✗' }}
+          • Hypershift: {{ 'Disabled ✓' if hypershift_disabled.stdout == 'false' else 'Not disabled ✗' }}
+
+          Next Steps:
+          1. Configure CAPI environment:
+             ./run-test-suite.py 01-configure-mce-environment
+
+          2. Verify CAPI components are running:
+             oc get deployment -n {{ mce_namespace }} | grep -E '(capi|capa)'
+
+          3. Provision a ROSA HCP cluster:
+             ./run-test-suite.py 03-rosa-hcp-provision -e name_prefix=test
+
+          Monitor MCE Status:
+          oc get mce multiclusterengine -n {{ mce_namespace }} -w
+
+          🎉 MCE is now configured for CAPI/CAPA!

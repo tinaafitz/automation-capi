@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-ROSA HCP Test Suite Runner
-===========================
+CAPA Test Suite Runner
+======================
 
-Standalone CLI test runner for ROSA HCP automation framework.
+Standalone CLI test runner for CAPA (Cluster API Provider AWS) automation framework.
 Executes test suites defined in JSON format without requiring the web UI.
 
 Usage:
@@ -702,7 +702,7 @@ class TestSuiteRunner:
     def _print_suite_header(self, suite_data: Dict):
         """Print formatted suite header."""
         print("\n" + "=" * 80)
-        print(f"{Colors.BOLD}{Colors.HEADER}ROSA HCP Test Suite Runner{Colors.ENDC}")
+        print(f"{Colors.BOLD}{Colors.HEADER}CAPA Test Suite Runner{Colors.ENDC}")
         if self.dry_run:
             print(f"{Colors.BOLD}{Colors.YELLOW}🔍 DRY RUN MODE - No changes will be made{Colors.ENDC}")
         print("=" * 80)
@@ -754,7 +754,7 @@ class TestSuiteRunner:
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="ROSA HCP Test Suite Runner - Execute Ansible test suites from CLI",
+        description="CAPA Test Suite Runner - Execute Ansible test suites for CAPA (Cluster API Provider AWS)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

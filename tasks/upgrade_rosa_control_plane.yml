@@ -26,7 +26,7 @@
     msg: "The requested version: {{ rcp_requested_version.stdout }}"
 
 - name: Upgrade RCP version
-  include_tasks: tasks/upgrade_rcp_version.yml
+  include_tasks: upgrade_rcp_version.yml
   vars:
     rcp_name: "{{ rosacontrolplane_name.stdout }}"
     current_version: "{{ rcp_current_version.stdout }}"

@@ -1,0 +1,228 @@
+name: ROSA HCP Test Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'test-suites/**'
+      - '**.yml'
+      - '**.yaml'
+      - 'run-test-suite.py'
+      - 'Makefile'
+      - '.github/workflows/test-suite.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'test-suites/**'
+      - '**.yml'
+      - '**.yaml'
+      - 'run-test-suite.py'
+      - 'Makefile'
+      - '.github/workflows/test-suite.yml'
+  workflow_dispatch:
+    inputs:
+      suite_id:
+        description: 'Test suite to run (or "all" for all suites)'
+        required: false
+        default: 'all'
+        type: string
+      tags:
+        description: 'Filter tests by tag (e.g., rosa-hcp, basic)'
+        required: false
+        type: string
+
+env:
+  PYTHON_VERSION: '3.11'
+  ANSIBLE_VERSION: '2.15'
+
+jobs:
+  validate:
+    name: Validate Test Suites
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Validate JSON test suites
+        run: make ci-validate
+
+      - name: Validate Ansible syntax
+        run: |
+          pip install ansible==${{ env.ANSIBLE_VERSION }}
+          ansible-playbook --syntax-check *.yml || true
+          find tasks/ -name "*.yml" -exec ansible-playbook --syntax-check {} \; || true
+
+  test-basic:
+    name: Basic ROSA HCP Tests
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/develop')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install ansible==${{ env.ANSIBLE_VERSION }}
+          pip install jinja2 pyyaml
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Run basic test suite
+        run: |
+          chmod +x run-test-suite.py
+          ./run-test-suite.py 02-basic-rosa-hcp-cluster-creation --format json
+        env:
+          OCP_HUB_API_URL: ${{ secrets.OCP_HUB_API_URL }}
+          OCP_HUB_CLUSTER_USER: ${{ secrets.OCP_HUB_CLUSTER_USER }}
+          OCP_HUB_CLUSTER_PASSWORD: ${{ secrets.OCP_HUB_CLUSTER_PASSWORD }}
+          OCM_CLIENT_ID: ${{ secrets.OCM_CLIENT_ID }}
+          OCM_CLIENT_SECRET: ${{ secrets.OCM_CLIENT_SECRET }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-basic
+          path: |
+            test-results/**/*.json
+            test-results/**/*.html
+          retention-days: 30
+
+  test-full:
+    name: Full Test Suite
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install ansible==${{ env.ANSIBLE_VERSION }}
+          pip install jinja2 pyyaml
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Run all test suites
+        run: make ci-test
+        env:
+          OCP_HUB_API_URL: ${{ secrets.OCP_HUB_API_URL }}
+          OCP_HUB_CLUSTER_USER: ${{ secrets.OCP_HUB_CLUSTER_USER }}
+          OCP_HUB_CLUSTER_PASSWORD: ${{ secrets.OCP_HUB_CLUSTER_PASSWORD }}
+          OCM_CLIENT_ID: ${{ secrets.OCM_CLIENT_ID }}
+          OCM_CLIENT_SECRET: ${{ secrets.OCM_CLIENT_SECRET }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-full
+          path: |
+            test-results/**/*.json
+            test-results/**/*.html
+          retention-days: 90
+
+      - name: Generate test summary
+        if: always()
+        run: |
+          if [ -f test-results/latest.json ]; then
+            python3 -c "
+            import json
+            import sys
+            with open('test-results/latest.json') as f:
+              results = json.load(f)
+
+            total = results['total_tests']
+            passed = results['passed']
+            failed = results['failed']
+            duration = results['duration']
+
+            print('## Test Results Summary')
+            print(f'- Total Tests: {total}')
+            print(f'- Passed: {passed} ✅')
+            print(f'- Failed: {failed} ❌')
+            print(f'- Duration: {duration:.1f}s')
+            print(f'- Success Rate: {(passed/max(total,1)*100):.1f}%')
+
+            sys.exit(0 if failed == 0 else 1)
+            " >> $GITHUB_STEP_SUMMARY
+          fi
+
+  manual-run:
+    name: Manual Test Execution
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install ansible==${{ env.ANSIBLE_VERSION }}
+          pip install jinja2 pyyaml
+
+      - name: Configure AWS credentials
+        uses: actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Run specified tests
+        run: |
+          chmod +x run-test-suite.py
+          if [ "${{ github.event.inputs.tags }}" != "" ]; then
+            ./run-test-suite.py --tag "${{ github.event.inputs.tags }}" --format json
+          elif [ "${{ github.event.inputs.suite_id }}" == "all" ]; then
+            ./run-test-suite.py --all --format json
+          else
+            ./run-test-suite.py "${{ github.event.inputs.suite_id }}" --format json
+          fi
+        env:
+          OCP_HUB_API_URL: ${{ secrets.OCP_HUB_API_URL }}
+          OCP_HUB_CLUSTER_USER: ${{ secrets.OCP_HUB_CLUSTER_USER }}
+          OCP_HUB_CLUSTER_PASSWORD: ${{ secrets.OCP_HUB_CLUSTER_PASSWORD }}
+          OCM_CLIENT_ID: ${{ secrets.OCM_CLIENT_ID }}
+          OCM_CLIENT_SECRET: ${{ secrets.OCM_CLIENT_SECRET }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-manual
+          path: |
+            test-results/**/*.json
+            test-results/**/*.html
+          retention-days: 30

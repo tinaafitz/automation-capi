@@ -1,14 +1,14 @@
 {
-  "name": "ROSA HCP Cluster Deletion",
-  "description": "Delete a ROSA HCP cluster and its automation resources (ROSANetwork, ROSARoleConfig)",
+  "name": "CAPA Cluster Deletion",
+  "description": "Delete a ROSA HCP cluster and its CAPA automation resources (ROSANetwork, ROSARoleConfig)",
   "version": "1.0.0",
   "tags": ["rosa", "hcp", "deletion", "cleanup", "lifecycle"],
   "environment": "mce",
   "playbooks": [
     {
-      "name": "Delete ROSA HCP Cluster",
-      "file": "delete_rosa_hcp_cluster.yml",
-      "description": "Deletes a ROSA HCP cluster including optional ROSANetwork and ROSARoleConfig automation resources",
+      "name": "Delete CAPA Cluster",
+      "file": "playbooks/delete_rosa_hcp_cluster.yml",
+      "description": "Deletes a ROSA HCP cluster including optional CAPA ROSANetwork and ROSARoleConfig automation resources",
       "extra_vars": {
         "capi_namespace": "ns-rosa-hcp",
         "delete_network": true,

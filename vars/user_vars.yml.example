@@ -1,20 +1,24 @@
-# User Configuration Template
-# Copy this file to user_vars.yml and fill in your actual credentials
-# WARNING: Never commit user_vars.yml with real credentials!
+---
+# ================================================================
+# User Variables Template
+# ================================================================
+# Copy this file to user_vars.yml and fill in your credentials
+# IMPORTANT: Never commit user_vars.yml to git!
+# ================================================================
 
-# OpenShift Hub Cluster Configuration
-OCP_HUB_API_URL: "https://api.your-cluster.example.com:6443"
-OCP_HUB_CLUSTER_USER: "your-username"
-OCP_HUB_CLUSTER_PASSWORD: "your-password"
+# OpenShift Hub Cluster Connection
+OCP_HUB_API_URL: ""                    # e.g., https://api.example.com:6443
+OCP_HUB_CLUSTER_USER: ""               # e.g., kubeadmin
+OCP_HUB_CLUSTER_PASSWORD: ""           # OpenShift login password
+
+# AWS Credentials
+AWS_REGION: "us-west-2"                # Default AWS region
+AWS_ACCESS_KEY_ID: ""                  # AWS access key
+AWS_SECRET_ACCESS_KEY: ""              # AWS secret key
+
+# OpenShift Cluster Manager (OCM) Credentials
+OCM_CLIENT_ID: ""                      # OCM client ID
+OCM_CLIENT_SECRET: ""                  # OCM client secret
 
 # MCE Configuration
-MCE_NAMESPACE: "multiclusterengine"
-
-# AWS Configuration
-AWS_REGION: "us-west-2"
-AWS_ACCESS_KEY_ID: "YOUR_AWS_ACCESS_KEY_ID"
-AWS_SECRET_ACCESS_KEY: "YOUR_AWS_SECRET_ACCESS_KEY"
-
-# OCM (OpenShift Cluster Manager) Configuration
-OCM_CLIENT_ID: "your-ocm-client-id"
-OCM_CLIENT_SECRET: "your-ocm-client-secret"
+MCE_NAMESPACE: "multicluster-engine"   # MCE namespace (default)

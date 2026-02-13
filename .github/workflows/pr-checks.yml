@@ -1,16 +1,22 @@
-name: Pull Request Checks
+name: PR Checks
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, edited, synchronize, reopened]
 
 jobs:
-  pr-metadata:
-    name: PR Metadata Check
+  pr-validation:
+    name: PR Validation
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
     steps:
-      - name: Check PR title
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate PR Title (Semantic)
         uses: amannn/action-semantic-pull-request@v5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -23,14 +29,15 @@ jobs:
             refactor
             test
             chore
+            ci
           requireScope: false
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            The subject "{subject}" found in the pull request title "{title}"
+            didn't match the configured pattern. Please ensure that the subject
+            doesn't start with an uppercase character.
 
-  pr-size:
-    name: PR Size Check
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check PR size
+      - name: Check PR Size
         uses: actions/github-script@v7
         with:
           script: |
@@ -39,114 +46,108 @@ jobs:
             const deletions = pr.deletions;
             const changes = additions + deletions;
 
-            console.log(`PR has ${changes} total changes (${additions} additions, ${deletions} deletions)`);
+            console.log(`PR changes: ${changes} (additions: ${additions}, deletions: ${deletions})`);
 
             if (changes > 1000) {
-              core.setFailed('PR is too large! Consider breaking it into smaller PRs. Total changes: ' + changes);
+              core.setFailed(`PR is too large (${changes} changes). Please split into smaller PRs.`);
             } else if (changes > 500) {
-              core.warning('PR is quite large. Consider breaking it into smaller PRs if possible. Total changes: ' + changes);
+              core.warning(`PR is large (${changes} changes). Consider splitting into smaller PRs.`);
+            } else {
+              console.log(`PR size is acceptable (${changes} changes)`);
             }
 
-  pr-labels:
-    name: PR Label Check
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check for labels
+      - name: Analyze Changed Files
         uses: actions/github-script@v7
         with:
           script: |
             const pr = context.payload.pull_request;
-            const labels = pr.labels.map(label => label.name);
-
-            if (labels.length === 0) {
-              core.warning('PR has no labels. Please add appropriate labels.');
-            }
-
-  test-coverage:
-    name: Test Coverage Check
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install backend dependencies
-        run: |
-          cd ui/backend
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Check backend coverage
-        run: |
-          cd ui/backend
-          pytest --cov=. --cov-report=term --cov-fail-under=0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Install frontend dependencies
-        run: |
-          cd ui/frontend
-          npm ci
-
-      - name: Check frontend coverage
-        run: |
-          cd ui/frontend
-          npm test -- --coverage --watchAll=false --coverageThreshold='{"global":{"lines":0}}'
-
-  changed-files:
-    name: Check Changed Files
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Get changed files
-        id: changed-files
-        uses: tj-actions/changed-files@v41
-        with:
-          files: |
-            ui/backend/**
-            ui/frontend/**
-
-      - name: List changed files
-        run: |
-          echo "Changed backend files: ${{ steps.changed-files.outputs.all_changed_files }}"
-
-      - name: Comment on PR
-        if: steps.changed-files.outputs.any_changed == 'true'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const changedFiles = '${{ steps.changed-files.outputs.all_changed_files }}'.split(' ');
-            const backendFiles = changedFiles.filter(f => f.startsWith('ui/backend/'));
-            const frontendFiles = changedFiles.filter(f => f.startsWith('ui/frontend/'));
-
-            let comment = '### Changed Files Summary\n\n';
-            if (backendFiles.length > 0) {
-              comment += `**Backend files changed:** ${backendFiles.length}\n`;
-            }
-            if (frontendFiles.length > 0) {
-              comment += `**Frontend files changed:** ${frontendFiles.length}\n`;
-            }
-
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            const files = await github.rest.pulls.listFiles({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: comment
+              pull_number: pr.number
             });
+
+            const changedFiles = files.data.map(f => f.filename);
+            const playbookFiles = changedFiles.filter(f => f.match(/^playbooks\/.*\.ya?ml$/));
+            const taskFiles = changedFiles.filter(f => f.match(/^tasks\/.*\.ya?ml$/));
+            const testSuiteFiles = changedFiles.filter(f => f.match(/^test-suites\/.*\.json$/));
+            const templateFiles = changedFiles.filter(f => f.match(/^templates\/.*\.j2$/));
+            const pythonFiles = changedFiles.filter(f => f.endsWith('.py'));
+
+            let comment = '### 📊 Changed Files Analysis\n\n';
+
+            if (playbookFiles.length > 0) {
+              comment += `**Playbooks** (${playbookFiles.length}):\n`;
+              playbookFiles.forEach(f => comment += `- ${f}\n`);
+              comment += '\n';
+            }
+
+            if (taskFiles.length > 0) {
+              comment += `**Tasks** (${taskFiles.length}):\n`;
+              taskFiles.forEach(f => comment += `- ${f}\n`);
+              comment += '\n';
+            }
+
+            if (testSuiteFiles.length > 0) {
+              comment += `**Test Suites** (${testSuiteFiles.length}):\n`;
+              testSuiteFiles.forEach(f => comment += `- ${f}\n`);
+              comment += '\n';
+            }
+
+            if (templateFiles.length > 0) {
+              comment += `**Templates** (${templateFiles.length}):\n`;
+              templateFiles.forEach(f => comment += `- ${f}\n`);
+              comment += '\n';
+            }
+
+            if (pythonFiles.length > 0) {
+              comment += `**Python Scripts** (${pythonFiles.length}):\n`;
+              pythonFiles.forEach(f => comment += `- ${f}\n`);
+              comment += '\n';
+            }
+
+            // Check for sensitive files
+            const sensitiveFiles = changedFiles.filter(f =>
+              f.includes('user_vars') ||
+              f.includes('credentials') ||
+              f.includes('.env')
+            );
+
+            if (sensitiveFiles.length > 0) {
+              comment += '⚠️ **WARNING: Sensitive files detected!**\n';
+              sensitiveFiles.forEach(f => comment += `- ${f}\n`);
+              comment += '\nPlease ensure no credentials are committed.\n\n';
+            }
+
+            // Post comment (or log if no permissions)
+            try {
+              const comments = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number
+              });
+
+              const botComment = comments.data.find(c =>
+                c.user.type === 'Bot' && c.body.includes('Changed Files Analysis')
+              );
+
+              if (botComment) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: botComment.id,
+                  body: comment
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: comment
+                });
+              }
+              console.log('Posted changed files analysis to PR');
+            } catch (error) {
+              console.log('Unable to post comment (permissions issue), logging analysis instead:');
+              console.log(comment);
+            }

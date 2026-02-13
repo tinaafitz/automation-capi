@@ -1,0 +1,30 @@
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: rosa-rknaur-pool
+spec:
+  clusterName: "rosa-rknaur421"
+  replicas: 1
+  template:
+    spec:
+      clusterName: "rosa-rknaur421"
+      bootstrap:
+        dataSecretName: ""
+      infrastructureRef:
+        name: rosa-rknaur-pool
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+        kind: ROSAMachinePool
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSAMachinePool
+metadata:
+  name: rosa-rknaur-pool
+spec:
+  nodePoolName: "nodepool-0"
+  instanceType: "m5.xlarge"
+  subnet: "subnet-05057084d02847ca9"
+  additionalSecurityGroups:
+    - sg-02fbd172633cc236e
+  version: "4.18.0-rc.6"
+  channelGroup: candidate

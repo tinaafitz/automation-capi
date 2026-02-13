@@ -92,7 +92,7 @@
   until: wait_rcp.rc != 0
   retries: "{{ (deletion_timeout | int / 10) | int }}"
   delay: 10
-  failed_when: false
+  failed_when: wait_rcp.rc == 0
   when:
     - wait_for_deletion | bool
     - "'not-found' not in rcp_exists.stdout"
@@ -110,14 +110,16 @@
     - wait_for_deletion | bool
     - "'not-found' not in rcp_exists.stdout"
 
-- name: Delete ROSANetwork (after ROSAControlPlane deletion completes)
-  shell: |
-    oc delete rosanetwork {{ rosa_network_name }} -n {{ capi_namespace }} --wait=false
-  register: delete_rn
-  failed_when: false
-  when:
-    - delete_network | bool
-    - "'not-found' not in rn_exists.stdout"
+# DISABLED FOR MANUAL TESTING - ROSANetwork deletion commented out
+# This allows manual testing of ROSANetwork deletion to observe orphaned security group behavior
+# - name: Delete ROSANetwork (after ROSAControlPlane deletion completes)
+#   shell: |
+#     oc delete rosanetwork {{ rosa_network_name }} -n {{ capi_namespace }} --wait=false
+#   register: delete_rn
+#   failed_when: false
+#   when:
+#     - delete_network | bool
+#     - "'not-found' not in rn_exists.stdout"
 
 - name: Delete ROSARoleConfig (after ROSAControlPlane deletion completes)
   shell: |
@@ -136,32 +138,34 @@
   ignore_errors: true
   when: true
 
-- name: Wait for ROSANetwork deletion to complete
-  shell: |
-    oc get rosanetwork {{ rosa_network_name }} -n {{ capi_namespace }} 2>/dev/null
-  register: wait_rn
-  until: wait_rn.rc != 0
-  retries: "{{ (deletion_timeout | int / 10) | int }}"
-  delay: 10
-  failed_when: false
-  when:
-    - wait_for_deletion | bool
-    - delete_network | bool
-    - "'not-found' not in rn_exists.stdout"
+# DISABLED FOR MANUAL TESTING - ROSANetwork wait commented out
+# - name: Wait for ROSANetwork deletion to complete
+#   shell: |
+#     oc get rosanetwork {{ rosa_network_name }} -n {{ capi_namespace }} 2>/dev/null
+#   register: wait_rn
+#   until: wait_rn.rc != 0
+#   retries: "{{ (deletion_timeout | int / 10) | int }}"
+#   delay: 10
+#   failed_when: wait_rn.rc == 0
+#   when:
+#     - wait_for_deletion | bool
+#     - delete_network | bool
+#     - "'not-found' not in rn_exists.stdout"
 
-- name: Display ROSANetwork deletion result
-  debug:
-    msg: |
-      {% if wait_rn.rc != 0 %}
-      ✅ ROSANetwork successfully deleted: {{ rosa_network_name }}
-      {% else %}
-      ⚠️  ROSANetwork still exists (CloudFormation stack may still be deleting)
-      Check status: oc get rosanetwork {{ rosa_network_name }} -n {{ capi_namespace }}
-      {% endif %}
-  when:
-    - wait_for_deletion | bool
-    - delete_network | bool
-    - "'not-found' not in rn_exists.stdout"
+# DISABLED FOR MANUAL TESTING - ROSANetwork deletion result display commented out
+# - name: Display ROSANetwork deletion result
+#   debug:
+#     msg: |
+#       {% if wait_rn.rc != 0 %}
+#       ✅ ROSANetwork successfully deleted: {{ rosa_network_name }}
+#       {% else %}
+#       ⚠️  ROSANetwork still exists (CloudFormation stack may still be deleting)
+#       Check status: oc get rosanetwork {{ rosa_network_name }} -n {{ capi_namespace }}
+#       {% endif %}
+#   when:
+#     - wait_for_deletion | bool
+#     - delete_network | bool
+#     - "'not-found' not in rn_exists.stdout"
 
 - name: Wait for ROSARoleConfig deletion to complete
   shell: |
@@ -170,7 +174,7 @@
   until: wait_rrc.rc != 0
   retries: "{{ (deletion_timeout | int / 10) | int }}"
   delay: 10
-  failed_when: false
+  failed_when: wait_rrc.rc == 0
   when:
     - wait_for_deletion | bool
     - delete_roles | bool
@@ -203,7 +207,7 @@
       • ROSAMachinePool: ✅ Auto-deleted (cascade)
       {% endif %}
       {% if delete_network | bool and 'not-found' not in rn_exists.stdout %}
-      • ROSANetwork: {{ '✅ Deleted' if (wait_for_deletion and wait_rn.rc != 0) else '⏳ Deletion initiated' }}
+      • ROSANetwork: ⏸️  SKIPPED (for manual deletion testing)
       {% endif %}
       {% if delete_roles | bool and 'not-found' not in rrc_exists.stdout %}
       • ROSARoleConfig: {{ '✅ Deleted' if (wait_for_deletion and wait_rrc.rc != 0) else '⏳ Deletion initiated' }}

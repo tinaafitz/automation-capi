@@ -1,0 +1,113 @@
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: "tfitzger-enable-cluster-autoscaler-expander-test4"
+  namespace: "ns-rosa-hcp"
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks: ["192.168.0.0/16"]
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+    kind: ROSACluster
+    name: "tfitzger-enable-cluster-autoscaler-expander-test4"
+    namespace: "ns-rosa-hcp"
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta2
+    kind: ROSAControlPlane
+    name: "tfitzger-enable-cluster-autoscaler-expander-test4"
+    namespace: "ns-rosa-hcp"
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSACluster
+metadata:
+  name: "tfitzger-enable-cluster-autoscaler-expander-test4"
+  namespace: "ns-rosa-hcp"
+spec: {}
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta2
+kind: ROSAControlPlane
+metadata:
+  name: "tfitzger-enable-cluster-autoscaler-expander-test4"
+  namespace: "ns-rosa-hcp"
+spec:
+  rosaClusterName: tfitzger-enable-cluster-autoscaler-expander-test4
+  version:  "4.19.0-ec.5"
+  region: "us-west-2"
+  channelGroup: candidate
+  domainPrefix: tina-testas
+  additionalTags:
+    env: "demo"
+    profile: "hcp"
+    tagKey: "tina-tag"
+  defaultMachinePoolSpec:
+    instanceType: "m5.xlarge"
+    autoscaling:
+      minReplicas: 2
+      maxReplicas: 3
+  endpointAccess: Public
+  network:
+    machineCIDR: "10.0.0.0/16"
+    networkType: Other
+    podCIDR: "10.128.0.0/14"
+    serviceCIDR: "172.30.0.0/16"
+  rolesRef:
+    ingressARN: "arn:aws:iam::471112697682:role/rtt-openshift-ingress-operator-cloud-credentials"
+    imageRegistryARN: "arn:aws:iam::471112697682:role/rtt-openshift-image-registry-installer-cloud-credentials"
+    storageARN: "arn:aws:iam::471112697682:role/rtt-openshift-cluster-csi-drivers-ebs-cloud-credentials"
+    networkARN: "arn:aws:iam::471112697682:role/rtt-openshift-cloud-network-config-controller-cloud-credentials"
+    kubeCloudControllerARN: "arn:aws:iam::471112697682:role/rtt-kube-system-kube-controller-manager"
+    nodePoolManagementARN: "arn:aws:iam::471112697682:role/rtt-kube-system-capa-controller-manager"
+    controlPlaneOperatorARN: "arn:aws:iam::471112697682:role/rtt-kube-system-control-plane-operator"
+    kmsProviderARN: "arn:aws:iam::471112697682:role/rtt-kube-system-kms-provider"
+  oidcID: "2j7lsccr04l7uogel2omfbrbomi8e5fv"
+  subnets:
+    - "subnet-0a0b562740c15ca93"
+    - "subnet-04eb3817632508cc8"
+  availabilityZones:
+    - "us-west-2b"
+  installerRoleARN: "arn:aws:iam::471112697682:role/rtt-HCP-ROSA-Installer-Role"
+  supportRoleARN: "arn:aws:iam::471112697682:role/rtt-HCP-ROSA-Support-Role"
+  workerRoleARN: "arn:aws:iam::471112697682:role/rtt-HCP-ROSA-Worker-Role"
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: AWSClusterControllerIdentity
+metadata:
+  name: "default"
+spec:
+  allowedNamespaces: { }  # matches all namespaces
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: tfitzger-capa-mpas4
+spec:
+  clusterName: tfitzger-enable-cluster-autoscaler-expander-test4
+  replicas: 2
+  template:
+    spec:
+      bootstrap:
+        configRef:
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+          kind: KubeadmConfig
+          name: tfitzger-capa-mp4
+      clusterName: capa
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: AWSMachinePool
+        name: tfitzger-capa-mp4
+      version: v1.25.0
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSAMachinePool
+metadata:
+  name: rosa-tfitzger-poola4
+spec:
+  nodePoolName: "nodepool-04"
+  instanceType: "m5.xlarge"
+  subnet: "subnet-04eb3817632508cc8" # public subnet
+  version: "4.19.0-ec.5"
+  autoscaling:
+    minReplicas: 1
+    maxReplicas: 2
