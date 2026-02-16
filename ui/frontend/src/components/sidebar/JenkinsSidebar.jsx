@@ -42,7 +42,6 @@ const JenkinsSidebar = ({
 }) => {
   const [isRecentTestsExpanded, setIsRecentTestsExpanded] = useState(true);
   const [isProvisionExpanded, setIsProvisionExpanded] = useState(false);
-  const [isTestExpanded, setIsTestExpanded] = useState(false);
   const recentOps = useRecentOperationsContext();
   const apiStatus = useApiStatusContext();
 
@@ -74,61 +73,93 @@ const JenkinsSidebar = ({
     return '⏳';
   };
 
-  // Navigation menu items
-  const menuItems = [
+  // Navigation menu items with sections
+  const menuSections = [
     {
-      id: 'environments',
-      label: 'Environments',
-      icon: <span className="text-lg">🌍</span>,
-      onClick: onEnvironmentsClick
+      title: 'Setup & Configuration',
+      items: [
+        {
+          id: 'credentials',
+          label: 'Credentials',
+          icon: <span className="text-lg">🔑</span>,
+          onClick: onCredentialsClick
+        },
+        {
+          id: 'environments',
+          label: 'Environments',
+          icon: <span className="text-lg">🌍</span>,
+          onClick: onEnvironmentsClick
+        },
+        {
+          id: 'verify',
+          label: 'Verify',
+          icon: <CheckCircleIcon className="h-5 w-5" />,
+          onClick: onVerifyClick
+        },
+        {
+          id: 'configure',
+          label: 'Configure',
+          icon: <Cog6ToothIcon className="h-5 w-5" />,
+          onClick: onConfigureClick
+        },
+      ]
     },
     {
-      id: 'verify',
-      label: 'Verify',
-      icon: <CheckCircleIcon className="h-5 w-5" />,
-      onClick: onVerifyClick
+      title: 'Cluster Management',
+      items: [
+        {
+          id: 'provision',
+          label: 'Provision',
+          icon: <PlusCircleIcon className="h-5 w-5" />,
+          onClick: onProvisionClick
+        },
+        {
+          id: 'rosa-hcp-clusters',
+          label: 'ROSA HCP Clusters',
+          icon: <span className="text-lg">☁️</span>,
+          onClick: onRosaHcpClustersClick
+        },
+      ]
     },
     {
-      id: 'configure',
-      label: 'Configure',
-      icon: <Cog6ToothIcon className="h-5 w-5" />,
-      onClick: onConfigureClick
+      title: 'Testing',
+      items: [
+        {
+          id: 'test-suite-dashboard',
+          label: 'Test Suite Dashboard',
+          icon: <ChartBarIcon className="h-5 w-5" />,
+          onClick: onTestSuiteDashboardClick
+        },
+        {
+          id: 'test-automation',
+          label: 'Test Automation',
+          icon: <ArrowPathIcon className="h-5 w-5" />,
+          onClick: onTestAutomationClick
+        },
+        {
+          id: 'helm-chart-matrix',
+          label: 'Helm Chart Test Matrix',
+          icon: <span className="text-lg">📊</span>,
+          onClick: onHelmChartMatrixClick
+        },
+      ]
     },
     {
-      id: 'provision',
-      label: 'Provision',
-      icon: <PlusCircleIcon className="h-5 w-5" />,
-      onClick: onProvisionClick
-    },
-    {
-      id: 'rosa-hcp-clusters',
-      label: 'ROSA HCP Clusters',
-      icon: <span className="text-lg">☁️</span>,
-      onClick: onRosaHcpClustersClick
-    },
-    {
-      id: 'credentials',
-      label: 'Credentials',
-      icon: <span className="text-lg">🔑</span>,
-      onClick: onCredentialsClick
-    },
-    {
-      id: 'test',
-      label: 'Test',
-      icon: <span className="text-lg">🧪</span>,
-      onClick: onTestClick
-    },
-    {
-      id: 'terminal',
-      label: 'Terminal',
-      icon: <span className="text-lg">💻</span>,
-      onClick: onTerminalClick
-    },
-    {
-      id: 'notifications',
-      label: 'Notifications',
-      icon: <BellIcon className="h-5 w-5" />,
-      onClick: onNotificationsClick
+      title: 'Utilities',
+      items: [
+        {
+          id: 'terminal',
+          label: 'Terminal',
+          icon: <span className="text-lg">💻</span>,
+          onClick: onTerminalClick
+        },
+        {
+          id: 'notifications',
+          label: 'Notifications',
+          icon: <BellIcon className="h-5 w-5" />,
+          onClick: onNotificationsClick
+        },
+      ]
     },
   ];
 
@@ -142,50 +173,55 @@ const JenkinsSidebar = ({
       {/* Navigation Menu */}
       <div className="flex-shrink-0 border-b border-gray-300">
         <nav className="py-2">
-          {menuItems.map((item) => (
-            <div key={item.id}>
-              {/* Menu Item */}
-              <button
-                onClick={() => {
-                  if (item.id === 'provision') {
-                    setIsProvisionExpanded(!isProvisionExpanded);
-                    item.onClick();
-                  } else if (item.id === 'test') {
-                    setIsTestExpanded(!isTestExpanded);
-                    item.onClick();
-                  } else {
-                    item.onClick();
-                  }
-                }}
-                className={`
-                  w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm
-                  transition-colors
-                  ${activeSection === item.id ||
-                    (item.id === 'provision' && activeSection === 'resources') ||
-                    (item.id === 'test' && ['test-suite-dashboard', 'test-automation', 'helm-chart-matrix', 'test'].includes(activeSection))
-                    ? 'bg-blue-100 text-blue-900 border-l-4 border-blue-600 font-medium'
-                    : 'text-gray-700 hover:bg-gray-200'
-                  }
-                `}
-              >
-                <span className={activeSection === item.id ||
-                  (item.id === 'provision' && activeSection === 'resources') ||
-                  (item.id === 'test' && ['test-suite-dashboard', 'test-automation', 'helm-chart-matrix', 'test'].includes(activeSection))
-                  ? 'text-blue-600' : 'text-gray-500'}>
-                  {item.icon}
-                </span>
-                <span className="flex-1">{item.label}</span>
-                {/* Show chevron for Provision and Test */}
-                {(item.id === 'provision' || item.id === 'test') && (
-                  <span className="text-gray-500">
-                    {(item.id === 'provision' && isProvisionExpanded) || (item.id === 'test' && isTestExpanded) ? (
-                      <ChevronDownIcon className="h-4 w-4" />
-                    ) : (
-                      <ChevronRightIcon className="h-4 w-4" />
+          {menuSections.map((section, sectionIndex) => (
+            <div key={section.title}>
+              {/* Section Header */}
+              <div className="px-4 pt-3 pb-2">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  {section.title}
+                </h3>
+              </div>
+
+              {/* Section Items */}
+              {section.items.map((item) => (
+                <div key={item.id}>
+                  {/* Menu Item */}
+                  <button
+                    onClick={() => {
+                      if (item.id === 'provision') {
+                        setIsProvisionExpanded(!isProvisionExpanded);
+                        item.onClick();
+                      } else {
+                        item.onClick();
+                      }
+                    }}
+                    className={`
+                      w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm
+                      transition-colors
+                      ${activeSection === item.id ||
+                        (item.id === 'provision' && activeSection === 'resources')
+                        ? 'bg-blue-100 text-blue-900 border-l-4 border-blue-600 font-medium'
+                        : 'text-gray-700 hover:bg-gray-200'
+                      }
+                    `}
+                  >
+                    <span className={activeSection === item.id ||
+                      (item.id === 'provision' && activeSection === 'resources')
+                      ? 'text-blue-600' : 'text-gray-500'}>
+                      {item.icon}
+                    </span>
+                    <span className="flex-1">{item.label}</span>
+                    {/* Show chevron for Provision */}
+                    {item.id === 'provision' && (
+                      <span className="text-gray-500">
+                        {isProvisionExpanded ? (
+                          <ChevronDownIcon className="h-4 w-4" />
+                        ) : (
+                          <ChevronRightIcon className="h-4 w-4" />
+                        )}
+                      </span>
                     )}
-                  </span>
-                )}
-              </button>
+                  </button>
 
               {/* Provision Submenu */}
               {item.id === 'provision' && isProvisionExpanded && (
@@ -214,44 +250,12 @@ const JenkinsSidebar = ({
                   </div>
                 </div>
               )}
+            </div>
+          ))}
 
-              {/* Test Submenu */}
-              {item.id === 'test' && isTestExpanded && (
-                <div className="bg-gray-50 border-y border-gray-200">
-                  <div
-                    onClick={onTestSuiteDashboardClick}
-                    className={`px-8 py-2 text-xs hover:bg-gray-100 cursor-pointer border-b border-gray-100 ${
-                      activeSection === 'test-suite-dashboard' ? 'bg-blue-50 text-blue-900 font-medium' : 'text-gray-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <ChartBarIcon className="h-4 w-4" />
-                      <span className="font-medium">Test Suite Dashboard</span>
-                    </div>
-                  </div>
-                  <div
-                    onClick={onTestAutomationClick}
-                    className={`px-8 py-2 text-xs hover:bg-gray-100 cursor-pointer border-b border-gray-100 ${
-                      activeSection === 'test-automation' ? 'bg-blue-50 text-blue-900 font-medium' : 'text-gray-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <ArrowPathIcon className="h-4 w-4" />
-                      <span className="font-medium">Test Automation</span>
-                    </div>
-                  </div>
-                  <div
-                    onClick={onHelmChartMatrixClick}
-                    className={`px-8 py-2 text-xs hover:bg-gray-100 cursor-pointer border-b border-gray-100 ${
-                      activeSection === 'helm-chart-matrix' ? 'bg-blue-50 text-blue-900 font-medium' : 'text-gray-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">📊</span>
-                      <span className="font-medium">Helm Chart Test Matrix</span>
-                    </div>
-                  </div>
-                </div>
+              {/* Section Divider - Add after each section except the last */}
+              {sectionIndex < menuSections.length - 1 && (
+                <div className="border-t border-gray-300 my-2"></div>
               )}
             </div>
           ))}

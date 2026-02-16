@@ -26,6 +26,7 @@ export const API_ENDPOINTS = {
 
   // Ansible endpoints
   ANSIBLE_RUN_TASK: '/api/ansible/run-task',
+  ANSIBLE_RUN_PLAYBOOK: '/api/ansible/run-playbook',
 
   // MCE endpoints
   MCE_YAML: '/api/mce/yaml',
