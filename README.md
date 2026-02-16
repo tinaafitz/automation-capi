@@ -249,11 +249,6 @@ Automatically creates AWS IAM resources:
 oc get rosacontrolplane,rosamachinepool,rosanetwork,rosaroleconfig -n ns-rosa-hcp
 ```
 
-### Check ROSA Clusters
-```bash
-rosa list clusters --region us-west-2
-```
-
 ### Check MCE Components
 ```bash
 oc get mce multiclusterengine -n multicluster-engine -o yaml
@@ -289,11 +284,11 @@ oc logs -n multicluster-engine deployment/capa-controller-manager
 
 #### 4. Deletion Timeout
 ```bash
-# Check CloudFormation stacks (for ROSANetwork)
-aws cloudformation list-stacks --region us-west-2
+# Check ROSANetwork status
+oc get rosanetwork -n ns-rosa-hcp -o yaml
 
-# Check IAM roles (for ROSARoleConfig)
-aws iam list-roles | grep CLUSTER_PREFIX
+# Check ROSARoleConfig status
+oc get rosaroleconfig -n ns-rosa-hcp -o yaml
 ```
 
 ## Development
