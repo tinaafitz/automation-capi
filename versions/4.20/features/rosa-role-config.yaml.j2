@@ -1,0 +1,51 @@
+---
+# ROSARoleConfig Template for ROSA HCP
+# Automates AWS IAM role creation for ROSA HCP clusters
+# Based on infrastructure.cluster.x-k8s.io/v1beta2 CRD
+
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSARoleConfig
+metadata:
+  name: {{ rosa_role_config_name | default(cluster_name + "-roles") }}
+  namespace: {{ capi_namespace | default("ns-rosa-hcp") }}
+  labels:
+    cluster.x-k8s.io/cluster-name: {{ cluster_name }}
+    automation.acm.redhat.com/test-case: "RHACM4K-61815"
+    automation.acm.redhat.com/created-by: "ansible-automation"
+  annotations:
+    automation.acm.redhat.com/description: "Automated ROSARoleConfig for {{ cluster_name }}"
+    automation.acm.redhat.com/timestamp: "{{ ansible_date_time.iso8601 }}"
+    automation.acm.redhat.com/version: "{{ openshift_version | default('4.20') }}"
+spec:
+  # OCM Credentials Secret Reference (required for ROSA authentication)
+  credentialsSecretRef:
+    name: rosa-creds-secret
+    namespace: "{{ capi_namespace | default('ns-rosa-hcp') }}"
+
+  # Account Role Configuration (account-wide IAM roles)
+  accountRoleConfig:
+    prefix: "{{ (rosa_role_prefix | default(domain_prefix) | default('test'))[:4] | regex_replace('-$', '') }}"
+    version: "{{ rcp_version | default(openshift_version) | default('4.20.10') }}"
+{% if role_path is defined %}
+    path: "{{ role_path }}"
+{% endif %}
+{% if permission_boundary is defined %}
+    permissionsBoundaryARN: "{{ permission_boundary }}"
+{% endif %}
+
+  # Operator Role Configuration (cluster-specific operator IAM roles)
+  operatorRoleConfig:
+    prefix: "{{ (rosa_role_prefix | default(domain_prefix) | default('test'))[:4] | regex_replace('-$', '') }}"
+{% if oidc_id is defined %}
+    oidcID: "{{ oidc_id }}"
+{% endif %}
+{% if permission_boundary is defined %}
+    permissionsBoundaryARN: "{{ permission_boundary }}"
+{% endif %}
+
+  # OIDC Provider Type (Managed or Unmanaged)
+{% if oidc_provider_type is defined %}
+  oidcProviderType: {{ oidc_provider_type }}
+{% else %}
+  oidcProviderType: Managed
+{% endif %}
