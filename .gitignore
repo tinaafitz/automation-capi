@@ -1,51 +1,45 @@
-# Python virtual environments
-venv/
-env/
-ENV/
-*.pyc
-__pycache__/
-
-# Node modules
-node_modules/
-
-# IDE files
-.idea/
-.vscode/
-.DS_Store
-
-# Local development
-.claude/
-
-# Environment files
-.env
-.env.local
-
-# User credentials (should use example file instead)
+# Credentials and secrets
 vars/user_vars.yml
-vars/user_vars_*.yml
-!vars/user_vars_*example*.yml
+vars/*user_vars*
+*.pem
+*.key
+*.crt
+kubeconfig
 
-# Build artifacts
-build/
-dist/
-*.egg-info/
+# Test results
+test-results/
+results/
+*.xml
+test-results/**/*.json
+results/**/*.json
 
-# Cache directories
-.cache/
-**/.cache/
-**/*.pack
+# Generated files
+generated-yamls/
+*.backup
+*.swp
+*.old
 
-# Log files
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+
+# Ansible
+*.retry
+.ansible/
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
 *.log
-
-# Coverage reports
-.coverage
-htmlcov/
-coverage.xml
-*.cover
-
-# Backup directories (temporary)
-ui (original)/
-ui (original 2)/
-vars/notification_config.yml
-*.db

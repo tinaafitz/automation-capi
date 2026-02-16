@@ -1,0 +1,124 @@
+---
+# CAPI/CAPA Version Compatibility Matrix
+# Maps OCP versions to required/compatible CAPI and CAPA versions
+
+capi_compatibility_matrix:
+  # OCP 4.17.x - CAPI v1.4.x
+  "4.17":
+    min_version: "4.17.0"
+    max_version: "4.17.99"
+    capi:
+      recommended_version: "v1.4.8"
+      min_version: "v1.4.0"
+      max_version: "v1.4.99"
+      crd_api_version: "v1beta1"
+    capa:
+      recommended_version: "v2.2.2"
+      min_version: "v2.2.0"
+      max_version: "v2.2.99"
+    notes: "Stable with CAPI v1.4.x series, uses v1beta1 CRD APIs"
+
+  # OCP 4.18.x - CAPI v1.4.x
+  "4.18":
+    min_version: "4.18.0"
+    max_version: "4.18.99"
+    capi:
+      recommended_version: "v1.4.8"
+      min_version: "v1.4.0"
+      max_version: "v1.4.99"
+      crd_api_version: "v1beta1"
+    capa:
+      recommended_version: "v2.2.2"
+      min_version: "v2.2.0"
+      max_version: "v2.2.99"
+    notes: "Stable with CAPI v1.4.x series, uses v1beta1 CRD APIs"
+
+  # OCP 4.19.x - CAPI v1.4.x (transitional)
+  "4.19":
+    min_version: "4.19.0"
+    max_version: "4.19.99"
+    capi:
+      recommended_version: "v1.4.8"
+      min_version: "v1.4.0"
+      max_version: "v1.4.99"
+      crd_api_version: "v1beta1"
+    capa:
+      recommended_version: "v2.2.2"
+      min_version: "v2.2.0"
+      max_version: "v2.2.99"
+    notes: "Transitional version - works with CAPI v1.4.x, some installs may have v1.5.x"
+
+  # OCP 4.20.x - CAPI v1.5.x (REQUIRES v1beta2)
+  "4.20":
+    min_version: "4.20.0"
+    max_version: "4.20.99"
+    capi:
+      recommended_version: "v1.5.3"
+      min_version: "v1.5.0"
+      max_version: "v1.5.99"
+      crd_api_version: "v1beta2"
+    capa:
+      recommended_version: "v2.3.1"
+      min_version: "v2.3.0"
+      max_version: "v2.3.99"
+    notes: "REQUIRES CAPI v1.5.x for v1beta2 CRD support - v1.4.x will fail"
+    critical: true
+
+  # OCP 4.21.x - CAPI v1.5.x or v1.6.x
+  "4.21":
+    min_version: "4.21.0"
+    max_version: "4.21.99"
+    capi:
+      recommended_version: "v1.5.3"
+      min_version: "v1.5.0"
+      max_version: "v1.6.99"
+      crd_api_version: "v1beta2"
+    capa:
+      recommended_version: "v2.3.1"
+      min_version: "v2.3.0"
+      max_version: "v2.4.99"
+    notes: "Requires v1beta2 CRD support, v1.5.x or newer CAPI"
+    critical: true
+
+# MCE version to CAPI version mapping
+mce_capi_matrix:
+  "2.8":
+    capi_version: "v1.4.x"
+    crd_version: "v1beta1"
+  "2.9":
+    capi_version: "v1.4.x"
+    crd_version: "v1beta1"
+  "2.10":
+    capi_version: "v1.4.x"
+    crd_version: "v1beta1"
+  "2.11":
+    capi_version: "v1.5.x"
+    crd_version: "v1beta2"
+    notes: "First MCE version requiring CAPI v1.5.x and v1beta2"
+  "2.12":
+    capi_version: "v1.5.x"
+    crd_version: "v1beta2"
+  "2.13":
+    capi_version: "v1.5.x"
+    crd_version: "v1beta2"
+
+# Known incompatible combinations
+known_incompatibilities:
+  - ocp_version: "4.20.x"
+    capi_version: "v1.4.x"
+    severity: "critical"
+    issue: "CRD v1beta2 not supported"
+    description: "OCP 4.20+ requires CAPI v1.5+ for v1beta2 CRD support. CAPI v1.4.x only supports v1beta1."
+
+  - mce_version: "2.11.x"
+    capi_version: "v1.4.x"
+    severity: "critical"
+    issue: "MCE 2.11 requires CAPI v1.5+"
+    description: "MCE 2.11.0 and later require CAPI v1.5.x for v1beta2 CRD API support."
+
+# Version extraction patterns
+version_patterns:
+  capi_controller_image: 'registry.*cluster-api-controller.*:v?([0-9]+\.[0-9]+\.[0-9]+)'
+  capa_controller_image: 'registry.*cluster-api-aws-controller.*:v?([0-9]+\.[0-9]+\.[0-9]+)'
+  mce_version: '^([0-9]+\.[0-9]+)\.[0-9]+'
+  ocp_version: '^([0-9]+\.[0-9]+)\.[0-9]+'

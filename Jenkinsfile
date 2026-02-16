@@ -124,16 +124,24 @@ pipeline {
                         withCredentials([
                             string(credentialsId: 'CAPI_AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
                             string(credentialsId: 'CAPI_AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY'),
-                            string(credentialsId: 'CAPI_AWS_ACCOUNT_ID', variable: 'AWS_ACCOUNT_ID')
+                            string(credentialsId: 'CAPI_AWS_ACCOUNT_ID', variable: 'AWS_ACCOUNT_ID'),
+                            string(credentialsId: 'CAPI_OCM_CLIENT_ID', variable: 'OCM_CLIENT_ID'),
+                            string(credentialsId: 'CAPI_OCM_CLIENT_SECRET', variable: 'OCM_CLIENT_SECRET')
                         ]) {
                             sh '''
                                 cd capa
                                 # Execute the CAPI/CAPA configuration test suite (RHACM4K-61722) with maximum verbosity
-                                # Pass AWS credentials and account ID as Ansible extra vars
+                                # Pass all credentials and cluster info as Ansible extra vars (UPPERCASE names match playbook expectations)
                                 ./run-test-suite.py 10-configure-mce-environment --format junit -vvv \
+                                  -e OCP_HUB_API_URL="${OCP_HUB_API_URL}" \
+                                  -e OCP_HUB_CLUSTER_USER="${OCP_HUB_CLUSTER_USER}" \
+                                  -e OCP_HUB_CLUSTER_PASSWORD="${OCP_HUB_CLUSTER_PASSWORD}" \
+                                  -e MCE_NAMESPACE="${MCE_NAMESPACE}" \
                                   -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
                                   -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-                                  -e aws_account_id="${AWS_ACCOUNT_ID}"
+                                  -e AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID}" \
+                                  -e OCM_CLIENT_ID="${OCM_CLIENT_ID}" \
+                                  -e OCM_CLIENT_SECRET="${OCM_CLIENT_SECRET}"
                             '''
                         }
                         // Archive results from both old and new test systems
@@ -170,7 +178,7 @@ pipeline {
                             sh '''
                                 cd capa
                                 # Execute the ROSA HCP provisioning test suite with maximum verbosity
-                                # Pass Jenkins parameters and credentials as Ansible extra vars
+                                # Pass Jenkins parameters and credentials as Ansible extra vars (UPPERCASE names match playbook expectations)
                                 ./run-test-suite.py 20-rosa-hcp-provision --format junit -vvv \
                                   -e OCP_HUB_API_URL="${OCP_HUB_API_URL}" \
                                   -e OCP_HUB_CLUSTER_USER="${OCP_HUB_CLUSTER_USER}" \
@@ -180,7 +188,8 @@ pipeline {
                                   -e OCM_CLIENT_SECRET="${OCM_CLIENT_SECRET}" \
                                   -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
                                   -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-                                  -e aws_account_id="${AWS_ACCOUNT_ID}" \
+                                  -e AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID}" \
+                                  -e AWS_REGION="us-west-2" \
                                   -e name_prefix="${NAME_PREFIX}"
                             '''
                         }
@@ -221,7 +230,7 @@ pipeline {
                                 sh '''
                                     cd capa
                                     # Execute the ROSA HCP deletion test suite
-                                    # Pass all required credentials and parameters (same as provisioning)
+                                    # Pass all required credentials and parameters (UPPERCASE names match playbook expectations)
                                     ./run-test-suite.py 30-rosa-hcp-delete --format junit -vvv \
                                       -e OCP_HUB_API_URL="${OCP_HUB_API_URL}" \
                                       -e OCP_HUB_CLUSTER_USER="${OCP_HUB_CLUSTER_USER}" \
@@ -229,6 +238,7 @@ pipeline {
                                       -e MCE_NAMESPACE="${MCE_NAMESPACE}" \
                                       -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
                                       -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+                                      -e AWS_REGION="us-west-2" \
                                       -e OCM_CLIENT_ID="${OCM_CLIENT_ID}" \
                                       -e OCM_CLIENT_SECRET="${OCM_CLIENT_SECRET}" \
                                       -e name_prefix="${NAME_PREFIX}"

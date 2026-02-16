@@ -7,7 +7,7 @@
   "playbooks": [
     {
       "name": "Verify CAPI/CAPA Environment",
-      "file": "verify_capi_environment.yaml",
+      "file": "playbooks/verify_capi_environment.yaml",
       "description": "Validates MCE environment is properly configured with CAPI/CAPA controllers"
     }
   ],

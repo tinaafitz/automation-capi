@@ -1,0 +1,32 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSANetwork
+metadata:
+  name: {{ rosa_network_config.name | default(cluster_name + '-network') }}"
+  namespace: {{ capi_namespace }}
+  labels:
+    cluster.x-k8s.io/cluster-name: {{ cluster_name }}
+    automation.acm.redhat.com/test-case: "ACM-21174"
+    automation.acm.redhat.com/created-by: "ansible-automation"
+  annotations:
+    automation.acm.redhat.com/description: "ROSANetwork for automated VPC and subnet creation"
+    automation.acm.redhat.com/rosa-cluster: "{{ cluster_name }}"
+spec:
+  # AWS Identity reference
+  identityRef:
+    kind: AWSClusterControllerIdentity
+    name: {{ rosa_network_config.identity_name | default('default') }}"
+
+  # Network configuration
+  region: {{ aws_region | default('us-west-2') }}"
+  stackName: {{ cluster_name }}-rosa-network-stack
+  availabilityZones:
+{% for az in rosa_network_config.availability_zones %}
+    - {{ az }}
+{% endfor %}
+  cidrBlock: {{ rosa_network_config.cidr_block | default('10.0.0.0/16') }}"
+{% if rosa_network_config.tags is defined %}
+  tags:
+{% for key, value in rosa_network_config.tags.items() %}
+    {{ key }}: {{ value }}
+{% endfor %}
+{% endif %}
