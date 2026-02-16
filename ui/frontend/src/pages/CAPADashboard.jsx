@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 import React, { useState, useEffect, useRef } from 'react';
-import { CheckCircleIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, Cog6ToothIcon, ClockIcon } from '@heroicons/react/24/outline';
 
 import JenkinsSidebar from '../components/sidebar/JenkinsSidebar';
 import TaskSummarySection from '../components/sections/TaskSummarySection';
@@ -466,7 +466,10 @@ const NotificationSettingsInline = () => {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium"
+              className="px-6 py-3 text-white rounded-lg transition-colors font-medium"
+              style={!saving ? { backgroundColor: '#2684FF' } : { backgroundColor: '#9CA3AF' }}
+              onMouseEnter={(e) => !saving && (e.currentTarget.style.backgroundColor = '#0065FF')}
+              onMouseLeave={(e) => !saving && (e.currentTarget.style.backgroundColor = '#2684FF')}
             >
               {saving ? 'Saving...' : '💾 Save Settings'}
             </button>
@@ -511,6 +514,20 @@ const CAPADashboardContent = () => {
 
   const { addToRecent, updateRecentOperationStatus } = recentOps;
 
+  // Copy handler for playbook output
+  const [copySuccess, setCopySuccess] = useState('');
+
+  const handleCopyOutput = (text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopySuccess('Copied!');
+      setTimeout(() => setCopySuccess(''), 2000);
+    }).catch(err => {
+      console.error('Failed to copy text: ', err);
+      setCopySuccess('Failed to copy');
+      setTimeout(() => setCopySuccess(''), 2000);
+    });
+  };
+
   // ============================================================================
   // Handler Functions (from original MCEEnvironment.jsx)
   // ============================================================================
@@ -519,8 +536,9 @@ const CAPADashboardContent = () => {
   const handleMceVerification = async () => {
     const verifyId = `verify-mce-${Date.now()}`;
 
-    // Clear previous results
+    // Clear previous results and set loading state
     setVerificationResults(null);
+    setIsVerifying(true);
 
     try {
       addToRecent({
@@ -572,10 +590,7 @@ const CAPADashboardContent = () => {
             const logsData = await logsResponse.json();
             const output = logsData.logs ? logsData.logs.join('\n') : 'Verification completed successfully';
 
-            updateRecentOperationStatus(verifyId, {
-              status: '✅ MCE environment verified successfully!',
-              output,
-            });
+            updateRecentOperationStatus(verifyId, '✅ MCE environment verified successfully!', output);
             setMceLastVerified(new Date().toISOString());
             const successResults = {
               success: true,
@@ -584,6 +599,7 @@ const CAPADashboardContent = () => {
             };
             console.log('✅ Setting verification results (success):', successResults);
             setVerificationResults(successResults);
+            setIsVerifying(false);
             await refreshAllStatus();
             return;
           } else if (jobData.status === 'failed') {
@@ -592,10 +608,7 @@ const CAPADashboardContent = () => {
             const logsData = await logsResponse.json();
             const output = logsData.logs ? logsData.logs.join('\n') : (jobData.error || jobData.message || 'Verification failed');
 
-            updateRecentOperationStatus(verifyId, {
-              status: '❌ Verification failed',
-              output,
-            });
+            updateRecentOperationStatus(verifyId, '❌ Verification failed', output);
             const failureResults = {
               success: false,
               timestamp: new Date().toISOString(),
@@ -603,6 +616,7 @@ const CAPADashboardContent = () => {
             };
             console.log('❌ Setting verification results (failure):', failureResults);
             setVerificationResults(failureResults);
+            setIsVerifying(false);
             return;
           }
 
@@ -617,15 +631,13 @@ const CAPADashboardContent = () => {
       await pollJobStatus();
     } catch (error) {
       console.error('Verification error:', error);
-      updateRecentOperationStatus(verifyId, {
-        status: '❌ Verification error',
-        output: extractSafeErrorMessage(error),
-      });
+      updateRecentOperationStatus(verifyId, '❌ Verification error', extractSafeErrorMessage(error));
       setVerificationResults({
         success: false,
         timestamp: new Date().toISOString(),
         output: extractSafeErrorMessage(error),
       });
+      setIsVerifying(false);
     }
   };
 
@@ -700,10 +712,7 @@ const CAPADashboardContent = () => {
             const logsData = await logsResponse.json();
             const output = logsData.logs ? logsData.logs.join('\n') : 'Configuration completed successfully';
 
-            updateRecentOperationStatus(configureId, {
-              status: '✅ Configuration completed successfully!',
-              output,
-            });
+            updateRecentOperationStatus(configureId, '✅ Configuration completed successfully!', output);
             setMceLastConfigured(new Date().toISOString());
             const successResults = {
               success: true,
@@ -721,10 +730,7 @@ const CAPADashboardContent = () => {
             const logsData = await logsResponse.json();
             const output = logsData.logs ? logsData.logs.join('\n') : (jobData.error || jobData.message || 'Configuration failed');
 
-            updateRecentOperationStatus(configureId, {
-              status: '❌ Configuration failed',
-              output,
-            });
+            updateRecentOperationStatus(configureId, '❌ Configuration failed', output);
             const failureResults = {
               success: false,
               timestamp: new Date().toISOString(),
@@ -747,10 +753,7 @@ const CAPADashboardContent = () => {
       await pollJobStatus();
     } catch (error) {
       console.error('Configuration error:', error);
-      updateRecentOperationStatus(configureId, {
-        status: '❌ Configuration error',
-        output: extractSafeErrorMessage(error),
-      });
+      updateRecentOperationStatus(configureId, '❌ Configuration error', extractSafeErrorMessage(error));
       setConfigurationResults({
         success: false,
         timestamp: new Date().toISOString(),
@@ -787,24 +790,15 @@ const CAPADashboardContent = () => {
       const result = await response.json();
 
       if (result.status === 'success') {
-        updateRecentOperationStatus(provisionId, {
-          status: '✅ Provisioning completed successfully!',
-          output: result.output,
-        });
+        updateRecentOperationStatus(provisionId, '✅ Provisioning completed successfully!', result.output);
         await refreshAllStatus();
       } else {
-        updateRecentOperationStatus(provisionId, {
-          status: '❌ Provisioning failed',
-          output: result.output || result.error,
-        });
+        updateRecentOperationStatus(provisionId, '❌ Provisioning failed', result.output || result.error);
       }
 
     } catch (error) {
       console.error('Provisioning error:', error);
-      updateRecentOperationStatus(provisionId, {
-        status: '❌ Provisioning error',
-        output: extractSafeErrorMessage(error),
-      });
+      updateRecentOperationStatus(provisionId, '❌ Provisioning error', extractSafeErrorMessage(error));
     }
   };
 
@@ -868,6 +862,7 @@ const CAPADashboardContent = () => {
     onHelmChartMatrixClick: () => setActiveSection('helm-chart-matrix'),
     onTerminalClick: () => setActiveSection('terminal'),
     onNotificationsClick: () => setActiveSection('notifications'),
+    onRecentTasksClick: () => setActiveSection('recent-tasks'),
   };
 
   // ============================================================================
@@ -888,13 +883,13 @@ const CAPADashboardContent = () => {
 
             <button
               onClick={handleMceVerification}
-              disabled={apiLoading}
-              className="px-6 py-3 text-white rounded transition-colors disabled:opacity-50 font-medium flex items-center gap-2"
-              style={!apiLoading ? { backgroundColor: '#2684FF' } : {}}
-              onMouseEnter={(e) => !apiLoading && (e.currentTarget.style.backgroundColor = '#0065FF')}
-              onMouseLeave={(e) => !apiLoading && (e.currentTarget.style.backgroundColor = '#2684FF')}
+              disabled={isVerifying}
+              className="px-6 py-3 text-white rounded transition-colors font-medium flex items-center gap-2"
+              style={!isVerifying ? { backgroundColor: '#2684FF' } : { backgroundColor: '#9CA3AF' }}
+              onMouseEnter={(e) => !isVerifying && (e.currentTarget.style.backgroundColor = '#0065FF')}
+              onMouseLeave={(e) => !isVerifying && (e.currentTarget.style.backgroundColor = '#2684FF')}
             >
-              {apiLoading ? (
+              {isVerifying ? (
                 <>
                   <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                   Verifying...
@@ -925,8 +920,8 @@ const CAPADashboardContent = () => {
                 <button
                   onClick={handleRefresh}
                   disabled={apiLoading}
-                  className="px-3 py-1.5 text-white rounded transition-colors disabled:opacity-50 text-xs flex items-center gap-1.5"
-                  style={!apiLoading ? { backgroundColor: '#2684FF' } : {}}
+                  className="px-3 py-1.5 text-white rounded transition-colors text-xs flex items-center gap-1.5"
+                  style={!apiLoading ? { backgroundColor: '#2684FF' } : { backgroundColor: '#9CA3AF' }}
                   onMouseEnter={(e) => !apiLoading && (e.currentTarget.style.backgroundColor = '#0065FF')}
                   onMouseLeave={(e) => !apiLoading && (e.currentTarget.style.backgroundColor = '#2684FF')}
                 >
@@ -1019,7 +1014,18 @@ const CAPADashboardContent = () => {
 
                   {/* Output Display - Always show if results exist */}
                   <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Playbook Output:</h4>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-medium text-gray-700">Playbook Output:</h4>
+                      <button
+                        onClick={() => handleCopyOutput(verificationResults.output || 'No output available')}
+                        className="px-3 py-1 text-white rounded text-xs font-medium transition-colors"
+                        style={{ backgroundColor: '#2684FF' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0065FF')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2684FF')}
+                      >
+                        {copySuccess || '📋 Copy'}
+                      </button>
+                    </div>
                     <div className="bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-xs overflow-x-auto max-h-96 overflow-y-auto min-h-[100px]">
                       <pre className="whitespace-pre-wrap">
                         {verificationResults.output || 'No output available'}
@@ -1047,8 +1053,8 @@ const CAPADashboardContent = () => {
               <button
                 onClick={handleConfigure}
                 disabled={apiLoading}
-                className="px-6 py-3 text-white rounded transition-colors disabled:opacity-50 font-medium flex items-center gap-2"
-                style={!apiLoading ? { backgroundColor: '#2684FF' } : {}}
+                className="px-6 py-3 text-white rounded transition-colors font-medium flex items-center gap-2"
+                style={!apiLoading ? { backgroundColor: '#2684FF' } : { backgroundColor: '#9CA3AF' }}
                 onMouseEnter={(e) => !apiLoading && (e.currentTarget.style.backgroundColor = '#0065FF')}
                 onMouseLeave={(e) => !apiLoading && (e.currentTarget.style.backgroundColor = '#2684FF')}
               >
@@ -1103,7 +1109,18 @@ const CAPADashboardContent = () => {
 
                 {/* Output Display */}
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Playbook Output:</h4>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-medium text-gray-700">Playbook Output:</h4>
+                    <button
+                      onClick={() => handleCopyOutput(configurationResults.output || 'No output available')}
+                      className="px-3 py-1 text-white rounded text-xs font-medium transition-colors"
+                      style={{ backgroundColor: '#2684FF' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0065FF')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2684FF')}
+                    >
+                      {copySuccess || '📋 Copy'}
+                    </button>
+                  </div>
                   <div className="bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-xs overflow-x-auto max-h-96 overflow-y-auto min-h-[100px]">
                     <pre className="whitespace-pre-wrap">
                       {configurationResults.output || 'No output available'}
@@ -1233,6 +1250,109 @@ const CAPADashboardContent = () => {
           </div>
         );
 
+      case 'recent-tasks':
+        return (
+          <div className="space-y-6">
+            {/* Title */}
+            <h2 className="text-2xl font-bold text-blue-900">Task Summary</h2>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              {recentOps.recentOperations.length === 0 ? (
+                <div className="text-center py-12">
+                  <ClockIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">No tasks</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {recentOps.recentOperations.map((task, index) => (
+                    <div key={task.id || index} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      {/* Task Header */}
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-3 flex-1">
+                          <div className={`w-2 h-2 rounded-full ${task.color || 'bg-gray-400'}`}></div>
+                          <div>
+                            <h3 className="font-semibold text-gray-900">{task.title}</h3>
+                            <p className="text-xs text-gray-500">
+                              {task.timestamp ? new Date(task.timestamp).toLocaleString() : 'No timestamp'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">
+                            {(() => {
+                              const status = typeof task.status === 'object' ? task.status.status : task.status;
+                              if (!status) return '⏳';
+                              const statusStr = String(status);
+                              if (statusStr.includes('✅') || statusStr.toLowerCase().includes('success')) return '✅';
+                              if (statusStr.includes('❌') || statusStr.toLowerCase().includes('fail')) return '❌';
+                              if (statusStr.includes('⚠️') || statusStr.toLowerCase().includes('warn')) return '⚠️';
+                              return '⏳';
+                            })()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Task Details */}
+                      <div className="space-y-2 text-sm">
+                        {task.environment && (
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-700">Environment:</span>
+                            <span className="text-gray-600">{task.environment}</span>
+                          </div>
+                        )}
+                        {task.playbook && (
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-700">Playbook:</span>
+                            <span className="text-gray-600 font-mono text-xs">{task.playbook}</span>
+                          </div>
+                        )}
+                        {task.status && (
+                          <div className="flex items-start gap-2">
+                            <span className="font-medium text-gray-700">Status:</span>
+                            <span className="text-gray-600">
+                              {typeof task.status === 'object' ? task.status.status : task.status}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Task Output */}
+                      {task.output && (
+                        <div className="mt-3">
+                          <details className="bg-gray-50 rounded-lg">
+                            <summary className="cursor-pointer p-3 font-medium text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
+                              View Output
+                            </summary>
+                            <div className="p-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="text-xs font-medium text-gray-700">Task Output:</h4>
+                                <button
+                                  onClick={() => handleCopyOutput(typeof task.output === 'object' ? task.output.output : task.output)}
+                                  className="px-2 py-1 text-white rounded text-xs font-medium transition-colors"
+                                  style={{ backgroundColor: '#2684FF' }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0065FF')}
+                                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2684FF')}
+                                >
+                                  {copySuccess || '📋 Copy'}
+                                </button>
+                              </div>
+                              <div className="bg-gray-900 text-green-400 p-3 rounded-lg font-mono text-xs overflow-x-auto max-h-60 overflow-y-auto">
+                                <pre className="whitespace-pre-wrap">
+                                  {typeof task.output === 'object' ? task.output.output : task.output}
+                                </pre>
+                              </div>
+                            </div>
+                          </details>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
       default:
         return (
           <div className="bg-white rounded-lg shadow p-6">
@@ -1258,10 +1378,7 @@ const CAPADashboardContent = () => {
         {/* Page Header with Blue Gradient */}
         <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-6 py-4 shadow-md flex items-center h-[72px]">
           <div>
-            <h1 className="text-3xl font-bold leading-tight">MCE Environment</h1>
-            <p className="text-sm text-blue-50">
-              Manage your Multicluster Engine and ROSA HCP clusters
-            </p>
+            <h1 className="text-2xl font-bold leading-tight">MCE Environment</h1>
           </div>
         </div>
 
