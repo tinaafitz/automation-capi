@@ -2,18 +2,23 @@
   "name": "Test Variable Passing",
   "description": "Simple test to verify command-line variable passing works correctly",
   "version": "1.0.0",
-  "tags": ["test", "variables", "validation"],
+  "tags": [
+    "test",
+    "variables",
+    "validation"
+  ],
   "environment": "any",
   "playbooks": [
     {
-      "name": "test-variable-passing.yml",
+      "name": "Test-Variable-Passing",
       "description": "Display all variables to verify passing mechanism",
       "vars": {
         "name_prefix": "DEFAULT",
         "aws_region": "DEFAULT",
         "test_var": "DEFAULT"
       },
-      "timeout": 60
+      "timeout": 60,
+      "file": "playbooks/test-variable-passing.yml"
     }
   ],
   "documentation": {

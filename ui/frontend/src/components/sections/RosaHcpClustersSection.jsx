@@ -200,7 +200,10 @@ const RosaHcpClustersSection = ({ theme = 'mce' }) => {
         <button
           onClick={fetchClusters}
           disabled={clustersLoading}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium flex items-center gap-2"
+          className="px-4 py-2 text-white rounded transition-colors disabled:opacity-50 font-medium flex items-center gap-2"
+          style={!clustersLoading ? { backgroundColor: '#2684FF' } : {}}
+          onMouseEnter={(e) => !clustersLoading && (e.currentTarget.style.backgroundColor = '#0065FF')}
+          onMouseLeave={(e) => !clustersLoading && (e.currentTarget.style.backgroundColor = '#2684FF')}
         >
           <ArrowPathIcon className={`h-4 w-4 ${clustersLoading ? 'animate-spin' : ''}`} />
           Refresh

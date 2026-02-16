@@ -1457,7 +1457,10 @@ Report created at ${completionTime}`
               <button
                 onClick={handleMceVerification}
                 disabled={apiLoading}
-                className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:from-cyan-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                className="px-6 py-3 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                style={!apiLoading ? { backgroundColor: '#2684FF' } : {}}
+                onMouseEnter={(e) => !apiLoading && (e.currentTarget.style.backgroundColor = '#0065FF')}
+                onMouseLeave={(e) => !apiLoading && (e.currentTarget.style.backgroundColor = '#2684FF')}
               >
                 {apiLoading ? '⏳ Verifying...' : '✓ Verify Connection'}
               </button>
@@ -1482,7 +1485,10 @@ Report created at ${completionTime}`
       {/* Floating Settings Button */}
       <button
         onClick={handleSettings}
-        className="fixed top-24 right-8 z-40 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-110"
+        className="fixed top-24 right-8 z-40 text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-110"
+        style={{ backgroundColor: '#2684FF' }}
+        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0065FF')}
+        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2684FF')}
         title="Open Settings"
       >
         <Cog6ToothIcon className="h-6 w-6" />
@@ -1672,7 +1678,10 @@ Report created at ${completionTime}`
                 <div className="pt-4 border-t border-gray-200">
                   <button
                     onClick={handleDisableCapi}
-                    className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                    className="w-full px-4 py-2 text-white text-sm font-medium rounded transition-colors flex items-center justify-center gap-2"
+                    style={{ backgroundColor: '#2684FF' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0065FF')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2684FF')}
                   >
                     <span>⛔</span>
                     Disable CAPI

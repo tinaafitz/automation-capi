@@ -166,10 +166,10 @@
           • OIDC Provider
 
     - name: Create RosaRoleConfig resource
-      include_tasks: tasks/create_rosa_role_config.yml
+      include_tasks: create_rosa_role_config.yml
 
     - name: Wait for RosaRoleConfig to be ready
-      include_tasks: tasks/wait_for_rosa_roles.yml
+      include_tasks: wait_for_rosa_roles.yml
       vars:
         wait_timeout: 600
 
@@ -214,13 +214,13 @@
           • Route Tables
 
     - name: Create ROSANetwork resource
-      include_tasks: tasks/create_rosa_network.yml
+      include_tasks: create_rosa_network.yml
       vars:
         rosa_network_config_name: "{{ rosa_network_name }}"
         vpc_cidr_block: "{{ network_cidr }}"
 
     - name: Wait for ROSANetwork to be ready
-      include_tasks: tasks/wait_for_rosa_network.yml
+      include_tasks: wait_for_rosa_network.yml
       vars:
         wait_timeout: 900
 
@@ -336,7 +336,7 @@
           create_rosa_network: "{{ create_rosa_network | bool }}"
 
     - name: Create RosaControlPlane from template
-      include_tasks: tasks/create_rosa_control_plane_versioned.yml
+      include_tasks: create_rosa_control_plane_versioned.yml
       vars:
         template_name: "{{ cluster_template_name }}"
         template_category: "{{ selected_template_category }}"
@@ -377,7 +377,7 @@
           Monitoring: oc get rosacontrolplane {{ cluster_name }} -n {{ capi_namespace }} -w
 
     - name: Wait for ROSAControlPlane to be ready
-      include_tasks: tasks/wait_for_rosa_control_plane_ready.yml
+      include_tasks: wait_for_rosa_control_plane_ready.yml
 
     - name: Cluster ready confirmation
       debug:

@@ -15,8 +15,8 @@
     template_name: "{{ template_name | default('') }}"
     template_category: "{{ template_category | default('cluster-configs') }}"
     template_extension: "{{ template_extension | default('.yaml.j2') }}"
-    version_templates: "templates/versions/{{ ocp_major_minor }}"
-    common_templates: "templates/common"
+    version_templates: "../templates/versions/{{ ocp_major_minor }}"
+    common_templates: "../templates/common"
 
 - name: Construct template paths
   set_fact:

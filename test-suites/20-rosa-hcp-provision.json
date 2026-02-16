@@ -1,14 +1,14 @@
 {
-  "name": "ROSA HCP Cluster Provisioning",
-  "description": "Provision a ROSA HCP cluster with automated network and role configuration, including wait for cluster readiness (RHACM4K-61815)",
+  "name": "Provision a ROSA HCP Cluster",
+  "description": "Provision a ROSA HCP cluster using CAPA with automated network and role configuration, including wait for cluster readiness",
   "version": "1.0.0",
   "tags": ["rosa", "hcp", "provisioning", "network-automation", "role-automation"],
   "environment": "mce",
   "playbooks": [
     {
-      "name": "Create ROSA HCP Cluster",
-      "file": "create_rosa_hcp_cluster.yml",
-      "description": "Provisions a ROSA HCP cluster with optional ROSANetwork and ROSARoleConfig automation",
+      "name": "Create CAPA Cluster",
+      "file": "playbooks/create_rosa_hcp_cluster.yml",
+      "description": "Provisions a ROSA HCP cluster using CAPA with optional ROSANetwork and ROSARoleConfig automation",
       "test_case_id": "RHACM4K-61815",
       "extra_vars": {
         "openshift_version": "4.20.10",
