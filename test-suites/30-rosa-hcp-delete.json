@@ -78,7 +78,7 @@
     "monitoring": [
       "oc get rosacontrolplane,rosamachinepool,rosanetwork,rosaroleconfig -n ns-rosa-hcp",
       "oc describe rosacontrolplane <cluster-name> -n ns-rosa-hcp",
-      "rosa list clusters --region us-west-2"
+      "oc get rosacontrolplane -n ns-rosa-hcp -o jsonpath='{range .items[*]}{.metadata.name}{\"\\t\"}{.status.ready}{\"\\t\"}{.status.id}{\"\\n\"}{end}'"
     ],
     "troubleshooting": {
       "stuck_deletion": {

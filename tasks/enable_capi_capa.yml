@@ -3,7 +3,7 @@
     component: "cluster-api"
 
 - name: Get cluster-api status
-  include_tasks: "{{ AUTOMATION_PATH }}/tasks/get_mce_component_status.yml"
+  include_tasks: "{{ automation_path }}/tasks/get_mce_component_status.yml"
 
 - set_fact:
     capi_enabled: "{{ component_enabled.stdout | bool }}"
@@ -12,7 +12,7 @@
     component: "cluster-api-provider-aws"
 
 - name: Get cluster-api-provider-aws status
-  include_tasks: "{{ AUTOMATION_PATH }}/tasks/get_mce_component_status.yml"
+  include_tasks: "{{ automation_path }}/tasks/get_mce_component_status.yml"
 
 - set_fact:
     capa_enabled: "{{ component_enabled.stdout | bool }}"
@@ -21,7 +21,7 @@
 # Optimization: Disable BOTH Hypershift components in a single atomic patch
 # Skip if both CAPI and CAPA are already enabled (Hypershift should already be disabled)
 - name: Disable both Hypershift components atomically
-  include_tasks: "{{ AUTOMATION_PATH }}/tasks/update_multiple_components.yml"
+  include_tasks: "{{ automation_path }}/tasks/update_multiple_components.yml"
   vars:
     components_to_update:
       - name: "hypershift"
@@ -43,7 +43,7 @@
       }}
 
 - name: Enable CAPI components atomically
-  include_tasks: "{{ AUTOMATION_PATH }}/tasks/update_multiple_components.yml"
+  include_tasks: "{{ automation_path }}/tasks/update_multiple_components.yml"
   vars:
     components_to_update: "{{ capi_components_to_enable }}"
   when: capi_components_to_enable | length > 0
