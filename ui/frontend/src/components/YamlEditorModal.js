@@ -10,7 +10,7 @@ import {
   DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 
-export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOnly = false }) {
+export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOnly = false, inline = false }) {
   const [editedYaml, setEditedYaml] = useState('');
   const [originalYaml, setOriginalYaml] = useState('');
   const [validationError, setValidationError] = useState(null);
@@ -137,15 +137,16 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen && !inline) return null;
 
   const diffLines = showDiff ? generateDiff() : [];
   const filePath = yamlData?.file_paths?.[0] || 'Generated YAML';
 
-  return ReactDOM.createPortal(
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl min-h-[600px] max-h-[90vh] flex flex-col my-8 mx-4">
-        {/* Header */}
+  // Content component (same for modal and inline)
+  const editorContent = (
+    <div className={inline ? "bg-white rounded-lg shadow-sm border border-gray-200 w-full flex flex-col" : "bg-white rounded-2xl shadow-2xl w-full max-w-6xl min-h-[600px] max-h-[90vh] flex flex-col my-8 mx-4"}>
+      {/* Header - only show in modal mode, not inline */}
+      {!inline && (
         <div className="sticky top-0 bg-white border-b-2 border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
           <div className="flex items-center gap-3">
             <div className="bg-gradient-to-br from-cyan-600 to-blue-600 p-2 rounded-xl">
@@ -172,22 +173,25 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
             <XMarkIcon className="h-6 w-6" />
           </button>
         </div>
+      )}
 
-        {/* File Path Display */}
-        <div className="bg-gray-50 border-b border-gray-200 px-6 py-3">
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2 text-gray-600">
-              <span className="font-medium">File Path:</span>
-              <code className="bg-gray-200 px-2 py-1 rounded text-xs font-mono">{filePath}</code>
+        {/* File Path Display - only show in modal mode */}
+        {!inline && (
+          <div className="bg-gray-50 border-b border-gray-200 px-6 py-3">
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2 text-gray-600">
+                <span className="font-medium">File Path:</span>
+                <code className="bg-gray-200 px-2 py-1 rounded text-xs font-mono">{filePath}</code>
+              </div>
+              {hasChanges && (
+                <span className="text-amber-600 font-medium flex items-center gap-1">
+                  <ExclamationTriangleIcon className="h-4 w-4" />
+                  Modified
+                </span>
+              )}
             </div>
-            {hasChanges && (
-              <span className="text-amber-600 font-medium flex items-center gap-1">
-                <ExclamationTriangleIcon className="h-4 w-4" />
-                Modified
-              </span>
-            )}
           </div>
-        </div>
+        )}
 
         {/* Toolbar */}
         <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
@@ -343,13 +347,15 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
               )}
             </div>
             <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-5 py-2.5 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
-              >
-                {readOnly ? 'Close' : 'Cancel'}
-              </button>
+              {!inline && (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-5 py-2.5 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+                >
+                  {readOnly ? 'Close' : 'Cancel'}
+                </button>
+              )}
               {!readOnly && (
                 <button
                   onClick={handleProvision}
@@ -363,6 +369,16 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
           </div>
         </div>
       </div>
+  );
+
+  // Return inline or modal version
+  if (inline) {
+    return editorContent;
+  }
+
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center overflow-y-auto">
+      {editorContent}
     </div>,
     document.body
   );
@@ -381,4 +397,5 @@ YamlEditorModal.propTypes = {
     file_paths: PropTypes.arrayOf(PropTypes.string),
   }),
   readOnly: PropTypes.bool,
+  inline: PropTypes.bool,
 };

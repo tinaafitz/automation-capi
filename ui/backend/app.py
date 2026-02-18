@@ -6835,6 +6835,8 @@ async def generate_provisioning_yaml(request: Request):
         project_root = os.environ.get("AUTOMATION_PATH") or os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         )
+        print(f"🔍 [PREVIEW-DIRECT] project_root: {project_root}")
+        print(f"🔍 [PREVIEW-DIRECT] AUTOMATION_PATH env: {os.environ.get('AUTOMATION_PATH')}")
 
         # Parse version to get major.minor
         version_parts = openshift_version.split(".")
@@ -7012,20 +7014,25 @@ async def generate_provisioning_yaml(request: Request):
                     yaml_files.append(network_template_path)
 
         # Render main cluster template (combined or control-plane-only)
+        print(f"🔍 [PREVIEW-DIRECT] Template name: {cp_template_name}, major_minor: {major_minor}")
         cp_template_path = os.path.join(
             project_root, f"templates/versions/{major_minor}/features/{cp_template_name}"
         )
+        print(f"🔍 [PREVIEW-DIRECT] Try 1: {cp_template_path} -> {os.path.exists(cp_template_path)}")
         if not os.path.exists(cp_template_path):
             # Try version/4.20/features fallback (e.g., 4.19/4.20/features)
             cp_template_path = os.path.join(
                 project_root, f"templates/versions/{major_minor}/4.20/features/{cp_template_name}"
             )
+            print(f"🔍 [PREVIEW-DIRECT] Try 2: {cp_template_path} -> {os.path.exists(cp_template_path)}")
         if not os.path.exists(cp_template_path):
             cp_template_path = os.path.join(
                 project_root, f"templates/versions/{major_minor}/cluster-configs/{cp_template_name}"
             )
+            print(f"🔍 [PREVIEW-DIRECT] Try 3: {cp_template_path} -> {os.path.exists(cp_template_path)}")
         if not os.path.exists(cp_template_path):
             cp_template_path = os.path.join(project_root, f"templates/features/{cp_template_name}")
+            print(f"🔍 [PREVIEW-DIRECT] Try 4: {cp_template_path} -> {os.path.exists(cp_template_path)}")
 
         if os.path.exists(cp_template_path):
             env = Environment(loader=FileSystemLoader(os.path.dirname(cp_template_path)))
@@ -7051,6 +7058,11 @@ async def generate_provisioning_yaml(request: Request):
 
         # Combine all YAML documents
         combined_yaml = "\n---\n".join(yaml_contents)
+
+        print(f"🔍 [PREVIEW-DIRECT] combined_yaml length: {len(combined_yaml)}")
+        print(f"🔍 [PREVIEW-DIRECT] yaml_contents count: {len(yaml_contents)}")
+        if len(combined_yaml) > 0:
+            print(f"🔍 [PREVIEW-DIRECT] First 200 chars: {combined_yaml[:200]}")
 
         # Determine feature type for filename
         if create_rosa_network and create_rosa_roles:
@@ -7078,7 +7090,7 @@ async def generate_provisioning_yaml(request: Request):
         print(f"✅ [PREVIEW-DIRECT] Generated {len(yaml_contents)} YAML document(s)")
         print(f"📄 [PREVIEW-DIRECT] File will be saved as: {combined_file_path}")
 
-        return {
+        response_data = {
             "success": True,
             "yaml_content": combined_yaml,
             "file_paths": [combined_file_path],  # Single combined file path
@@ -7086,6 +7098,12 @@ async def generate_provisioning_yaml(request: Request):
             "cluster_name": cluster_name,
             "message": f"Generated YAML for {len(yaml_contents)} resource(s)",
         }
+
+        print(f"🔍 [PREVIEW-DIRECT] Response success: {response_data['success']}")
+        print(f"🔍 [PREVIEW-DIRECT] Response yaml_content length: {len(response_data.get('yaml_content', ''))}")
+        print(f"🔍 [PREVIEW-DIRECT] Response keys: {list(response_data.keys())}")
+
+        return response_data
 
     except Exception as e:
         import traceback

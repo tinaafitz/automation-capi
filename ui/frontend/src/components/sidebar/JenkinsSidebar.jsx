@@ -31,6 +31,7 @@ const JenkinsSidebar = ({
   onRosaHcpClustersClick,
   onResourcesClick,
   onEnvironmentsClick,
+  onCredentialsClick,
   onTestClick,
   onTestSuiteDashboardClick,
   onTestAutomationClick,
@@ -79,6 +80,12 @@ const JenkinsSidebar = ({
       label: 'Environments',
       icon: <span className="text-lg">🌍</span>,
       onClick: onEnvironmentsClick
+    },
+    {
+      id: 'credentials',
+      label: 'Credentials',
+      icon: <span className="text-lg">🔑</span>,
+      onClick: onCredentialsClick
     },
     {
       id: 'verify',
@@ -264,11 +271,11 @@ const JenkinsSidebar = ({
 
       {/* Recent Task Section */}
       {recentTests.length > 0 && (
-        <div className="flex-shrink-0 border-t border-gray-300 bg-gray-100">
-          <div className="px-4 py-2.5 text-sm text-gray-700 font-medium">
-            Recent Tasks
+        <div className="flex-1 border-t border-gray-300 bg-gray-100 overflow-hidden flex flex-col">
+          <div className="px-4 py-2.5 text-sm text-gray-700 font-medium flex-shrink-0">
+            Recent Tasks ({recentTests.length})
           </div>
-          <div className="px-4 pb-3 space-y-2 max-h-60 overflow-y-auto">
+          <div className="px-4 pb-3 space-y-2 flex-1 overflow-y-auto">
             {recentTests.map((task, index) => {
               const status = typeof task.status === 'object' ? task.status.status : task.status;
               const statusIcon = getStatusIcon(task.status);
