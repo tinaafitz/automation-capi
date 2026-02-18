@@ -9297,33 +9297,27 @@ async def save_mce_environment(request: Request):
             else:
                 return {"success": False, "message": "Could not determine cluster name"}
 
-        # Build environment data structure
+        # Build environment data structure matching MCEEnvManager expectations
         env_data = {
-            "cluster_name": cluster_name,
-            "platform": data.get("platform", "Unknown"),
-            "added_date": datetime.now().isoformat(),
-            "last_accessed": datetime.now().isoformat(),
-            "status": "unknown",
-            "notes": "Added from UI",
-            "data": {
-                "cluster": {
-                    "platform": data.get("platform", "Unknown"),
-                    "hub_cluster": cluster_name,
-                    "ocp_version": data.get("ocpVersion", ""),
-                    "mce_version": data.get("mceVersion", ""),
-                    "acm_version": data.get("acmVersion", ""),
-                    "status": "Running",
-                    "password": data.get("password", ""),
-                    "console_url": data.get("consoleUrl", ""),
-                    "api_url": data.get("apiUrl", ""),
-                    "username": data.get("username", "kubeadmin"),
-                },
-                "notification": {
-                    "title": f"MCE Environment - {cluster_name}",
-                    "mce_version": data.get("mceVersion", ""),
-                    "acm_version": data.get("acmVersion", ""),
-                    "hub_cluster": cluster_name,
-                },
+            "cluster": {
+                "platform": data.get("platform", "Unknown"),
+                "hub_cluster": cluster_name,
+                "ocp_version": data.get("ocpVersion", ""),
+                "mce_version": data.get("mceVersion", ""),
+                "acm_version": data.get("acmVersion", ""),
+                "status": "Running",
+                "password": data.get("password", ""),
+                "console_url": data.get("consoleUrl", ""),
+                "api_url": data.get("apiUrl", ""),
+                "username": data.get("username", "kubeadmin"),
+            },
+            "notification": {
+                "title": f"MCE Environment - {cluster_name}",
+                "mce_version": data.get("mceVersion", ""),
+                "acm_version": data.get("acmVersion", ""),
+                "hub_cluster": cluster_name,
+                "jira": data.get("jira", ""),
+                "polarion": data.get("polarion", ""),
             },
         }
 

@@ -15,6 +15,19 @@ import { useRecentOperationsContext } from '../../store/AppContext';
 import { useJobHistory } from '../../hooks/useJobHistory';
 
 const HelmChartTestDashboard = ({ theme = 'mce' }) => {
+  // Button theme colors
+  const buttonThemeColors = {
+    mce: {
+      buttonBg: '#2684FF',
+      buttonBgHover: '#0065FF'
+    },
+    minikube: {
+      buttonBg: '#8B5CF6',
+      buttonBgHover: '#7C3AED'
+    }
+  };
+  const buttonColors = buttonThemeColors[theme];
+
   const recentOps = useRecentOperationsContext();
   const { fetchJobHistory } = useJobHistory();
   const [testMatrix, setTestMatrix] = useState(null);
@@ -355,9 +368,9 @@ const HelmChartTestDashboard = ({ theme = 'mce' }) => {
                                 handleRunAllTests(provider.id);
                               }}
                               className="flex items-center gap-2 px-4 py-2 text-white rounded transition-colors text-sm font-medium"
-                              style={{ backgroundColor: '#2684FF' }}
-                              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0065FF')}
-                              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2684FF')}
+                              style={{ backgroundColor: colors.buttonBg }}
+                              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.buttonBgHover)}
+                              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = colors.buttonBg)}
                             >
                               <PlayIcon className="w-4 h-4" />
                               Run All Tests
@@ -508,9 +521,9 @@ ${selectedCell.data.status === 'pass' ? '✅ All checks passed\n\nTest Summary:\
                     setSelectedCell(null);
                   }}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-white rounded transition-colors font-medium"
-                  style={{ backgroundColor: '#2684FF' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0065FF')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2684FF')}
+                  style={{ backgroundColor: colors.buttonBg }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.buttonBgHover)}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = colors.buttonBg)}
                 >
                   <PlayIcon className="w-5 h-5" />
                   Re-run Test

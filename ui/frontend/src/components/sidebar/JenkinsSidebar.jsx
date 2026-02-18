@@ -31,7 +31,6 @@ const JenkinsSidebar = ({
   onRosaHcpClustersClick,
   onResourcesClick,
   onEnvironmentsClick,
-  onCredentialsClick,
   onTestClick,
   onTestSuiteDashboardClick,
   onTestAutomationClick,
@@ -104,12 +103,6 @@ const JenkinsSidebar = ({
       label: 'ROSA HCP Clusters',
       icon: <span className="text-lg">☁️</span>,
       onClick: onRosaHcpClustersClick
-    },
-    {
-      id: 'credentials',
-      label: 'Credentials',
-      icon: <span className="text-lg">🔑</span>,
-      onClick: onCredentialsClick
     },
     {
       id: 'test',

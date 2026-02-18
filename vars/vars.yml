@@ -63,7 +63,7 @@ rosa_creds_secret: "rosa-creds-secret"
 
 mce_sub_name: "multicluster-engine"
 mce_namespace: "multicluster-engine"
-mce_name: "multiclusterengine"
+# mce_name auto-detected by playbook
 default_lc_name: "local-cluster"
 infra_nodes: false
 ingress_cert_secret: "custom-cert"
