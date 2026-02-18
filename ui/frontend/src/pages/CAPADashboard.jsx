@@ -493,8 +493,10 @@ const CAPADashboardContent = () => {
   const [activeSection, setActiveSection] = useState('environments');
   const [showYamlEditorModal, setShowYamlEditorModal] = useState(false);
   const [yamlEditorData, setYamlEditorData] = useState(null);
+  const [provisionViewMode, setProvisionViewMode] = useState('form'); // 'form' or 'yaml'
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [credentialsRefreshKey, setCredentialsRefreshKey] = useState(0);
   const [verificationResults, setVerificationResults] = useState(null);
   const [configurationResults, setConfigurationResults] = useState(null);
   const [mceLastConfigured, setMceLastConfigured] = useState(null);
@@ -584,11 +586,14 @@ const CAPADashboardContent = () => {
           const jobData = await jobResponse.json();
           console.log(`📋 Job status:`, jobData);
 
+          // Fetch logs regardless of status to show real-time output
+          const logsResponse = await fetch(buildApiUrl(`/api/jobs/${jobId}/logs`));
+          const logsData = await logsResponse.json();
+          const currentOutput = logsData.logs ? logsData.logs.join('\n') : '';
+
           if (jobData.status === 'completed') {
-            // Success - get logs
-            const logsResponse = await fetch(buildApiUrl(`/api/jobs/${jobId}/logs`));
-            const logsData = await logsResponse.json();
-            const output = logsData.logs ? logsData.logs.join('\n') : 'Verification completed successfully';
+            // Success - update with final logs
+            const output = currentOutput || 'Verification completed successfully';
 
             updateRecentOperationStatus(verifyId, '✅ MCE environment verified successfully!', output);
             setMceLastVerified(new Date().toISOString());
@@ -601,12 +606,12 @@ const CAPADashboardContent = () => {
             setVerificationResults(successResults);
             setIsVerifying(false);
             await refreshAllStatus();
+            // Force ActiveEnvironmentBanner to refresh and show verified status
+            setCredentialsRefreshKey(prev => prev + 1);
             return;
           } else if (jobData.status === 'failed') {
-            // Failure - get error and logs
-            const logsResponse = await fetch(buildApiUrl(`/api/jobs/${jobId}/logs`));
-            const logsData = await logsResponse.json();
-            const output = logsData.logs ? logsData.logs.join('\n') : (jobData.error || jobData.message || 'Verification failed');
+            // Failure - update with error logs
+            const output = currentOutput || (jobData.error || jobData.message || 'Verification failed');
 
             updateRecentOperationStatus(verifyId, '❌ Verification failed', output);
             const failureResults = {
@@ -620,7 +625,12 @@ const CAPADashboardContent = () => {
             return;
           }
 
-          // Still running, wait and poll again
+          // Still running - update with current logs every 3 seconds
+          if (attempts % 3 === 0 && currentOutput) {
+            updateRecentOperationStatus(verifyId, '🔍 Verifying...', currentOutput);
+          }
+
+          // Wait and poll again
           await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
         }
 
@@ -695,7 +705,7 @@ const CAPADashboardContent = () => {
 
       // Poll for job completion
       const pollJobStatus = async () => {
-        const maxAttempts = 120; // 120 attempts = 2 minutes max wait (configuration can take longer)
+        const maxAttempts = 900; // 900 attempts = 15 minutes max wait (configuration can take a while)
         let attempts = 0;
 
         while (attempts < maxAttempts) {
@@ -706,11 +716,14 @@ const CAPADashboardContent = () => {
           const jobData = await jobResponse.json();
           console.log(`📋 Job status:`, jobData);
 
+          // Fetch logs regardless of status to show real-time output
+          const logsResponse = await fetch(buildApiUrl(`/api/jobs/${jobId}/logs`));
+          const logsData = await logsResponse.json();
+          const currentOutput = logsData.logs ? logsData.logs.join('\n') : '';
+
           if (jobData.status === 'completed') {
-            // Success - get logs
-            const logsResponse = await fetch(buildApiUrl(`/api/jobs/${jobId}/logs`));
-            const logsData = await logsResponse.json();
-            const output = logsData.logs ? logsData.logs.join('\n') : 'Configuration completed successfully';
+            // Success - update with final logs
+            const output = currentOutput || 'Configuration completed successfully';
 
             updateRecentOperationStatus(configureId, '✅ Configuration completed successfully!', output);
             setMceLastConfigured(new Date().toISOString());
@@ -725,10 +738,8 @@ const CAPADashboardContent = () => {
             await refreshAllStatus();
             return;
           } else if (jobData.status === 'failed') {
-            // Failure - get error and logs
-            const logsResponse = await fetch(buildApiUrl(`/api/jobs/${jobId}/logs`));
-            const logsData = await logsResponse.json();
-            const output = logsData.logs ? logsData.logs.join('\n') : (jobData.error || jobData.message || 'Configuration failed');
+            // Failure - update with error logs
+            const output = currentOutput || (jobData.error || jobData.message || 'Configuration failed');
 
             updateRecentOperationStatus(configureId, '❌ Configuration failed', output);
             const failureResults = {
@@ -742,12 +753,17 @@ const CAPADashboardContent = () => {
             return;
           }
 
-          // Still running, wait and poll again
+          // Still running - update with current logs every 5 seconds
+          if (attempts % 5 === 0 && currentOutput) {
+            updateRecentOperationStatus(configureId, '🚀 Configuring...', currentOutput);
+          }
+
+          // Wait and poll again
           await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
         }
 
         // Timeout
-        throw new Error('Configuration timed out after 2 minutes');
+        throw new Error('Configuration timed out after 15 minutes');
       };
 
       await pollJobStatus();
@@ -765,40 +781,37 @@ const CAPADashboardContent = () => {
 
   // Handle provision submit
   const handleProvisionSubmit = async (config) => {
-    const provisionId = `provision-rosa-${Date.now()}`;
-
     try {
-      addToRecent({
-        id: provisionId,
-        title: `🚀 Provision ROSA HCP: ${config.clusterName}`,
-        color: 'bg-green-600',
-        status: '🚀 Starting provisioning...',
-        environment: 'mce',
-        playbook: 'playbooks/provision_rosa_hcp.yml',
-        output: `Initializing ROSA HCP cluster provisioning...\\nCluster: ${config.clusterName}\\nVersion: ${config.openShiftVersion}\\nRegion: ${config.awsRegion}`,
-      });
-
-      const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_PLAYBOOK), {
+      // Step 1: Generate YAML preview
+      console.log('📄 Generating YAML preview...');
+      const previewResponse = await fetch(buildApiUrl('/api/provisioning/generate-yaml'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          playbook_name: 'playbooks/provision_rosa_hcp.yml',
-          extra_vars: config,
-        }),
+        body: JSON.stringify({ config }),
       });
 
-      const result = await response.json();
+      const previewResult = await previewResponse.json();
+      console.log('📄 Preview result:', previewResult);
+      console.log('📄 yaml_content exists:', !!previewResult.yaml_content);
+      console.log('📄 yaml_content length:', previewResult.yaml_content?.length || 0);
 
-      if (result.status === 'success') {
-        updateRecentOperationStatus(provisionId, '✅ Provisioning completed successfully!', result.output);
-        await refreshAllStatus();
-      } else {
-        updateRecentOperationStatus(provisionId, '❌ Provisioning failed', result.output || result.error);
+      if (!previewResult.success || !previewResult.yaml_content) {
+        console.error('❌ Preview failed:', previewResult);
+        throw new Error(previewResult.message || 'Failed to generate YAML preview');
       }
 
+      // Step 2: Show YAML editor inline (not modal)
+      setYamlEditorData({
+        yaml_content: previewResult.yaml_content,
+        cluster_name: config.clusterName,
+        feature_type: 'rosa-hcp-provision',
+        config: config, // Store config for later provisioning
+      });
+      setProvisionViewMode('yaml');
+
     } catch (error) {
-      console.error('Provisioning error:', error);
-      updateRecentOperationStatus(provisionId, '❌ Provisioning error', extractSafeErrorMessage(error));
+      console.error('Preview generation error:', error);
+      alert(`Failed to generate preview: ${extractSafeErrorMessage(error)}`);
     }
   };
 
@@ -837,6 +850,8 @@ const CAPADashboardContent = () => {
 
         // Refresh API status to reflect the new credentials
         await refreshAllStatus();
+        // Force ActiveEnvironmentBanner to re-fetch credentials
+        setCredentialsRefreshKey(prev => prev + 1);
       } else {
         const error = await response.json();
         alert(`Failed to save credentials: ${error.message || 'Unknown error'}`);
@@ -1135,19 +1150,89 @@ const CAPADashboardContent = () => {
       case 'provision':
         return (
           <div className="space-y-6">
-            {/* Title */}
-            <h2 className="text-2xl font-bold text-blue-900">Provision ROSA HCP Cluster</h2>
+            {/* Title with Back Button */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-blue-900">
+                {provisionViewMode === 'yaml' ? 'Review & Edit Provisioning YAML' : 'Provision ROSA HCP Cluster'}
+              </h2>
+              {provisionViewMode === 'yaml' && (
+                <button
+                  onClick={() => setProvisionViewMode('form')}
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                >
+                  ← Back to Form
+                </button>
+              )}
+            </div>
 
-            {/* Provision Form - Inline (not modal) */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <RosaProvisionModal
+            {/* Toggle between Form and YAML Editor */}
+            {provisionViewMode === 'form' ? (
+              /* Provision Form - Inline */
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <RosaProvisionModal
+                  isOpen={true}
+                  inline={true}
+                  onClose={() => {}} // No close action needed for inline form
+                  onSubmit={handleProvisionSubmit}
+                  mceInfo={mceInfo}
+                />
+              </div>
+            ) : (
+              /* YAML Editor - Inline */
+              <YamlEditorModal
                 isOpen={true}
                 inline={true}
-                onClose={() => {}} // No close action needed for inline form
-                onSubmit={handleProvisionSubmit}
-                mceInfo={mceInfo}
+                onClose={() => setProvisionViewMode('form')}
+                yamlData={yamlEditorData}
+                readOnly={false}
+                onProvision={async (editedYaml) => {
+                  // Get the original config from yamlEditorData
+                  const config = yamlEditorData?.config;
+                  if (!config) {
+                    alert('Configuration data not found');
+                    return;
+                  }
+
+                  const provisionId = `provision-rosa-${Date.now()}`;
+
+                  try {
+                    addToRecent({
+                      id: provisionId,
+                      title: `🚀 Provision ROSA HCP: ${config.clusterName}`,
+                      color: 'bg-green-600',
+                      status: '🚀 Starting provisioning...',
+                      environment: 'mce',
+                      playbook: 'playbooks/provision_rosa_hcp.yml',
+                      output: `Initializing ROSA HCP cluster provisioning...\\nCluster: ${config.clusterName}\\nVersion: ${config.openShiftVersion}\\nRegion: ${config.awsRegion}`,
+                    });
+
+                    const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_PLAYBOOK), {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        playbook_name: 'playbooks/provision_rosa_hcp.yml',
+                        extra_vars: config,
+                        yaml_override: editedYaml,
+                      }),
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success || result.job_id) {
+                      updateRecentOperationStatus(provisionId, '✅ Provisioning job started!', 'Ansible playbook is running...');
+                      setProvisionViewMode('form'); // Go back to form after starting provision
+                      await refreshAllStatus();
+                    } else {
+                      updateRecentOperationStatus(provisionId, '❌ Provisioning failed', result.output || result.error || result.message);
+                    }
+
+                  } catch (error) {
+                    console.error('Provisioning error:', error);
+                    updateRecentOperationStatus(provisionId, '❌ Provisioning error', extractSafeErrorMessage(error));
+                  }
+                }}
               />
-            </div>
+            )}
           </div>
         );
 
@@ -1188,6 +1273,8 @@ const CAPADashboardContent = () => {
                 theme="mce"
                 onSave={() => {
                   refreshAllStatus();
+                  // Force ActiveEnvironmentBanner to re-fetch credentials
+                  setCredentialsRefreshKey(prev => prev + 1);
                   setActiveSection('environments');
                 }}
               />
@@ -1384,7 +1471,10 @@ const CAPADashboardContent = () => {
 
         <div className="p-6">
           {/* Active Environment Banner */}
-          <ActiveEnvironmentBanner />
+          <ActiveEnvironmentBanner
+            key={credentialsRefreshKey}
+            verificationTimestamp={mceLastVerified}
+          />
 
           {/* Main Content */}
           {renderMainContent()}
@@ -1396,9 +1486,54 @@ const CAPADashboardContent = () => {
         isOpen={showYamlEditorModal}
         onClose={() => setShowYamlEditorModal(false)}
         yamlData={yamlEditorData}
-        readOnly={true}
+        readOnly={false}
         onProvision={async (editedYaml) => {
+          // Close the modal first
           setShowYamlEditorModal(false);
+
+          // Get the original config from yamlEditorData
+          const config = yamlEditorData?.config;
+          if (!config) {
+            alert('Configuration data not found');
+            return;
+          }
+
+          const provisionId = `provision-rosa-${Date.now()}`;
+
+          try {
+            addToRecent({
+              id: provisionId,
+              title: `🚀 Provision ROSA HCP: ${config.clusterName}`,
+              color: 'bg-green-600',
+              status: '🚀 Starting provisioning...',
+              environment: 'mce',
+              playbook: 'playbooks/provision_rosa_hcp.yml',
+              output: `Initializing ROSA HCP cluster provisioning...\nCluster: ${config.clusterName}\nVersion: ${config.openShiftVersion}\nRegion: ${config.awsRegion}`,
+            });
+
+            const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_PLAYBOOK), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                playbook_name: 'playbooks/provision_rosa_hcp.yml',
+                extra_vars: config,
+                yaml_override: editedYaml, // Use edited YAML if user modified it
+              }),
+            });
+
+            const result = await response.json();
+
+            if (result.success || result.job_id) {
+              updateRecentOperationStatus(provisionId, '✅ Provisioning job started!', 'Ansible playbook is running...');
+              await refreshAllStatus();
+            } else {
+              updateRecentOperationStatus(provisionId, '❌ Provisioning failed', result.output || result.error || result.message);
+            }
+
+          } catch (error) {
+            console.error('Provisioning error:', error);
+            updateRecentOperationStatus(provisionId, '❌ Provisioning error', extractSafeErrorMessage(error));
+          }
         }}
       />
 
@@ -1414,6 +1549,8 @@ const CAPADashboardContent = () => {
         onSave={() => {
           // Refresh status after saving credentials
           refreshAllStatus();
+          // Force ActiveEnvironmentBanner to re-fetch credentials
+          setCredentialsRefreshKey(prev => prev + 1);
         }}
       />
     </div>

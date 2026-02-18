@@ -39,6 +39,7 @@ fi
 echo -e "${GREEN}Starting FastAPI backend on port 8000...${NC}"
 cd "$SCRIPT_DIR/ui/backend"
 source venv/bin/activate
+export AUTOMATION_PATH="$SCRIPT_DIR"
 uvicorn app:app --reload --port 8000 > /tmp/rosa-backend.log 2>&1 &
 BACKEND_PID=$!
 echo "Backend PID: $BACKEND_PID"

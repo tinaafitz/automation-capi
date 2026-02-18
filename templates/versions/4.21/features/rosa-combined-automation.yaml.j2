@@ -1,0 +1,231 @@
+apiVersion: cluster.open-cluster-management.io/v1
+kind: ManagedCluster
+metadata:
+  name: {{ cluster_name }}
+  namespace: {{ capi_namespace }}
+  labels:
+    automation.acm.redhat.com/test-case: "ACM-21174-Combined"
+    automation.acm.redhat.com/network-automation: "true"
+    automation.acm.redhat.com/role-automation: "true"
+spec:
+  hubAcceptsClient: true
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: {{ cluster_name }}
+  namespace: {{ capi_namespace }}
+  labels:
+    automation.acm.redhat.com/test-case: "ACM-21174-Combined"
+    automation.acm.redhat.com/network-automation: "true"
+    automation.acm.redhat.com/role-automation: "true"
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks: ["{{ cluster_network.pod_cidr | default('192.168.0.0/16') }}"]
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+    kind: ROSACluster
+    name: {{ cluster_name }}
+    namespace: {{ capi_namespace }}
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta2
+    kind: ROSAControlPlane
+    name: {{ cluster_name }}
+    namespace: {{ capi_namespace }}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSACluster
+metadata:
+  name: {{ cluster_name }}
+  namespace: {{ capi_namespace }}
+  labels:
+    automation.acm.redhat.com/test-case: "ACM-21174-Combined"
+    automation.acm.redhat.com/network-automation: "true"
+    automation.acm.redhat.com/role-automation: "true"
+spec: {}
+---
+# ROSANetwork for automated VPC and subnet creation
+# FIXED: Removed unsupported credentialsSecretRef, changed tags to stackTags, added required stackName and region
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSANetwork
+metadata:
+  name: {{ cluster_name }}-network
+  namespace: {{ capi_namespace }}
+  labels:
+    cluster.x-k8s.io/cluster-name: {{ cluster_name }}
+    automation.acm.redhat.com/test-case: "ACM-21174-Combined"
+    automation.acm.redhat.com/created-by: "ansible-automation"
+spec:
+  identityRef:
+    kind: AWSClusterControllerIdentity
+    name: {{ rosa_network_config.identity_name | default('default') }}
+  region: {{ aws_region }}
+  cidrBlock: {{ rosa_network_config.cidr_block | default('10.0.0.0/16') }}
+  stackName: {{ cluster_name }}-network-stack
+  availabilityZones:
+  {% for az in rosa_network_config.availability_zones -%}
+  - {{ az }}
+  {% endfor -%}
+  stackTags:
+    Environment: {{ environment_tag | default('test') }}
+    TestCase: "ACM-21174-Combined"
+    CreatedBy: "ansible-automation"
+    Purpose: "combined-automation-testing"
+---
+# ROSARoleConfig for automated AWS IAM role creation
+# FIXED: Removed unsupported credentialsSecretRef field
+# Default: ALWAYS CREATED for automated role management
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSARoleConfig
+metadata:
+  name: {{ cluster_name }}-roles
+  namespace: {{ capi_namespace }}
+  labels:
+    cluster.x-k8s.io/cluster-name: {{ cluster_name }}
+    automation.acm.redhat.com/test-case: "ACM-21174-Combined"
+    automation.acm.redhat.com/created-by: "ansible-automation"
+spec:
+  identityRef:
+    kind: AWSClusterControllerIdentity
+    name: {{ rosa_role_config.identity_name | default('default') }}
+  accountRoleConfig:
+    prefix: "{{ rosa_role_config.prefix | default(cluster_name_prefix) }}"
+    version: {{ rosa_role_config.version | default(openshift_version) }}
+  operatorRoleConfig:
+    prefix: "{{ rosa_role_config.prefix | default(cluster_name_prefix) }}"
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta2
+kind: ROSAControlPlane
+metadata:
+  name: {{ cluster_name }}
+  namespace: {{ capi_namespace }}
+  {% if cluster_description is defined and cluster_description -%}
+  annotations:
+    cluster.x-k8s.io/description: |
+{{ cluster_description | indent(6, first=True) }}
+  {% endif -%}
+  labels:
+    automation.acm.redhat.com/test-case: "ACM-21174-Combined"
+    automation.acm.redhat.com/network-automation: "true"
+    automation.acm.redhat.com/role-automation: "true"
+spec:
+  # Network automation reference
+  rosaNetworkRef:
+    name: {{ cluster_name }}-network
+
+  # Role automation reference
+  rosaRoleConfigRef:
+    name: {{ cluster_name }}-roles
+
+  rosaClusterName: {{ cluster_name }}
+  domainPrefix: {{ domain_prefix | default(rosa_role_prefix) | default(cluster_name) }}
+  version: "{{ rcp_version | default(openshift_version) | default('4.20.10') }}"
+  region: {{ aws_region }}
+  channelGroup: {{ channel_group | default('stable') }}
+
+  defaultMachinePoolSpec:
+    instanceType: {{ machine_pool.instance_type | default('m5.xlarge') }}
+    autoscaling:
+      maxReplicas: {{ machine_pool.max_replicas | default(4) }}
+      minReplicas: {{ machine_pool.min_replicas | default(2) }}
+
+  additionalTags:
+    env: {{ environment_tag | default('test') }}
+    purpose: {{ purpose_tag | default('acm21174-combined-testing') }}
+    automated: "true"
+    network-automation: "true"
+    role-automation: "{{ 'true' if rosa_role_config is defined and rosa_role_config.enabled | default(false) else 'false' }}"
+
+  network:
+    machineCIDR: {{ cluster_network.machine_cidr | default('10.0.0.0/16') }}
+    podCIDR: {{ cluster_network.pod_cidr | default('10.128.0.0/14') }}
+    serviceCIDR: {{ cluster_network.service_cidr | default('172.30.0.0/16') }}
+
+  # ======================================
+  # LOG FORWARDING CONFIGURATION
+  # PR: https://github.com/kubernetes-sigs/cluster-api-provider-aws/pull/5786
+  # ======================================
+  {% if log_forward_enabled | default(false) %}
+  # CloudWatch log forwarding configuration
+  {% if log_forward_cloudwatch_role_arn or log_forward_cloudwatch_log_group %}
+  cloudWatchlogForwarder:
+    # Applications to forward (valid values: application, infrastructure, audit-webhook)
+    {% if log_forward_applications is defined and log_forward_applications %}
+    applications:
+    {% for app in log_forward_applications %}
+      - {{ app }}
+    {% endfor %}
+    {% endif %}
+
+    # CloudWatch configuration
+    {% if log_forward_cloudwatch_role_arn is defined and log_forward_cloudwatch_role_arn %}
+    cloudWatchLogRoleArn: {{ log_forward_cloudwatch_role_arn | trim }}
+    {% endif %}
+    {% if log_forward_cloudwatch_log_group is defined and log_forward_cloudwatch_log_group %}
+    cloudWatchLogGroupName: {{ log_forward_cloudwatch_log_group | trim }}
+    {% endif %}
+  {% endif %}
+
+  # S3 log forwarding configuration (separate from CloudWatch)
+  {% if log_forward_s3_bucket or log_forward_s3_prefix %}
+  s3LogForwarder:
+    # Applications to forward (valid values: application, infrastructure, audit-webhook)
+    {% if log_forward_applications is defined and log_forward_applications %}
+    applications:
+    {% for app in log_forward_applications %}
+      - {{ app }}
+    {% endfor %}
+    {% endif %}
+
+    # S3 configuration
+    {% if log_forward_s3_bucket is defined and log_forward_s3_bucket %}
+    s3ConfigBucketName: {{ log_forward_s3_bucket | trim }}
+    {% endif %}
+    {% if log_forward_s3_prefix is defined and log_forward_s3_prefix %}
+    s3ConfigBucketPrefix: {{ log_forward_s3_prefix | trim }}
+    {% endif %}
+  {% endif %}
+  {% endif %}
+
+  # Complete automation: No manual subnets, availability zones, or role ARNs required
+  # All infrastructure will be created automatically by ROSANetwork and ROSARoleConfig
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: {{ cluster_name }}
+  namespace: {{ capi_namespace }}
+  labels:
+    automation.acm.redhat.com/test-case: "ACM-21174-Combined"
+    automation.acm.redhat.com/network-automation: "true"
+    automation.acm.redhat.com/role-automation: "true"
+spec:
+  clusterName: {{ cluster_name }}
+  replicas: {{ machine_pool.replicas | default(2) }}
+  template:
+    spec:
+      clusterName: {{ cluster_name }}
+      bootstrap:
+        dataSecretName: ""
+      infrastructureRef:
+        name: {{ cluster_name }}
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+        kind: ROSAMachinePool
+        namespace: {{ capi_namespace }}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: ROSAMachinePool
+metadata:
+  name: {{ cluster_name }}
+  namespace: {{ capi_namespace }}
+  labels:
+    automation.acm.redhat.com/test-case: "ACM-21174-Combined"
+    automation.acm.redhat.com/network-automation: "true"
+    automation.acm.redhat.com/role-automation: "true"
+spec:
+  nodePoolName: {{ (rosa_role_prefix | default(domain_prefix) | default('test'))[:4] | regex_replace('-$', '') }}-np
+  instanceType: {{ machine_pool.instance_type | default('m5.xlarge') }}
+  version: {{ openshift_version }}
+  # Note: subnet assignment will be automatic via ROSANetwork
+  # nodePoolName uses 4-char prefix + '-np' to stay under 15-byte limit
