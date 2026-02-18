@@ -163,6 +163,50 @@
     - delete_network | bool
     - "'not-found' not in rn_exists.stdout"
 
+- name: Handle stuck ROSANetwork deletion (remove finalizers if deletion timed out)
+  block:
+    - name: Check if ROSANetwork still has finalizers
+      shell: |
+        oc get rosanetwork {{ rosa_network_name }} -n {{ capi_namespace }} -o jsonpath='{.metadata.finalizers}' 2>/dev/null || echo "[]"
+      register: rn_finalizers
+      changed_when: false
+
+    - name: Display warning about stuck deletion
+      debug:
+        msg: |
+          ⚠️  ROSANetwork deletion timed out - likely due to orphaned security groups
+          This is a known issue when security groups have dependencies that prevent CloudFormation deletion.
+          Removing finalizers to force Kubernetes resource deletion (AWS resources may be orphaned).
+          See: ROSA_HCP_ORPHANED_SECURITY_GROUP_BUG_REPORT.md
+      when:
+        - rn_finalizers.stdout != "[]"
+        - rn_finalizers.stdout != ""
+
+    - name: Remove ROSANetwork finalizers to force deletion
+      shell: |
+        oc patch rosanetwork {{ rosa_network_name }} -n {{ capi_namespace }} \
+          --type='merge' -p '{"metadata":{"finalizers":null}}'
+      when:
+        - rn_finalizers.stdout != "[]"
+        - rn_finalizers.stdout != ""
+      register: remove_rn_finalizers
+
+    - name: Display finalizer removal result
+      debug:
+        msg: |
+          ✅ Finalizers removed from ROSANetwork: {{ rosa_network_name }}
+          ⚠️  NOTE: AWS CloudFormation stack and resources may still exist and require manual cleanup
+          Check CloudFormation console for stack: {{ rosa_network_name }}
+      when:
+        - remove_rn_finalizers is defined
+        - remove_rn_finalizers is succeeded
+  when:
+    - wait_for_deletion | bool
+    - delete_network | bool
+    - "'not-found' not in rn_exists.stdout"
+    - wait_rn is defined
+    - wait_rn.rc == 0
+
 - name: Wait for ROSARoleConfig deletion to complete
   shell: |
     oc get rosaroleconfig {{ rosa_role_config_name }} -n {{ capi_namespace }} 2>/dev/null
