@@ -104,6 +104,22 @@
         - rosa_network_exists | default(false) | bool
         - rosa_network_is_ready | default(false) | bool
 
+    - name: Fetch final ROSANetwork status with complete subnet information
+      shell: |
+        oc get rosanetwork {{ rosa_network_config_name | default(cluster_name + '-network') }} -n {{ capi_namespace }} -o json 2>/dev/null || echo '{}'
+      register: final_network_status
+      changed_when: false
+      when:
+        - not (rosa_network_exists | default(false) | bool and rosa_network_is_ready | default(false) | bool)
+
+    - name: Use final status for newly created network
+      set_fact:
+        network_ready_status:
+          stdout: "{{ final_network_status.stdout }}"
+      when:
+        - final_network_status is defined
+        - final_network_status.stdout is defined
+
     - name: Extract network information from status
       set_fact:
         vpc_id: "{{ (((network_ready_status.stdout if network_ready_status.stdout is mapping else (network_ready_status.stdout | from_json)).status.resources | default([]) | selectattr('logicalId', 'equalto', 'VPC') | map(attribute='physicalId') | list | first)) | default('') }}"
