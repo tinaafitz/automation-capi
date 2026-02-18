@@ -15,34 +15,91 @@ import {
   PlusIcon,
 } from '@heroicons/react/24/outline';
 
-const STATUS_CONFIG = {
-  pass: {
-    emoji: '✅',
-    label: 'Pass',
-    color: 'text-green-600',
-    bgColor: 'bg-green-50',
-    borderColor: 'border-green-200',
-    icon: CheckCircleIcon,
-  },
-  fail: {
-    emoji: '❌',
-    label: 'Fail',
-    color: 'text-red-600',
-    bgColor: 'bg-red-50',
-    borderColor: 'border-red-200',
-    icon: XCircleIcon,
-  },
-  in_progress: {
-    emoji: '⏳',
-    label: 'In Progress',
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-50',
-    borderColor: 'border-blue-200',
-    icon: ClockIcon,
-  },
+const getStatusConfig = (theme = 'mce') => {
+  const progressColors = theme === 'minikube'
+    ? { color: 'text-violet-600', bgColor: 'bg-violet-50', borderColor: 'border-violet-200' }
+    : { color: 'text-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-200' };
+
+  return {
+    pass: {
+      emoji: '✅',
+      label: 'Pass',
+      color: 'text-green-600',
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-200',
+      icon: CheckCircleIcon,
+    },
+    fail: {
+      emoji: '❌',
+      label: 'Fail',
+      color: 'text-red-600',
+      bgColor: 'bg-red-50',
+      borderColor: 'border-red-200',
+      icon: XCircleIcon,
+    },
+    in_progress: {
+      emoji: '⏳',
+      label: 'In Progress',
+      ...progressColors,
+      icon: ClockIcon,
+    },
+  };
 };
 
-const MCEEnvironmentSelector = ({ onUseCredentials }) => {
+const MCEEnvironmentSelector = ({
+  onUseCredentials,
+  title = 'MCE Test Environments',
+  titleSingular = 'MCE Test Environment',
+  theme = 'mce',
+  environmentType = 'mce' // 'mce' or 'minikube'
+}) => {
+  // API endpoints based on environment type
+  const apiEndpoints = {
+    mce: {
+      list: 'http://localhost:8000/api/mce-environments',
+      stats: 'http://localhost:8000/api/mce-environments/stats/summary',
+      create: 'http://localhost:8000/api/mce-environments',
+      get: (clusterName) => `http://localhost:8000/api/mce-environments/${clusterName}`,
+      updateStatus: (clusterName) => `http://localhost:8000/api/mce-environments/${clusterName}/status`,
+    },
+    minikube: {
+      list: 'http://localhost:8000/api/minikube/list-clusters',
+      stats: 'http://localhost:8000/api/minikube/list-clusters', // Reuse list endpoint for now
+      create: 'http://localhost:8000/api/minikube/create-cluster', // Creates actual Minikube cluster
+      get: (clusterName) => `http://localhost:8000/api/minikube/verify-cluster`,
+      updateStatus: (clusterName) => `http://localhost:8000/api/minikube/list-clusters`, // No status updates for minikube yet
+    }
+  };
+
+  const endpoints = apiEndpoints[environmentType];
+
+  // Theme colors
+  const themeColors = {
+    mce: {
+      primary: 'text-cyan-600',
+      primaryHover: 'hover:text-cyan-800',
+      primaryBg: 'bg-cyan-50',
+      primaryBorder: 'border-cyan-500',
+      title: 'text-blue-900',
+      buttonHover: 'hover:bg-blue-50',
+      buttonBg: '#2684FF',
+      buttonBgHover: '#0065FF',
+      inputBorder: '#2684FF'
+    },
+    minikube: {
+      primary: 'text-violet-600',
+      primaryHover: 'hover:text-violet-800',
+      primaryBg: 'bg-violet-50',
+      primaryBorder: 'border-violet-500',
+      title: 'text-purple-900',
+      buttonHover: 'hover:bg-violet-50',
+      buttonBg: '#8B5CF6',
+      buttonBgHover: '#7C3AED',
+      inputBorder: '#8B5CF6'
+    }
+  };
+
+  const colors = themeColors[theme];
   const [environments, setEnvironments] = useState([]);
   const [filteredEnvironments, setFilteredEnvironments] = useState([]);
   const [selectedEnv, setSelectedEnv] = useState(null);
@@ -64,6 +121,7 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
     jira: '',
     polarion: '',
     notes: '',
+    installMethod: 'clusterctl', // For Minikube: clusterctl or helm
   });
 
   // Fetch environments on mount
@@ -80,14 +138,27 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
   const fetchEnvironments = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8000/api/mce-environments');
+      const response = await fetch(endpoints.list);
       const data = await response.json();
 
-      if (data.success) {
-        setEnvironments(data.environments || []);
+      if (environmentType === 'minikube') {
+        // For Minikube, the response is { clusters: [...], minikube_installed: true }
+        // Convert cluster names to environment objects
+        const clusterNames = data.clusters || [];
+        const clusterEnvs = clusterNames.map(name => ({
+          clusterName: name,
+          name: name,
+          status: 'pass', // Assume running clusters are passing
+          platform: 'Minikube',
+          notes: 'Detected from minikube profile list',
+          lastAccessed: new Date().toISOString(),
+        }));
+        setEnvironments(clusterEnvs);
+      } else if (data.success) {
+        setEnvironments(data.environments || data.clusters || []);
       }
     } catch (error) {
-      console.error('Error fetching MCE environments:', error);
+      console.error(`Error fetching ${environmentType} environments:`, error);
     } finally {
       setLoading(false);
     }
@@ -95,7 +166,7 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/mce-environments/stats/summary');
+      const response = await fetch(endpoints.stats);
       const data = await response.json();
 
       if (data.success) {
@@ -139,11 +210,11 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
 
   const selectEnvironment = async (clusterName) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/mce-environments/${clusterName}`);
+      const response = await fetch(endpoints.get(clusterName));
       const data = await response.json();
 
       if (data.success) {
-        setSelectedEnv(data.environment);
+        setSelectedEnv(data.environment || data.cluster);
       }
     } catch (error) {
       console.error('Error fetching environment details:', error);
@@ -153,7 +224,7 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
   const updateStatus = async (clusterName, status, notes) => {
     try {
       const response = await fetch(
-        `http://localhost:8000/api/mce-environments/${clusterName}/status`,
+        endpoints.updateStatus(clusterName),
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -186,16 +257,27 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
 
   const handleUseCredentials = async () => {
     if (selectedEnv && onUseCredentials) {
-      // Extract API URL from console URL
-      const apiUrl = `https://api.${selectedEnv.consoleUrl.split('apps.')[1].replace(/\/$/, '')}:6443`;
+      let credentials;
+
+      if (environmentType === 'minikube') {
+        // For Minikube clusters, use the cluster name directly
+        credentials = {
+          clusterName: selectedEnv.clusterName || selectedEnv.name,
+          minikubeCluster: selectedEnv.clusterName || selectedEnv.name,
+        };
+      } else {
+        // For MCE/OpenShift clusters, extract API URL from console URL
+        const apiUrl = `https://api.${selectedEnv.consoleUrl.split('apps.')[1].replace(/\/$/, '')}:6443`;
+        credentials = {
+          OCP_HUB_API_URL: apiUrl,
+          OCP_HUB_CLUSTER_USER: 'kubeadmin',
+          OCP_HUB_CLUSTER_PASSWORD: selectedEnv.password,
+          clusterName: selectedEnv.clusterName,
+        };
+      }
 
       // Call the parent handler and wait for it to complete
-      await onUseCredentials({
-        OCP_HUB_API_URL: apiUrl,
-        OCP_HUB_CLUSTER_USER: 'kubeadmin',
-        OCP_HUB_CLUSTER_PASSWORD: selectedEnv.password,
-        clusterName: selectedEnv.clusterName,
-      });
+      await onUseCredentials(credentials);
 
       // Return to the environments list after saving
       setSelectedEnv(null);
@@ -204,37 +286,104 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
 
   const handleAddEnvironment = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/mce-environments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newEnv),
-      });
+      if (environmentType === 'minikube') {
+        // For Minikube, create an actual cluster
+        console.log('Creating Minikube cluster:', newEnv.clusterName);
+        console.log('Installation method:', newEnv.installMethod);
 
-      const data = await response.json();
-
-      if (data.success) {
-        // Reset form
-        setNewEnv({
-          clusterName: '',
-          platform: '',
-          ocpVersion: '',
-          consoleUrl: '',
-          username: '',
-          password: '',
-          jira: '',
-          polarion: '',
-          notes: '',
+        const response = await fetch('http://localhost:8000/api/minikube/create-cluster', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cluster_name: newEnv.clusterName,
+            install_method: newEnv.installMethod,
+          }),
         });
-        setShowAddModal(false);
-        // Refresh environments
-        await fetchEnvironments();
-        await fetchStats();
+
+        console.log('Response status:', response.status);
+        console.log('Response ok:', response.ok);
+
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        console.log('Content-Type:', contentType);
+
+        if (!contentType || !contentType.includes('application/json')) {
+          const text = await response.text();
+          console.error('Non-JSON response:', text);
+          throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}`);
+        }
+
+        const data = await response.json();
+        console.log('Response data:', data);
+
+        if (data.success) {
+          alert(`✅ Cluster '${newEnv.clusterName}' created successfully!\n\n${data.message || ''}`);
+          // Reset form
+          setNewEnv({
+            clusterName: '',
+            platform: '',
+            ocpVersion: '',
+            consoleUrl: '',
+            username: '',
+            password: '',
+            jira: '',
+            polarion: '',
+            notes: '',
+            installMethod: 'clusterctl',
+          });
+          setShowAddModal(false);
+          // Refresh environments
+          await fetchEnvironments();
+        } else {
+          // Backend returned success: false with error details
+          const errorMsg = data.message || data.error || 'Unknown error';
+          const suggestion = data.suggestion ? `\n\nSuggestion: ${data.suggestion}` : '';
+          console.error('Backend error:', errorMsg);
+          alert(`❌ Failed to create cluster: ${errorMsg}${suggestion}`);
+        }
       } else {
-        alert(`Failed to add environment: ${data.message || 'Unknown error'}`);
+        // For MCE, store environment metadata
+        const response = await fetch(endpoints.create, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newEnv),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          // Reset form
+          setNewEnv({
+            clusterName: '',
+            platform: '',
+            ocpVersion: '',
+            consoleUrl: '',
+            username: '',
+            password: '',
+            jira: '',
+            polarion: '',
+            notes: '',
+            installMethod: 'clusterctl',
+          });
+          setShowAddModal(false);
+          // Refresh environments
+          await fetchEnvironments();
+          await fetchStats();
+        } else {
+          alert(`Failed to add environment: ${data.message || 'Unknown error'}`);
+        }
       }
     } catch (error) {
-      console.error('Error adding environment:', error);
-      alert(`Failed to add environment: ${error.message}`);
+      console.error('Error adding environment (caught exception):', error);
+      console.error('Error stack:', error.stack);
+
+      // Provide more helpful error messages
+      let errorMsg = error.message || error.toString();
+      if (error.message && error.message.includes('Failed to fetch')) {
+        errorMsg = 'Cannot connect to backend server. Make sure the backend is running on http://localhost:8000';
+      }
+
+      alert(`❌ Error: ${errorMsg}`);
     }
   };
 
@@ -253,6 +402,7 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
   };
 
   const StatusBadge = ({ status }) => {
+    const STATUS_CONFIG = getStatusConfig(theme);
     const config = STATUS_CONFIG[status];
 
     // Don't render badge if status is not in our config
@@ -273,12 +423,12 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
   return (
     <div className="space-y-6">
       {/* Title */}
-      <h2 className="text-2xl font-bold text-blue-900">
-        {selectedEnv ? 'MCE Test Environment' : 'MCE Test Environments'}
+      <h2 className={`text-2xl font-bold ${colors.title}`}>
+        {selectedEnv ? titleSingular : title}
         {selectedEnv && (
           <>
             <span className="text-gray-400 mx-2">›</span>
-            <span className="text-cyan-600">{selectedEnv.clusterName}</span>
+            <span className={colors.primary}>{selectedEnv.clusterName}</span>
           </>
         )}
       </h2>
@@ -296,7 +446,7 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border rounded focus:ring-2 focus:border-transparent"
-              style={{ borderColor: '#2684FF' }}
+              style={{ borderColor: colors.inputBorder }}
             />
           </div>
 
@@ -316,9 +466,9 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
               fetchStats();
             }}
             className="flex items-center gap-2 px-4 py-2 text-white rounded transition-colors"
-            style={{ backgroundColor: '#2684FF' }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0065FF')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2684FF')}
+            style={{ backgroundColor: colors.buttonBg }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.buttonBgHover)}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = colors.buttonBg)}
           >
             <ArrowPathIcon className="w-5 h-5" />
             Refresh
@@ -328,9 +478,9 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
           <button
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-2 px-4 py-2 text-white rounded transition-colors"
-            style={{ backgroundColor: '#2684FF' }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0065FF')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2684FF')}
+            style={{ backgroundColor: colors.buttonBg }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.buttonBgHover)}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = colors.buttonBg)}
           >
             <PlusIcon className="w-5 h-5" />
             Add
@@ -373,97 +523,124 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
         {/* Add Environment Form - Inline */}
         {showAddModal && (
           <div className="pt-4 border-t mt-4">
-            <h3 className="text-lg font-semibold text-green-700 mb-4">Add New Environment</h3>
+            <h3 className="text-lg font-semibold text-green-700 mb-4">
+              {environmentType === 'minikube' ? 'Add New Minikube Cluster' : 'Add New Environment'}
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Cluster Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Cluster Name
+                  Cluster Name *
                 </label>
                 <input
                   type="text"
                   value={newEnv.clusterName}
                   onChange={(e) => setNewEnv({ ...newEnv, clusterName: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                  placeholder="e.g., cqu-2135-zup"
+                  placeholder={environmentType === 'minikube' ? 'e.g., minikube' : 'e.g., cqu-2135-zup'}
                 />
               </div>
 
-              {/* Platform */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Platform
-                </label>
-                <select
-                  value={newEnv.platform}
-                  onChange={(e) => setNewEnv({ ...newEnv, platform: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                >
-                  <option value="">Select platform...</option>
-                  <option value="AWS">AWS x86</option>
-                  <option value="AWS-ARM">AWS ARM</option>
-                  <option value="IBM Power">IBM Power</option>
-                  <option value="IBM Z">IBM Z</option>
-                  <option value="Azure">Azure</option>
-                  <option value="GCP">GCP</option>
-                </select>
-              </div>
+              {/* Installation Method - Only for Minikube */}
+              {environmentType === 'minikube' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Installation Method *
+                  </label>
+                  <select
+                    value={newEnv.installMethod}
+                    onChange={(e) => setNewEnv({ ...newEnv, installMethod: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="clusterctl">⚡ clusterctl (Official CLI)</option>
+                    <option value="helm">📦 Helm (GitOps Friendly)</option>
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Method used to configure CAPI/CAPA on this cluster
+                  </p>
+                </div>
+              )}
 
-              {/* OCP Version */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  OCP Version
-                </label>
-                <input
-                  type="text"
-                  value={newEnv.ocpVersion}
-                  onChange={(e) => setNewEnv({ ...newEnv, ocpVersion: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                  placeholder="e.g., 4.19.21"
-                />
-              </div>
+              {/* MCE-specific fields - Only show for MCE environment type */}
+              {environmentType === 'mce' && (
+                <>
+                  {/* Platform */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Platform
+                    </label>
+                    <select
+                      value={newEnv.platform}
+                      onChange={(e) => setNewEnv({ ...newEnv, platform: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                    >
+                      <option value="">Select platform...</option>
+                      <option value="AWS">AWS x86</option>
+                      <option value="AWS-ARM">AWS ARM</option>
+                      <option value="IBM Power">IBM Power</option>
+                      <option value="IBM Z">IBM Z</option>
+                      <option value="Azure">Azure</option>
+                      <option value="GCP">GCP</option>
+                    </select>
+                  </div>
 
-              {/* Console URL */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Console URL *
-                </label>
-                <input
-                  type="text"
-                  value={newEnv.consoleUrl}
-                  onChange={(e) => setNewEnv({ ...newEnv, consoleUrl: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                  placeholder="https://console-openshift-console.apps..."
-                />
-              </div>
+                  {/* OCP Version */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      OCP Version
+                    </label>
+                    <input
+                      type="text"
+                      value={newEnv.ocpVersion}
+                      onChange={(e) => setNewEnv({ ...newEnv, ocpVersion: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                      placeholder="e.g., 4.19.21"
+                    />
+                  </div>
 
-              {/* Username */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Username *
-                </label>
-                <input
-                  type="text"
-                  value={newEnv.username}
-                  onChange={(e) => setNewEnv({ ...newEnv, username: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                  placeholder="kubeadmin"
-                />
-              </div>
+                  {/* Console URL */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Console URL *
+                    </label>
+                    <input
+                      type="text"
+                      value={newEnv.consoleUrl}
+                      onChange={(e) => setNewEnv({ ...newEnv, consoleUrl: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                      placeholder="https://console-openshift-console.apps..."
+                    />
+                  </div>
 
-              {/* Password */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Password *
-                </label>
-                <input
-                  type="password"
-                  value={newEnv.password}
-                  onChange={(e) => setNewEnv({ ...newEnv, password: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                  placeholder="kubeadmin password"
-                />
-              </div>
+                  {/* Username */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Username *
+                    </label>
+                    <input
+                      type="text"
+                      value={newEnv.username}
+                      onChange={(e) => setNewEnv({ ...newEnv, username: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                      placeholder="kubeadmin"
+                    />
+                  </div>
+
+                  {/* Password */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Password *
+                    </label>
+                    <input
+                      type="password"
+                      value={newEnv.password}
+                      onChange={(e) => setNewEnv({ ...newEnv, password: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                      placeholder="kubeadmin password"
+                    />
+                  </div>
+                </>
+              )}
 
               {/* Jira */}
               <div>
@@ -503,7 +680,7 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
                   onChange={(e) => setNewEnv({ ...newEnv, notes: e.target.value })}
                   rows={2}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                  placeholder="Any additional notes about this environment..."
+                  placeholder="Any additional notes about this cluster..."
                 />
               </div>
             </div>
@@ -518,13 +695,31 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
               </button>
               <button
                 onClick={handleAddEnvironment}
-                disabled={!newEnv.consoleUrl || !newEnv.username || !newEnv.password}
-                className="px-4 py-2 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                style={newEnv.consoleUrl && newEnv.username && newEnv.password ? { backgroundColor: '#2684FF' } : {}}
-                onMouseEnter={(e) => newEnv.consoleUrl && newEnv.username && newEnv.password && (e.currentTarget.style.backgroundColor = '#0065FF')}
-                onMouseLeave={(e) => newEnv.consoleUrl && newEnv.username && newEnv.password && (e.currentTarget.style.backgroundColor = '#2684FF')}
+                disabled={
+                  environmentType === 'minikube'
+                    ? !newEnv.clusterName
+                    : (!newEnv.consoleUrl || !newEnv.username || !newEnv.password)
+                }
+                className="px-4 py-2 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400"
+                style={
+                  {
+                    backgroundColor: (environmentType === 'minikube'
+                      ? newEnv.clusterName
+                      : (newEnv.consoleUrl && newEnv.username && newEnv.password))
+                        ? colors.buttonBg
+                        : '#9CA3AF' // gray-400 for disabled state
+                  }
+                }
+                onMouseEnter={(e) =>
+                  (environmentType === 'minikube' ? newEnv.clusterName : (newEnv.consoleUrl && newEnv.username && newEnv.password)) &&
+                  (e.currentTarget.style.backgroundColor = colors.buttonBgHover)
+                }
+                onMouseLeave={(e) =>
+                  (environmentType === 'minikube' ? newEnv.clusterName : (newEnv.consoleUrl && newEnv.username && newEnv.password)) &&
+                  (e.currentTarget.style.backgroundColor = colors.buttonBg)
+                }
               >
-                Add Environment
+                {environmentType === 'minikube' ? 'Add Cluster' : 'Add Environment'}
               </button>
             </div>
           </div>
@@ -551,13 +746,13 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
               {filteredEnvironments.map((env) => (
                 <div
                   key={env.clusterName}
-                  className="py-2 px-6 hover:bg-blue-50 transition-colors"
+                  className={`py-2 px-6 ${colors.buttonHover} transition-colors`}
                 >
                   {/* Cluster Name and Status - Jenkins style */}
                   <div className="flex items-center gap-3 mb-1">
                     <button
                       onClick={() => selectEnvironment(env.clusterName)}
-                      className="text-blue-600 hover:text-blue-800 font-medium text-base hover:underline"
+                      className={`${colors.primary} ${colors.primaryHover} font-medium text-base hover:underline`}
                     >
                       {env.clusterName}
                     </button>
@@ -618,7 +813,7 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
               {/* Back Button */}
               <button
                 onClick={() => setSelectedEnv(null)}
-                className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium mb-4"
+                className={`flex items-center gap-2 ${colors.primary} ${colors.primaryHover} font-medium mb-4`}
               >
                 ← Back to Environments
               </button>
@@ -630,9 +825,9 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
                     <button
                       onClick={handleUseCredentials}
                       className="flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded transition-colors"
-                      style={{ backgroundColor: '#2684FF' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0065FF')}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2684FF')}
+                      style={{ backgroundColor: colors.buttonBg }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.buttonBgHover)}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = colors.buttonBg)}
                     >
                       <KeyIcon className="w-4 h-4" />
                       Use These Credentials
@@ -664,7 +859,7 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
                       <span className="text-gray-600 font-medium text-sm">Login Command</span>
                       <button
                         onClick={() => copyLoginCommand(selectedEnv.loginCommand)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 hover:border-cyan-500 text-gray-700 text-xs rounded-md transition-all"
+                        className={`flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 ${colors.primaryBorder} text-gray-700 text-xs rounded-md transition-all`}
                       >
                         <ClipboardDocumentIcon className="w-3.5 h-3.5" />
                         {copiedCommand ? 'Copied!' : 'Copy'}
@@ -687,6 +882,10 @@ const MCEEnvironmentSelector = ({ onUseCredentials }) => {
 
 MCEEnvironmentSelector.propTypes = {
   onUseCredentials: PropTypes.func,
+  title: PropTypes.string,
+  titleSingular: PropTypes.string,
+  theme: PropTypes.oneOf(['mce', 'minikube']),
+  environmentType: PropTypes.oneOf(['mce', 'minikube']),
 };
 
 export default MCEEnvironmentSelector;

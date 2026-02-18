@@ -3,7 +3,20 @@ import PropTypes from 'prop-types';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { buildApiUrl, API_ENDPOINTS } from '../config/api';
 
-export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceInfo, inline = false }) {
+export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceInfo, inline = false, theme = 'mce' }) {
+  // Theme colors
+  const themeColors = {
+    mce: {
+      buttonBg: '#2684FF',
+      buttonBgHover: '#0065FF'
+    },
+    minikube: {
+      buttonBg: '#8B5CF6',
+      buttonBgHover: '#7C3AED'
+    }
+  };
+  const colors = themeColors[theme];
+
   // Capture initial MCE info when modal opens to prevent mid-form changes
   const initialMceInfoRef = useRef(null);
   const hasSetInitialMceInfo = useRef(false);
@@ -899,9 +912,9 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
                         type="button"
                         onClick={loadLogForwardingConfig}
                         className="mt-2 px-3 py-1.5 text-white text-sm rounded transition-colors font-medium"
-                        style={{ backgroundColor: '#2684FF' }}
-                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0065FF')}
-                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2684FF')}
+                        style={{ backgroundColor: colors.buttonBg }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.buttonBgHover)}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = colors.buttonBg)}
                       >
                         📋 Load Configuration
                       </button>
@@ -1138,9 +1151,9 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
             <button
               type="submit"
               className="flex-1 px-4 py-2 text-white rounded transition-colors font-medium"
-              style={{ backgroundColor: '#2684FF' }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0065FF')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2684FF')}
+              style={{ backgroundColor: colors.buttonBg }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.buttonBgHover)}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = colors.buttonBg)}
             >
               Preview & Provision
             </button>

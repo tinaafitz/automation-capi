@@ -8,6 +8,7 @@ import { ClusterDetails } from './pages/ClusterDetails';
 import { Diagnostics } from './pages/Diagnostics';
 import { GuidedSetup } from './pages/GuidedSetup';
 import CAPADashboard from './pages/CAPADashboard';
+import MinikubeDashboard from './pages/MinikubeDashboard';
 
 function App() {
   return (
@@ -17,7 +18,8 @@ function App() {
           <Route path="/" element={<WhatCanIHelpRefactored />} />
           <Route path="/setup" element={<GuidedSetup />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/capa-dashboard" element={<CAPADashboard />} />
+          <Route path="/mce" element={<CAPADashboard />} />
+          <Route path="/minikube" element={<MinikubeDashboard />} />
           <Route path="/diagnostics" element={<Diagnostics />} />
           <Route path="/clusters" element={<ClusterList />} />
           <Route path="/clusters/create" element={<CreateCluster />} />
