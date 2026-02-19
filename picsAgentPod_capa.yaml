@@ -36,8 +36,8 @@ spec:
         value: "http://proxy.squi-001.prod.iad2.dc.redhat.com:3128" 
       - name: HTTPS_PROXY
         value: "http://proxy.squi-001.prod.iad2.dc.redhat.com:3128"
-      # - name: NO_PROXY
-      #   value: ".cluster.local,.svc,localhost,.corp.redhat.com"
+      - name: NO_PROXY
+        value: ".cluster.local,.svc,localhost,.corp.redhat.com,.red-chesterfield.com"
     resources:
       limits:
         cpu: 2000m
