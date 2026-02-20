@@ -59,6 +59,11 @@ const RosaHcpClustersSection = ({ theme = 'mce' }) => {
   const [clustersLoading, setClustersLoading] = useState(false);
   const [clustersError, setClustersError] = useState(null);
 
+  // Deletion state
+  const [deletionResults, setDeletionResults] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [copySuccess, setCopySuccess] = useState('');
+
   // Cluster section state
   const getClusterSectionCollapsedState = () => {
     const sectionId = 'capi-rosa-hcp-clusters';
@@ -98,84 +103,167 @@ const RosaHcpClustersSection = ({ theme = 'mce' }) => {
     }
   }, []);
 
-  // Delete cluster function
+  // Copy handler for playbook output
+  const handleCopyOutput = (text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopySuccess('Copied!');
+      setTimeout(() => setCopySuccess(''), 2000);
+    }).catch(err => {
+      console.error('Failed to copy text: ', err);
+      setCopySuccess('Failed to copy');
+      setTimeout(() => setCopySuccess(''), 2000);
+    });
+  };
+
+  // Delete cluster function - runs Ansible playbook with real-time output
   const handleDeleteCluster = async (clusterName, namespace) => {
     const deleteId = `delete-cluster-${Date.now()}`;
 
     // Confirm deletion
     if (
       !window.confirm(
-        `Are you sure you want to delete cluster "${clusterName}"?\n\nThis will delete:\n- ROSAControlPlane\n- ROSANetwork (if exists)\n- ROSARoleConfig (if exists)\n- Namespace resources\n\nThis action cannot be undone.`
+        `Are you sure you want to delete cluster "${clusterName}"?\n\nThis will delete:\n- ROSAControlPlane\n- ROSANetwork (if exists)\n- ROSARoleConfig (if exists)\n- AWS resources\n\nThis action cannot be undone.`
       )
     ) {
       return;
     }
 
+    // Clear previous results and set loading state
+    setDeletionResults(null);
+    setIsDeleting(true);
+
     try {
       console.log(`🗑️ Deleting cluster: ${clusterName} in namespace: ${namespace}`);
 
-      // IMMEDIATELY show "Deleting..." in Task Summary for instant feedback (BEFORE the API call!)
+      // Immediately show "Starting..." state
+      setDeletionResults({
+        success: true,
+        timestamp: new Date().toISOString(),
+        clusterName,
+        output: `🚀 Starting deletion for ${clusterName}...\n\nInitializing ROSA HCP cluster deletion...\nCluster: ${clusterName}\nNamespace: ${namespace}\n\nConnecting to backend...`,
+      });
+
+      // Add to recent operations
       addToRecent({
         id: deleteId,
-        title: `🗑️ Delete Cluster: ${clusterName}`,
+        title: `🗑️ Delete ROSA HCP Cluster: ${clusterName}`,
         color: 'bg-red-600',
         status: '🚀 Starting deletion...',
         environment: 'mce',
-        output: `Initiating deletion of ROSA HCP cluster "${clusterName}" from namespace "${namespace}"...\n\nSubmitting delete request to backend...\n\nThis will remove:\n- ROSAControlPlane\n- ROSANetwork\n- ROSARoleConfig\n- AWS resources`,
+        playbook: 'playbooks/delete_rosa_hcp_cluster.yml',
+        output: `Initializing ROSA HCP cluster deletion...\nCluster: ${clusterName}\nNamespace: ${namespace}\n\nConnecting to backend...`,
       });
 
-      const apiUrl = buildApiUrl(`/api/rosa/clusters/${clusterName}`);
-      console.log(`🌐 DELETE URL: ${apiUrl}`);
-      console.log(`📦 Request body:`, { namespace });
-      console.log(`⏳ About to send DELETE request...`);
-
-      // Call DELETE API
-      const response = await fetch(apiUrl, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ namespace }),
+      // Call Ansible playbook endpoint
+      const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_PLAYBOOK), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playbook: 'playbooks/delete_rosa_hcp_cluster.yml',
+          description: `Delete ROSA HCP Cluster: ${clusterName}`,
+          extra_vars: {
+            cluster_name: clusterName,
+            capi_namespace: namespace || 'ns-rosa-hcp',
+          },
+        }),
       });
-
-      console.log(`✅ Fetch completed, status: ${response.status}`);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
 
       const result = await response.json();
+      console.log('📊 Delete API response:', result);
 
-      if (result.success) {
-        const completionTime = new Date().toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true,
-        });
-
-        updateRecentOperationStatus(
-          deleteId,
-          `✅ Cluster Delete Initiated at ${completionTime}`,
-          `ROSA HCP Cluster Deletion Initiated\n\n✅ Delete request submitted for cluster "${clusterName}"\n⏳ Cluster resources are being removed\n⏳ AWS resources cleanup in progress\n\nDeletion initiated at ${completionTime}\n\nNote: The cluster deletion process will continue in the background. Refresh the cluster list to see updated status.`
-        );
-
-        // Refresh cluster list
-        await fetchClusters();
-      } else {
-        throw new Error(result.message || 'Failed to delete cluster');
+      if (!result.success || !result.job_id) {
+        throw new Error(result.message || 'Failed to start deletion');
       }
-    } catch (error) {
-      console.error(`❌ Failed to delete cluster ${clusterName}:`, error);
-      console.error(`❌ Error type: ${error.constructor.name}`);
-      console.error(`❌ Error message: ${error.message}`);
-      console.error(`❌ Full error:`, error);
 
-      updateRecentOperationStatus(
-        deleteId,
-        `❌ Cluster deletion failed: ${error.message}`,
-        `Failed to delete ROSA HCP cluster "${clusterName}"\n\nError: ${error.message}\n\nPlease check cluster resources and try again.`
-      );
+      const jobId = result.job_id;
+      console.log(`🔍 Polling job status for job_id: ${jobId}`);
+
+      // Poll for job completion
+      const pollJobStatus = async () => {
+        const maxAttempts = 1800; // 30 minutes max (deletion can take a while)
+        let attempts = 0;
+
+        while (attempts < maxAttempts) {
+          attempts++;
+          console.log(`📡 Polling attempt ${attempts}/${maxAttempts}`);
+
+          const jobResponse = await fetch(buildApiUrl(`/api/jobs/${jobId}`));
+          const jobData = await jobResponse.json();
+          console.log(`📋 Job status:`, jobData);
+
+          // Fetch logs regardless of status to show real-time output
+          const logsResponse = await fetch(buildApiUrl(`/api/jobs/${jobId}/logs`));
+          const logsData = await logsResponse.json();
+          const currentOutput = logsData.logs ? logsData.logs.join('\n') : '';
+
+          if (jobData.status === 'completed') {
+            // Success - update with final logs
+            const output = currentOutput || 'Deletion completed successfully';
+
+            updateRecentOperationStatus(deleteId, '✅ Cluster deleted successfully!', output);
+            const successResults = {
+              success: true,
+              timestamp: new Date().toISOString(),
+              clusterName,
+              output,
+            };
+            console.log('✅ Setting deletion results (success):', successResults);
+            setDeletionResults(successResults);
+            setIsDeleting(false);
+
+            // Refresh cluster list
+            await fetchClusters();
+            return;
+          } else if (jobData.status === 'failed') {
+            // Failure - update with error logs
+            const output = currentOutput || (jobData.error || jobData.message || 'Deletion failed');
+
+            updateRecentOperationStatus(deleteId, '❌ Deletion failed', output);
+            const failureResults = {
+              success: false,
+              timestamp: new Date().toISOString(),
+              clusterName,
+              output,
+            };
+            console.log('❌ Setting deletion results (failure):', failureResults);
+            setDeletionResults(failureResults);
+            setIsDeleting(false);
+            return;
+          }
+
+          // Still running - update with current logs every 5 seconds
+          if (attempts % 5 === 0 && currentOutput) {
+            updateRecentOperationStatus(deleteId, '🗑️ Deleting...', currentOutput);
+            // Also update the inline display
+            setDeletionResults({
+              success: true,
+              timestamp: new Date().toISOString(),
+              clusterName,
+              output: currentOutput,
+            });
+          }
+
+          // Wait and poll again
+          await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
+        }
+
+        // Timeout
+        throw new Error('Deletion timed out after 30 minutes');
+      };
+
+      await pollJobStatus();
+
+    } catch (error) {
+      console.error('Deletion error:', error);
+      const errorMsg = extractSafeErrorMessage(error);
+      updateRecentOperationStatus(deleteId, '❌ Deletion error', errorMsg);
+      setDeletionResults({
+        success: false,
+        timestamp: new Date().toISOString(),
+        clusterName,
+        output: errorMsg,
+      });
+      setIsDeleting(false);
     }
   };
 
@@ -300,6 +388,43 @@ const RosaHcpClustersSection = ({ theme = 'mce' }) => {
           </div>
         )}
       </div>
+
+      {/* Deletion Results Display - Inline Playbook Output */}
+      {deletionResults && (
+        <div className={`mt-6 rounded-lg border-2 p-6 ${deletionResults.success ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}`}>
+          <div className="flex items-center gap-3 mb-4">
+            {deletionResults.success ? (
+              <span className="text-2xl">✅</span>
+            ) : (
+              <span className="text-xl">❌</span>
+            )}
+            <h3 className="text-lg font-semibold text-gray-900">
+              {isDeleting ? `Deleting ${deletionResults.clusterName}...` : deletionResults.success ? 'Deletion Completed' : 'Deletion Failed'}
+            </h3>
+          </div>
+
+          {/* Output Display */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-medium text-gray-700">Playbook Output:</h4>
+              <button
+                onClick={() => handleCopyOutput(deletionResults.output || 'No output available')}
+                className="px-3 py-1 text-white rounded text-xs font-medium transition-colors"
+                style={{ backgroundColor: '#2684FF' }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0065FF')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2684FF')}
+              >
+                {copySuccess || '📋 Copy'}
+              </button>
+            </div>
+            <div className="bg-gray-900 text-gray-100 rounded p-4 max-h-96 overflow-y-auto font-mono text-sm">
+              <pre className="whitespace-pre-wrap">
+                {deletionResults.output || 'No output available'}
+              </pre>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
