@@ -4547,9 +4547,29 @@ def run_playbook_background(playbook: str, extra_vars: dict, job_id: str, descri
             "-v",  # Verbose output
         ]
 
-        # Add extra vars if provided
+        # Add extra vars if provided (convert camelCase to snake_case for Ansible)
+        def camel_to_snake(name):
+            """Convert camelCase to snake_case with special case handling"""
+            import re
+
+            # Special case mappings for compound words that should stay together
+            special_cases = {
+                'openShift': 'openshift',
+                'OpenShift': 'openshift',
+            }
+
+            # Replace special cases first
+            for camel, snake in special_cases.items():
+                if camel in name:
+                    name = name.replace(camel, snake)
+
+            # Standard camelCase to snake_case conversion
+            s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+            return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+
         for key, value in extra_vars.items():
-            cmd.extend(["-e", f"{key}={value}"])
+            snake_key = camel_to_snake(key)
+            cmd.extend(["-e", f"{snake_key}={value}"])
 
         print(f"Running ansible playbook: {' '.join(cmd)}")
         jobs[job_id]["progress"] = 30
@@ -4665,6 +4685,7 @@ async def run_ansible_playbook_endpoint(request: dict, background_tasks: Backgro
         )
 
         return {
+            "success": True,
             "job_id": job_id,
             "status": "pending",
             "message": f"Playbook {playbook} queued for execution",

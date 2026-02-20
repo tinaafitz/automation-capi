@@ -92,7 +92,6 @@
     - name: Set default role config settings
       set_fact:
         create_rosa_role_config: true
-        role_prefix: ""
       when: create_rosa_role_config is not defined
 
     - name: Set default domain prefix
@@ -100,20 +99,22 @@
         domain_prefix: "test-{{ 99999 | random }}"
       when: domain_prefix is not defined
 
-    - name: Set default region and channel
+    - name: Set default aws_region
       set_fact:
         aws_region: "{{ AWS_REGION | default('us-west-2') }}"
-        channel_group: "stable"
-        private_network: false
-        additional_tags:
-          automation-type: "capa_automation"
       when: aws_region is not defined
+
+    - name: Set default channel and network settings
+      set_fact:
+        channel_group: "{{ channel_group | default('stable') }}"
+        private_network: "{{ private_network | default(false) }}"
+        additional_tags: "{{ additional_tags | default({'automation-type': 'capa_automation'}) }}"
 
     - name: Set derived values
       set_fact:
         network_cidr: "{{ vpc_cidr_block }}"
         create_rosa_roles: "{{ create_rosa_role_config }}"
-        rosa_role_prefix: "{{ role_prefix | default(domain_prefix) }}"
+        rosa_role_prefix: "{{ role_prefix if (role_prefix is defined and role_prefix != '') else domain_prefix }}"
         rosa_role_config_name: "{{ cluster_name }}-roles"
         rosa_network_name: "{{ cluster_name }}-network"
 
@@ -123,9 +124,6 @@
 
     - name: Login to OCP cluster
       include_tasks: ../tasks/login_ocp.yml
-
-    - name: Configure MCE CAPI/CAPA Environment
-      include_tasks: ../tasks/configure-capa-environment.yml
 
     - name: Display automation configuration
       debug:

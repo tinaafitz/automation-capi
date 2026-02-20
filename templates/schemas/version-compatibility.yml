@@ -3,17 +3,18 @@
 # Supported OpenShift versions
 supported_versions:
   - "4.18"
-  - "4.19" 
+  - "4.19"
   - "4.20"
+  - "4.21"
 
 # Default version if none specified
-default_version: "4.19"
+default_version: "4.21"
 
 # Version validation rules
 validation_rules:
   version_format: "^4\\.(1[8-9]|2[0-9])$"
   min_supported: "4.18"
-  max_supported: "4.20"
+  max_supported: "4.21"
   
 # Template path patterns
 template_paths:
@@ -38,6 +39,12 @@ feature_availability:
   enhanced_security:
     min_version: "4.20"
     max_version: null
+  advanced_observability:
+    min_version: "4.21"
+    max_version: null
+  rosa_hcp_improvements:
+    min_version: "4.21"
+    max_version: null
   basic_networking:
     min_version: "4.18"
     max_version: "4.19"
@@ -60,13 +67,21 @@ resource_requirements:
     min_vcpu: 8
     min_memory: "16Gi"
     min_storage: "200Gi"
+  "4.21":
+    min_nodes: 3
+    min_vcpu: 8
+    min_memory: "16Gi"
+    min_storage: "200Gi"
 
 # Deprecation warnings
 deprecation_warnings:
   "4.18":
-    - "OpenShift 4.18 will reach end of support in 6 months"
-    - "Consider upgrading to 4.19 for latest features"
+    - "OpenShift 4.18 support ends April 2027"
+    - "Consider upgrading to 4.20+ for latest features"
   "4.19":
-    - "Some legacy features deprecated in favor of 4.20 equivalents"
+    - "Some legacy features deprecated in favor of 4.20+ equivalents"
   "4.20":
-    - "Preview version - use with caution in production"
+    - "Stable release - production ready"
+  "4.21":
+    - "Latest stable release - default version"
+    - "End of life: June 2027"

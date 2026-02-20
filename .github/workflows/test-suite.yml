@@ -77,7 +77,18 @@ jobs:
           pip install ansible==${{ env.ANSIBLE_VERSION }}
           pip install jinja2 pyyaml
 
+      - name: Check if AWS credentials are available
+        id: check-aws-creds
+        run: |
+          if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then
+            echo "AWS credentials not configured, skipping tests"
+            echo "has-creds=false" >> $GITHUB_OUTPUT
+          else
+            echo "has-creds=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Configure AWS credentials
+        if: steps.check-aws-creds.outputs.has-creds == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -85,6 +96,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Run basic test suite
+        if: steps.check-aws-creds.outputs.has-creds == 'true'
         run: |
           chmod +x run-test-suite.py
           ./run-test-suite.py 02-basic-rosa-hcp-cluster-creation --format json
@@ -94,6 +106,12 @@ jobs:
           OCP_HUB_CLUSTER_PASSWORD: ${{ secrets.OCP_HUB_CLUSTER_PASSWORD }}
           OCM_CLIENT_ID: ${{ secrets.OCM_CLIENT_ID }}
           OCM_CLIENT_SECRET: ${{ secrets.OCM_CLIENT_SECRET }}
+
+      - name: Skip notification
+        if: steps.check-aws-creds.outputs.has-creds == 'false'
+        run: |
+          echo "⚠️ Skipping Basic ROSA HCP Tests - AWS credentials not configured in repository secrets"
+          echo "To enable these tests, add AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY to repository secrets"
 
       - name: Upload test results
         if: always()
@@ -124,7 +142,18 @@ jobs:
           pip install ansible==${{ env.ANSIBLE_VERSION }}
           pip install jinja2 pyyaml
 
+      - name: Check if AWS credentials are available
+        id: check-aws-creds
+        run: |
+          if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then
+            echo "AWS credentials not configured, skipping tests"
+            echo "has-creds=false" >> $GITHUB_OUTPUT
+          else
+            echo "has-creds=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Configure AWS credentials
+        if: steps.check-aws-creds.outputs.has-creds == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -132,6 +161,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Run all test suites
+        if: steps.check-aws-creds.outputs.has-creds == 'true'
         run: make ci-test
         env:
           OCP_HUB_API_URL: ${{ secrets.OCP_HUB_API_URL }}
@@ -139,6 +169,12 @@ jobs:
           OCP_HUB_CLUSTER_PASSWORD: ${{ secrets.OCP_HUB_CLUSTER_PASSWORD }}
           OCM_CLIENT_ID: ${{ secrets.OCM_CLIENT_ID }}
           OCM_CLIENT_SECRET: ${{ secrets.OCM_CLIENT_SECRET }}
+
+      - name: Skip notification
+        if: steps.check-aws-creds.outputs.has-creds == 'false'
+        run: |
+          echo "⚠️ Skipping Full Test Suite - AWS credentials not configured in repository secrets"
+          echo "To enable these tests, add AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY to repository secrets"
 
       - name: Upload test results
         if: always()
@@ -194,7 +230,18 @@ jobs:
           pip install ansible==${{ env.ANSIBLE_VERSION }}
           pip install jinja2 pyyaml
 
+      - name: Check if AWS credentials are available
+        id: check-aws-creds
+        run: |
+          if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then
+            echo "AWS credentials not configured, skipping tests"
+            echo "has-creds=false" >> $GITHUB_OUTPUT
+          else
+            echo "has-creds=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Configure AWS credentials
+        if: steps.check-aws-creds.outputs.has-creds == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -202,6 +249,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Run specified tests
+        if: steps.check-aws-creds.outputs.has-creds == 'true'
         run: |
           chmod +x run-test-suite.py
           if [ "${{ github.event.inputs.tags }}" != "" ]; then
@@ -217,6 +265,12 @@ jobs:
           OCP_HUB_CLUSTER_PASSWORD: ${{ secrets.OCP_HUB_CLUSTER_PASSWORD }}
           OCM_CLIENT_ID: ${{ secrets.OCM_CLIENT_ID }}
           OCM_CLIENT_SECRET: ${{ secrets.OCM_CLIENT_SECRET }}
+
+      - name: Skip notification
+        if: steps.check-aws-creds.outputs.has-creds == 'false'
+        run: |
+          echo "⚠️ Skipping Manual Test Execution - AWS credentials not configured in repository secrets"
+          echo "To enable these tests, add AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY to repository secrets"
 
       - name: Upload test results
         if: always()

@@ -39,11 +39,14 @@
      ocp_password == 'your-password' or
      ocp_password == '')
 
-- name: Attempt OCP login with {{ ocp_user }}
+- name: Attempt OCP login with {{ ocp_user }} (with retries)
   shell: |
     oc --insecure-skip-tls-verify login -u {{ ocp_user }} -p {{ ocp_password }} -s {{ api_url }}
   register: ocp_login_result
-  failed_when: false
+  until: ocp_login_result.rc == 0
+  retries: 3
+  delay: 10
+  ignore_errors: true
   changed_when: ocp_login_result.rc == 0
 
 - name: Check for authentication failure (401 Unauthorized)

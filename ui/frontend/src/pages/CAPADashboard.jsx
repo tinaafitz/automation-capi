@@ -499,9 +499,11 @@ const CAPADashboardContent = () => {
   const [credentialsRefreshKey, setCredentialsRefreshKey] = useState(0);
   const [verificationResults, setVerificationResults] = useState(null);
   const [configurationResults, setConfigurationResults] = useState(null);
+  const [provisionResults, setProvisionResults] = useState(null);
   const [mceLastConfigured, setMceLastConfigured] = useState(null);
   const [isConfiguring, setIsConfiguring] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isProvisioning, setIsProvisioning] = useState(false);
 
   const {
     ocpStatus,
@@ -515,6 +517,14 @@ const CAPADashboardContent = () => {
   } = apiStatus;
 
   const { addToRecent, updateRecentOperationStatus } = recentOps;
+
+  // Clear provision results when navigating to provision section
+  useEffect(() => {
+    if (activeSection === 'provision') {
+      setProvisionResults(null);
+      setProvisionViewMode('form');
+    }
+  }, [activeSection]);
 
   // Copy handler for playbook output
   const [copySuccess, setCopySuccess] = useState('');
@@ -866,7 +876,10 @@ const CAPADashboardContent = () => {
     onComponentsClick: () => setActiveSection('components'),
     onVerifyClick: () => setActiveSection('verify'),
     onConfigureClick: () => setActiveSection('configure'),
-    onProvisionClick: () => setActiveSection('provision'),
+    onProvisionClick: () => {
+      setProvisionResults(null); // Clear previous provision results
+      setActiveSection('provision');
+    },
     onRosaHcpClustersClick: () => setActiveSection('rosa-hcp-clusters'),
     onResourcesClick: () => setActiveSection('resources'),
     onEnvironmentsClick: () => setActiveSection('environments'),
@@ -1165,27 +1178,28 @@ const CAPADashboardContent = () => {
               )}
             </div>
 
-            {/* Toggle between Form and YAML Editor */}
-            {provisionViewMode === 'form' ? (
-              /* Provision Form - Inline */
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <RosaProvisionModal
+            {/* Toggle between Form and YAML Editor - Only show if no provision results */}
+            {!provisionResults && (
+              provisionViewMode === 'form' ? (
+                /* Provision Form - Inline */
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <RosaProvisionModal
+                    isOpen={true}
+                    inline={true}
+                    onClose={() => {}} // No close action needed for inline form
+                    onSubmit={handleProvisionSubmit}
+                    mceInfo={mceInfo}
+                  />
+                </div>
+              ) : (
+                /* YAML Editor - Inline */
+                <YamlEditorModal
                   isOpen={true}
                   inline={true}
-                  onClose={() => {}} // No close action needed for inline form
-                  onSubmit={handleProvisionSubmit}
-                  mceInfo={mceInfo}
-                />
-              </div>
-            ) : (
-              /* YAML Editor - Inline */
-              <YamlEditorModal
-                isOpen={true}
-                inline={true}
-                onClose={() => setProvisionViewMode('form')}
-                yamlData={yamlEditorData}
-                readOnly={false}
-                onProvision={async (editedYaml) => {
+                  onClose={() => setProvisionViewMode('form')}
+                  yamlData={yamlEditorData}
+                  readOnly={false}
+                  onProvision={async (editedYaml) => {
                   // Get the original config from yamlEditorData
                   const config = yamlEditorData?.config;
                   if (!config) {
@@ -1196,13 +1210,22 @@ const CAPADashboardContent = () => {
                   const provisionId = `provision-rosa-${Date.now()}`;
 
                   try {
+                    setIsProvisioning(true);
+
+                    // Immediately show "Starting..." state to avoid blank form flash
+                    setProvisionResults({
+                      success: true,
+                      timestamp: new Date().toISOString(),
+                      output: `🚀 Starting provisioning for ${config.clusterName}...\n\nInitializing ROSA HCP cluster provisioning...\nCluster: ${config.clusterName}\nVersion: ${config.openShiftVersion}\nRegion: ${config.awsRegion}\n\nConnecting to backend...`,
+                    });
+
                     addToRecent({
                       id: provisionId,
                       title: `🚀 Provision ROSA HCP: ${config.clusterName}`,
                       color: 'bg-green-600',
                       status: '🚀 Starting provisioning...',
                       environment: 'mce',
-                      playbook: 'playbooks/provision_rosa_hcp.yml',
+                      playbook: 'playbooks/create_rosa_hcp_cluster.yml',
                       output: `Initializing ROSA HCP cluster provisioning...\\nCluster: ${config.clusterName}\\nVersion: ${config.openShiftVersion}\\nRegion: ${config.awsRegion}`,
                     });
 
@@ -1210,28 +1233,150 @@ const CAPADashboardContent = () => {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
-                        playbook_name: 'playbooks/provision_rosa_hcp.yml',
+                        playbook: 'playbooks/create_rosa_hcp_cluster.yml',
+                        description: `Provision ROSA HCP: ${config.clusterName}`,
                         extra_vars: config,
                         yaml_override: editedYaml,
                       }),
                     });
 
                     const result = await response.json();
+                    console.log('📊 Provision API response:', result);
 
-                    if (result.success || result.job_id) {
-                      updateRecentOperationStatus(provisionId, '✅ Provisioning job started!', 'Ansible playbook is running...');
-                      setProvisionViewMode('form'); // Go back to form after starting provision
-                      await refreshAllStatus();
-                    } else {
-                      updateRecentOperationStatus(provisionId, '❌ Provisioning failed', result.output || result.error || result.message);
+                    if (!result.success || !result.job_id) {
+                      throw new Error(result.message || 'Failed to start provisioning');
                     }
+
+                    const jobId = result.job_id;
+                    console.log(`🔍 Polling job status for job_id: ${jobId}`);
+
+                    // Close YAML editor immediately
+                    setProvisionViewMode('form');
+
+                    // Poll for job completion
+                    const pollJobStatus = async () => {
+                      const maxAttempts = 1800; // 1800 attempts = 30 minutes max (provisioning can take a while)
+                      let attempts = 0;
+
+                      while (attempts < maxAttempts) {
+                        attempts++;
+                        console.log(`📡 Polling attempt ${attempts}/${maxAttempts}`);
+
+                        const jobResponse = await fetch(buildApiUrl(`/api/jobs/${jobId}`));
+                        const jobData = await jobResponse.json();
+                        console.log(`📋 Job status:`, jobData);
+
+                        // Fetch logs regardless of status to show real-time output
+                        const logsResponse = await fetch(buildApiUrl(`/api/jobs/${jobId}/logs`));
+                        const logsData = await logsResponse.json();
+                        const currentOutput = logsData.logs ? logsData.logs.join('\n') : '';
+
+                        if (jobData.status === 'completed') {
+                          // Success - update with final logs
+                          const output = currentOutput || 'Provisioning completed successfully';
+
+                          updateRecentOperationStatus(provisionId, '✅ ROSA HCP cluster provisioned successfully!', output);
+                          const successResults = {
+                            success: true,
+                            timestamp: new Date().toISOString(),
+                            output,
+                          };
+                          console.log('✅ Setting provision results (success):', successResults);
+                          setProvisionResults(successResults);
+                          setIsProvisioning(false);
+                          await refreshAllStatus();
+                          return;
+                        } else if (jobData.status === 'failed') {
+                          // Failure - update with error logs
+                          const output = currentOutput || (jobData.error || jobData.message || 'Provisioning failed');
+
+                          updateRecentOperationStatus(provisionId, '❌ Provisioning failed', output);
+                          const failureResults = {
+                            success: false,
+                            timestamp: new Date().toISOString(),
+                            output,
+                          };
+                          console.log('❌ Setting provision results (failure):', failureResults);
+                          setProvisionResults(failureResults);
+                          setIsProvisioning(false);
+                          return;
+                        }
+
+                        // Still running - update with current logs every 5 seconds
+                        if (attempts % 5 === 0 && currentOutput) {
+                          updateRecentOperationStatus(provisionId, '🚀 Provisioning...', currentOutput);
+                          // Also update the inline display
+                          setProvisionResults({
+                            success: true,
+                            timestamp: new Date().toISOString(),
+                            output: currentOutput,
+                          });
+                        }
+
+                        // Wait and poll again
+                        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
+                      }
+
+                      // Timeout
+                      throw new Error('Provisioning timed out after 30 minutes');
+                    };
+
+                    await pollJobStatus();
 
                   } catch (error) {
                     console.error('Provisioning error:', error);
-                    updateRecentOperationStatus(provisionId, '❌ Provisioning error', extractSafeErrorMessage(error));
+                    const errorMsg = extractSafeErrorMessage(error);
+                    updateRecentOperationStatus(provisionId, '❌ Provisioning error', errorMsg);
+                    setProvisionResults({
+                      success: false,
+                      timestamp: new Date().toISOString(),
+                      output: errorMsg,
+                    });
+                    // Close YAML editor and show error output
+                    setProvisionViewMode('form');
+                  } finally {
+                    setIsProvisioning(false);
                   }
                 }}
               />
+            )
+            )}
+
+            {/* Provision Results Display - Inline Playbook Output */}
+            {provisionResults && (
+              <div className={`mt-6 rounded-lg border-2 p-6 ${provisionResults.success ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}`}>
+                <div className="flex items-center gap-3 mb-4">
+                  {provisionResults.success ? (
+                    <span className="text-2xl">✅</span>
+                  ) : (
+                    <span className="text-xl">❌</span>
+                  )}
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {provisionResults.success ? 'Provisioning Started' : 'Provisioning Failed'}
+                  </h3>
+                </div>
+
+                {/* Output Display */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-medium text-gray-700">Playbook Output:</h4>
+                    <button
+                      onClick={() => handleCopyOutput(provisionResults.output || 'No output available')}
+                      className="px-3 py-1 text-white rounded text-xs font-medium transition-colors"
+                      style={{ backgroundColor: '#2684FF' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0065FF')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2684FF')}
+                    >
+                      {copySuccess || '📋 Copy'}
+                    </button>
+                  </div>
+                  <div className="bg-gray-900 text-gray-100 rounded p-4 max-h-96 overflow-y-auto font-mono text-sm">
+                    <pre className="whitespace-pre-wrap">
+                      {provisionResults.output || 'No output available'}
+                    </pre>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         );
@@ -1501,13 +1646,22 @@ const CAPADashboardContent = () => {
           const provisionId = `provision-rosa-${Date.now()}`;
 
           try {
+            setIsProvisioning(true);
+
+            // Immediately show "Starting..." state to avoid blank form flash
+            setProvisionResults({
+              success: true,
+              timestamp: new Date().toISOString(),
+              output: `🚀 Starting provisioning for ${config.clusterName}...\n\nInitializing ROSA HCP cluster provisioning...\nCluster: ${config.clusterName}\nVersion: ${config.openShiftVersion}\nRegion: ${config.awsRegion}\n\nConnecting to backend...`,
+            });
+
             addToRecent({
               id: provisionId,
               title: `🚀 Provision ROSA HCP: ${config.clusterName}`,
               color: 'bg-green-600',
               status: '🚀 Starting provisioning...',
               environment: 'mce',
-              playbook: 'playbooks/provision_rosa_hcp.yml',
+              playbook: 'playbooks/create_rosa_hcp_cluster.yml',
               output: `Initializing ROSA HCP cluster provisioning...\nCluster: ${config.clusterName}\nVersion: ${config.openShiftVersion}\nRegion: ${config.awsRegion}`,
             });
 
@@ -1515,24 +1669,104 @@ const CAPADashboardContent = () => {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                playbook_name: 'playbooks/provision_rosa_hcp.yml',
+                playbook: 'playbooks/create_rosa_hcp_cluster.yml',
+                description: `Provision ROSA HCP: ${config.clusterName}`,
                 extra_vars: config,
                 yaml_override: editedYaml, // Use edited YAML if user modified it
               }),
             });
 
             const result = await response.json();
+            console.log('📊 Provision API response:', result);
 
-            if (result.success || result.job_id) {
-              updateRecentOperationStatus(provisionId, '✅ Provisioning job started!', 'Ansible playbook is running...');
-              await refreshAllStatus();
-            } else {
-              updateRecentOperationStatus(provisionId, '❌ Provisioning failed', result.output || result.error || result.message);
+            if (!result.success || !result.job_id) {
+              throw new Error(result.message || 'Failed to start provisioning');
             }
+
+            const jobId = result.job_id;
+            console.log(`🔍 Polling job status for job_id: ${jobId}`);
+
+            // Poll for job completion
+            const pollJobStatus = async () => {
+              const maxAttempts = 1800; // 1800 attempts = 30 minutes max
+              let attempts = 0;
+
+              while (attempts < maxAttempts) {
+                attempts++;
+                console.log(`📡 Polling attempt ${attempts}/${maxAttempts}`);
+
+                const jobResponse = await fetch(buildApiUrl(`/api/jobs/${jobId}`));
+                const jobData = await jobResponse.json();
+                console.log(`📋 Job status:`, jobData);
+
+                // Fetch logs regardless of status to show real-time output
+                const logsResponse = await fetch(buildApiUrl(`/api/jobs/${jobId}/logs`));
+                const logsData = await logsResponse.json();
+                const currentOutput = logsData.logs ? logsData.logs.join('\n') : '';
+
+                if (jobData.status === 'completed') {
+                  // Success - update with final logs
+                  const output = currentOutput || 'Provisioning completed successfully';
+
+                  updateRecentOperationStatus(provisionId, '✅ ROSA HCP cluster provisioned successfully!', output);
+                  const successResults = {
+                    success: true,
+                    timestamp: new Date().toISOString(),
+                    output,
+                  };
+                  console.log('✅ Setting provision results (success):', successResults);
+                  setProvisionResults(successResults);
+                  setIsProvisioning(false);
+                  await refreshAllStatus();
+                  return;
+                } else if (jobData.status === 'failed') {
+                  // Failure - update with error logs
+                  const output = currentOutput || (jobData.error || jobData.message || 'Provisioning failed');
+
+                  updateRecentOperationStatus(provisionId, '❌ Provisioning failed', output);
+                  const failureResults = {
+                    success: false,
+                    timestamp: new Date().toISOString(),
+                    output,
+                  };
+                  console.log('❌ Setting provision results (failure):', failureResults);
+                  setProvisionResults(failureResults);
+                  setIsProvisioning(false);
+                  return;
+                }
+
+                // Still running - update with current logs every 5 seconds
+                if (attempts % 5 === 0 && currentOutput) {
+                  updateRecentOperationStatus(provisionId, '🚀 Provisioning...', currentOutput);
+                  // Also update the inline display
+                  setProvisionResults({
+                    success: true,
+                    timestamp: new Date().toISOString(),
+                    output: currentOutput,
+                  });
+                }
+
+                // Wait and poll again
+                await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
+              }
+
+              // Timeout
+              throw new Error('Provisioning timed out after 30 minutes');
+            };
+
+            await pollJobStatus();
 
           } catch (error) {
             console.error('Provisioning error:', error);
-            updateRecentOperationStatus(provisionId, '❌ Provisioning error', extractSafeErrorMessage(error));
+            const errorMsg = extractSafeErrorMessage(error);
+            updateRecentOperationStatus(provisionId, '❌ Provisioning error', errorMsg);
+            setProvisionResults({
+              success: false,
+              timestamp: new Date().toISOString(),
+              output: errorMsg,
+            });
+          } finally {
+            setIsProvisioning(false);
           }
         }}
       />
