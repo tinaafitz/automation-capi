@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { XMarkIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, EyeIcon, EyeSlashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { buildApiUrl } from '../../config/api';
 import PropTypes from 'prop-types';
 
@@ -145,10 +145,24 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave, inline = fal
                 {/* OpenShift Hub Cluster Credentials - Always shown for MCE */}
                 {theme === 'mce' && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                      <span>🎯</span>
-                      OpenShift Hub Cluster
-                    </h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                        <span>🎯</span>
+                        OpenShift Hub Cluster
+                      </h3>
+                      <button
+                        onClick={fetchCredentials}
+                        disabled={loading}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm text-white rounded transition-colors disabled:opacity-50"
+                        style={!loading ? { backgroundColor: '#2684FF' } : {}}
+                        onMouseEnter={(e) => !loading && (e.currentTarget.style.backgroundColor = '#0065FF')}
+                        onMouseLeave={(e) => !loading && (e.currentTarget.style.backgroundColor = '#2684FF')}
+                        title="Refresh credentials from server"
+                      >
+                        <ArrowPathIcon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                        Refresh
+                      </button>
+                    </div>
 
                     <div className="space-y-4">
                       <div>
@@ -218,10 +232,24 @@ const CredentialsModal = ({ isOpen, onClose, theme = 'mce', onSave, inline = fal
                 {/* AWS Credentials Section - Hidden for MCE */}
                 {theme !== 'mce' && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                      <span>☁️</span>
-                      AWS Credentials
-                    </h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                        <span>☁️</span>
+                        AWS Credentials
+                      </h3>
+                      <button
+                        onClick={fetchCredentials}
+                        disabled={loading}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm text-white rounded transition-colors disabled:opacity-50"
+                        style={!loading ? { backgroundColor: '#8B5CF6' } : {}}
+                        onMouseEnter={(e) => !loading && (e.currentTarget.style.backgroundColor = '#7C3AED')}
+                        onMouseLeave={(e) => !loading && (e.currentTarget.style.backgroundColor = '#8B5CF6')}
+                        title="Refresh credentials from server"
+                      >
+                        <ArrowPathIcon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                        Refresh
+                      </button>
+                    </div>
 
                     <div className="space-y-4">
                       <div>

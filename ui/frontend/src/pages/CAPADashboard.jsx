@@ -504,6 +504,7 @@ const CAPADashboardContent = () => {
   const [isConfiguring, setIsConfiguring] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isProvisioning, setIsProvisioning] = useState(false);
+  const [isCheckingProvisionJob, setIsCheckingProvisionJob] = useState(false);
 
   const {
     ocpStatus,
@@ -518,13 +519,126 @@ const CAPADashboardContent = () => {
 
   const { addToRecent, updateRecentOperationStatus } = recentOps;
 
-  // Clear provision results when navigating to provision section
+  // Check for running provision jobs when navigating to provision section
   useEffect(() => {
     if (activeSection === 'provision') {
-      setProvisionResults(null);
-      setProvisionViewMode('form');
+      checkForRunningProvisionJob();
     }
   }, [activeSection]);
+
+  // Function to check for running provision jobs and restore their output
+  const checkForRunningProvisionJob = async () => {
+    setIsCheckingProvisionJob(true);
+    try {
+      const response = await fetch(buildApiUrl('/api/jobs'));
+      const data = await response.json();
+
+      if (data.success && data.jobs) {
+        // Find the most recent running provision job
+        const runningProvisionJob = data.jobs.find(
+          (job) =>
+            job.status === 'running' &&
+            job.description &&
+            job.description.includes('Provision ROSA HCP')
+        );
+
+        if (runningProvisionJob) {
+          console.log('📦 Found running provision job:', runningProvisionJob.id);
+
+          // Fetch current logs
+          const logsResponse = await fetch(buildApiUrl(`/api/jobs/${runningProvisionJob.id}/logs`));
+          const logsData = await logsResponse.json();
+          const currentOutput = logsData.logs ? logsData.logs.join('\n') : '';
+
+          // Set provision results to show the running job
+          setProvisionResults({
+            success: true,
+            timestamp: new Date().toISOString(),
+            output: currentOutput || 'Provisioning in progress...',
+          });
+          setIsProvisioning(true);
+
+          // Continue polling this job
+          pollProvisionJob(runningProvisionJob.id);
+        } else {
+          // No running job, clear results and show form
+          setProvisionResults(null);
+          setProvisionViewMode('form');
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for running provision jobs:', error);
+      setProvisionResults(null);
+      setProvisionViewMode('form');
+    } finally {
+      setIsCheckingProvisionJob(false);
+    }
+  };
+
+  // Function to poll a provision job and update results
+  const pollProvisionJob = async (jobId) => {
+    const maxAttempts = 1800; // 30 minutes max
+    let attempts = 0;
+
+    const poll = async () => {
+      if (attempts >= maxAttempts) {
+        console.log('⏱️ Max polling attempts reached');
+        setIsProvisioning(false);
+        return;
+      }
+
+      attempts++;
+
+      try {
+        const jobResponse = await fetch(buildApiUrl(`/api/jobs/${jobId}`));
+        const jobData = await jobResponse.json();
+
+        // Fetch logs
+        const logsResponse = await fetch(buildApiUrl(`/api/jobs/${jobId}/logs`));
+        const logsData = await logsResponse.json();
+        const currentOutput = logsData.logs ? logsData.logs.join('\n') : '';
+
+        // Update provision results every 5 seconds with current output
+        if (attempts % 5 === 0 && currentOutput) {
+          setProvisionResults({
+            success: jobData.status !== 'failed',
+            timestamp: new Date().toISOString(),
+            output: currentOutput,
+          });
+        }
+
+        if (jobData.status === 'completed') {
+          console.log('✅ Provision job completed');
+          setProvisionResults({
+            success: true,
+            timestamp: new Date().toISOString(),
+            output: currentOutput || 'Provisioning completed successfully',
+          });
+          setIsProvisioning(false);
+          return;
+        } else if (jobData.status === 'failed') {
+          console.log('❌ Provision job failed');
+          setProvisionResults({
+            success: false,
+            timestamp: new Date().toISOString(),
+            output: currentOutput || 'Provisioning failed',
+          });
+          setIsProvisioning(false);
+          return;
+        }
+
+        // Continue polling if still running
+        if (jobData.status === 'running') {
+          setTimeout(poll, 1000); // Poll every 1 second
+        }
+      } catch (error) {
+        console.error('Error polling provision job:', error);
+        setIsProvisioning(false);
+      }
+    };
+
+    poll();
+  };
 
   // Copy handler for playbook output
   const [copySuccess, setCopySuccess] = useState('');
@@ -1178,20 +1292,29 @@ const CAPADashboardContent = () => {
               )}
             </div>
 
-            {/* Toggle between Form and YAML Editor - Only show if no provision results */}
-            {!provisionResults && (
-              provisionViewMode === 'form' ? (
-                /* Provision Form - Inline */
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <RosaProvisionModal
-                    isOpen={true}
-                    inline={true}
-                    onClose={() => {}} // No close action needed for inline form
-                    onSubmit={handleProvisionSubmit}
-                    mceInfo={mceInfo}
-                  />
+            {/* Loading indicator while checking for running jobs */}
+            {isCheckingProvisionJob ? (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="text-center py-12">
+                  <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600"></div>
+                  <p className="mt-4 text-gray-600">Checking for running provision jobs...</p>
                 </div>
-              ) : (
+              </div>
+            ) : (
+              /* Toggle between Form and YAML Editor - Only show if no provision results */
+              !provisionResults && (
+                provisionViewMode === 'form' ? (
+                  /* Provision Form - Inline */
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <RosaProvisionModal
+                      isOpen={true}
+                      inline={true}
+                      onClose={() => {}} // No close action needed for inline form
+                      onSubmit={handleProvisionSubmit}
+                      mceInfo={mceInfo}
+                    />
+                  </div>
+                ) : (
                 /* YAML Editor - Inline */
                 <YamlEditorModal
                   isOpen={true}
@@ -1340,6 +1463,7 @@ const CAPADashboardContent = () => {
                 }}
               />
             )
+              )
             )}
 
             {/* Provision Results Display - Inline Playbook Output */}

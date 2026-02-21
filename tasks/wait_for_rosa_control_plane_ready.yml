@@ -4,7 +4,7 @@
   until: rcp_status.stdout | bool
   retries: "{{ 75 if retry_count is undefined else retry_count|int }}"
   delay: "{{ 30 if delay is undefined else delay|int }}"
-  ignore_errors: true
+  failed_when: false
 
 - name: Display wait timeout warning if cluster not ready
   debug:
