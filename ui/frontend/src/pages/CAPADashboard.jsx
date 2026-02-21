@@ -526,6 +526,20 @@ const CAPADashboardContent = () => {
     }
   }, [activeSection]);
 
+  // Check for running configure jobs when navigating to configure section
+  useEffect(() => {
+    if (activeSection === 'configure') {
+      checkForRunningConfigureJob();
+    }
+  }, [activeSection]);
+
+  // Check for running verify jobs when navigating to verify section
+  useEffect(() => {
+    if (activeSection === 'verify') {
+      checkForRunningVerifyJob();
+    }
+  }, [activeSection]);
+
   // Function to check for running provision jobs and restore their output
   const checkForRunningProvisionJob = async () => {
     setIsCheckingProvisionJob(true);
@@ -634,6 +648,233 @@ const CAPADashboardContent = () => {
       } catch (error) {
         console.error('Error polling provision job:', error);
         setIsProvisioning(false);
+      }
+    };
+
+    poll();
+  };
+
+  // Function to check for running configure jobs and restore their output
+  const checkForRunningConfigureJob = async () => {
+    setIsConfiguring(true);
+    try {
+      const response = await fetch(buildApiUrl('/api/jobs'));
+      const data = await response.json();
+
+      if (data.success && data.jobs) {
+        // Find the most recent running configure job
+        const runningConfigureJob = data.jobs.find(
+          (job) =>
+            job.status === 'running' &&
+            job.description &&
+            job.description.includes('Configure MCE CAPI/CAPA')
+        );
+
+        if (runningConfigureJob) {
+          console.log('⚙️ Found running configure job:', runningConfigureJob.id);
+
+          // Fetch current logs
+          const logsResponse = await fetch(buildApiUrl(`/api/jobs/${runningConfigureJob.id}/logs`));
+          const logsData = await logsResponse.json();
+          const currentOutput = logsData.logs ? logsData.logs.join('\\n') : '';
+
+          // Set configuration results to show the running job
+          setConfigurationResults({
+            success: true,
+            timestamp: new Date().toISOString(),
+            output: currentOutput || 'Configuration in progress...',
+          });
+
+          // Continue polling this job
+          pollConfigureJob(runningConfigureJob.id);
+        } else {
+          // No running job, clear results
+          setConfigurationResults(null);
+          setIsConfiguring(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for running configure jobs:', error);
+      setConfigurationResults(null);
+      setIsConfiguring(false);
+    }
+  };
+
+  // Function to poll a configure job and update results
+  const pollConfigureJob = async (jobId) => {
+    const maxAttempts = 900; // 15 minutes max
+    let attempts = 0;
+
+    const poll = async () => {
+      if (attempts >= maxAttempts) {
+        console.log('⏱️ Max polling attempts reached for configure job');
+        setIsConfiguring(false);
+        return;
+      }
+
+      attempts++;
+
+      try {
+        const jobResponse = await fetch(buildApiUrl(`/api/jobs/${jobId}`));
+        const jobData = await jobResponse.json();
+
+        // Fetch logs
+        const logsResponse = await fetch(buildApiUrl(`/api/jobs/${jobId}/logs`));
+        const logsData = await logsResponse.json();
+        const currentOutput = logsData.logs ? logsData.logs.join('\\n') : '';
+
+        // Update configuration results every 5 seconds with current output
+        if (attempts % 5 === 0 && currentOutput) {
+          setConfigurationResults({
+            success: jobData.status !== 'failed',
+            timestamp: new Date().toISOString(),
+            output: currentOutput,
+          });
+        }
+
+        if (jobData.status === 'completed') {
+          console.log('✅ Configure job completed');
+          setConfigurationResults({
+            success: true,
+            timestamp: new Date().toISOString(),
+            output: currentOutput || 'Configuration completed successfully',
+          });
+          setIsConfiguring(false);
+          setMceLastConfigured(new Date().toISOString());
+          await refreshAllStatus();
+          return;
+        } else if (jobData.status === 'failed') {
+          console.log('❌ Configure job failed');
+          setConfigurationResults({
+            success: false,
+            timestamp: new Date().toISOString(),
+            output: currentOutput || 'Configuration failed',
+          });
+          setIsConfiguring(false);
+          return;
+        }
+
+        // Continue polling if still running
+        if (jobData.status === 'running') {
+          setTimeout(poll, 1000); // Poll every 1 second
+        }
+      } catch (error) {
+        console.error('Error polling configure job:', error);
+        setIsConfiguring(false);
+      }
+    };
+
+    poll();
+  };
+
+  // Function to check for running verify jobs and restore their output
+  const checkForRunningVerifyJob = async () => {
+    setIsVerifying(true);
+    try {
+      const response = await fetch(buildApiUrl('/api/jobs'));
+      const data = await response.json();
+
+      if (data.success && data.jobs) {
+        // Find the most recent running verify job
+        const runningVerifyJob = data.jobs.find(
+          (job) =>
+            job.status === 'running' &&
+            job.description &&
+            job.description.includes('MCE Environment Verification')
+        );
+
+        if (runningVerifyJob) {
+          console.log('🔍 Found running verify job:', runningVerifyJob.id);
+
+          // Fetch current logs
+          const logsResponse = await fetch(buildApiUrl(`/api/jobs/${runningVerifyJob.id}/logs`));
+          const logsData = await logsResponse.json();
+          const currentOutput = logsData.logs ? logsData.logs.join('\\n') : '';
+
+          // Set verification results to show the running job
+          setVerificationResults({
+            success: true,
+            timestamp: new Date().toISOString(),
+            output: currentOutput || 'Verification in progress...',
+          });
+
+          // Continue polling this job
+          pollVerifyJob(runningVerifyJob.id);
+        } else {
+          // No running job, clear results
+          setVerificationResults(null);
+          setIsVerifying(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for running verify jobs:', error);
+      setVerificationResults(null);
+      setIsVerifying(false);
+    }
+  };
+
+  // Function to poll a verify job and update results
+  const pollVerifyJob = async (jobId) => {
+    const maxAttempts = 60; // 60 seconds max for verification
+    let attempts = 0;
+
+    const poll = async () => {
+      if (attempts >= maxAttempts) {
+        console.log('⏱️ Max polling attempts reached for verify job');
+        setIsVerifying(false);
+        return;
+      }
+
+      attempts++;
+
+      try {
+        const jobResponse = await fetch(buildApiUrl(`/api/jobs/${jobId}`));
+        const jobData = await jobResponse.json();
+
+        // Fetch logs
+        const logsResponse = await fetch(buildApiUrl(`/api/jobs/${jobId}/logs`));
+        const logsData = await logsResponse.json();
+        const currentOutput = logsData.logs ? logsData.logs.join('\\n') : '';
+
+        // Update verification results every 3 seconds with current output
+        if (attempts % 3 === 0 && currentOutput) {
+          setVerificationResults({
+            success: jobData.status !== 'failed',
+            timestamp: new Date().toISOString(),
+            output: currentOutput,
+          });
+        }
+
+        if (jobData.status === 'completed') {
+          console.log('✅ Verify job completed');
+          setVerificationResults({
+            success: true,
+            timestamp: new Date().toISOString(),
+            output: currentOutput || 'Verification completed successfully',
+          });
+          setIsVerifying(false);
+          setMceLastVerified(new Date().toISOString());
+          await refreshAllStatus();
+          setCredentialsRefreshKey(prev => prev + 1);
+          return;
+        } else if (jobData.status === 'failed') {
+          console.log('❌ Verify job failed');
+          setVerificationResults({
+            success: false,
+            timestamp: new Date().toISOString(),
+            output: currentOutput || 'Verification failed',
+          });
+          setIsVerifying(false);
+          return;
+        }
+
+        // Continue polling if still running
+        if (jobData.status === 'running') {
+          setTimeout(poll, 1000); // Poll every 1 second
+        }
+      } catch (error) {
+        console.error('Error polling verify job:', error);
+        setIsVerifying(false);
       }
     };
 
@@ -752,6 +993,12 @@ const CAPADashboardContent = () => {
           // Still running - update with current logs every 3 seconds
           if (attempts % 3 === 0 && currentOutput) {
             updateRecentOperationStatus(verifyId, '🔍 Verifying...', currentOutput);
+            // Also update the inline display with real-time output
+            setVerificationResults({
+              success: true,
+              timestamp: new Date().toISOString(),
+              output: currentOutput,
+            });
           }
 
           // Wait and poll again
@@ -880,6 +1127,12 @@ const CAPADashboardContent = () => {
           // Still running - update with current logs every 5 seconds
           if (attempts % 5 === 0 && currentOutput) {
             updateRecentOperationStatus(configureId, '🚀 Configuring...', currentOutput);
+            // Also update the inline display with real-time output
+            setConfigurationResults({
+              success: true,
+              timestamp: new Date().toISOString(),
+              output: currentOutput,
+            });
           }
 
           // Wait and poll again
