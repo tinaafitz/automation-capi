@@ -5,7 +5,7 @@
   until: requested_version in rcp_version.stdout
   retries: "{{ 100 if retry_count is undefined else retry_count|int }}"
   delay: "{{ 30 if delay is undefined else delay|int }}"
-  ignore_errors: true
+  failed_when: false
 
 #  until: '"ready" | string in rcp_status.stdout'
 
