@@ -8,6 +8,7 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   DocumentTextIcon,
+  DocumentDuplicateIcon,
 } from '@heroicons/react/24/outline';
 
 export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOnly = false, inline = false }) {
@@ -16,6 +17,7 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
   const [validationError, setValidationError] = useState(null);
   const [showDiff, setShowDiff] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
   const textareaRef = useRef(null);
 
   // Initialize YAML content when modal opens
@@ -102,6 +104,17 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  // Copy YAML to clipboard
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(editedYaml);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy YAML:', err);
+    }
   };
 
   // Generate simple diff view
@@ -203,6 +216,18 @@ export function YamlEditorModal({ isOpen, onClose, onProvision, yamlData, readOn
             >
               <ArrowDownTrayIcon className="h-4 w-4" />
               Download
+            </button>
+            <button
+              onClick={handleCopy}
+              className={`flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg transition-colors text-sm font-medium ${
+                copySuccess
+                  ? 'bg-green-50 text-green-700 border-green-300'
+                  : 'text-gray-700 hover:bg-gray-50'
+              }`}
+              title="Copy YAML to clipboard"
+            >
+              <DocumentDuplicateIcon className="h-4 w-4" />
+              {copySuccess ? 'Copied!' : 'Copy'}
             </button>
             <button
               onClick={handleReset}

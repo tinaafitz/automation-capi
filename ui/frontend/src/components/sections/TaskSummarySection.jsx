@@ -291,9 +291,12 @@ const TaskSummarySection = ({ theme = 'mce', environment }) => {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  clearRecentOperations();
+                  if (window.confirm(`Are you sure you want to clear all ${filteredOperations.length} task(s)? This cannot be undone.`)) {
+                    clearRecentOperations();
+                  }
                 }}
                 className="bg-red-500/30 hover:bg-red-500/50 text-white px-3 py-1.5 rounded-lg transition-colors duration-200 flex items-center space-x-1 text-sm font-medium"
+                title="Clear all tasks from history"
               >
                 <TrashIcon className="h-4 w-4" />
                 <span>Clear</span>

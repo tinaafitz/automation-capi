@@ -14,6 +14,7 @@ import { RosaProvisionModal } from '../components/RosaProvisionModal';
 import TestSuiteDashboard from '../components/sections/TestSuiteDashboard';
 import TestSuiteSection from '../components/sections/TestSuiteSection';
 import HelmChartTestDashboard from '../components/sections/HelmChartTestDashboard';
+import ResourcesViewer from '../components/ResourcesViewer';
 import {
   AppProvider,
   useApiStatusContext,
@@ -1326,68 +1327,68 @@ const CAPADashboardContent = () => {
 
               {/* Components Lists - Side by Side */}
               <div className="grid grid-cols-2 gap-4">
+                {/* CAPI/CAPA Components List */}
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">CAPI/CAPA</h3>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {(() => {
+                      const capiComponents = mceFeatures
+                        .filter(component =>
+                          component.name === 'cluster-api' ||
+                          component.name?.startsWith('cluster-api-provider-')
+                        )
+                        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+                      return capiComponents.length === 0 ? (
+                        <div className="text-center py-8 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg">
+                          <p className="text-sm text-gray-600">No CAPI components configured</p>
+                        </div>
+                      ) : (
+                        capiComponents.map((component, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between py-1 px-2 text-xs hover:bg-gray-50"
+                          >
+                            <span className="truncate">{component.name}</span>
+                            <span className={`ml-2 ${component.enabled ? 'text-green-600' : 'text-red-600'}`}>
+                              {component.enabled ? '✓' : '✕'}
+                            </span>
+                          </div>
+                        ))
+                      );
+                    })()}
+                  </div>
+                </div>
+
                 {/* Hypershift Components List */}
                 <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">Hypershift</h3>
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {(() => {
-                    const hypershiftComponents = mceFeatures
-                      .filter(component => component.name?.includes('hypershift'))
-                      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Hypershift</h3>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {(() => {
+                      const hypershiftComponents = mceFeatures
+                        .filter(component => component.name?.includes('hypershift'))
+                        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
-                    return hypershiftComponents.length === 0 ? (
-                      <div className="text-center py-8 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg">
-                        <p className="text-sm text-gray-600">No Hypershift components configured</p>
-                      </div>
-                    ) : (
-                      hypershiftComponents.map((component, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between py-1 px-2 text-xs hover:bg-gray-50"
-                        >
-                          <span className="truncate">{component.name}</span>
-                          <span className={`ml-2 ${component.enabled ? 'text-green-600' : 'text-red-600'}`}>
-                            {component.enabled ? '✓' : '✕'}
-                          </span>
+                      return hypershiftComponents.length === 0 ? (
+                        <div className="text-center py-8 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg">
+                          <p className="text-sm text-gray-600">No Hypershift components configured</p>
                         </div>
-                      ))
-                    );
-                  })()}
+                      ) : (
+                        hypershiftComponents.map((component, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between py-1 px-2 text-xs hover:bg-gray-50"
+                          >
+                            <span className="truncate">{component.name}</span>
+                            <span className={`ml-2 ${component.enabled ? 'text-green-600' : 'text-red-600'}`}>
+                              {component.enabled ? '✓' : '✕'}
+                            </span>
+                          </div>
+                        ))
+                      );
+                    })()}
+                  </div>
                 </div>
-              </div>
-
-              {/* CAPI/CAPA Components List */}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">CAPI/CAPA</h3>
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {(() => {
-                    const capiComponents = mceFeatures
-                      .filter(component =>
-                        component.name === 'cluster-api' ||
-                        component.name?.startsWith('cluster-api-provider-')
-                      )
-                      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-
-                    return capiComponents.length === 0 ? (
-                      <div className="text-center py-8 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg">
-                        <p className="text-sm text-gray-600">No CAPI components configured</p>
-                      </div>
-                    ) : (
-                      capiComponents.map((component, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between py-1 px-2 text-xs hover:bg-gray-50"
-                        >
-                          <span className="truncate">{component.name}</span>
-                          <span className={`ml-2 ${component.enabled ? 'text-green-600' : 'text-red-600'}`}>
-                            {component.enabled ? '✓' : '✕'}
-                          </span>
-                        </div>
-                      ))
-                    );
-                  })()}
-                </div>
-              </div>
               </div>
             </div>
 
@@ -1767,10 +1768,9 @@ const CAPADashboardContent = () => {
             {/* Title */}
             <h2 className="text-2xl font-bold text-blue-900">Provision Resources</h2>
 
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <p className="text-gray-600 mb-4">View and manage CAPI/CAPA Kubernetes resources.</p>
-              <div className="text-sm text-gray-500">Resources section coming soon...</div>
-            </div>
+            <p className="text-gray-600 mb-4">View and manage CAPI/CAPA Kubernetes resources.</p>
+
+            <ResourcesViewer theme="mce" />
           </div>
         );
 
