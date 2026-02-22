@@ -1830,7 +1830,7 @@ const CAPADashboardContent = () => {
         );
 
       case 'test-automation':
-        return <TestSuiteSection theme="mce" />;
+        return <TestSuiteSection />;
 
       case 'helm-chart-matrix':
         return <HelmChartTestDashboard theme="mce" />;
