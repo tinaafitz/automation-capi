@@ -51,6 +51,10 @@ spec:
   ## The region should match the aws region used to create the VPC and subnets
   region: "us-west-2"
 
+  ## FIPS Mode (OpenShift 4.21+ only, requires custom CAPA image with FIPS support)
+  ## Uncomment the line below to enable FIPS-validated cryptographic libraries
+  # fips: true
+
   ## Replace the IAM account roles below with the IAM roles created in the prerequisite steps
   ## List the IAM account roles using command 'rosa list account-roles'
   installerRoleARN: "arn:aws:iam:: 12345678910:role/your-prefix-HCP-ROSA-Installer-Role"

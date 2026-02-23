@@ -69,6 +69,8 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
     logForwardCloudWatchLogGroup: '',
     logForwardS3Bucket: '',
     logForwardS3Prefix: '',
+    // FIPS configuration (4.21+ only, requires custom CAPA image with FIPS support)
+    fips: false,
   });
 
   const [logForwardingConfigAvailable, setLogForwardingConfigAvailable] = useState(null);
@@ -498,6 +500,41 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
                   Update channel for OpenShift releases. Stable is recommended for production.
                 </p>
               </div>
+
+              {/* FIPS Mode - Only show for OpenShift 4.21+ */}
+              {(() => {
+                // Parse version to check if >= 4.21
+                const versionParts = config.openShiftVersion.split('.').map(Number);
+                const majorMinor = versionParts.slice(0, 2);
+                const is421Plus = (majorMinor[0] > 4) || (majorMinor[0] === 4 && majorMinor[1] >= 21);
+
+                return is421Plus && (
+                  <div>
+                    <label className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={config.fips}
+                        onChange={(e) => handleChange('fips', e.target.checked)}
+                        className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-900">Enable FIPS Mode</span>
+                          <span className="text-xs bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full font-semibold">
+                            EXPERIMENTAL
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1">
+                          Use FIPS-validated cryptographic libraries (OpenShift 4.21+ only)
+                        </p>
+                        <p className="text-xs text-orange-600 mt-1 font-medium">
+                          ⚠️ Requires custom CAPA image with FIPS support
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                );
+              })()}
 
               {/* Private Network - Only show for Comprehensive test */}
               {testSuite?.components?.includes('Private Network') && (
@@ -1133,6 +1170,14 @@ export function RosaProvisionModal({ isOpen, onClose, onSubmit, testSuite, mceIn
                   <span className="text-gray-700">
                     Log forwarding enabled to CloudWatch
                     {config.logForwardS3Bucket && ' and S3'}
+                  </span>
+                </div>
+              )}
+              {config.fips && (
+                <div className="flex items-center gap-2">
+                  <span className="text-blue-600">✓</span>
+                  <span className="text-gray-700 font-medium">
+                    FIPS mode enabled (EXPERIMENTAL)
                   </span>
                 </div>
               )}
