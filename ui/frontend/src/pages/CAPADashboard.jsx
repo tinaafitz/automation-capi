@@ -860,11 +860,29 @@ const CAPADashboardContent = () => {
           return;
         } else if (jobData.status === 'failed') {
           console.log('❌ Verify job failed');
-          setVerificationResults({
-            success: false,
-            timestamp: new Date().toISOString(),
-            output: currentOutput || 'Verification failed',
-          });
+          const output = currentOutput || 'Verification failed';
+
+          // Check if error indicates environment needs configuration (not a real failure)
+          const needsConfiguration =
+            output.includes('Environment not configured yet') ||
+            output.includes('CAPI controller not found') ||
+            output.includes('CAPA controller not found') ||
+            output.includes('Ready to set up');
+
+          if (needsConfiguration) {
+            setVerificationResults({
+              success: null,
+              needsConfiguration: true,
+              timestamp: new Date().toISOString(),
+              output,
+            });
+          } else {
+            setVerificationResults({
+              success: false,
+              timestamp: new Date().toISOString(),
+              output,
+            });
+          }
           setIsVerifying(false);
           return;
         }
@@ -976,17 +994,38 @@ const CAPADashboardContent = () => {
             setCredentialsRefreshKey(prev => prev + 1);
             return;
           } else if (jobData.status === 'failed') {
-            // Failure - update with error logs
+            // Failure - but check if it's a configuration issue (not a real failure)
             const output = currentOutput || (jobData.error || jobData.message || 'Verification failed');
 
-            updateRecentOperationStatus(verifyId, '❌ Verification failed', output);
-            const failureResults = {
-              success: false,
-              timestamp: new Date().toISOString(),
-              output,
-            };
-            console.log('❌ Setting verification results (failure):', failureResults);
-            setVerificationResults(failureResults);
+            // Check if error indicates environment needs configuration (not a real failure)
+            const needsConfiguration =
+              output.includes('Environment not configured yet') ||
+              output.includes('CAPI controller not found') ||
+              output.includes('CAPA controller not found') ||
+              output.includes('Ready to set up');
+
+            if (needsConfiguration) {
+              // This is not a failure - environment just needs configuration
+              updateRecentOperationStatus(verifyId, '🆕 Configuration Required', output);
+              const configNeededResults = {
+                success: null, // null indicates "needs config", not success or failure
+                needsConfiguration: true,
+                timestamp: new Date().toISOString(),
+                output,
+              };
+              console.log('🆕 Setting verification results (needs configuration):', configNeededResults);
+              setVerificationResults(configNeededResults);
+            } else {
+              // This is a real failure (credentials, network, etc.)
+              updateRecentOperationStatus(verifyId, '❌ Verification failed', output);
+              const failureResults = {
+                success: false,
+                timestamp: new Date().toISOString(),
+                output,
+              };
+              console.log('❌ Setting verification results (failure):', failureResults);
+              setVerificationResults(failureResults);
+            }
             setIsVerifying(false);
             return;
           }
@@ -1398,13 +1437,19 @@ const CAPADashboardContent = () => {
               return verificationResults && (
                 <div>
                   <div className="flex items-center gap-2 mb-3">
-                    {verificationResults.success ? (
+                    {verificationResults.success === true ? (
                       <CheckCircleIcon className="h-5 w-5 text-green-600" />
+                    ) : verificationResults.needsConfiguration ? (
+                      <span className="text-xl">🆕</span>
                     ) : (
                       <span className="text-xl">❌</span>
                     )}
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {verificationResults.success ? 'Verification Passed' : 'Verification Failed'}
+                      {verificationResults.success === true
+                        ? 'Verification Passed'
+                        : verificationResults.needsConfiguration
+                          ? 'Configuration Required'
+                          : 'Verification Failed'}
                     </h3>
                   </div>
 
@@ -1822,9 +1867,127 @@ const CAPADashboardContent = () => {
         return (
           <TestSuiteDashboard
             theme="mce"
-            onSelectTestSuite={(testSuite) => {
+            onSelectTestSuite={async (testSuite) => {
               console.log('Selected test suite:', testSuite);
-              // You can add modal or navigation logic here
+
+              // Map test suite to playbook
+              const playbookMap = {
+                'ImageType Testing Suite': 'test_imagetype.yaml',
+                'Audit Log Forwarding': 'test-rosa-log-forwarding.yml',
+                // Add other test suites here
+              };
+
+              const playbookFile = playbookMap[testSuite.name];
+
+              if (!playbookFile) {
+                alert(`Test suite "${testSuite.name}" execution not yet implemented.\n\nAvailable: ImageType Testing Suite, Audit Log Forwarding`);
+                return;
+              }
+
+              // Confirm execution
+              const confirm = window.confirm(
+                `Run ${testSuite.name}?\n\n` +
+                `This will:\n` +
+                testSuite.components.map(c => `• ${c}`).join('\n') +
+                `\n\nPlaybook: ${playbookFile}\n\n` +
+                `Continue?`
+              );
+
+              if (!confirm) return;
+
+              // Execute the test playbook
+              try {
+                const testId = `test-suite-${Date.now()}`;
+
+                addToRecent({
+                  id: testId,
+                  title: `🧪 ${testSuite.name}`,
+                  color: 'bg-blue-600',
+                  status: '🚀 Starting test...',
+                  environment: 'mce',
+                  playbook: playbookFile,
+                  output: `Starting ${testSuite.name}...\n\nComponents to test:\n${testSuite.components.map(c => `  • ${c}`).join('\n')}`,
+                });
+
+                const response = await fetch(buildApiUrl(API_ENDPOINTS.ANSIBLE_RUN_PLAYBOOK), {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    playbook: playbookFile,
+                    description: testSuite.name,
+                    extra_vars: {},
+                  }),
+                });
+
+                if (!response.ok) {
+                  throw new Error(`Failed to start test: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+
+                if (!result.success || !result.job_id) {
+                  throw new Error(result.error || result.message || 'Failed to start test');
+                }
+
+                const jobId = result.job_id;
+                console.log(`🧪 Test started with job_id: ${jobId}`);
+
+                // Poll for job completion with real-time output updates
+                const pollTestJob = async () => {
+                  const maxAttempts = 3600; // 1 hour max (tests can take 45-60 min)
+                  let attempts = 0;
+
+                  while (attempts < maxAttempts) {
+                    attempts++;
+
+                    const jobResponse = await fetch(buildApiUrl(`/api/jobs/${jobId}`));
+                    const jobData = await jobResponse.json();
+
+                    // Fetch logs for real-time output
+                    const logsResponse = await fetch(buildApiUrl(`/api/jobs/${jobId}/logs`));
+                    const logsData = await logsResponse.json();
+                    const currentOutput = logsData.logs ? logsData.logs.join('\n') : '';
+
+                    if (jobData.status === 'completed') {
+                      const output = currentOutput || 'Test completed successfully';
+                      updateRecentOperationStatus(testId, `✅ ${testSuite.name} completed!`, output);
+                      alert(`✅ ${testSuite.name} completed successfully!\n\nCheck Task Summary for full details.`);
+                      return;
+                    } else if (jobData.status === 'failed') {
+                      const output = currentOutput || (jobData.error || jobData.message || 'Test failed');
+                      updateRecentOperationStatus(testId, `❌ ${testSuite.name} failed`, output);
+                      alert(`❌ ${testSuite.name} failed.\n\nCheck Task Summary for error details.`);
+                      return;
+                    }
+
+                    // Still running - update with current logs every 5 seconds
+                    if (attempts % 5 === 0 && currentOutput) {
+                      updateRecentOperationStatus(testId, `⏳ ${testSuite.name} running...`, currentOutput);
+                    }
+
+                    // Wait and poll again
+                    await new Promise((resolve) => setTimeout(resolve, 1000)); // Poll every 1 second
+                  }
+
+                  throw new Error('Test timed out after 1 hour');
+                };
+
+                // Start polling in background
+                pollTestJob().catch(error => {
+                  console.error('Test polling error:', error);
+                  updateRecentOperationStatus(testId, '❌ Test error', extractSafeErrorMessage(error));
+                });
+
+                // Show immediate feedback
+                updateRecentOperationStatus(
+                  testId,
+                  '⏳ Test running...',
+                  `Test suite started successfully!\nJob ID: ${jobId}\n\nMonitoring progress...`
+                );
+              } catch (error) {
+                console.error('Test execution error:', error);
+                alert(`❌ Failed to start test:\n\n${error.message}\n\nYou can run manually:\nansible-playbook ${playbookFile}`);
+              }
             }}
           />
         );
