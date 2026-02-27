@@ -5053,6 +5053,93 @@ async def get_current_kubectl_context():
         }
 
 
+@app.get("/api/minikube/active-profile")
+async def get_active_minikube_profile():
+    """Get information about the active minikube cluster"""
+    try:
+        # Get list of minikube profiles
+        profile_result = subprocess.run(
+            ["minikube", "profile", "list", "-o", "json"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        if profile_result.returncode != 0:
+            return {
+                "success": False,
+                "profile": None,
+                "message": "No minikube profiles found",
+            }
+
+        import json
+        profiles_data = json.loads(profile_result.stdout)
+
+        # Find the active profile (valid and running)
+        active_profile = None
+        for profile_info in profiles_data.get("valid", []):
+            profile_name = profile_info.get("Name", "")
+
+            # Get detailed status for this profile
+            status_result = subprocess.run(
+                ["minikube", "status", "-p", profile_name, "-o", "json"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+
+            if status_result.returncode == 0:
+                status_data = json.loads(status_result.stdout)
+                host_status = status_data.get("Host", "")
+
+                if host_status == "Running":
+                    # Get cluster info
+                    cluster_info_result = subprocess.run(
+                        ["kubectl", "cluster-info", "--context", profile_name],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+
+                    api_url = ""
+                    if cluster_info_result.returncode == 0:
+                        # Extract API server URL from cluster-info output
+                        for line in cluster_info_result.stdout.split('\n'):
+                            if 'Kubernetes control plane' in line or 'Kubernetes master' in line:
+                                # Extract URL from line like: "Kubernetes control plane is running at https://192.168.49.2:8443"
+                                parts = line.split('at')
+                                if len(parts) > 1:
+                                    api_url = parts[1].strip()
+                                    break
+
+                    active_profile = {
+                        "name": profile_name,
+                        "status": host_status,
+                        "api_url": api_url,
+                    }
+                    break
+
+        if active_profile:
+            return {
+                "success": True,
+                "profile": active_profile,
+                "message": f"Active minikube profile: {active_profile['name']}",
+            }
+        else:
+            return {
+                "success": False,
+                "profile": None,
+                "message": "No running minikube cluster found",
+            }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "profile": None,
+            "message": f"Error getting active minikube profile: {str(e)}",
+        }
+
+
 @app.post("/api/minikube/verify-cluster")
 async def verify_minikube_cluster(request: dict):
     """Verify if a Minikube cluster exists and is accessible"""

@@ -25,8 +25,8 @@ import { useRecentOperationsContext, useApiStatusContext } from '../../store/App
  */
 const JenkinsSidebar = ({
   onComponentsClick,
-  onVerifyClick,
   onConfigureClick,
+  onReconfigureClick,
   onProvisionClick,
   onRosaHcpClustersClick,
   onResourcesClick,
@@ -39,11 +39,10 @@ const JenkinsSidebar = ({
   onTerminalClick,
   onNotificationsClick,
   onRecentTasksClick,
-  activeSection = 'environments'
+  activeSection = 'environments',
+  environment = 'mce' // 'mce' or 'minikube'
 }) => {
   const [isRecentTasksExpanded, setIsRecentTasksExpanded] = useState(true);
-  const [isProvisionExpanded, setIsProvisionExpanded] = useState(false);
-  const [isTestExpanded, setIsTestExpanded] = useState(false);
   const recentOps = useRecentOperationsContext();
   const apiStatus = useApiStatusContext();
 
@@ -67,14 +66,19 @@ const JenkinsSidebar = ({
     if (!status) return '⏳';
     // Handle object status (with {status, output} structure)
     const statusStr = typeof status === 'object' ? (status.status || '') : String(status);
-    if (statusStr.includes('✅') || statusStr.toLowerCase().includes('success')) return '✅';
-    if (statusStr.includes('❌') || statusStr.toLowerCase().includes('fail')) return '❌';
+    if (statusStr.includes('✅') || statusStr.toLowerCase().includes('success') || statusStr.toLowerCase().includes('verified')) return '✅';
+    if (statusStr.includes('❌') || (statusStr.toLowerCase().includes('fail') && !statusStr.toLowerCase().includes('configuration'))) return '❌';
     if (statusStr.includes('⚠️') || statusStr.toLowerCase().includes('warn')) return '⚠️';
-    return '⏳';
+    // Configuration Required is not a failure or running state - it's complete but needs action
+    if (statusStr.includes('🆕') || statusStr.toLowerCase().includes('configuration required')) return '🆕';
+    // Only show hourglass for things that are actually in progress
+    if (statusStr.includes('⏳') || statusStr.toLowerCase().includes('running') || statusStr.toLowerCase().includes('verifying')) return '⏳';
+    // Default for completed tasks without explicit status
+    return '📄';
   };
 
   // Navigation menu items
-  const menuItems = [
+  const allMenuItems = [
     {
       id: 'environments',
       label: 'Environments',
@@ -85,13 +89,8 @@ const JenkinsSidebar = ({
       id: 'credentials',
       label: 'Credentials',
       icon: <span className="text-lg">🔑</span>,
-      onClick: onCredentialsClick
-    },
-    {
-      id: 'verify',
-      label: 'Verify',
-      icon: <CheckCircleIcon className="h-5 w-5" />,
-      onClick: onVerifyClick
+      onClick: onCredentialsClick,
+      showInEnvironments: ['mce'] // Only show in MCE, not minikube
     },
     {
       id: 'configure',
@@ -100,10 +99,22 @@ const JenkinsSidebar = ({
       onClick: onConfigureClick
     },
     {
+      id: 'reconfigure',
+      label: 'Set Custom CAPA Image',
+      icon: <ArrowPathIcon className="h-5 w-5" />,
+      onClick: onReconfigureClick
+    },
+    {
       id: 'provision',
-      label: 'Provision',
-      icon: <PlusCircleIcon className="h-5 w-5" />,
+      label: 'Start New Provision',
+      icon: <span className="text-lg">🚀</span>,
       onClick: onProvisionClick
+    },
+    {
+      id: 'resources',
+      label: 'Provision Resources',
+      icon: <span className="text-lg">📄</span>,
+      onClick: onResourcesClick
     },
     {
       id: 'rosa-hcp-clusters',
@@ -118,10 +129,10 @@ const JenkinsSidebar = ({
       onClick: onTestAutomationClick
     },
     {
-      id: 'test',
-      label: 'Test',
-      icon: <span className="text-lg">🧪</span>,
-      onClick: onTestClick
+      id: 'helm-chart-matrix',
+      label: 'Helm Chart Test Matrix',
+      icon: <span className="text-lg">📊</span>,
+      onClick: onHelmChartMatrixClick
     },
     {
       id: 'terminal',
@@ -143,6 +154,14 @@ const JenkinsSidebar = ({
     },
   ];
 
+  // Filter menu items based on environment
+  const menuItems = allMenuItems.filter(item => {
+    // If item doesn't specify environments, show it in all environments
+    if (!item.showInEnvironments) return true;
+    // Otherwise, only show if current environment is in the list
+    return item.showInEnvironments.includes(environment);
+  });
+
   return (
     <div className="w-64 bg-gray-100 border-r border-gray-300 flex flex-col h-full">
       {/* Sidebar Title */}
@@ -158,110 +177,26 @@ const JenkinsSidebar = ({
               {/* Menu Item */}
               <button
                 onClick={() => {
-                  if (item.id === 'provision') {
-                    setIsProvisionExpanded(!isProvisionExpanded);
-                    item.onClick();
-                  } else if (item.id === 'test') {
-                    setIsTestExpanded(!isTestExpanded);
-                    item.onClick();
-                  } else {
-                    item.onClick();
-                  }
+                  if (typeof item.onClick === 'function') item.onClick();
                 }}
                 className={`
                   w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm
                   transition-colors
-                  ${activeSection === item.id ||
-                    (item.id === 'provision' && activeSection === 'resources') ||
-                    (item.id === 'test' && ['test-suite-dashboard', 'helm-chart-matrix', 'test'].includes(activeSection))
+                  ${activeSection === item.id
                     ? 'bg-blue-100 text-blue-900 border-l-4 border-blue-600 font-medium'
                     : 'text-gray-700 hover:bg-gray-200'
                   }
                 `}
               >
-                <span className={activeSection === item.id ||
-                  (item.id === 'provision' && activeSection === 'resources') ||
-                  (item.id === 'test' && ['test-suite-dashboard', 'helm-chart-matrix', 'test'].includes(activeSection))
+                <span className={activeSection === item.id
                   ? 'text-blue-600' : 'text-gray-500'}>
                   {item.icon}
                 </span>
                 <span className="flex-1">{item.label}</span>
-                {/* Show chevron for Provision and Test */}
-                {(item.id === 'provision' || item.id === 'test') && (
-                  <span className="text-gray-500">
-                    {(item.id === 'provision' && isProvisionExpanded) ||
-                     (item.id === 'test' && isTestExpanded) ? (
-                      <ChevronDownIcon className="h-4 w-4" />
-                    ) : (
-                      <ChevronRightIcon className="h-4 w-4" />
-                    )}
-                  </span>
-                )}
               </button>
-
-              {/* Provision Submenu */}
-              {item.id === 'provision' && isProvisionExpanded && (
-                <div className="bg-gray-50 border-y border-gray-200">
-                  <div
-                    onClick={onProvisionClick}
-                    className={`px-8 py-2 text-xs hover:bg-gray-100 cursor-pointer border-b border-gray-100 ${
-                      activeSection === 'provision' ? 'bg-blue-50 text-blue-900 font-medium' : 'text-gray-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">🚀</span>
-                      <span className="font-medium">Start New Provision</span>
-                    </div>
-                  </div>
-                  <div
-                    onClick={onResourcesClick}
-                    className={`px-8 py-2 text-xs hover:bg-gray-100 cursor-pointer border-b border-gray-100 ${
-                      activeSection === 'resources' ? 'bg-blue-50 text-blue-900 font-medium' : 'text-gray-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">📄</span>
-                      <span className="font-medium">Provision Resources</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Test Submenu */}
-              {item.id === 'test' && isTestExpanded && (
-                <div className="bg-gray-50 border-y border-gray-200">
-                  <div
-                    onClick={onTestSuiteDashboardClick}
-                    className={`px-8 py-2 text-xs hover:bg-gray-100 cursor-pointer border-b border-gray-100 ${
-                      activeSection === 'test-suite-dashboard' ? 'bg-blue-50 text-blue-900 font-medium' : 'text-gray-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <ChartBarIcon className="h-4 w-4" />
-                      <span className="font-medium">Test Suite Dashboard</span>
-                    </div>
-                  </div>
-                  <div
-                    onClick={onHelmChartMatrixClick}
-                    className={`px-8 py-2 text-xs hover:bg-gray-100 cursor-pointer border-b border-gray-100 ${
-                      activeSection === 'helm-chart-matrix' ? 'bg-blue-50 text-blue-900 font-medium' : 'text-gray-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">📊</span>
-                      <span className="font-medium">Helm Chart Test Matrix</span>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           ))}
         </nav>
-      </div>
-
-      {/* Sidebar Footer */}
-      <div className="flex-shrink-0 border-t border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 px-4 py-2 text-xs text-blue-700 font-medium">
-        <div>MCE Environment</div>
       </div>
 
       {/* Recent Task Section */}
@@ -275,7 +210,7 @@ const JenkinsSidebar = ({
               const status = typeof task.status === 'object' ? task.status.status : task.status;
               const statusIcon = getStatusIcon(task.status);
               // Remove emoji from status text since we show it as an icon
-              const statusText = String(status).replace(/[✅❌⚠️⏳]/g, '').trim();
+              const statusText = String(status).replace(/✅|❌|⚠️|⏳/g, '').trim();
 
               return (
                 <div
@@ -302,6 +237,11 @@ const JenkinsSidebar = ({
           </div>
         </div>
       )}
+
+      {/* Sidebar Footer */}
+      <div className="flex-shrink-0 border-t border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 px-4 py-2 text-xs text-blue-700 font-medium">
+        <div>{environment === 'minikube' ? 'Minikube Environment' : 'MCE Environment'}</div>
+      </div>
     </div>
   );
 };

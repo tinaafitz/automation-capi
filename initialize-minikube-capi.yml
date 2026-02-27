@@ -1,0 +1,81 @@
+---
+- name: Initialize Minikube Cluster with CAPI/CAPA for ROSA
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars_files:
+    - vars/vars.yml
+    - vars/user_vars.yml
+
+  vars:
+    # Use cluster_name from UI if provided, otherwise fall back to env var, then default
+    minikube_profile: "{{ cluster_name | default(lookup('env', 'MINIKUBE_PROFILE') | default('minikube-capi', true), true) }}"
+    context_name: "{{ minikube_profile }}"
+    # Installation method: use install_method from UI if provided, otherwise env var, then default
+    capi_installation_method: "{{ install_method | default(lookup('env', 'CAPI_INSTALL_METHOD') | default('clusterctl', true), true) }}"
+
+  tasks:
+    - name: Display installation method
+      debug:
+        msg: |
+          CAPI Installation Method: {{ capi_installation_method }}
+          Minikube Profile: {{ minikube_profile }}
+          Context: {{ context_name }}
+
+    - name: Set kubectl context to Minikube cluster
+      shell: |
+        kubectl config use-context {{ context_name }}
+      register: context_result
+      failed_when: false
+
+    - name: Verify cluster is accessible
+      shell: |
+        kubectl --context {{ context_name }} cluster-info
+      register: cluster_info
+      failed_when: cluster_info.rc != 0
+
+    - name: Display cluster info
+      debug:
+        msg: "{{ cluster_info.stdout_lines }}"
+
+    - name: Install CAPI/CAPA via clusterctl
+      when: capi_installation_method == 'clusterctl'
+      block:
+        - name: Run clusterctl installation
+          include_tasks: tasks/clusterctl_install_capi.yml
+
+        - name: Apply AWS Cluster Controller Identity (clusterctl method)
+          shell: |
+            kubectl apply -f awsIdentity.yaml --context {{ context_name }}
+          register: aws_identity
+          failed_when: false
+
+    - name: Install CAPI/CAPA via Helm
+      when: capi_installation_method == 'helm'
+      block:
+        - name: Run Helm installation
+          include_tasks: tasks/helm_install_capi.yml
+
+    - name: Verify final installation
+      shell: |
+        kubectl get deploy -n capi-system --context {{ context_name }}
+        kubectl get deploy -n capa-system --context {{ context_name }}
+        kubectl get ns ns-rosa-hcp --context {{ context_name }}
+      register: final_verification
+
+    - name: Display setup summary
+      debug:
+        msg:
+          - "✓ Minikube cluster '{{ minikube_profile }}' configured successfully"
+          - "✓ Installation method: {{ capi_installation_method }}"
+          - "✓ CAPI core provider installed"
+          - "✓ CAPA (AWS) provider installed"
+          - "✓ Namespaces created: capi-system, capa-system, ns-rosa-hcp"
+          - "✓ AWS credentials configured"
+          - "✓ ROSA credentials configured"
+          - ""
+          - "You can now provision ROSA clusters using CAPI!"
+          - ""
+          - "To switch installation methods, set environment variable:"
+          - "  export CAPI_INSTALL_METHOD=helm    # or clusterctl"
